@@ -1,13 +1,5 @@
 type ('a, 'b) either = Left of 'a | Right of 'b
 
-(* module Bin = struct
- *   type 'p wrap =
- *     Msg : ('v * 'p wrap Lwt.t) -> [`msg of 'r * 'v * 'p] wrap
- *   | BranchLeft : 'p wrap Lwt.t  -> [`branch of 'r * [> `left of 'p]] wrap
- *   | Chan : (('pp, 'rr) sess * 'p wrap Lwt.t) -> [`deleg of 'r * ('pp, 'rr) sess * 'p] wrap
- *   and ('p, 'q) sess = 'p wrap Lwt.t * 'q
- * end *)
-
 module Local = struct
   type 'v cell = ('v Lwt.t * 'v Lwt.u) ref
   type _ sess =
@@ -24,8 +16,6 @@ module Local = struct
   type a = A
   type b = B
   type c = C
-  type req = Req
-  type resp = Resp
 
   let send : type r v s. r -> v -> [`send of r * [`msg of v * s]] sess -> s sess = fun _ v (Send(_,u,s)) ->
     Lwt.wakeup_later (snd !u) v; s
@@ -33,11 +23,20 @@ module Local = struct
   let receive : type r v s. r -> [`recv of r * [`msg of v * s]] sess -> (v * s sess) Lwt.t = fun _ (Recv(_,t,s)) ->
     Lwt.bind (fst !t) @@ (fun x -> Lwt.return @@ (x, s))
 
-  let select_left : type r s. r -> [`send of r * [`left of s]] sess -> s sess = fun _ (SelectLeft(_,u,s)) ->
-    Lwt.wakeup_later (snd !u) true; s
+  let select_left : type r s. r -> [`send of r * [`left of s]] sess -> s sess = fun _ s ->
+    match s with
+    | (SelectLeft(_,u,s)) -> Lwt.wakeup_later (snd !u) true; s
+
+  let select_left_ : type r s. r -> [`send of r * [`left of s | `right of _]] sess -> s sess = fun _ s ->
+    match s with
+    | (SelectLeftRight(_,u,s1,_)) -> Lwt.wakeup_later (snd !u) true; s1
 
   let select_right : type r s. r -> [`send of r * [`right of s]] sess -> s sess = fun _ (SelectRight(_,u,s)) ->
     Lwt.wakeup_later (snd !u) false; s
+
+  let select_right_ : type r s. r -> [`send of r * [`left of _ | `right of s]] sess -> s sess = fun _ s ->
+    match s with
+    | (SelectLeftRight(_,u,_,s2)) -> Lwt.wakeup_later (snd !u) false; s2
 
   let branch : type r s1 s2. r -> [`recv of r * [`left of s1 |`right of s2]] sess -> (s1 sess, s2 sess) either Lwt.t =
     fun _ s ->
@@ -113,15 +112,15 @@ module MPST = struct
 
 
 
-  let rec get_sess : ('s sess, _, 'a, _) lens -> 'a mpst -> 's sess = fun l m ->
+  let rec get_sess : ('s sess, _, 'a, _, _) role -> 'a mpst -> 's sess = fun ((l,_) as r) m ->
     match m with
     | MPST m -> l.get m
-    | Nondet (m1, m2) -> unify (get_sess l m1) (get_sess l m2)
+    | Nondet (m1, m2) -> unify (get_sess r m1) (get_sess r m2)
 
-  let rec put_sess : (_, 't, 'a, 'b) lens -> 'a mpst -> 't -> 'b mpst = fun l m b ->
+  let rec put_sess : (_, 't, 'a, 'b, _) role -> 'a mpst -> 't -> 'b mpst = fun ((l,_) as r) m b ->
     match m with
     | MPST m -> MPST (l.put m b)
-    | Nondet (m1, m2) -> Nondet (put_sess l m1 b, put_sess l m2 b)
+    | Nondet (m1, m2) -> Nondet (put_sess r m1 b, put_sess r m2 b)
 
 
   let (-->) : type d1 f1 d f s t u r1 r2.
@@ -130,7 +129,7 @@ module MPST = struct
     -> (d1, d, f1, f) dlabel
     -> s mpst
     -> u mpst =
-    fun (r1_l, r1) (r2_l, r2) dlab sobj ->
+    fun ((_, r1) as r1_l) ((_, r2) as r2_l) dlab sobj ->
           match dlab with
           | DMsg(_) ->
              let t = ref @@ Lwt.wait () in
@@ -154,9 +153,9 @@ module MPST = struct
     -> left:(((d1 sess, unit, s1, t1, r1) role * (f1 sess, unit, t1, ss, r2) role) * s1 mpst)
     -> right:(((d2 sess, unit, s2, t2, r1) role * (f2 sess, unit, t2, ss, r2) role) * s2 mpst)
     -> u mpst =
-    fun (r1_l, r1) (r2_l, r2)
-        ~left:(((r1_ll,_),(r2_ll,_)), s1obj)
-        ~right:(((r1_lr,_),(r2_lr,_)), s2obj) ->
+    fun ((_, r1) as r1_l) ((_, r2) as r2_l)
+        ~left:((r1_ll,r2_ll), s1obj)
+        ~right:((r1_lr,r2_lr), s2obj) ->
     let d1,t1obj = get_sess r1_ll s1obj, put_sess r1_ll s1obj () in
     let f1,ssobj_l = get_sess r2_ll t1obj, put_sess r2_ll t1obj () in
     let d2,t2obj = get_sess r1_lr s2obj, put_sess r1_lr s2obj () in
@@ -170,6 +169,22 @@ module MPST = struct
     let uobj_r = put_sess r2_l tobj_r ff in
     Nondet (uobj_l, uobj_r)
 
+
+  let a : 'a1 'a2 'b 'c. ('a1, 'a2, <a:'a1; b:'b; c:'c>, <a:'a2; b:'b; c:'c>, Local.a) role =
+    {get=(fun s -> s#a); put=(fun s v -> object method a=v method b=s#b method c=s#c end)}, A
+  let b : 'a 'b1 'b2 'c. ('b1, 'b2, <a:'a; b:'b1; c:'c>, <a:'a; b:'b2; c:'c>, Local.b) role =
+    {get=(fun s -> s#b); put=(fun s v -> object method a=s#a method b=v method c=s#c end)}, B
+  let c : 'a 'b 'c1 'c2. ('c1, 'c2, <a:'a; b:'b; c:'c1>, <a:'a; b:'b; c:'c2>, Local.c) role =
+    {get=(fun s -> s#c); put=(fun s v -> object method a=s#a method b=s#b method c=v end)}, C
+
+  let finish : <a:[`close] sess; b:[`close] sess; c:[`close] sess> mpst =
+    MPST (object method a=Local.Close method b=Local.Close method c=Local.Close end)
+
+  let msg t = DMsg(t)
+  let left = DLeft
+  let right = DRight
+  let int = Int
+  let str = String
 
 
 end

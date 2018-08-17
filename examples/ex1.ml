@@ -1,9 +1,10 @@
+open Mpst.Base
 open Mpst.Session
 open Mpst.Session.Local
 open Mpst.Session.MPST
 
 (* A global protocol between A, B, and C *)
-let g =
+let create_g () =
     (c --> a) (msg int) @@
     (a -%%-> b)
       ~left:((a,b),
@@ -16,9 +17,9 @@ let g =
              (c --> a) (msg str) @@
              finish)
 
-let pa = get_sess a g
-let pb = get_sess b g
-let pc = get_sess c g
+let pa, pb, pc =
+  let g = create_g () in
+  get_sess a g, get_sess b g, get_sess c g
 
 (* participant A *)
 let (t1 : unit Lwt.t) =

@@ -1,7 +1,8 @@
-type ('a, 'b) either = Left of 'a | Right of 'b
+include Base
 
 module Local = struct
   type 'v cell = ('v Lwt.t * 'v Lwt.u) ref
+
   type _ sess =
     | Send : ('r * 'v cell * 's sess) -> [`send of 'r * [`msg of 'v * 's]] sess
     | Recv : ('r * 'v cell * 's sess) -> [`recv of 'r * [`msg of 'v * 's]] sess
@@ -12,10 +13,6 @@ module Local = struct
     | SelectLeftRight : 'r * bool cell * 's1 sess * 's2 sess -> [`send of 'r * [`left of 's1 | `right of 's2]] sess
     | BranchLeftRight : 'r * bool cell * 's1 sess * 's2 sess -> [`recv of 'r * [`left of 's1 | `right of 's2]] sess
     | Close : [`close] sess
-
-  type a = A
-  type b = B
-  type c = C
 
   let send : type r v s. r -> v -> [`send of r * [`msg of v * s]] sess -> s sess = fun _ v (Send(_,u,s)) ->
     Lwt.wakeup_later (snd !u) v; s
@@ -49,24 +46,6 @@ module Local = struct
                     | false -> Lwt.return (Right s2)
 
   let close : [`close] sess -> unit = fun Close -> ()
-
-
-
-  (* let p1 () =
-   *   let t1, u1 = Lwt.task () in
-   *   let t2, u2 = Lwt.task () in
-   *   let t3, u3 = Lwt.task () in
-   *   let t4, u4 = Lwt.task () in
-   *   ignore @@
-   *     Lwt.bind t1 (fun v1 -> Lwt.bind t2 (fun v2 -> Lwt.return
-   *                              (if v2<> 0 then begin
-   *                                   Lwt.wakeup_later u3 true;
-   *                                   Lwt.wakeup_later u4 (v1 / v2)
-   *                                 end else begin
-   *                                   Lwt.wakeup_later u3 false
-   *                                 end)));
-   *   Send (A, u1, Send (A, u2, BranchLeftRight (A, t3, Recv (A, t4, Close), Close))) *)
-
 
 end
 
@@ -169,12 +148,15 @@ module MPST = struct
     let uobj_r = put_sess r2_l tobj_r ff in
     Nondet (uobj_l, uobj_r)
 
+  type a = A
+  type b = B
+  type c = C
 
-  let a : 'a1 'a2 'b 'c. ('a1, 'a2, <a:'a1; b:'b; c:'c>, <a:'a2; b:'b; c:'c>, Local.a) role =
+  let a : 'a1 'a2 'b 'c. ('a1, 'a2, <a:'a1; b:'b; c:'c>, <a:'a2; b:'b; c:'c>, a) role =
     {get=(fun s -> s#a); put=(fun s v -> object method a=v method b=s#b method c=s#c end)}, A
-  let b : 'a 'b1 'b2 'c. ('b1, 'b2, <a:'a; b:'b1; c:'c>, <a:'a; b:'b2; c:'c>, Local.b) role =
+  let b : 'a 'b1 'b2 'c. ('b1, 'b2, <a:'a; b:'b1; c:'c>, <a:'a; b:'b2; c:'c>, b) role =
     {get=(fun s -> s#b); put=(fun s v -> object method a=s#a method b=v method c=s#c end)}, B
-  let c : 'a 'b 'c1 'c2. ('c1, 'c2, <a:'a; b:'b; c:'c1>, <a:'a; b:'b; c:'c2>, Local.c) role =
+  let c : 'a 'b 'c1 'c2. ('c1, 'c2, <a:'a; b:'b; c:'c1>, <a:'a; b:'b; c:'c2>, c) role =
     {get=(fun s -> s#c); put=(fun s v -> object method a=s#a method b=s#b method c=v end)}, C
 
   let finish : <a:[`close] sess; b:[`close] sess; c:[`close] sess> mpst =

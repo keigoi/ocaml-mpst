@@ -1,5 +1,13 @@
 (executable
  (name ex1)
   (public_name ex1)
+  (modules ex1)
+  (flags ("-g" "-short-paths"))
+  (libraries ocaml-mpst lwt.unix))
+
+(executable
+ (name ex2)
+  (public_name ex2)
+  (modules ex2)
   (flags ("-g" "-short-paths"))
   (libraries ocaml-mpst lwt.unix))

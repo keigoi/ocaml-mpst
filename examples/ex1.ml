@@ -2,6 +2,7 @@ open Mpst.Session
 open Mpst.Session.Local
 open Mpst.Session.MPST
 
+(* A global protocol between A, B, and C *)
 let g =
     (c --> a) (msg int) @@
     (a -%%-> b)
@@ -19,6 +20,7 @@ let pa = get_sess a g
 let pb = get_sess b g
 let pc = get_sess c g
 
+(* participant A *)
 let (t1 : unit Lwt.t) =
   let s = pa in
   let open Lwt in
@@ -41,7 +43,7 @@ let (t1 : unit Lwt.t) =
   print_endline "A finished.";
   return ()
 
-
+(* participant B *)
 let (t2 : unit Lwt.t) =
   let s = pb in
   let open Lwt in
@@ -61,7 +63,7 @@ let (t2 : unit Lwt.t) =
   print_endline "B finished.";
   return ()
 
-
+(* participant C *)
 let (t3 : unit Lwt.t) =
   let s = pc in
   let open Lwt in

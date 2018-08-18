@@ -1,4 +1,5 @@
 (library
  (name mpst)
  (public_name ocaml-mpst)
+ (flags ("-g" "-short-paths"))
  (libraries threads lwt))

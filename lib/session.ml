@@ -67,6 +67,8 @@ module MPST = struct
     | DLeft : ([`left of 'g], 'g, [`left of 'h | `right of _], 'h) dlabel
     | DRight : ([`right of 'g], 'g, [`left of _ | `right of 'h], 'h) dlabel
 
+  open Local
+
   let rec unify : type s. s sess -> s sess -> s sess = fun s1 s2 ->
     let open Local in
     match s1, s2 with

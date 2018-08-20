@@ -11,3 +11,17 @@
   (modules ex2)
   (flags ("-g" "-short-paths"))
   (libraries ocaml-mpst lwt.unix))
+
+(executable
+ (name ex3)
+  (public_name ex3)
+  (modules ex3)
+  (flags ("-g" "-short-paths"))
+  (libraries ocaml-mpst lwt.unix))
+
+(executable
+ (name ex4)
+  (public_name ex4)
+  (modules ex4)
+  (flags ("-g" "-short-paths"))
+  (libraries ocaml-mpst lwt.unix))

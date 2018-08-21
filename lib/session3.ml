@@ -24,6 +24,7 @@ module MPST = struct
 
   type _ sess =
     | Select : 'a -> 'a select sess
+    | SelectMulti : 'a -> 'a select sess
     | Branch : 'a Lwt.t -> 'a branch sess
     | Close : close sess
 
@@ -32,7 +33,9 @@ module MPST = struct
       match s1, s2 with
       | Branch a1, Branch a2 -> Branch (Lwt.choose [a1; a2])
       | Close, Close -> Close
-      | Select _, Select _ -> failwith "bad global type"
+      | Select _, _ -> Printf.eprintf "unexpected: disabled selection"; failwith "fail"
+      | _, Select _ -> Printf.eprintf "unexpected: disabled selection"; failwith "fail"
+      | (SelectMulti _) as x, SelectMulti _ -> x
     end
 
   let (-->) : type d1 f1 d f s t u v r1 r2.
@@ -69,7 +72,7 @@ module MPST = struct
       let d2,t2obj = lazy (r1_lr.get s2obj), r1_lr.put s2obj Close in
       let f2,ssobj_r = lazy (r2_lr.get t2obj), r2_lr.put t2obj Close in
       let t,u = Lwt.task () in
-      let dd = Select
+      let dd = SelectMulti
                  (r2,
                   object
                     method left=(fun v ->
@@ -150,15 +153,10 @@ module MPST = struct
   let (!!) = Lazy.force
 
   let loop3 (f : unit -> <a:_; b:_; c:_> mpst) =
-    let s = lazy (!!(f ())) in
-    lazy (MPST (object
-                method a=get_sess ObjLens.a !!s
-                method b=get_sess ObjLens.b !!s
-                method c=get_sess ObjLens.c !!s
-              end, []))
+    lazy (!!(f ()))
 
   let send : 'r 'l 'v 's. ('r -> (< .. > as 'l)) -> ('l -> 'v -> 's sess) -> 'v -> 'r select sess -> 's sess =
-    fun f g v (Select r) ->
+    fun f g v (Select r|SelectMulti r) ->
     g (f r) v
 
   let receive : 'r 'l. ('r -> ([>] as 'l)) -> 'r branch sess -> 'l Lwt.t =

@@ -1,39 +1,37 @@
+open Mpst.Base
 open Mpst.Session3.MPST
 open Lwt
+   
+let applebanana = {sender2=(fun (x,y)->object method apple=x method banana=y end);
+                 receiver2=(function Left x -> `apple x | Right x -> `banana x)}
 
 let rec mk_g () =
   (b --> a) msg @@
-    (a -%%-> b)
-      ~left:((a,b),
+    (a -!%%-> b) applebanana
+      ~l1:((a,b),
              (b --> c) left @@
              (c --> a) msg @@
              finish)
-      ~right:((a,b),
+      ~l2:((a,b),
              (b --> c) right @@
              (c --> a) msg @@
              loop mk_g)
-  
-let () = print_endline "generated"
-
-let _ = get_sess a (mk_g ())
-      
-let () = print_endline "got a"
 
 let rec t1 s : unit Lwt.t =
   let open Lwt in
   print_endline "t1";
-  receive (fun (B,x) -> x) s >>= fun (`msg(v,s)) ->
+  receive B s >>= fun (`msg(v,s)) ->
   print_endline "t1 cont";
   if v > 0 then begin
       print_endline ">0";
-      let s = send (fun (B,x) -> x) (fun x -> x#left) "> 0" s in
-      receive (fun (C,x) -> x) s >>= fun (`msg(v,s)) ->
+      let s = send B (fun x -> x#apple) "> 0" s in
+      receive C s >>= fun (`msg(v,s)) ->
       close s;
       Lwt.return ()
     end else begin
       print_endline "<=0";
-      let s = send (fun (B,x) -> x) (fun x -> x#right) false s in
-      receive (fun (C,x) -> x) s >>= fun (`msg(v,s)) ->
+      let s = send B (fun x -> x#banana) false s in
+      receive C s >>= fun (`msg(v,s)) ->
       print_endline "t1 received from c";
       t1 s
     end
@@ -41,27 +39,26 @@ let rec t1 s : unit Lwt.t =
 let rec t2 s : unit Lwt.t =
   let open Lwt in
   print_endline "t2";
-  let s = send (fun (A,x) -> x) (fun x -> x#msg) 0 s in
-  (* print_endline "t2 cont"; *)
-  receive (fun (A,x) -> x) s >>= function
-  | `left(v,s) ->
-     let s = send (fun (C,x) -> x) (fun x->x#left) () s in
+  let s = send A (fun x -> x#msg) 0 s in
+  receive A s >>= function
+  | `apple(v,s) ->
+     let s = send C (fun x->x#left) () s in
      close s;
      Lwt.return ()
-  | `right(v,s) ->
-     let s = send (fun (C,x) -> x) (fun x->x#right) () s in
+  | `banana(v,s) ->
+     let s = send C (fun x->x#right) () s in
      t2 s
 
 let rec t3 s : unit Lwt.t =
   print_endline "t3";
   let open Lwt in
-  receive (fun (B,x) -> x) s >>= function
+  receive B s >>= function
   | `left(v,s) ->
-     let s = send (fun (A,x)->x) (fun x->x#msg) 100 s in
+     let s = send A (fun x->x#msg) 100 s in
      close s;
      Lwt.return ()
   | `right(w,s) ->
-     let s = send (fun (A,x)->x) (fun x->x#msg) "abc" s in
+     let s = send A (fun x->x#msg) "abc" s in
      t3 s
 
   

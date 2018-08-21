@@ -9,20 +9,20 @@ let rec mk_g () =
 
 let rec t1 s =
   print_endline "t1";
-  receive (fun (B,x) -> x) s >>= fun (`msg((),s)) ->
-  let s = send (fun (C,x) -> x) (fun x->x#msg) () s in
+  receive B s >>= fun (`msg((),s)) ->
+  let s = send C (fun x->x#msg) () s in
   t1 s
 
 let rec t2 s =
   print_endline "t2";
-  let s = send (fun (A,x) -> x) (fun x->x#msg) () s in
-  receive (fun (C,x) -> x) s >>= fun (`msg((),s)) ->
+  let s = send A (fun x->x#msg) () s in
+  receive C s >>= fun (`msg((),s)) ->
   t2 s
 
 let rec t3 s =
   print_endline "t3";
-  receive (fun (A,x) -> x) s >>= fun (`msg((),s)) ->
-  let s = send (fun (B,x) -> x) (fun x->x#msg) () s in
+  receive A s >>= fun (`msg((),s)) ->
+  let s = send B (fun x->x#msg) () s in
   t3 s
 
 let () =

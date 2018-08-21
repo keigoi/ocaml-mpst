@@ -96,10 +96,12 @@ module MPST = struct
     fun (l,_) aobj ->
     l.put aobj Close
 
+
+  (** DO NOT USE THIS *)
   let dummy_receive : 'a 'l 'r. ('l branch sess, 'l branch sess, 'a mpst, 'a mpst, 'r1) role -> 'a mpst -> 'a mpst =
     fun (l,_) aobj ->
-    let t, _ = Lwt.wait () in
-    l.put aobj (Branch t)
+    let b = lazy (l.get aobj) in
+    l.put aobj (Branch (Lwt.bind (Lwt.pause ()) @@ fun () -> match Lazy.force b with Branch b -> b))
 
   let finish =
     MPST (Lazy.from_val [object method a=Close method b=Close method c=Close end])
@@ -164,8 +166,8 @@ module MPST = struct
       | Branch a1, Branch a2 -> Branch (Lwt.choose [a1; a2])
       | Close, Close -> Close
       | (SelectMulti _) as x, SelectMulti _ -> x
-      | Select _, _ -> Printf.eprintf "RoleNotEnabled error"; raise RoleNotEnabled
-      | _, Select _ -> Printf.eprintf "RoleNotEnabled error"; raise RoleNotEnabled
+      | Select _, _ -> raise RoleNotEnabled
+      | _, Select _ -> raise RoleNotEnabled
     end
 
   module ObjLens = struct

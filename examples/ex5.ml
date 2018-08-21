@@ -44,11 +44,11 @@ let rec mk_g3 () =
              (b --> c) msg @@
              finish)
       ~right:((a,b),
-             dummy_receive c @@ (* stackoverflow occurs if absent *)
+             dummy_receive c @@ (* don't use this: it cause choosing among indefinitely many promises *)
              loop mk_g3)
 
 let rec t1 i s =
-  if i >= 10 then
+  if i >= 10 then (* will be stack overflow or segfault when > 1000000 *)
     let s = send B (fun x -> x#left) () s in
     close s;
     print_endline "t1 finished";

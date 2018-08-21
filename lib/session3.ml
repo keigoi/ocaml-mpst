@@ -15,11 +15,23 @@ module MPST = struct
   let msg : (<msg : 'g>, 'g, [`msg of 'h], 'h) dlabel =
     {slabel=(fun x -> object method msg=x end); rlabel=(fun x -> `msg(x))}
 
-  let left : (<left: 'g>, 'g, [>`left of 'h | `right of _], 'h) dlabel =
+  let left : (<left: 'g>, 'g, [>`left of 'h], 'h) dlabel =
     {slabel=(fun x -> object method left=x end); rlabel=(fun x -> `left(x))}
 
-  let right : (<right: 'g>, 'g, [>`left of _ | `right of 'h], 'h) dlabel =
+  let right : (<right: 'g>, 'g, [>`right of 'h], 'h) dlabel =
     {slabel=(fun x -> object method right=x end); rlabel=(fun x -> `right(x))}
+    
+  let middle : (<middle: 'g>, 'g, [>`middle of 'h], 'h) dlabel =
+    {slabel=(fun x -> object method middle=x end); rlabel=(fun x -> `middle(x))}
+    
+  let lab1 : (<lab1: 'g>, 'g, [>`lab1 of 'h], 'h) dlabel =
+    {slabel=(fun x -> object method lab1=x end); rlabel=(fun x -> `lab1(x))}
+    
+  let lab2 : (<lab2: 'g>, 'g, [>`lab2 of 'h], 'h) dlabel =
+    {slabel=(fun x -> object method lab2=x end); rlabel=(fun x -> `lab2(x))}
+    
+  let lab3 : (<lab3: 'g>, 'g, [>`labe of 'h], 'h) dlabel =
+    {slabel=(fun x -> object method lab3=x end); rlabel=(fun x -> `lab3(x))}
 
   type _ sess =
     | Select : 'a -> 'a select sess
@@ -105,9 +117,9 @@ module MPST = struct
       match s1, s2 with
       | Branch a1, Branch a2 -> Branch (Lwt.choose [a1; a2])
       | Close, Close -> Close
+      | (SelectMulti _) as x, SelectMulti _ -> x
       | Select _, _ -> Printf.eprintf "unexpected: disabled selection"; failwith "fail"
       | _, Select _ -> Printf.eprintf "unexpected: disabled selection"; failwith "fail"
-      | (SelectMulti _) as x, SelectMulti _ -> x
     end
 
   module ObjLens = struct

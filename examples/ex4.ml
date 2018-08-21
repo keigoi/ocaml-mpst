@@ -68,3 +68,22 @@ let rec t3 s : unit Lwt.t =
 let () =
   let g = mk_g () in (* never put g at toplevel (memory leaks otherwise)  *)
   Lwt_main.run (Lwt.join [t1 (get_sess a g); t2 (get_sess b g); t3 (get_sess c g)])
+
+
+let rec mk_g2 () =
+  (b --> a) msg @@
+  (a -%%-> b)
+      ~left:((a,b),
+             (a -%%-> b)
+               ~left:((a,b),
+                      (b --> c) left @@
+                      (c --> a) msg @@
+                      finish)
+               ~right:((a,b),
+                      (b --> c) middle @@
+                      (c --> a) msg @@
+                      loop mk_g))
+      ~right:((a,b),
+             (b --> c) right @@
+             (c --> a) msg @@
+             loop mk_g)

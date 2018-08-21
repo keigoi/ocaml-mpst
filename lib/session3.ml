@@ -3,6 +3,8 @@ include Base
 module MPST = struct
   type 'a mpst = MPST of 'a list lazy_t
 
+  exception RoleNotEnabled
+
   type ('v1, 'v2, 's1, 's2) lens = {get : 's1 -> 'v1; put : 's1 -> 'v2 -> 's2}
   type ('l, 'x) label = Label of ('x -> 'l)
   type ('a, 'b, 'c, 'd, 'r) role = ('a, 'b, 'c, 'd) lens * 'r
@@ -20,16 +22,16 @@ module MPST = struct
 
   let right : (<right: 'g>, 'g, [>`right of 'h], 'h) dlabel =
     {slabel=(fun x -> object method right=x end); rlabel=(fun x -> `right(x))}
-    
+
   let middle : (<middle: 'g>, 'g, [>`middle of 'h], 'h) dlabel =
     {slabel=(fun x -> object method middle=x end); rlabel=(fun x -> `middle(x))}
-    
+
   let lab1 : (<lab1: 'g>, 'g, [>`lab1 of 'h], 'h) dlabel =
     {slabel=(fun x -> object method lab1=x end); rlabel=(fun x -> `lab1(x))}
-    
+
   let lab2 : (<lab2: 'g>, 'g, [>`lab2 of 'h], 'h) dlabel =
     {slabel=(fun x -> object method lab2=x end); rlabel=(fun x -> `lab2(x))}
-    
+
   let lab3 : (<lab3: 'g>, 'g, [>`labe of 'h], 'h) dlabel =
     {slabel=(fun x -> object method lab3=x end); rlabel=(fun x -> `lab3(x))}
 
@@ -41,7 +43,7 @@ module MPST = struct
 
   let flatten : 'a mpst -> 'a mpst -> 'a mpst = fun (MPST m1) (MPST m2) ->
     MPST (lazy (Lazy.force m1 @ Lazy.force m2))
-    
+
   let (-->) : type d1 f1 d f s t u v r1 r2.
        (d sess, (r2 * d1) select sess, s mpst, t mpst, r1) role
     -> (f sess, (r1 * f1) branch sess, t mpst, u mpst, r2) role
@@ -53,7 +55,7 @@ module MPST = struct
       let d = lazy (r1_l.get sobj) in
       let tobj = r1_l.put sobj (Select (r2, dlab.slabel (fun v -> Lwt.wakeup_later u v; Lazy.force d))) in
       let f = lazy (r2_l.get tobj) in
-      let uobj = r2_l.put tobj (Branch (Lwt.map (fun v -> (r1, dlab.rlabel (v, Lazy.force f))) t)) in
+      let uobj = r2_l.put tobj (Branch (Lwt.map (fun v -> r1, dlab.rlabel (v, Lazy.force f)) t)) in
       uobj
 
   let (-%%->) : type r1 r2 d1 d2 f1 f2 ss s1 s2 t t1 t2 u v1 v2.
@@ -89,6 +91,15 @@ module MPST = struct
       let tobj_r = r1_l.put ssobj_r dd in
       let uobj_r = r2_l.put tobj_r ff in
       flatten uobj_l uobj_r
+
+  let dummy_close : 'a 'r. (close sess, close sess, 'a mpst, 'a mpst, 'r) role -> 'a mpst -> 'a mpst =
+    fun (l,_) aobj ->
+    l.put aobj Close
+
+  let dummy_receive : 'a 'l 'r. ('l branch sess, 'l branch sess, 'a mpst, 'a mpst, 'r1) role -> 'a mpst -> 'a mpst =
+    fun (l,_) aobj ->
+    let t, _ = Lwt.wait () in
+    l.put aobj (Branch t)
 
   let finish =
     MPST (Lazy.from_val [object method a=Close method b=Close method c=Close end])
@@ -135,7 +146,7 @@ module MPST = struct
 
   let loop (f : unit -> 'a mpst) =
     MPST (lazy (unmpst (f ())))
-        
+
   let get_sess : 's 'a. ('s sess, _, 'a mpst, _, _) role -> 'a mpst -> 's sess = fun (l,_) s -> l.get s
 
   let send : 'r 'l 'v 's. 'r -> ((< .. > as 'l) -> 'v -> 's sess) -> 'v -> ('r * 'l) select sess -> 's sess =
@@ -153,8 +164,8 @@ module MPST = struct
       | Branch a1, Branch a2 -> Branch (Lwt.choose [a1; a2])
       | Close, Close -> Close
       | (SelectMulti _) as x, SelectMulti _ -> x
-      | Select _, _ -> Printf.eprintf "unexpected: disabled selection"; failwith "fail"
-      | _, Select _ -> Printf.eprintf "unexpected: disabled selection"; failwith "fail"
+      | Select _, _ -> Printf.eprintf "RoleNotEnabled error"; raise RoleNotEnabled
+      | _, Select _ -> Printf.eprintf "RoleNotEnabled error"; raise RoleNotEnabled
     end
 
   module ObjLens = struct

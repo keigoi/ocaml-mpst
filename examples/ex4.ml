@@ -11,7 +11,13 @@ let rec mk_g () =
       ~right:((a,b),
              (b --> c) right @@
              (c --> a) msg @@
-             loop3 mk_g)
+             loop mk_g)
+  
+let () = print_endline "generated"
+
+let _ = get_sess a (mk_g ())
+      
+let () = print_endline "got a"
 
 let rec t1 s : unit Lwt.t =
   let open Lwt in
@@ -61,4 +67,4 @@ let rec t3 s : unit Lwt.t =
   
 let () =
   let g = mk_g () in (* never put g at toplevel (memory leaks otherwise)  *)
-  Lwt_main.run (Lwt.join [t1 ((fst a).get g); t2 ((fst b).get g); t3 ((fst c).get g)])
+  Lwt_main.run (Lwt.join [t1 (get_sess a g); t2 (get_sess b g); t3 (get_sess c g)])

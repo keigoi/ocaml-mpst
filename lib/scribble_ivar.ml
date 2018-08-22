@@ -6,13 +6,12 @@ module MPST = struct
   exception RoleNotEnabled
 
   type ('v1, 'v2, 's1, 's2) lens = {get : 's1 -> 'v1; put : 's1 -> 'v2 -> 's2}
-  type ('l, 'x) label = Label of ('x -> 'l)
   type ('a, 'b, 'c, 'd, 'r) role = ('a, 'b, 'c, 'd) lens * 'r
   type ('d1, 'd, 'f1, 'f) dlabel = {slabel:'d -> 'd1; rlabel:'f -> 'f1}
 
-  type _ select = Select
-  type _ branch = Branch
-  type close = Close
+  type _ select = Select__
+  type _ branch = Branch__
+  type close = Close__
 
   let msg : (<msg : 'g>, 'g, [`msg of 'h], 'h) dlabel =
     {slabel=(fun x -> object method msg=x end); rlabel=(fun x -> `msg(x))}
@@ -58,54 +57,6 @@ module MPST = struct
       let uobj = r2_l.put tobj (Branch (Lwt.map (fun v -> r1, dlab.rlabel (v, Lazy.force f)) t)) in
       uobj
 
-  let (-%%->) : type r1 r2 d1 d2 f1 f2 ss s1 s2 t t1 t2 u v1 v2.
-       (close sess, (r2 * <left: v1 -> d1 sess; right: v2 -> d2 sess>) select sess, ss mpst, t mpst, r1) role
-    -> (close sess, (r1 * [`left of v1 * f1 sess | `right of v2 * f2 sess]) branch sess, t mpst, u mpst, r2) role
-    -> left:(((d1 sess, close sess, s1 mpst, t1 mpst, r1) role * (f1 sess, close sess, t1 mpst, ss mpst, r2) role) * s1 mpst)
-    -> right:(((d2 sess, close sess, s2 mpst, t2 mpst, r1) role * (f2 sess, close sess, t2 mpst, ss mpst, r2) role) * s2 mpst)
-    -> u mpst =
-    fun (r1_l, r1) (r2_l, r2)
-        ~left:(((r1_ll,_),(r2_ll,_)), s1obj)
-        ~right:(((r1_lr,_),(r2_lr,_)), s2obj) ->
-      let d1,t1obj = lazy (r1_ll.get s1obj), r1_ll.put s1obj Close in
-      let f1,ssobj_l = lazy (r2_ll.get t1obj), r2_ll.put t1obj Close in
-      let d2,t2obj = lazy (r1_lr.get s2obj), r1_lr.put s2obj Close in
-      let f2,ssobj_r = lazy (r2_lr.get t2obj), r2_lr.put t2obj Close in
-      let t,u = Lwt.task () in
-      let dd = SelectMulti
-                 (r2,
-                  object
-                    method left=(fun v ->
-                      Lwt.wakeup_later u (Left  v); Lazy.force d1)
-                    method right=(fun v ->
-                      Lwt.wakeup_later u (Right v); Lazy.force d2)
-                  end)
-      in
-      let ff =  Branch
-                  (Lwt.map (function
-                       | Left v -> r1,`left(v, Lazy.force f1)
-                       | Right v -> r1,`right(v, Lazy.force f2)) t)
-      in
-      let tobj_l = r1_l.put ssobj_l dd in
-      let uobj_l = r2_l.put tobj_l ff in
-      let tobj_r = r1_l.put ssobj_r dd in
-      let uobj_r = r2_l.put tobj_r ff in
-      flatten uobj_l uobj_r
-
-  let dummy_close : 'a 'r. (close sess, close sess, 'a mpst, 'a mpst, 'r) role -> 'a mpst -> 'a mpst =
-    fun (l,_) aobj ->
-    l.put aobj Close
-
-
-  (** DO NOT USE THIS *)
-  let dummy_receive : 'a 'l 'r. ('l branch sess, 'l branch sess, 'a mpst, 'a mpst, 'r1) role -> 'a mpst -> 'a mpst =
-    fun (l,_) aobj ->
-    let b = lazy (l.get aobj) in
-    l.put aobj (Branch (Lwt.bind (Lwt.pause ()) @@ fun () -> match Lazy.force b with Branch b -> b))
-
-  let finish =
-    MPST (Lazy.from_val [object method a=Close method b=Close method c=Close end])
-
   type ('l, 'x1, 'x2, 'r, 'y1, 'y2) dlabel2 = {sender2 : 'x1 * 'x2 -> 'l; receiver2: ('y1, 'y2) either -> 'r}
 
   let leftright = {sender2=(fun (x,y)->object method left=x method right=y end);
@@ -143,6 +94,22 @@ module MPST = struct
       let tobj_r = r1_l.put ssobj_r dd in
       let uobj_r = r2_l.put tobj_r ff in
       flatten uobj_l uobj_r
+
+  let (-%%->) r1 r2 ~left ~right  = (-!%%->) r1 r2 leftright ~l1:left ~l2:right
+
+  let dummy_close : 'a 'r. (close sess, close sess, 'a mpst, 'a mpst, 'r) role -> 'a mpst -> 'a mpst =
+    fun (l,_) aobj ->
+    l.put aobj Close
+
+
+  (** DO NOT USE THIS *)
+  let dummy_receive : 'a 'l 'r. ('l branch sess, 'l branch sess, 'a mpst, 'a mpst, 'r1) role -> 'a mpst -> 'a mpst =
+    fun (l,_) aobj ->
+    let b = lazy (l.get aobj) in
+    l.put aobj (Branch (Lwt.bind (Lwt.pause ()) @@ fun () -> match Lazy.force b with Branch b -> b))
+
+  let finish =
+    MPST (Lazy.from_val [object method a=Close method b=Close method c=Close end])
 
   let unmpst (MPST (lazy m)) = m
 

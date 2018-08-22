@@ -1,5 +1,4 @@
-open Mpst.Base
-open Mpst.Session4.MPST
+open Mpst.Scribble.MPST
 open Lwt
 
 let rec g =

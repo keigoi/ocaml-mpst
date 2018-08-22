@@ -10,22 +10,24 @@ module MPST = struct
 
   type _ select = Select__
   type _ branch = Branch__
+  type _ accept = Accept__
+  type _ request = Request__
   type close = Close__
+
+  type 'k conn = {mutable conn:'k option}
 
   type _ sess =
     | Select : 'a -> 'a select sess
     | SelectMulti : 'a -> 'a select sess
     | Branch : ('r1 * (unit -> 'a Lwt.t)) -> ('r1 * 'a) branch sess (* "fancy" type rep. (hiding Lwt.t) *)
     | DummyBranch : 'a branch sess
+    | Request : 'a -> 'a request sess
+    | Accept : 'r1 * ('k1 -> 'a Lwt.t) -> ('r1 * ('k1 -> 'a)) accept sess
     | Close : close sess
-
-  type 'a exsess = {conns: unit; sess: 'a sess}
 
   type ('d1, 'd, 'f1, 'f) commm = {sender:'d -> 'd1; receiver:'f -> unit -> 'f1 Lwt.t}
 
   type (_,_,_,_,_,_) commm2 = Commm2 : {sender2 : 'x1 * 'x2 -> 'l; receiver2: ('y1 * 'y2) -> unit -> 'r Lwt.t} -> ('l, 'x1, 'x2, 'r, 'y1, 'y2) commm2
-
-  type 'k conn = {mutable conn:'k option}
 
   let mklabel o1 o2 (k1, k2) write read =
     {sender=(fun x -> o1 (fun v-> (write k1.conn v:unit);x)); receiver=(fun x () -> Lwt.map (fun v -> o2(v,x)) (read k2.conn))}
@@ -33,32 +35,42 @@ module MPST = struct
   let msg (k1, k2) write read =
     mklabel (fun g -> object method msg=g end) (fun x -> `msg x) (k1, k2) write read
 
+  let left (k1, k2) write read =
+    mklabel (fun g -> object method left=g end) (fun x -> `left x) (k1, k2) write read
+
+  let right (k1, k2) write read =
+    mklabel (fun g -> object method right=g end) (fun x -> `right x) (k1, k2) write read
+
   let msg () =
     let st, push = Lwt_stream.create () in
     msg ({conn=None}, {conn=None}) (fun _ v -> push (Some v)) (fun _ -> Lwt_stream.next st)
 
-  let connect o1 o2 =
-    {sender=(fun d -> (failwith "", o1 d)); receiver=(fun f () -> Lwt.return (failwith "", o2(f)))}
+  let left () =
+    let st, push = Lwt_stream.create () in
+    left ({conn=None}, {conn=None}) (fun _ v -> push (Some v)) (fun _ -> Lwt_stream.next st)
+
+  let right () =
+    let st, push = Lwt_stream.create () in
+    right ({conn=None}, {conn=None}) (fun _ v -> push (Some v)) (fun _ -> Lwt_stream.next st)
 
   let flatten : 'a mpst -> 'a mpst -> 'a mpst = fun (MPST m1) (MPST m2) ->
     MPST (lazy (Lazy.force m1 @ Lazy.force m2))
 
   let (-!->) : type d1 f1 d f s t u r1 r2 k1 k2.
-       (d sess, (r2 * d1) select sess, s mpst, t mpst, r1) role
-    -> (f sess, (r1 * f1) branch sess, t mpst, u mpst, r2) role
-    -> (d1 * k1, d sess, f1 * k2, f sess) commm
+       (d sess, (r2 * (k1 -> d1)) request sess, s mpst, t mpst, r1) role
+    -> (f sess, (r1 * (k2 -> f1)) accept sess, t mpst, u mpst, r2) role
+    -> (k1 conn * k2 conn -> (d1,  d sess, f1, f sess) commm)
     -> (k1 conn * k2 conn -> s mpst)
     -> u mpst =
     fun (r1_l, r1) (r2_l, r2) comm sobjf ->
       let k1r, k2r = {conn=None}, {conn=None} in
       let sobj = sobjf (k1r, k2r) in
+      let comm = comm (k1r, k2r) in
       let d = lazy (r1_l.get sobj) in
-      let tobj = r1_l.put sobj (Select (r2, let d1, k1 = comm.sender (Lazy.force d) in k1r.conn <- Some k1; d1)) in
+      let tobj = r1_l.put sobj (Request (r2, fun k -> k1r.conn <- Some k; comm.sender (Lazy.force d))) in
       let f = lazy (r2_l.get tobj) in
-      let uobj = r2_l.put tobj (Branch (r1, fun () -> Lwt.map (fun (f1,k2) -> k2r.conn <- Some k2; f1) (comm.receiver (Lazy.force f) ()))) in
+      let uobj = r2_l.put tobj (Accept (r1, fun k -> k2r.conn <- Some k; comm.receiver (Lazy.force f) ())) in
       uobj
-
-  let f a b f = (a -!-> b) (connect (fun d -> object method c=d end) (fun f -> `c(f))) f
 
   let (-->) : type d1 f1 d f s t u r1 r2 c.
        (d sess, (r2 * d1) select sess, s mpst, t mpst, r1) role
@@ -132,10 +144,18 @@ module MPST = struct
     fun _ g v (Select (_,r)|SelectMulti (_,r)) ->
     g r v
 
+  let request : 'r 'l 'v 's. 'r -> ((< .. > as 'l) -> 'v -> 's sess) -> 'v -> 'k -> ('r * ('k -> 'l)) request sess -> 's sess =
+    fun _ g v k (Request (_,r)) ->
+    g (r k) v
+
   let receive : 'r 'l. 'r -> ('r * 'l) branch sess -> 'l Lwt.t =
     fun _ s -> match s with
                | Branch (_,l) -> l ()
                | DummyBranch -> failwith "dummy branch encountered"
+
+  let accept : 'r 'l. 'r -> 'k -> ('r * ('k -> 'l)) accept sess -> 'l Lwt.t =
+    fun _ k s -> match s with
+               | Accept (_,l) -> l k
 
   let close : close sess -> unit = fun _ -> ()
 
@@ -143,10 +163,12 @@ module MPST = struct
     begin
       match s1, s2 with
       | Branch (r1,a1), Branch (r2,a2) -> if a1==a2 then Branch (r1,a1) else Branch (r1, fun () -> Lwt.choose [a1 (); a2 ()])
+      | Accept (r1,a1), Accept (r2,a2) -> if a1==a2 then Accept (r1,a1) else Accept (r1, fun k -> Lwt.choose [a1 k; a2 k])
       | b, DummyBranch -> b
       | DummyBranch, b -> b
       | Close, Close -> Close
       | (SelectMulti _) as x, SelectMulti _ -> x (* FIXME: must raise an exception in some cases -- *)
+      | Request _, _ -> raise RoleNotEnabled
       | Select _, _ -> raise RoleNotEnabled
       | _, Select _ -> raise RoleNotEnabled
     end

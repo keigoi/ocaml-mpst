@@ -135,7 +135,7 @@ module MPST = struct
       | b, DummyBranch -> b
       | DummyBranch, b -> b
       | Close, Close -> Close
-      | (SelectMulti _) as x, SelectMulti _ -> x (* FIXME: must raise exception in some cases -- *)
+      | (SelectMulti _) as x, SelectMulti _ -> x (* FIXME: must raise an exception in some cases -- *)
       | Select _, _ -> raise RoleNotEnabled
       | _, Select _ -> raise RoleNotEnabled
     end

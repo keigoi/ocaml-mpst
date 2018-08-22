@@ -1,4 +1,4 @@
-open Mpst.Session3.MPST
+open Mpst.Scribble_ivar.MPST
 open Lwt
 
 let rec mk_g () =
@@ -28,4 +28,3 @@ let rec t3 s =
 let () =
   let g = mk_g () in
   Lwt_main.run (Lwt.join [t1 (get_sess a g); t2 (get_sess b g); t3 (get_sess c g)])
-

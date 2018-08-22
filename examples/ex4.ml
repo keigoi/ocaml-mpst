@@ -1,5 +1,4 @@
-open Mpst.Base
-open Mpst.Session3.MPST
+open Mpst.Scribble_ivar.MPST
 open Lwt
 
 let rec mk_g () =

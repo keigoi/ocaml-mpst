@@ -1,5 +1,5 @@
 open Mpst.Base
-open Mpst.Session3.MPST
+open Mpst.Scribble_ivar.MPST
 open Lwt
 
 let applebanana = {sender2=(fun (x,y)->object method apple=x method banana=y end);

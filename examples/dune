@@ -32,3 +32,10 @@
   (modules ex5)
   (flags ("-g" "-short-paths"))
   (libraries ocaml-mpst lwt.unix))
+
+(executable
+ (name ex6)
+  (public_name ex6)
+  (modules ex6)
+  (flags ("-g" "-short-paths"))
+  (libraries ocaml-mpst lwt.unix))

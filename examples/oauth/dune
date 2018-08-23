@@ -1,0 +1,5 @@
+(executable
+ (name oauth_http)
+ (public_name oauth_http)
+ (flags ("-g" "-short-paths"))
+ (libraries ocaml-mpst ocaml-mpst.http lwt.unix lwt_log cmdliner))

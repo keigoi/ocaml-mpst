@@ -1,7 +1,3 @@
-type 'c conn = {handle:'c; close: unit -> unit Lwt.t}
-type 'c acceptor = unit -> 'c conn Lwt.t
-type 'c connector = unit -> 'c conn Lwt.t
-
 type cohttp_server =
   {base_path: string;
    read_request:
@@ -11,7 +7,8 @@ type cohttp_server =
    -> (Cohttp.Request.t * Cohttp_lwt.Body.t) Lwt.t;
    write_response:
      Cohttp.Response.t * Cohttp_lwt.Body.t
-     -> unit Lwt.t
+     -> unit Lwt.t;
+   close_server : unit -> unit Lwt.t
   }
 
 type cohttp_client =
@@ -20,7 +17,8 @@ type cohttp_client =
       path:string
    -> params:(string * string list) list
    -> unit Lwt.t;
-   read_response: (Cohttp.Response.t * string) Lwt.t
+   read_response: (Cohttp.Response.t * string) Lwt.t;
+   close_client : unit -> unit Lwt.t
   }
 
 let start_server host port callback () =
@@ -99,7 +97,7 @@ end
 
 type cohttp_server_hook = Cohttp.Request.t -> Cohttp_lwt.Body.t -> (Cohttp.Response.t * Cohttp_lwt.Body.t) option Lwt.t
 
-let http_acceptor ~base_path : cohttp_server acceptor * cohttp_server_hook =
+let http_acceptor ~base_path : (unit -> cohttp_server Lwt.t)  * cohttp_server_hook =
   let open Lwt in
   let table = ActionTable.create () in
   let callback req body =
@@ -108,7 +106,7 @@ let http_acceptor ~base_path : cohttp_server acceptor * cohttp_server_hook =
   let acceptor () =
     let wait, wake = Lwt.wait () in
     return
-      {handle={
+      {
          base_path;
          read_request = (fun ?predicate ~paths () ->
            ActionTable.wait table ?predicate ~base_path ~paths () >>= fun (in_, out_wake) ->
@@ -118,23 +116,21 @@ let http_acceptor ~base_path : cohttp_server acceptor * cohttp_server_hook =
            if Lwt.state wait = Sleep
            then Lwt.fail (Failure "write: no request")
            else wait >>= fun u ->
-                Lwt.return (Lwt.wakeup u res)
-       )};
-       close=(fun () -> Lwt.return ())}
+                Lwt.return (Lwt.wakeup u res));
+         close_server=(fun () -> Lwt.return ())
+       };
   in
   (acceptor, callback)
 
 
-let http_connector ~(base_url : string) () : cohttp_client connector =
-  fun () ->
+let http_connector ~(base_url : string) :  cohttp_client Lwt.t =
   let open Lwt in
   Resolver_lwt.resolve_uri ~uri:(Uri.of_string base_url) Resolver_lwt_unix.system >>= fun endp ->
   Conduit_lwt_unix.endp_to_client ~ctx:Conduit_lwt_unix.default_ctx endp >>= fun client ->
   Conduit_lwt_unix.connect ~ctx:Conduit_lwt_unix.default_ctx client >>= fun (_conn, ic, oc) ->
   let wait_input, wake_input = Lwt.wait () in
   let wait_close, wake_close = Lwt.wait () in
-  return {handle=
-            {base_url;
+  return    {base_url;
              write_request = (fun ~path ~params ->
                let uri = Uri.of_string (base_url ^ path) in
                let uri = Uri.add_query_params uri params in
@@ -147,13 +143,13 @@ let http_connector ~(base_url : string) () : cohttp_client connector =
                  wait_input >>= fun r ->
                  Lwt.wakeup wake_close ();
                  return r
-               end};
-          close=(fun () ->
-            wait_close >>= fun () ->
-            Lwt.catch (fun () ->
-                Lwt_io.close ic >>= fun () ->
-                Lwt_io.close oc
-              ) (fun _exn -> return ()))}
+               end;
+             close_client=(fun () ->
+               wait_close >>= fun () ->
+               Lwt.catch (fun () ->
+                   Lwt_io.close ic >>= fun () ->
+                   Lwt_io.close oc
+                 ) (fun _exn -> return ()))}
 
 module Util = struct
   (** http_parameter_contains ("key","value") request returns true if key=value is in the request. *)

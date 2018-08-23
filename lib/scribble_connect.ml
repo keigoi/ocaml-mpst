@@ -12,9 +12,10 @@ module MPST = struct
   type _ branch = Branch__
   type _ accept = Accept__
   type _ request = Request__
+  type _ disconnect = Disconnec__
   type close = Close__
 
-  type 'k conn = {mutable conn:'k option}
+  type ('r, 'k) conn = {mutable conn:'k option; origin:'r option}
 
   type _ sess =
     | Select : 'a -> 'a select sess
@@ -23,54 +24,42 @@ module MPST = struct
     | DummyBranch : 'a branch sess
     | Request : 'a -> 'a request sess
     | Accept : 'r1 * ('k1 -> 'a Lwt.t) -> ('r1 * ('k1 -> 'a)) accept sess
+    | Disconnect : 'a -> 'a disconnect sess
     | Close : close sess
 
   type ('d1, 'd, 'f1, 'f) commm = {sender:'d -> 'd1; receiver:'f -> unit -> 'f1 Lwt.t}
 
   type (_,_,_,_,_,_) commm2 = Commm2 : {sender2 : 'x1 * 'x2 -> 'l; receiver2: ('y1 * 'y2) -> unit -> 'r Lwt.t} -> ('l, 'x1, 'x2, 'r, 'y1, 'y2) commm2
 
-  let mklabel o1 o2 (k1, k2) write read =
-    {sender=(fun x -> o1 (fun v-> (write k1.conn v:unit);x)); receiver=(fun x () -> Lwt.map (fun v -> o2(v,x)) (read k2.conn))}
+  let mklabel o1 o2 write read (k1, k2) =
+    {sender=(fun x -> o1 (fun v-> (write k1 v:unit);x));
+     receiver=(fun x () -> Lwt.map (fun v -> o2(v,x)) (read k2))}
 
-  let msg (k1, k2) write read =
-    mklabel (fun g -> object method msg=g end) (fun x -> `msg x) (k1, k2) write read
+  let msg_ write read (k1, k2) =
+    mklabel (fun g -> object method msg=g end) (fun x -> `msg x) write read (k1, k2)
 
-  let left (k1, k2) write read =
-    mklabel (fun g -> object method left=g end) (fun x -> `left x) (k1, k2) write read
+  let left_ write read (k1, k2) =
+    mklabel (fun g -> object method left=g end) (fun x -> `left x) write read (k1, k2)
 
-  let right (k1, k2) write read =
-    mklabel (fun g -> object method right=g end) (fun x -> `right x) (k1, k2) write read
+  let right_ write read (k1, k2) =
+    mklabel (fun g -> object method right=g end) (fun x -> `right x) write read (k1, k2)
+
+  let dummyconn = ({conn=Some (); origin=None}, {conn=Some (); origin=None})
 
   let msg () =
     let st, push = Lwt_stream.create () in
-    msg ({conn=None}, {conn=None}) (fun _ v -> push (Some v)) (fun _ -> Lwt_stream.next st)
+    msg_ (fun _ v -> push (Some v)) (fun _ -> Lwt_stream.next st) dummyconn
 
   let left () =
     let st, push = Lwt_stream.create () in
-    left ({conn=None}, {conn=None}) (fun _ v -> push (Some v)) (fun _ -> Lwt_stream.next st)
+    left_ (fun _ v -> push (Some v)) (fun _ -> Lwt_stream.next st) dummyconn
 
   let right () =
     let st, push = Lwt_stream.create () in
-    right ({conn=None}, {conn=None}) (fun _ v -> push (Some v)) (fun _ -> Lwt_stream.next st)
+    right_ (fun _ v -> push (Some v)) (fun _ -> Lwt_stream.next st) dummyconn
 
   let flatten : 'a mpst -> 'a mpst -> 'a mpst = fun (MPST m1) (MPST m2) ->
     MPST (lazy (Lazy.force m1 @ Lazy.force m2))
-
-  let (-!->) : type d1 f1 d f s t u r1 r2 k1 k2.
-       (d sess, (r2 * (k1 -> d1)) request sess, s mpst, t mpst, r1) role
-    -> (f sess, (r1 * (k2 -> f1)) accept sess, t mpst, u mpst, r2) role
-    -> (k1 conn * k2 conn -> (d1,  d sess, f1, f sess) commm)
-    -> (k1 conn * k2 conn -> s mpst)
-    -> u mpst =
-    fun (r1_l, r1) (r2_l, r2) comm sobjf ->
-      let k1r, k2r = {conn=None}, {conn=None} in
-      let sobj = sobjf (k1r, k2r) in
-      let comm = comm (k1r, k2r) in
-      let d = lazy (r1_l.get sobj) in
-      let tobj = r1_l.put sobj (Request (r2, fun k -> k1r.conn <- Some k; comm.sender (Lazy.force d))) in
-      let f = lazy (r2_l.get tobj) in
-      let uobj = r2_l.put tobj (Accept (r1, fun k -> k2r.conn <- Some k; comm.receiver (Lazy.force f) ())) in
-      uobj
 
   let (-->) : type d1 f1 d f s t u r1 r2 c.
        (d sess, (r2 * d1) select sess, s mpst, t mpst, r1) role
@@ -83,6 +72,35 @@ module MPST = struct
       let tobj = r1_l.put sobj (Select (r2, comm.sender (Lazy.force d))) in
       let f = lazy (r2_l.get tobj) in
       let uobj = r2_l.put tobj (Branch (r1, fun () -> comm.receiver (Lazy.force f) ())) in
+      uobj
+
+  let (-!->) : type d1 f1 d f s t u r1 r2 k1 k2.
+       (d sess, (r2 * (k1 -> d1)) request sess, s mpst, t mpst, r1) role
+    -> (f sess, (r1 * (k2 -> f1)) accept sess, t mpst, u mpst, r2) role
+    -> ((r1, k1) conn * (r2, k2) conn -> (d1,  d sess, f1, f sess) commm)
+    -> ((r1, k1) conn * (r2, k2) conn -> s mpst)
+    -> u mpst =
+    fun (r1_l, r1) (r2_l, r2) comm sobjf ->
+      let k1r, k2r = {conn=None; origin=Some r1}, {conn=None; origin=Some r2} in
+      let sobj = sobjf (k1r, k2r) in
+      let comm = comm (k1r, k2r) in
+      let d = lazy (r1_l.get sobj) in
+      let tobj = r1_l.put sobj (Request (r2, fun k -> k1r.conn <- Some k; comm.sender (Lazy.force d))) in
+      let f = lazy (r2_l.get tobj) in
+      let uobj = r2_l.put tobj (Accept (r1, fun k -> k2r.conn <- Some k; comm.receiver (Lazy.force f) ())) in
+      uobj
+
+  let discon : type d1 f1 d f s t u r1 r2 k1 k2.
+       (d sess, (r2 * (r1, k1) conn * d sess) disconnect sess, s mpst, t mpst, r1) role
+    -> (f sess, (r1 * (r2, k2) conn * f sess) disconnect sess, t mpst, u mpst, r2) role
+    -> ((r1, k1) conn * (r2, k2) conn)
+    -> s mpst
+    -> u mpst =
+    fun (r1_l, r1) (r2_l, r2) (k1r, k2r) sobj ->
+      let d = lazy (r1_l.get sobj) in
+      let tobj = r1_l.put sobj (Disconnect (r2, k1r, (Lazy.force d))) in
+      let f = lazy (r2_l.get tobj) in
+      let uobj = r2_l.put tobj (Disconnect (r1, k2r, (Lazy.force f))) in
       uobj
 
   let mklabel2 o1 o21 o22 write read =
@@ -144,7 +162,7 @@ module MPST = struct
     fun _ g v (Select (_,r)|SelectMulti (_,r)) ->
     g r v
 
-  let request : 'r 'l 'v 's. 'r -> ((< .. > as 'l) -> 'v -> 's sess) -> 'v -> 'k -> ('r * ('k -> 'l)) request sess -> 's sess =
+  let request : 'r 'l 'v 's 'k. 'r -> ((< .. > as 'l) -> 'v -> 's sess) -> 'v -> 'k -> ('r * ('k -> 'l)) request sess -> 's sess =
     fun _ g v k (Request (_,r)) ->
     g (r k) v
 
@@ -153,9 +171,12 @@ module MPST = struct
                | Branch (_,l) -> l ()
                | DummyBranch -> failwith "dummy branch encountered"
 
-  let accept : 'r 'l. 'r -> 'k -> ('r * ('k -> 'l)) accept sess -> 'l Lwt.t =
+  let accept : 'r 'l 'k. 'r -> 'k -> ('r * ('k -> 'l)) accept sess -> 'l Lwt.t =
     fun _ k s -> match s with
                | Accept (_,l) -> l k
+
+  let disconnect : 'r 'k. 'r -> ('k -> unit) -> ('r * (_, 'k) conn * 's sess) disconnect sess -> 's sess =
+    fun _ f (Disconnect (_, kr, s)) -> (match kr.conn with Some k -> f k; kr.conn <- None | None -> failwith "connection already closed"); s
 
   let close : close sess -> unit = fun _ -> ()
 
@@ -167,6 +188,7 @@ module MPST = struct
       | b, DummyBranch -> b
       | DummyBranch, b -> b
       | Close, Close -> Close
+      | Disconnect a, _ -> Disconnect a
       | (SelectMulti _) as x, SelectMulti _ -> x (* FIXME: must raise an exception in some cases -- *)
       | Request _, _ -> raise RoleNotEnabled
       | Select _, _ -> raise RoleNotEnabled

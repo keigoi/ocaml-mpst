@@ -57,21 +57,24 @@ let leftright k = leftright_ write read k
 
 let swap (a,b) = (b,a)
 
-let g =
-  (b -!-> a) msg @@ (fun kba ->
-  (a -!-> c) msg @@ (fun kac ->
-  (c -%%-> a) (leftright (swap (kac)))
-    ~l1:((c,a),
-         (a --> b) (right (swap kba)) @@
-         discon b a kba @@
-         discon a c kac @@
-         finish)
-    ~l2:((c,a),
-         (a --> b) (left (swap kba)) @@
-         discon b a kba @@
-         discon a c kac @@
-         finish)
-  ))
+let mk_g () =
+  let g =
+    (b -!-> a) msg @@ (fun kba ->
+    (a -!-> c) msg @@ (fun kac ->
+    (c -%%-> a) (leftright (swap (kac)))
+      ~l1:((c,a),
+           (a --> b) (right (swap kba)) @@
+           discon b a kba @@
+           discon a c kac @@
+           finish)
+      ~l2:((c,a),
+           (a --> b) (left (swap kba)) @@
+           discon b a kba @@
+           discon a c kac @@
+           finish)
+    ))
+  in
+  g
 
 let kab = create_shmem_channel ()
 let kac = create_shmem_channel ()
@@ -141,4 +144,93 @@ let tc s =
 let () = Random.self_init ()
 
 let () =
+  let g = mk_g () in
   Lwt_main.run (Lwt.join [ta (get_sess a g); tb (get_sess b g); tc (get_sess c g)])
+
+
+(* loop example *)
+let mk_g' () =
+    (b -!-> a) msg @@ (fun kba ->
+    (a -!-> c) msg @@ (fun kac ->
+    let rec g =
+      lazy begin
+      (c -%%-> a) (leftright (swap (kac)))
+        ~l1:((c,a),
+             (a --> b) (right (swap kba)) @@
+             discon b a kba @@
+             discon a c kac @@
+             finish)
+        ~l2:((c,a),
+             (a --> b) (left (swap kba)) @@
+             loop_ g)
+        end
+    in
+    Lazy.force g))
+
+let rec ta' s =
+  shmem_accept kab >>= fun kb ->
+  accept B kb s >>= fun (`msg((), s)) ->
+  let kc = shmem_connect kac in
+  let s = request C (fun x->x#msg) () kc s in
+  let rec loop s =
+    receive C s >>= function
+    | `left((), s) ->
+       print_endline "ta: left";
+       let s = send B (fun x->x#right) () s in
+       Lwt.return s
+    | `right((), s) ->
+       print_endline "ta: right";
+       let s = send B (fun x->x#left) () s in
+       loop s
+  in
+  loop s>>= fun s ->
+  let s = disconnect B shmem_disconnect s in
+  let s = disconnect C shmem_disconnect s in
+  close s;
+  print_endline "ta finished";
+  Lwt.return ()
+
+
+let tb' s =
+  let ka = shmem_connect kab in
+  let s = request A (fun x->x#msg) () ka s in
+  let rec loop s =
+    receive A s >>= function
+    | `right((),s) ->
+       print_endline "tb: right";
+       Lwt.return s
+    | `left((),s) ->
+       print_endline "tb: left";
+       loop s
+  in
+  loop s >>= fun s ->
+  let s = disconnect A shmem_disconnect s in
+  close s;
+  print_endline "tb finished";
+  Lwt.return ()
+
+let tc' s =
+  shmem_accept kac >>= fun ka ->
+  accept A ka s >>= fun (`msg((),s)) ->
+  let rec loop s =
+    if Random.bool () then begin
+        print_endline "tc: select left";
+        let s = send A (fun x->x#left) () s in
+        Lwt.return s
+      end else begin
+        print_endline "tc: select right";
+        let s = send A (fun x->x#right) () s in
+        loop s
+      end
+  in
+  loop s >>= fun s ->
+  let s = disconnect A shmem_disconnect s in
+  close s;
+  print_endline "tc finished";
+  Lwt.return ()
+
+let () =
+  print_endline "try calling mk_g'";
+  let g = mk_g' () in
+  print_endline "generated";
+  Lwt_main.run (Lwt.join [ta' (get_sess a g); tb' (get_sess b g); tc' (get_sess c g)])

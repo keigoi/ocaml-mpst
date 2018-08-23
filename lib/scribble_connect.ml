@@ -18,12 +18,12 @@ module MPST = struct
   type ('r, 'k) conn = {mutable conn:'k option; origin:'r option}
 
   type _ sess =
-    | Select : 'a -> 'a select sess
-    | SelectMulti : 'a -> 'a select sess
-    | Branch : ('r1 * (unit -> 'a Lwt.t)) -> ('r1 * 'a) branch sess (* "fancy" type rep. (hiding Lwt.t) *)
+    | Select : 'a lazy_t -> 'a select sess
+    | SelectMulti : 'a lazy_t -> 'a select sess
+    | Branch : ('r1 * (unit -> 'a Lwt.t) list) -> ('r1 * 'a) branch sess (* "fancy" type rep. (hiding Lwt.t) *)
     | DummyBranch : 'a branch sess
     | Request : 'a -> 'a request sess
-    | Accept : 'r1 * ('k1 -> 'a Lwt.t) -> ('r1 * ('k1 -> 'a)) accept sess
+    | Accept : 'r1 * ('k1 -> 'a Lwt.t) list -> ('r1 * ('k1 -> 'a)) accept sess
     | Disconnect : 'a -> 'a disconnect sess
     | Close : close sess
 
@@ -80,9 +80,9 @@ module MPST = struct
     -> u mpst =
     fun (r1_l, r1) (r2_l, r2) comm sobj ->
       let d = lazy (r1_l.get sobj) in
-      let tobj = r1_l.put sobj (Select (r2, comm.sender (Lazy.force d))) in
+      let tobj = r1_l.put sobj (Select (lazy (r2, comm.sender (Lazy.force d)))) in
       let f = lazy (r2_l.get tobj) in
-      let uobj = r2_l.put tobj (Branch (r1, fun () -> comm.receiver (Lazy.force f) ())) in
+      let uobj = r2_l.put tobj (Branch (r1, [(fun () -> comm.receiver (Lazy.force f) ())])) in
       uobj
 
   let (-!->) : type d1 f1 d f s t u r1 r2 k1 k2.
@@ -98,7 +98,7 @@ module MPST = struct
       let d = lazy (r1_l.get sobj) in
       let tobj = r1_l.put sobj (Request (r2, fun k -> k1r.conn <- Some k; comm.sender (Lazy.force d))) in
       let f = lazy (r2_l.get tobj) in
-      let uobj = r2_l.put tobj (Accept (r1, fun k -> k2r.conn <- Some k; comm.receiver (Lazy.force f) ())) in
+      let uobj = r2_l.put tobj (Accept (r1, [(fun k -> k2r.conn <- Some k; comm.receiver (Lazy.force f) ())])) in
       uobj
 
   let discon : type d1 f1 d f s t u r1 r2 k1 k2.
@@ -128,8 +128,8 @@ module MPST = struct
       let f1,ssobj_l = lazy (r2_ll.get t1obj), r2_ll.put t1obj Close in
       let d2,t2obj = lazy (r1_lr.get s2obj), r1_lr.put s2obj Close in
       let f2,ssobj_r = lazy (r2_lr.get t2obj), r2_lr.put t2obj Close in
-      let dd = SelectMulti (r2, dlab.sender2 (Lazy.force d1, Lazy.force d2)) in
-      let ff = Branch (r1, fun () -> dlab.receiver2 (Lazy.force f1, Lazy.force f2) ()) in
+      let dd = SelectMulti (lazy (r2, dlab.sender2 (Lazy.force d1, Lazy.force d2))) in
+      let ff = Branch (r1, [(fun () -> dlab.receiver2 (Lazy.force f1, Lazy.force f2) ())]) in
       let tobj_l = r1_l.put ssobj_l dd in
       let uobj_l = r2_l.put tobj_l ff in
       let tobj_r = r1_l.put ssobj_r dd in
@@ -157,7 +157,7 @@ module MPST = struct
   let get_sess : 's 'a. ('s sess, _, 'a mpst, _, _) role -> 'a mpst -> 's sess = fun (l,_) s -> l.get s
 
   let send : 'r 'l 'v 's. 'r -> ((< .. > as 'l) -> 'v -> 's sess) -> 'v -> ('r * 'l) select sess -> 's sess =
-    fun _ g v (Select (_,r)|SelectMulti (_,r)) ->
+    fun _ g v (Select (lazy (_,r))|SelectMulti (lazy (_,r))) ->
     g r v
 
   let request : 'r 'l 'v 's 'k. 'r -> ((< .. > as 'l) -> 'v -> 's sess) -> 'v -> 'k -> ('r * ('k -> 'l)) request sess -> 's sess =
@@ -165,29 +165,37 @@ module MPST = struct
     g (r k) v
 
   let receive : 'r 'l. 'r -> ('r * 'l) branch sess -> 'l Lwt.t =
-    fun _ s -> match s with
-               | Branch (_,l) -> l ()
-               | DummyBranch -> Printf.eprintf"fail at receiption"; failwith "dummy branch encountered"
+    fun _ s ->
+    match s with
+    | Branch (_,fs) ->
+       Lwt.choose @@ List.map (fun f -> f ()) fs
+    | DummyBranch -> Printf.eprintf"fail at receiption"; failwith "dummy branch encountered"
 
   let accept : 'r 'l 'k. 'r -> 'k -> ('r * ('k -> 'l)) accept sess -> 'l Lwt.t =
-    fun _ k s -> match s with
-               | Accept (_,l) -> l k
+    fun _ k (Accept (_, ls)) ->
+    Lwt.choose (List.map (fun l -> l k) ls)
+
 
   let disconnect : 'r 'k. 'r -> ('k -> unit) -> ('r * (_, 'k) conn * 's sess) disconnect sess -> 's sess =
     fun _ f (Disconnect (_, kr, s)) -> (match kr.conn with Some k -> f k; kr.conn <- None | None -> Printf.eprintf "fail at disconnection"; failwith "connection already closed"); s
 
   let close : close sess -> unit = fun _ -> ()
 
+  let remove_dups ls1 ls2 =
+    List.fold_left (fun ls l -> if List.exists (fun x -> x==l) ls then ls else l::ls) ls1 ls2
+
   let rec unify : type s. s sess -> s sess -> s sess = fun s1 s2 ->
     begin
       match s1, s2 with
-      | Branch (r1,a1), Branch (r2,a2) -> if a1==a2 then Branch (r1,a1) else Branch (r1, fun () -> Lwt.choose [a1 (); a2 ()])
-      | Accept (r1,a1), Accept (r2,a2) -> if a1==a2 then Accept (r1,a1) else Accept (r1, fun k -> Lwt.choose [a1 k; a2 k])
+      | Branch (r1,ls1), Branch (_,ls2) ->
+         Branch (r1, remove_dups ls1 ls2) (* remove duplicates *)
+      | Accept (r1,ls1), Accept (_,ls2) ->
+         Accept (r1, remove_dups ls1 ls2) (* remove duplicates *)
       | b, DummyBranch -> b
       | DummyBranch, b -> b
       | Close, Close -> Close
-      | (Disconnect _) as x, _ -> x
-      | (SelectMulti _) as x, SelectMulti _ -> x (* FIXME: must raise an exception in some cases -- *)
+      | SelectMulti x, SelectMulti y -> if x==y then SelectMulti x else raise RoleNotEnabled
+      | Disconnect _, _ -> raise RoleNotEnabled
       | Request _, _ -> raise RoleNotEnabled
       | Select _, _ -> raise RoleNotEnabled
       | _, Select _ -> raise RoleNotEnabled

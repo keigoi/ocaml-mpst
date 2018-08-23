@@ -6,13 +6,6 @@
   (libraries ocaml-mpst lwt.unix))
 
 (executable
- (name ex2)
-  (public_name ex2)
-  (modules ex2)
-  (flags ("-g" "-short-paths"))
-  (libraries ocaml-mpst lwt.unix))
-
-(executable
  (name ex3)
   (public_name ex3)
   (modules ex3)

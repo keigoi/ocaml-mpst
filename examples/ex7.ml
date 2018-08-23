@@ -49,8 +49,8 @@ let ta s =
        let s = send B (fun x->x#left) () s in
        Lwt.return s
   end >>= fun s ->
-  let s = disconnect B M.shmem_disconnect s in
-  let s = disconnect C M.shmem_disconnect s in
+  disconnect B M.shmem_disconnect s >>= fun s ->
+  disconnect C M.shmem_disconnect s >>= fun s ->
   close s;
   print_endline "ta finished";
   Lwt.return ()
@@ -69,7 +69,7 @@ let tb s =
        print_endline "tb: left";
        Lwt.return s
   end >>= fun s ->
-  let s = disconnect A M.shmem_disconnect s in
+  disconnect A M.shmem_disconnect s >>= fun s ->
   close s;
   print_endline "tb finished";
   Lwt.return ()
@@ -90,7 +90,7 @@ let tc s =
         Lwt.return s
       end
   end >>= fun s ->
-  let s = disconnect A M.shmem_disconnect s in
+  disconnect A M.shmem_disconnect s >>= fun s ->
   close s;
   print_endline "tc finished";
   Lwt.return ()
@@ -138,8 +138,8 @@ let rec ta' s =
        loop s
   in
   loop s>>= fun s ->
-  let s = disconnect B M.shmem_disconnect s in
-  let s = disconnect C M.shmem_disconnect s in
+  disconnect B M.shmem_disconnect s >>= fun s ->
+  disconnect C M.shmem_disconnect s >>= fun s ->
   close s;
   print_endline "ta finished";
   Lwt.return ()
@@ -158,7 +158,7 @@ let tb' s =
        loop s
   in
   loop s >>= fun s ->
-  let s = disconnect A M.shmem_disconnect s in
+  disconnect A M.shmem_disconnect s >>= fun s ->
   close s;
   print_endline "tb finished";
   Lwt.return ()
@@ -178,7 +178,7 @@ let tc' s =
       end
   in
   loop s >>= fun s ->
-  let s = disconnect A M.shmem_disconnect s in
+  disconnect A M.shmem_disconnect s >>= fun s ->
   close s;
   print_endline "tc finished";
   Lwt.return ()

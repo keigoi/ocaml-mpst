@@ -33,6 +33,6 @@ val request :
   'v -> 'k -> ('r * ('k -> 'a)) request sess -> 's sess
 val disconnect :
   'r ->
-  ('k -> unit) -> ('r * ('a, 'k) conn * 's sess) disconnect sess -> 's sess
+  ('k -> unit Lwt.t) -> ('r * ('a, 'k) conn * 's sess) disconnect sess -> 's sess Lwt.t
 
 val close : close sess -> unit

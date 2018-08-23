@@ -37,7 +37,10 @@ let accept : 'r 'l 'k. 'r -> 'k -> ('r * ('k -> 'l)) accept sess -> 'l Lwt.t =
   Lwt.choose (List.map (fun l -> l k) ls)
 
 
-let disconnect : 'r 'k. 'r -> ('k -> unit) -> ('r * (_, 'k) conn * 's sess) disconnect sess -> 's sess =
-  fun _ f (Disconnect (_, kr, s)) -> (match kr.conn with Some k -> f k; kr.conn <- None | None -> Printf.eprintf "fail at disconnection"; failwith "connection already closed"); s
+let disconnect : 'r 'k. 'r -> ('k -> unit Lwt.t) -> ('r * (_, 'k) conn * 's sess) disconnect sess -> 's sess Lwt.t =
+  fun _ f (Disconnect (_, kr, s)) ->
+  match kr.conn with
+  | Some k -> Lwt.bind (f k) @@ fun () -> kr.conn <- None; Lwt.return s
+  | None -> Printf.eprintf "fail at disconnection"; failwith "connection already closed"
 
 let close : close sess -> unit = fun _ -> ()

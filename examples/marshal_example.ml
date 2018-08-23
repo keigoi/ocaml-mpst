@@ -20,7 +20,7 @@ let shmem_connect (Chan {push}) =
   push (Some c1);
   c2
 
-let shmem_disconnect {up} = up None
+let shmem_disconnect {up} = Lwt.return (up None)
 
 let marshal_flags = []
 

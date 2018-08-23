@@ -1,4 +1,4 @@
-open Mpst.Scribble_connect.MPST
+open Mpst.ThreeParty
 let (>>=) = Lwt.(>>=)
 
 type 'a stream = {st: 'a Lwt_stream.t; push: 'a option -> unit}

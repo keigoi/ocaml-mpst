@@ -1,41 +1,47 @@
-open Mpst.Scribble_ivar.MPST
-open Lwt
+open Mpst.ThreeParty
+open Mpst.ThreeParty.Shmem
+let (>>=) = Lwt.(>>=)
 
-let rec mk_g () =
-  (b --> a) msg @@
-  (a -%%-> b)
-      ~left:((a,b),
-             (b --> c) left @@
-             (c --> a) msg @@
-             finish)
-      ~right:((a,b),
-             (b --> c) right @@
-             (c --> a) msg @@
-             loop mk_g)
+let mk_g () =
+  let rec g =
+    lazy
+      begin
+        (b --> a) (msg ()) @@
+        (a -%%-> b) (leftright ())
+            ~l1:((a,b),
+                   (b --> c) (left ()) @@
+                   (c --> a) (msg ()) @@
+                   finish)
+            ~l2:((a,b),
+                   (b --> c) (right ()) @@
+                   (c --> a) (msg ()) @@
+                   loop_ g)
+    end
+    in Lazy.force g
 
-let rec t1 s : unit Lwt.t =
+let rec tA s : unit Lwt.t =
   let open Lwt in
-  print_endline "t1";
+  print_endline "tA";
   receive B s >>= fun (`msg(v,s)) ->
-  print_endline "t1 cont";
-  if v > 0 then begin
-      print_endline ">0";
-      let s = send B (fun x -> x#left) "> 0" s in
+  print_endline "tA cont";
+  if v > 100 then begin
+      print_endline ">100";
+      let s = send B (fun x -> x#left) "> 100" s in
       receive C s >>= fun (`msg(v,s)) ->
       close s;
       Lwt.return ()
     end else begin
-      print_endline "<=0";
+      print_endline "<=100";
       let s = send B (fun x -> x#right) false s in
       receive C s >>= fun (`msg(v,s)) ->
-      print_endline "t1 received from c";
-      t1 s
+      print_endline "tA received from c";
+      tA s
     end
 
-let rec t2 s : unit Lwt.t =
+let rec tB i s : unit Lwt.t =
   let open Lwt in
-  print_endline "t2";
-  let s = send A (fun x -> x#msg) 0 s in
+  Printf.printf "tB %d\n" i;
+  let s = send A (fun x -> x#msg) i s in
   receive A s >>= function
   | `left(v,s) ->
      let s = send C (fun x->x#left) () s in
@@ -43,10 +49,10 @@ let rec t2 s : unit Lwt.t =
      Lwt.return ()
   | `right(v,s) ->
      let s = send C (fun x->x#right) () s in
-     t2 s
+     tB (i+1) s
 
-let rec t3 s : unit Lwt.t =
-  print_endline "t3";
+let rec tC s : unit Lwt.t =
+  print_endline "tC";
   let open Lwt in
   receive B s >>= function
   | `left(v,s) ->
@@ -55,28 +61,34 @@ let rec t3 s : unit Lwt.t =
      Lwt.return ()
   | `right(w,s) ->
      let s = send A (fun x->x#msg) "abc" s in
-     t3 s
+     tC s
 
 
 let () =
-  let g = mk_g () in (* never put g at toplevel (memory leaks otherwise)  *)
-  Lwt_main.run (Lwt.join [t1 (get_sess a g); t2 (get_sess b g); t3 (get_sess c g)])
+  let g = mk_g () in
+  Lwt_main.run (Lwt.join [tA (get_sess a g); tB 0 (get_sess b g); tC (get_sess c g)])
 
 
-let rec mk_g2 () =
-  (b --> a) msg @@
-  (a -%%-> b)
-      ~left:((a,b),
-             (a -%%-> b)
-               ~left:((a,b),
-                      (b --> c) left @@
-                      (c --> a) msg @@
-                      finish)
-               ~right:((a,b),
-                      (b --> c) middle @@
-                      (c --> a) msg @@
-                      loop mk_g))
-      ~right:((a,b),
-             (b --> c) right @@
-             (c --> a) msg @@
-             loop mk_g)
+let mk_g2 () =
+  let rec g =
+    lazy
+      begin
+        (b --> a) (msg ()) @@
+        (a -%%-> b) (leftright ())
+            ~l1:((a,b),
+                   (a -%%-> b) (leftright ())
+                     ~l1:((a,b),
+                            (b --> c) (left ()) @@
+                            (c --> a) (msg ()) @@
+                            finish)
+                     ~l2:((a,b),
+                            (b --> c) (middle ()) @@
+                            (c --> a) (msg ()) @@
+                            loop_ g))
+            ~l2:((a,b),
+                   (b --> c) (right ()) @@
+                   (c --> a) (msg ()) @@
+                   loop_ g)
+      end
+  in
+  Lazy.force g

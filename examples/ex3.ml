@@ -1,30 +1,37 @@
-open Mpst.Scribble_ivar.MPST
-open Lwt
+open Mpst.ThreeParty
+open Mpst.ThreeParty.Shmem
+let (>>=) = Lwt.(>>=)
 
-let rec mk_g () =
-  (b --> a) msg @@
-  (a --> c) msg @@
-  (c --> b) msg @@
-  loop mk_g
+let mk_g () =
+  let rec g =
+    lazy
+      begin
+        (b --> a) (msg ()) @@
+        (a --> c) (msg ()) @@
+        (c --> b) (msg ()) @@
+        loop_ g
+      end
+  in
+  Lazy.force g
 
-let rec t1 s =
-  print_endline "t1";
+let rec tA s =
+  print_endline "tA";
   receive B s >>= fun (`msg((),s)) ->
   let s = send C (fun x->x#msg) () s in
-  t1 s
+  tA s
 
-let rec t2 s =
-  print_endline "t2";
+let rec tB s =
+  print_endline "tB";
   let s = send A (fun x->x#msg) () s in
   receive C s >>= fun (`msg((),s)) ->
-  t2 s
+  tB s
 
-let rec t3 s =
-  print_endline "t3";
+let rec tC s =
+  print_endline "tC";
   receive A s >>= fun (`msg((),s)) ->
   let s = send B (fun x->x#msg) () s in
-  t3 s
+  tC s
 
 let () =
   let g = mk_g () in
-  Lwt_main.run (Lwt.join [t1 (get_sess a g); t2 (get_sess b g); t3 (get_sess c g)])
+  Lwt_main.run (Lwt.join [tA (get_sess a g); tB (get_sess b g); tC (get_sess c g)])

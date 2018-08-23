@@ -1,58 +1,62 @@
-open Mpst.Scribble.MPST
-open Lwt
+open Mpst.ThreeParty
+open Mpst.ThreeParty.Shmem
+let (>>=) = Lwt.(>>=)
 
-let rec g =
+let mk_g () =
+  let rec g =
   lazy begin
-  (a -%%-> b)
-      ~left:((a,b),
-             (b --> c) msg @@
+  (a -%%-> b) (leftright ())
+      ~l1:((a,b),
+             (b --> c) (msg ()) @@
              finish)
-      ~right:((a,b),
+      ~l2:((a,b),
              dummy_receive c @@
              loop_ g)
     end
+  in
+  Lazy.force g
 
-let g = Lazy.force g
+let () =
+  let g = mk_g () in
+  let _ = get_sess a g in
+  let _ = get_sess b g in
+  let _ = get_sess c g in
+  print_endline "endpoints generated"
 
-let a_ = get_sess a g
-let b_ = get_sess b g
-let c_ = get_sess c g
-let () = print_endline "endpoints generated"
-
-
-let rec t1 i s =
+let rec tA i s =
   Lwt_unix.sleep 1.0 >>= fun () ->
   if i >= 10 then begin
     let s = send B (fun x -> x#left) () s in
     close s;
-    print_endline "t1 finished";
+    print_endline "tA finished";
     Lwt.return ()
   end else begin
-      Printf.printf "t1 %d\n" i;
+      Printf.printf "tA %d\n" i;
       let s = send B (fun x -> x#right) i s in
       Lwt.return () >>= fun () ->
-      t1 (i+1) s
+      tA (i+1) s
     end
 
 
-let rec t2 s =
-  print_endline "t2";
+let rec tB s =
+  print_endline "tB";
   receive A s >>= function
   | `left(i, s) ->
      let s = send C (fun x -> x#msg) () s in
      close s;
-     print_endline "t2 finished";
+     print_endline "tB finished";
      Lwt.return ()
   | `right(i, s) ->
-     Printf.printf "t2 %d\n" i;
-     t2 s
+     Printf.printf "tB %d\n" i;
+     tB s
 
-let rec t3 s =
-  print_endline "t3\n";
+let rec tC s =
+  print_endline "tC\n";
   receive B s >>= fun (`msg((),s)) ->
   close s;
-  print_endline "t3 finished";
+  print_endline "tC finished";
   Lwt.return ()
 
 let () =
-  Lwt_main.run @@ Lwt.join [t2 (get_sess b g); t1 0 (get_sess a g); t3 (get_sess c g)]
+  let g = mk_g () in
+  Lwt_main.run @@ Lwt.join [tB (get_sess b g); tA 0 (get_sess a g); tC (get_sess c g)]

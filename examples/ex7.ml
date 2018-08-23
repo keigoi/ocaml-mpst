@@ -1,59 +1,12 @@
 open Mpst.ThreeParty
 let (>>=) = Lwt.(>>=)
 
-type 'a stream = {st: 'a Lwt_stream.t; push: 'a option -> unit}
-type dstream = {down: string Lwt_stream.t; up: string option -> unit}
-type shmem_chan = Chan of dstream stream
+module M = Marshal_example
 
-let create_shmem_channel () =
-  let st, push = Lwt_stream.create () in
-  Chan {st; push}
-
-let create_dstream () =
-  let st1, push1 = Lwt_stream.create () in
-  let st2, push2 = Lwt_stream.create () in
-  {down=st1; up=push2}, {down=st2; up=push1}
-
-let shmem_accept (Chan {st}) = Lwt_stream.next st
-let shmem_connect (Chan {push}) =
-  let c1, c2 = create_dstream () in
-  push (Some c1);
-  c2
-
-let shmem_disconnect {up} = up None
-
-let marshal_flags = []
-
-let write : 'a. (_, dstream) conn -> 'a -> unit = function
-  | {conn=Some{up}} ->
-     fun v ->
-     let str =
-       begin
-         try
-           Marshal.to_string v marshal_flags
-         with
-         | e -> Printf.eprintf "fail at marshal"; raise e
-       end
-     in
-     up (Some str)
-  | {conn=None} -> Printf.eprintf"fail at write: disconnected"; failwith "write: disconnected"
-
-let read : 'a. (_, dstream) conn -> 'a Lwt.t = function
-  | {conn=Some{down}} ->
-     Lwt_stream.next down >>= fun str ->
-     Lwt.return
-       begin try
-           Marshal.from_string str 0
-         with
-         | e -> Printf.eprintf "fail at unmarshal"; raise e
-       end
-  | {conn=None} -> Printf.eprintf"fail at read: disconnected";failwith "read: disconnected"
-
-let msg k = msg_ write read k
-let left k = left_ write read k
-let right k = right_ write read k
-let leftright k = leftright_ write read k
-
+let msg k = msg_ M.write M.read k
+let left k = left_ M.write M.read k
+let right k = right_ M.write M.read k
+let leftright k = leftright_ M.write M.read k
 
 let swap (a,b) = (b,a)
 
@@ -76,13 +29,13 @@ let mk_g () =
   in
   g
 
-let kab = create_shmem_channel ()
-let kac = create_shmem_channel ()
+let kab = M.create_shmem_channel ()
+let kac = M.create_shmem_channel ()
 
 let ta s =
-  shmem_accept kab >>= fun kb ->
+  M.shmem_accept kab >>= fun kb ->
   accept B kb s >>= fun (`msg((), s)) ->
-  let kc = shmem_connect kac in
+  let kc = M.shmem_connect kac in
   let s = request C (fun x->x#msg) () kc s in
   begin
     receive C s >>= function
@@ -95,8 +48,8 @@ let ta s =
        let s = send B (fun x->x#left) () s in
        Lwt.return s
   end >>= fun s ->
-  let s = disconnect B shmem_disconnect s in
-  let s = disconnect C shmem_disconnect s in
+  let s = disconnect B M.shmem_disconnect s in
+  let s = disconnect C M.shmem_disconnect s in
   close s;
   print_endline "ta finished";
   Lwt.return ()
@@ -104,7 +57,7 @@ let ta s =
 
 
 let tb s =
-  let ka = shmem_connect kab in
+  let ka = M.shmem_connect kab in
   let s = request A (fun x->x#msg) () ka s in
   begin
     receive A s >>= function
@@ -115,7 +68,7 @@ let tb s =
        print_endline "tb: left";
        Lwt.return s
   end >>= fun s ->
-  let s = disconnect A shmem_disconnect s in
+  let s = disconnect A M.shmem_disconnect s in
   close s;
   print_endline "tb finished";
   Lwt.return ()
@@ -123,7 +76,7 @@ let tb s =
 
 
 let tc s =
-  shmem_accept kac >>= fun ka ->
+  M.shmem_accept kac >>= fun ka ->
   accept A ka s >>= fun (`msg((),s)) ->
   begin
     if Random.bool () then begin
@@ -136,7 +89,7 @@ let tc s =
         Lwt.return s
       end
   end >>= fun s ->
-  let s = disconnect A shmem_disconnect s in
+  let s = disconnect A M.shmem_disconnect s in
   close s;
   print_endline "tc finished";
   Lwt.return ()
@@ -168,9 +121,9 @@ let mk_g' () =
     Lazy.force g))
 
 let rec ta' s =
-  shmem_accept kab >>= fun kb ->
+  M.shmem_accept kab >>= fun kb ->
   accept B kb s >>= fun (`msg((), s)) ->
-  let kc = shmem_connect kac in
+  let kc = M.shmem_connect kac in
   let s = request C (fun x->x#msg) () kc s in
   let rec loop s =
     receive C s >>= function
@@ -184,15 +137,15 @@ let rec ta' s =
        loop s
   in
   loop s>>= fun s ->
-  let s = disconnect B shmem_disconnect s in
-  let s = disconnect C shmem_disconnect s in
+  let s = disconnect B M.shmem_disconnect s in
+  let s = disconnect C M.shmem_disconnect s in
   close s;
   print_endline "ta finished";
   Lwt.return ()
 
 
 let tb' s =
-  let ka = shmem_connect kab in
+  let ka = M.shmem_connect kab in
   let s = request A (fun x->x#msg) () ka s in
   let rec loop s =
     receive A s >>= function
@@ -204,13 +157,13 @@ let tb' s =
        loop s
   in
   loop s >>= fun s ->
-  let s = disconnect A shmem_disconnect s in
+  let s = disconnect A M.shmem_disconnect s in
   close s;
   print_endline "tb finished";
   Lwt.return ()
 
 let tc' s =
-  shmem_accept kac >>= fun ka ->
+  M.shmem_accept kac >>= fun ka ->
   accept A ka s >>= fun (`msg((),s)) ->
   let rec loop s =
     if Random.bool () then begin
@@ -224,7 +177,7 @@ let tc' s =
       end
   in
   loop s >>= fun s ->
-  let s = disconnect A shmem_disconnect s in
+  let s = disconnect A M.shmem_disconnect s in
   close s;
   print_endline "tc finished";
   Lwt.return ()

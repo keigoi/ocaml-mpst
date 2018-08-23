@@ -43,6 +43,6 @@
 (executable
  (name ex7)
   (public_name ex7)
-  (modules ex7)
+  (modules ex7 marshal_example)
   (flags ("-g" "-short-paths"))
   (libraries ocaml-mpst lwt.unix))

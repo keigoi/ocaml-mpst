@@ -1,3 +1,4 @@
+(* create your own labels (see util.ml for other examples) *)
 open Mpst.ThreeParty
 open Mpst.ThreeParty.Shmem
 let (>>=) = Lwt.(>>=)

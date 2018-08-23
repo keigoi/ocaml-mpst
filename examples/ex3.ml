@@ -1,3 +1,4 @@
+(* simple loop *)
 open Mpst.ThreeParty
 open Mpst.ThreeParty.Shmem
 let (>>=) = Lwt.(>>=)

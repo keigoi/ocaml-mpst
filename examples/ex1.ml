@@ -1,20 +1,19 @@
-open Mpst.Base
-open Mpst.Session
-open Mpst.Session.Local
-open Mpst.Session.MPST
+open Mpst.ThreeParty
+open Mpst.ThreeParty.Shmem
+let (>>=) = Lwt.(>>=)
 
 (* A global protocol between A, B, and C *)
 let create_g () =
-    (c --> a) (msg int) @@
-    (a -%%-> b)
-      ~left:((a,b),
-             (b --> c) right @@
-             (b --> a) (msg str) @@
+    (c --> a) (msg ()) @@
+    (a -%%-> b) (leftright ())
+      ~l1:((a,b),
+             (b --> c) (right ()) @@
+             (b --> a) (msg ()) @@
              finish)
-      ~right:((a,b),
-             (b --> a) (msg int) @@
-             (b --> c) left @@
-             (c --> a) (msg str) @@
+      ~l2:((a,b),
+             (b --> a) (msg ()) @@
+             (b --> c) (left ()) @@
+             (c --> a) (msg ()) @@
              finish)
 
 let pa, pb, pc =
@@ -25,18 +24,18 @@ let pa, pb, pc =
 let (t1 : unit Lwt.t) =
   let s = pa in
   let open Lwt in
-  receive C s >>= fun (x, s) -> begin
+  receive C s >>= fun (`msg(x, s)) -> begin
       if x = 0 then begin
-          let s = select_left_ B s in
-          receive B s >>= fun (str,s) ->
-          Printf.printf "A: B says: %s\n" str;
+          let s = send B (fun x->x#left) () s in
+          receive B s >>= fun (`msg(str,s)) ->
+          Printf.printf "A) B says: %s\n" str;
           close s;
           return ()
         end else begin
-          let s = select_right_ B s in
-          receive B s >>= fun (x,s) ->
-          receive C s >>= fun (str,s) ->
-          Printf.printf "A: B says: %d, C says: %s\n" x str;
+          let s = send B (fun x->x#right) () s in
+          receive B s >>= fun (`msg(x,s)) ->
+          receive C s >>= fun (`msg(str,s)) ->
+          Printf.printf "A) B says: %d, C says: %s\n" x str;
           close s;
           return ()
         end;
@@ -47,46 +46,44 @@ let (t1 : unit Lwt.t) =
 (* participant B *)
 let (t2 : unit Lwt.t) =
   let s = pb in
-  let open Lwt in
-  branch A s >>= begin
+  receive A s >>= begin
       function
-      | Left s ->
-         let s = select_right C s in
-         let s = send A "Hooray!" s in
+      | `left(_,s) ->
+         let s = send C (fun x->x#right) () s in
+         let s = send A (fun x->x#msg) "Hooray!" s in
          close s;
-         return ()
-      | Right s ->
-         let s = send A 1234 s in
-         let s = select_left C s in
+         Lwt.return ()
+      | `right(_,s) ->
+         let s = send A (fun x->x#msg) 1234 s in
+         let s = send C (fun x->x#left) () s in
          close s;
-         return ()
+         Lwt.return ()
     end >>= fun () ->
   print_endline "B finished.";
-  return ()
+  Lwt.return ()
 
 (* participant C *)
 let (t3 : unit Lwt.t) =
   let s = pc in
   let open Lwt in
-  print_endline "C: enter a number:";
+  print_endline "C: enter a number (positive or zero or negative):";
   Lwt_io.read_line Lwt_io.stdin >>= fun line ->
   let num = int_of_string line in
-  let s = send A num s in
-  branch B s >>= begin
+  let s = send A (fun x->x#msg) num s in
+  receive B s >>= begin
       function
-      | Left s -> begin
-          let s = send A "Hello, A!" s in
+      | `left(_,s) -> begin
+          let s = send A (fun x->x#msg) "Hello, A!" s in
           close s;
           return ()
         end
-      | Right s -> begin
+      | `right(_,s) -> begin
           close s;
           return ()
         end
     end >>= fun () ->
   print_endline "C finished.";
   return ()
-
 
 let () =
   Lwt_main.run (Lwt.join [t1; t2; t3])

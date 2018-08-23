@@ -1,3 +1,4 @@
+(* droppping liveness at some participant *)
 open Mpst.ThreeParty
 open Mpst.ThreeParty.Shmem
 let (>>=) = Lwt.(>>=)
@@ -10,7 +11,7 @@ let mk_g () =
              (b --> c) (msg ()) @@
              finish)
       ~l2:((a,b),
-             dummy_receive c @@
+             dummy_receive c @@ (* no liveness at c*)
              loop_ g)
     end
   in

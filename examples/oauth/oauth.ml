@@ -1,5 +1,8 @@
 (*
- * OAuth
+ * OAuth example
+ *
+ * a -!-> b : connect, then send.
+ * b -?-> a : receive, then disconnect.
  *)
 open Mpst.ThreeParty
 module H = Mpst_http
@@ -16,35 +19,28 @@ module Params = struct
 end
 
 (* prepare a HTTP server *)
-let acceptor, hook = H.http_acceptor ~base_path:"/scribble"
+let my_acceptor, hook = H.http_acceptor ~base_path:"/scribble"
 let () =
   Cohttp_server_lwt.hook := hook;
-  Lwt.async (Cohttp_server_lwt.start_server "/tmp/foo" 8080 "127.0.0.1" "index.html" None)
+  Lwt.async (Cohttp_server_lwt.start_server "/var/empty" 8080 "127.0.0.1" "index.html" None)
 
 let u = a
 let p = b
 
 let mk_oauth () =
   (u -!-> c) (H.get "/oauth") @@ (fun kuc ->
-  (c --> u) (H._302 (swap kuc)) @@
-  discon u c kuc @@
+  (c -?-> u) (H._302 (swap kuc)) kuc @@
   (u -!-> p) (H.get "-TODO-") @@ (fun kup ->
-  (p --> u) (H._200 (swap kup)) @@
-  discon u p kup @@
+  (p -?-> u) (H._200 (swap kup)) kup @@
   (u -!-> p) (H.post "-TODO-") @@ (fun kup ->
-  (p -%%-> u) (H._200_success_fail (fun _ -> failwith "") (fun _ -> failwith "") kup)
-    ~l1:((p,u), discon u p kup @@
-                (u -!-> c) (H.success ~pred:(fun c -> H.Util.http_parameter_contains ("state", c.H.extra_server)) "/callback") (fun kuc ->
+  (p -?%%-> u) (H._200_success_fail (fun _ -> (*TODO*)failwith "") (fun _ -> (*TODO*)failwith "") kup) kup
+    ~l1:((p,u), (u -!-> c) (H.success ~pred:(fun c -> H.Util.http_parameter_contains ("state", c.H.extra_server)) "/callback") (fun kuc ->
                 (c -!-> p) (H.get "/access_token") (fun kcp ->
-                (p --> c) (H._200 (swap kcp)) @@
-                discon c p kcp @@
-                (c --> u) (H._200 (swap kuc)) @@
-                discon u c kuc @@
+                (p -?-> c) (H._200 (swap kcp)) kcp @@
+                (c -?-> u) (H._200 (swap kuc)) kuc @@
                 finish)))
-    ~l2:((p,u), discon u p kup @@
-                (u -!-> c) (H.fail ~pred:(fun _ -> H.Util.http_parameter_contains ("error", "access_denied")) "/callback") (fun kuc ->
-                (c --> u) (H._200 (swap kuc)) @@
-                discon u c kuc @@
+    ~l2:((p,u), (u -!-> c) (H.fail ~pred:(fun _ -> H.Util.http_parameter_contains ("error", "access_denied")) "/callback") (fun kuc ->
+                (c -?-> u) (H._200 (swap kuc)) kuc @@
                 finish)))))
 
 let () =
@@ -54,9 +50,8 @@ let facebook_oauth () =
   print_endline "oauth_consumer started";
   let g = mk_oauth () in
   let s = get_sess c g in
-  acceptor "" >>= fun srv ->
   let sessionid = Int64.to_string @@ Random.int64 Int64.max_int in
-  srv.H.extra_server <- sessionid;
+  my_acceptor sessionid >>= fun srv ->
   accept A srv s >>= fun (`get(params, s)) ->
   print_endline "connection accepted";
   let redirect_url =
@@ -67,8 +62,8 @@ let facebook_oauth () =
        ("state", sessionid)]
   in
   let s = send A (fun x->x#_302) redirect_url s in
-  disconnect A (fun k -> k.H.close_server ()) s >>= fun s ->
-  acceptor sessionid >>= fun srv' ->
+  disconnect A H.close_server s >>= fun s ->
+  my_acceptor sessionid >>= fun srv ->
   accept A srv s >>= function
   | `success(_,s) ->
      H.http_connector ~base_url:"https://graph.facebook.com/v2.11/oauth" sessionid >>= fun cli ->

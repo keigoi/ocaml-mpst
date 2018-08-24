@@ -1,4 +1,6 @@
-type cohttp_server =
+let (>>=) = Lwt.(>>=)
+
+type 'a cohttp_server =
   {base_path: string;
    read_request:
      ?predicate:(Cohttp.Request.t -> bool)
@@ -8,17 +10,19 @@ type cohttp_server =
    write_response:
      Cohttp.Response.t * Cohttp_lwt.Body.t
      -> unit Lwt.t;
-   close_server : unit -> unit Lwt.t
+   close_server : unit -> unit Lwt.t;
+   mutable extra_server : 'a
   }
 
-type cohttp_client =
+type 'a cohttp_client =
   {base_url: string;
    write_request:
       path:string
    -> params:(string * string list) list
    -> unit Lwt.t;
    read_response: (Cohttp.Response.t * string) Lwt.t;
-   close_client : unit -> unit Lwt.t
+   close_client : unit -> unit Lwt.t;
+   mutable extra_client : 'a
   }
 
 let start_server host port callback () =
@@ -97,13 +101,13 @@ end
 
 type cohttp_server_hook = Cohttp.Request.t -> Cohttp_lwt.Body.t -> (Cohttp.Response.t * Cohttp_lwt.Body.t) option Lwt.t
 
-let http_acceptor ~base_path : (unit -> cohttp_server Lwt.t)  * cohttp_server_hook =
+let http_acceptor ~base_path : ('a -> 'a cohttp_server Lwt.t)  * cohttp_server_hook =
   let open Lwt in
   let table = ActionTable.create () in
   let callback req body =
     ActionTable.dispatch table req body
   in
-  let acceptor () =
+  let acceptor ext =
     let wait, wake = Lwt.wait () in
     return
       {
@@ -117,13 +121,19 @@ let http_acceptor ~base_path : (unit -> cohttp_server Lwt.t)  * cohttp_server_ho
            then Lwt.fail (Failure "write: no request")
            else wait >>= fun u ->
                 Lwt.return (Lwt.wakeup u res));
-         close_server=(fun () -> Lwt.return ())
+         close_server=(fun () -> Lwt.return ());
+         extra_server=ext
        };
   in
   (acceptor, callback)
 
+let close_server c =
+  c.close_server ()
 
-let http_connector ~(base_url : string) :  cohttp_client Lwt.t =
+let close_client c =
+  c.close_client ()
+
+let http_connector ~(base_url : string) ext :  'a cohttp_client Lwt.t =
   let open Lwt in
   Resolver_lwt.resolve_uri ~uri:(Uri.of_string base_url) Resolver_lwt_unix.system >>= fun endp ->
   Conduit_lwt_unix.endp_to_client ~ctx:Conduit_lwt_unix.default_ctx endp >>= fun client ->
@@ -149,7 +159,9 @@ let http_connector ~(base_url : string) :  cohttp_client Lwt.t =
                Lwt.catch (fun () ->
                    Lwt_io.close ic >>= fun () ->
                    Lwt_io.close oc
-                 ) (fun _exn -> return ()))}
+                 ) (fun _exn -> return ()));
+             extra_client=ext
+    }
 
 module Util = struct
   (** http_parameter_contains ("key","value") request returns true if key=value is in the request. *)
@@ -157,8 +169,110 @@ module Util = struct
     let uri = req |> Cohttp.Request.resource |> Uri.of_string in
     Uri.get_query_param uri key = Some value
 
-  (** parse req returns (relative_path, request_params) *)
+  (** (parse req) returns (relative_path, request_params) *)
   let parse req =
     let uri = req |> Cohttp.Request.resource |> Uri.of_string in
     Lwt.return Uri.(path uri, Uri.query uri)
 end
+
+let http {Mpst.Session.conn=c} =
+  match c with
+  | Some c -> c
+  | None -> failwith "mpst: http disconnected. malformed protocol?"
+
+let get_ f g path ?(pred=(fun _ _->true)) (k1, k2) =
+  Mpst.Global.Labels.mklabel
+    f g
+    (fun c params ->
+      Lwt.async begin fun () ->
+        (http c).write_request
+          ~path:path
+          ~params:params
+        end)
+    (fun c ->
+      (http c).read_request ~paths:[path] ~predicate:(pred (http c)) () >>= fun (req, _body) ->
+      Util.parse req >>= fun (path, params) ->
+      Lwt.return params)
+    (k1, k2)
+
+let get ?pred path k12 =
+  get_
+    (fun f -> object method get=f end)
+    (fun x -> `get x)
+    path ?pred k12
+
+let success ?pred path k12 =
+  get_
+    (fun f -> object method success=f end)
+    (fun x -> `success x)
+    path ?pred k12
+
+let fail ?pred path k12 =
+  get_
+    (fun f -> object method fail=f end)
+    (fun x -> `fail x)
+    path ?pred k12
+
+let post path (k1, k2) = (* TODO *)
+  Mpst.Global.Labels.mklabel
+    (fun g -> object method post=g end)
+    (fun x -> `post x)
+    (fun c params ->
+      failwith "NOT IMPLEMENTED")
+    (fun c ->
+      Lwt.return (failwith "NOT IMPLEMENTED"))
+    (k1, k2)
+
+(* HTTP response *)
+let _200 (k1, k2) =
+  Mpst.Global.Labels.mklabel
+    (fun f -> object method _200=f end)
+    (fun x -> `_200 x)
+    (fun c page ->
+      Lwt.async begin fun () ->
+          Cohttp_lwt_unix.Server.respond_string
+            ~status:`OK
+            ~body:page
+            () >>= fun (resp,body) ->
+          (http c).write_response (resp, body)
+        end
+    )
+    (fun c ->
+      (http c).read_response >>= fun (_resp, body) ->
+      Lwt.return body)
+    (k1, k2)
+
+let _302 (k1, k2) =
+  Mpst.Global.Labels.mklabel
+    (fun f -> object method _302=f end)
+    (fun x -> `_302 x)
+    (fun c url ->
+      Lwt.async begin fun () ->
+          Cohttp_lwt_unix.Server.respond_string
+            ~status:`Found
+            ~headers:(Cohttp.Header.init_with "Location" @@ Uri.to_string url)
+            ~body:"" () >>= fun (resp,body) ->
+          (http c).write_response (resp, body)
+        end
+    )
+    (fun (_:(_,_ cohttp_client) Mpst.Session.conn) ->
+      Lwt.return (failwith "TODO: not implemented" : Uri.t)) (* FIXME *)
+    (k1, k2)
+
+let _200_success_fail make_page parse_page (k1, k2) =
+  Mpst.Global.Labels.mklabel2
+    (fun f g -> object method success=f method fail=g end)
+    (fun x -> `success x)
+    (fun x -> `fail x)
+    (fun c v ->
+      Lwt.async begin fun () ->
+          Cohttp_lwt_unix.Server.respond_string
+            ~status:`OK
+            ~body:(make_page v)
+            () >>= fun (resp,body) ->
+          (http c).write_response (resp, body)
+        end)
+    (fun c ->
+      (http c).read_response >>= fun (_resp, body) ->
+      Lwt.return @@ parse_page body) (* FIXME *)
+    (k1, k2)

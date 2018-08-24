@@ -38,6 +38,15 @@ val ( -!-> ) :
   (('r1, 'k1) conn * ('r2, 'k2) conn -> 's mpst) ->
   'u mpst
 
+val ( -?-> ) :
+  ('d sess, ('r2 * 'd1) select sess, 's mpst, 't mpst, 'r1) role ->
+  ('f sess, ('r1 * 'f1) branch sess, 't mpst, 'u mpst, 'r2) role ->
+  ('d1, ('r2 * ('r1, 'k1) conn * 'd sess) disconnect sess, 'f1,
+   ('r1 * ('r2, 'k2) conn * 'f sess) disconnect sess) commm ->
+  ('r2, 'k2) conn * ('r1, 'k1) conn ->
+  's mpst ->
+  'u mpst
+
 val (-!%%->) : (close sess, ('r2 * ('k1 -> 'l)) request sess, 'ss mpst, 't mpst, 'r1) role ->
                (close sess, ('r1 * ('k2 -> 'r)) accept sess, 't mpst, 'u mpst, 'r2) role ->
                (('r1, 'k1) conn * ('r2, 'k2) conn -> ('l, 'd1 sess, 'd2 sess, 'r, 'f1 sess, 'f2 sess) commm2) ->
@@ -49,6 +58,21 @@ val (-!%%->) : (close sess, ('r2 * ('k1 -> 'l)) request sess, 'ss mpst, 't mpst,
                  (('r1, 'k1) conn * ('r2, 'k2) conn -> 's2 mpst) ->
                'u mpst
 
+val (-?%%->) : (close sess, ('r2 * 'l) select sess, 'ss mpst, 't mpst, 'r1) role ->
+               (close sess, ('r1 * 'r) branch sess, 't mpst, 'u mpst, 'r2) role ->
+               ('l, ('r2 * ('r1, 'k1) conn * 'd1 sess) disconnect sess,
+                ('r2 * ('r1, 'k1) conn * 'd2 sess) disconnect sess, 'r,
+                ('r1 * ('r2, 'k2) conn * 'f1 sess) disconnect sess,
+                ('r1 * ('r2, 'k2) conn * 'f2 sess) disconnect sess)
+                 commm2 ->
+               ('r2, 'k2) conn * ('r1, 'k1) conn ->
+               l1:(('d1 sess, close sess, 's1 mpst, 't1 mpst, 'r1) role *
+                     ('f1 sess, close sess, 't1 mpst, 'ss mpst, 'r2) role) *
+                 's1 mpst ->
+               l2:(('d2 sess, close sess, 's2 mpst, 't2 mpst, 'r1) role *
+                     ('f2 sess, close sess, 't2 mpst, 'ss mpst, 'r2) role) *
+                 's2 mpst ->
+               'u mpst
 val discon :
   ('d sess, ('r2 * ('r1, 'k1) conn * 'd sess) disconnect sess, 's mpst, 't mpst, 'r1)
     role ->

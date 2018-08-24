@@ -13,102 +13,51 @@ let http {Mpst.Session.conn=c} =
 
 module HttpUtil = struct
 
-  let get path f g (k1, k2) =
-    Labels.mklabel
-      f
-      g
-      (fun c params ->
-          Lwt.async begin fun () ->
-              (http c).body.write_request
-                ~path:path
-                ~params:params
-            end)
-      (fun c ->
-        (http c).body.read_request ~paths:[path] () >>= fun (req, _body) ->
-        Util.parse req >>= fun (path, params) ->
-        Lwt.return params)
-      (k1, k2)
-
-  let get2 path pred encoder filter f g h (k1, k2) =
-    Labels.mklabel2 f g h
-      (fun c params ->
-        Lwt.async begin fun () ->
-          (http c).body.write_request
-            ~path:path
-            ~params:(encoder (http c) params)
-          end)
-      (fun c ->
-        (http c).body.read_request
-          ~paths:[path] ~predicate:(pred (http c)) () >>= fun (req, _body) ->
-        Util.parse req >>= fun (path, params) ->
-        filter (path, params))
-      (k1, k2)
-
-  let post path f g (k1, k2) = (* TODO *)
-    Labels.mklabel
-      f
-      g
-      (fun c params ->
-          failwith "NOT IMPLEMENTED")
-      (fun c ->
-        Lwt.return (failwith "NOT IMPLEMENTED"))
-      (k1, k2)
 end
 
 
-(* HTTP paths *)
-let oauth (k1, k2) =
-  HttpUtil.get
-    "/oauth"
-    (fun g -> object method oauth=g end)
-    (fun x -> `oauth x)
-    (k1, k2)
-
-let access_token (k1, k2) =
-  HttpUtil.get
-    "/access_token"
-    (fun f -> object method access_token=f end)
-    (fun g -> `access_token g)
-    (k1, k2)
-
-let submit (k1, k2) =
-  HttpUtil.post
-    "/submit"
-    (fun g -> object method submit=g end)
-    (fun x -> `submit x)
-    (k1, k2)
-
-let success (k1, k2) =
-  HttpUtil.get
-    "/callback_success"
-    (fun g -> object method success=g end)
-    (fun x -> `success x)
-    (k1, k2)
-
-let fail (k1, k2) =
-  HttpUtil.get
-    "/callback_fail"
-    (fun g -> object method fail=g end)
-    (fun x -> `fail x)
-    (k1, k2)
-
-let success_fail (k1, k2) =
-  HttpUtil.get2
-    "/callback_success_fail"
-    (fun c b ->
-      Util.http_parameter_contains ("state", c.sessionid) b)
+let get_ f g path ?(pred=(fun _ _->true)) (k1, k2) =
+  Labels.mklabel
+    f g
+    (fun c params ->
+      Lwt.async begin fun () ->
+        (http c).body.write_request
+          ~path:path
+          ~params:params
+        end)
     (fun c ->
-      function
-     | Left code -> [("code", [code]); ("state", [c.sessionid])]
-     | Right () -> [])
-    (fun (path, query) ->
-      match List.assoc_opt "code" query with
-      | Some [code] -> Lwt.return (Left code)
-      | _ -> Lwt.return (Right ()))
-    (fun (g : string -> _) (h : unit -> _) -> object method callback=g method callback_fail=h end)
-    (fun x -> `callback x) (fun x -> `callback_fail x)
+      (http c).body.read_request ~paths:[path] ~predicate:(pred (http c)) () >>= fun (req, _body) ->
+      Util.parse req >>= fun (path, params) ->
+      Lwt.return params)
     (k1, k2)
 
+let get ?pred path k12 =
+  get_
+    (fun f -> object method get=f end)
+    (fun x -> `get x)
+    path ?pred k12
+
+let success ?pred path k12 =
+  get_
+    (fun f -> object method success=f end)
+    (fun x -> `success x)
+    path ?pred k12
+
+let fail ?pred path k12 =
+  get_
+    (fun f -> object method fail=f end)
+    (fun x -> `fail x)
+    path ?pred k12
+
+let post path (k1, k2) = (* TODO *)
+  Labels.mklabel
+    (fun g -> object method post=g end)
+    (fun x -> `post x)
+    (fun c params ->
+      failwith "NOT IMPLEMENTED")
+    (fun c ->
+      Lwt.return (failwith "NOT IMPLEMENTED"))
+    (k1, k2)
 
 (* HTTP response *)
 let _200 (k1, k2) =
@@ -144,4 +93,22 @@ let _302 (k1, k2) =
     )
     (fun (_:(_,cohttp_client oauth_session) Mpst.Session.conn) ->
       Lwt.return (failwith "TODO: not implemented" : Uri.t)) (* FIXME *)
+    (k1, k2)
+
+let success_fail make_page parse_page (k1, k2) =
+  Labels.mklabel2
+    (fun f g -> object method success=f method fail=g end)
+    (fun x -> `success x)
+    (fun x -> `fail x)
+    (fun c v ->
+      Lwt.async begin fun () ->
+          Cohttp_lwt_unix.Server.respond_string
+            ~status:`OK
+            ~body:(make_page v)
+            () >>= fun (resp,body) ->
+          (http c).body.write_response (resp, body)
+        end)
+    (fun c ->
+      (http c).body.read_response >>= fun (_resp, body) ->
+      Lwt.return @@ parse_page body) (* FIXME *)
     (k1, k2)

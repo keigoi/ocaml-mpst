@@ -38,6 +38,17 @@ val ( -!-> ) :
   (('r1, 'k1) conn * ('r2, 'k2) conn -> 's mpst) ->
   'u mpst
 
+val (-!%%->) : (close sess, ('r2 * ('k1 -> 'l)) request sess, 'ss mpst, 't mpst, 'r1) role ->
+               (close sess, ('r1 * ('k2 -> 'r)) accept sess, 't mpst, 'u mpst, 'r2) role ->
+               (('r1, 'k1) conn * ('r2, 'k2) conn -> ('l, 'd1 sess, 'd2 sess, 'r, 'f1 sess, 'f2 sess) commm2) ->
+               l1:(('d1 sess, close sess, 's1 mpst, 't1 mpst, 'r1) role *
+                     ('f1 sess, close sess, 't1 mpst, 'ss mpst, 'r2) role) *
+                 (('r1, 'k1) conn * ('r2, 'k2) conn -> 's1 mpst) ->
+               l2:(('d2 sess, close sess, 's2 mpst, 't2 mpst, 'r1) role *
+                     ('f2 sess, close sess, 't2 mpst, 'ss mpst, 'r2) role) *
+                 (('r1, 'k1) conn * ('r2, 'k2) conn -> 's2 mpst) ->
+               'u mpst
+
 val discon :
   ('d sess, ('r2 * ('r1, 'k1) conn * 'd sess) disconnect sess, 's mpst, 't mpst, 'r1)
     role ->

@@ -13,6 +13,7 @@ type _ sess =
   | Branch : ('r1 * (unit -> 'a Lwt.t) list) -> ('r1 * 'a) branch sess (* "fancy" type rep. (hiding Lwt.t) *)
   | DummyBranch : 'a branch sess
   | Request : 'a -> 'a request sess
+  | RequestMulti : 'a -> 'a request sess
   | Accept : 'r1 * ('k1 -> 'a Lwt.t) list -> ('r1 * ('k1 -> 'a)) accept sess
   | Disconnect : 'a -> 'a disconnect sess
   | Close : close sess

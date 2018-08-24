@@ -22,37 +22,30 @@ let (-->) : type d1 f1 d f s t u r1 r2 c.
   let uobj = r2_l.put tobj (Branch (r1, [(fun () -> comm.receiver (Lazy.force f) ())])) in
   uobj
 
-let (-!->) : type d1 f1 d f s t u r1 r2 k1 k2.
-                    (d sess, (r2 * (k1 -> d1)) request sess, s mpst, t mpst, r1) role
-                  -> (f sess, (r1 * (k2 -> f1)) accept sess, t mpst, u mpst, r2) role
-                  -> ((r1, k1) conn * (r2, k2) conn -> (d1,  d sess, f1, f sess) commm)
-                  -> ((r1, k1) conn * (r2, k2) conn -> s mpst)
-                  -> u mpst =
-  fun (r1_l, r1) (r2_l, r2) comm sobjf ->
-  let k1r, k2r = {conn=None; origin=Some r1}, {conn=None; origin=Some r2} in
-  let sobj = sobjf (k1r, k2r) in
-  let comm = comm (k1r, k2r) in
-  let d = lazy (r1_l.get sobj) in
-  let tobj = r1_l.put sobj (Request (r2, fun k -> k1r.conn <- Some k; comm.sender (Lazy.force d))) in
-  let f = lazy (r2_l.get tobj) in
-  let uobj = r2_l.put tobj (Accept (r1, [(fun k -> k2r.conn <- Some k; comm.receiver (Lazy.force f) ())])) in
-  uobj
-
-let discon : type d1 f1 d f s t u r1 r2 k1 k2.
-                    (d sess, (r2 * (r1, k1) conn * d sess) disconnect sess, s mpst, t mpst, r1) role
-                  -> (f sess, (r1 * (r2, k2) conn * f sess) disconnect sess, t mpst, u mpst, r2) role
-                  -> ((r1, k1) conn * (r2, k2) conn)
-                  -> s mpst
-                  -> u mpst =
-  fun (r1_l, r1) (r2_l, r2) (k1r, k2r) sobj ->
-  let d = lazy (r1_l.get sobj) in
-  let tobj = r1_l.put sobj (Disconnect (r2, k1r, (Lazy.force d))) in
-  let f = lazy (r2_l.get tobj) in
-  let uobj = r2_l.put tobj (Disconnect (r1, k2r, (Lazy.force f))) in
-  uobj
-
 let flatten : 'a mpst -> 'a mpst -> 'a mpst = fun (MPST m1) (MPST m2) ->
   MPST (lazy (Lazy.force m1 @ Lazy.force m2))
+
+let (-%%->) : type r1 r2 d1 d2 f1 f2 ss s1 s2 t t1 t2 u v1 v2 r l k1 k2.
+                     (close sess, (r2 * l) select sess, ss mpst, t mpst, r1) role
+                   -> (close sess, (r1 * r) branch sess, t mpst, u mpst, r2) role
+                   -> (l, d1 sess, d2 sess, r, f1 sess, f2 sess) commm2
+                   -> l1:(((d1 sess, close sess, s1 mpst, t1 mpst, r1) role * (f1 sess, close sess, t1 mpst, ss mpst, r2) role) * s1 mpst)
+                   -> l2:(((d2 sess, close sess, s2 mpst, t2 mpst, r1) role * (f2 sess, close sess, t2 mpst, ss mpst, r2) role) * s2 mpst)
+                   -> u mpst =
+  fun (r1_l, r1) (r2_l, r2) comm
+      ~l1:(((r1_ll,_),(r2_ll,_)), s1obj)
+      ~l2:(((r1_lr,_),(r2_lr,_)), s2obj) ->
+  let d1,t1obj = lazy (r1_ll.get s1obj), r1_ll.put s1obj Close in
+  let f1,ssobj_l = lazy (r2_ll.get t1obj), r2_ll.put t1obj Close in
+  let d2,t2obj = lazy (r1_lr.get s2obj), r1_lr.put s2obj Close in
+  let f2,ssobj_r = lazy (r2_lr.get t2obj), r2_lr.put t2obj Close in
+  let dd = SelectMulti (lazy (r2, comm.sender2 (Lazy.force d1, Lazy.force d2))) in
+  let ff = Branch (r1, [(fun () -> comm.receiver2 (Lazy.force f1, Lazy.force f2) ())]) in
+  let tobj_l = r1_l.put ssobj_l dd in
+  let uobj_l = r2_l.put tobj_l ff in
+  let tobj_r = r1_l.put ssobj_r dd in
+  let uobj_r = r2_l.put tobj_r ff in
+  flatten uobj_l uobj_r
 
 let (-%%->) : type r1 r2 d1 d2 f1 f2 ss s1 s2 t t1 t2 u v1 v2 r l k1 k2.
                      (close sess, (r2 * l) select sess, ss mpst, t mpst, r1) role
@@ -76,7 +69,60 @@ let (-%%->) : type r1 r2 d1 d2 f1 f2 ss s1 s2 t t1 t2 u v1 v2 r l k1 k2.
   let uobj_r = r2_l.put tobj_r ff in
   flatten uobj_l uobj_r
 
-(* let (-%%->) r1 r2 ~left ~right  = (-%%->) r1 r2 leftright ~l1:left ~l2:right *)
+let (-!->) : type d1 f1 d f s t u r1 r2 k1 k2.
+                    (d sess, (r2 * (k1 -> d1)) request sess, s mpst, t mpst, r1) role
+                  -> (f sess, (r1 * (k2 -> f1)) accept sess, t mpst, u mpst, r2) role
+                  -> ((r1, k1) conn * (r2, k2) conn -> (d1,  d sess, f1, f sess) commm)
+                  -> ((r1, k1) conn * (r2, k2) conn -> s mpst)
+                  -> u mpst =
+  fun (r1_l, r1) (r2_l, r2) comm sobjf ->
+  let k1r, k2r = {conn=None; origin=Some r1}, {conn=None; origin=Some r2} in
+  let sobj = sobjf (k1r, k2r) in
+  let comm = comm (k1r, k2r) in
+  let d = lazy (r1_l.get sobj) in
+  let tobj = r1_l.put sobj (Request (r2, fun k -> k1r.conn <- Some k; comm.sender (Lazy.force d))) in
+  let f = lazy (r2_l.get tobj) in
+  let uobj = r2_l.put tobj (Accept (r1, [(fun k -> k2r.conn <- Some k; comm.receiver (Lazy.force f) ())])) in
+  uobj
+
+
+let (-!%%->) : type r1 r2 d1 d2 f1 f2 ss s1 s2 t t1 t2 u v1 v2 r l k1 k2.
+                     (close sess, (r2 * (k1 -> l)) request sess, ss mpst, t mpst, r1) role
+                   -> (close sess, (r1 * (k2 -> r)) accept sess, t mpst, u mpst, r2) role
+                   -> ((r1, k1) conn * (r2, k2) conn -> (l, d1 sess, d2 sess, r, f1 sess, f2 sess) commm2)
+                   -> l1:(((d1 sess, close sess, s1 mpst, t1 mpst, r1) role * (f1 sess, close sess, t1 mpst, ss mpst, r2) role) * ((r1, k1) conn * (r2, k2) conn -> s1 mpst))
+                   -> l2:(((d2 sess, close sess, s2 mpst, t2 mpst, r1) role * (f2 sess, close sess, t2 mpst, ss mpst, r2) role) * ((r1, k1) conn * (r2, k2) conn -> s2 mpst))
+                   -> u mpst =
+  fun (r1_l, r1) (r2_l, r2) comm
+      ~l1:(((r1_ll,_),(r2_ll,_)), s1obj)
+      ~l2:(((r1_lr,_),(r2_lr,_)), s2obj) ->
+  let k1r, k2r = {conn=None; origin=Some r1}, {conn=None; origin=Some r2} in
+  let s1obj, s2obj = s1obj (k1r, k2r), s2obj (k1r, k2r) in
+  let comm = comm (k1r, k2r) in
+  let d1,t1obj = lazy (r1_ll.get s1obj), r1_ll.put s1obj Close in
+  let f1,ssobj_l = lazy (r2_ll.get t1obj), r2_ll.put t1obj Close in
+  let d2,t2obj = lazy (r1_lr.get s2obj), r1_lr.put s2obj Close in
+  let f2,ssobj_r = lazy (r2_lr.get t2obj), r2_lr.put t2obj Close in
+  let dd = RequestMulti (r2, fun k -> k1r.conn <- Some k; comm.sender2 (Lazy.force d1, Lazy.force d2)) in
+  let ff = Accept (r1, [(fun k -> k2r.conn <- Some k; comm.receiver2 (Lazy.force f1, Lazy.force f2) ())]) in
+  let tobj_l = r1_l.put ssobj_l dd in
+  let uobj_l = r2_l.put tobj_l ff in
+  let tobj_r = r1_l.put ssobj_r dd in
+  let uobj_r = r2_l.put tobj_r ff in
+  flatten uobj_l uobj_r
+
+let discon : type d1 f1 d f s t u r1 r2 k1 k2.
+                    (d sess, (r2 * (r1, k1) conn * d sess) disconnect sess, s mpst, t mpst, r1) role
+                  -> (f sess, (r1 * (r2, k2) conn * f sess) disconnect sess, t mpst, u mpst, r2) role
+                  -> ((r1, k1) conn * (r2, k2) conn)
+                  -> s mpst
+                  -> u mpst =
+  fun (r1_l, r1) (r2_l, r2) (k1r, k2r) sobj ->
+  let d = lazy (r1_l.get sobj) in
+  let tobj = r1_l.put sobj (Disconnect (r2, k1r, (Lazy.force d))) in
+  let f = lazy (r2_l.get tobj) in
+  let uobj = r2_l.put tobj (Disconnect (r1, k2r, (Lazy.force f))) in
+  uobj
 
 let dummy_close : 'a 'r. (close sess, close sess, 'a mpst, 'a mpst, 'r) role -> 'a mpst -> 'a mpst =
   fun (l,_) aobj ->
@@ -108,10 +154,12 @@ let rec unify : type s. s sess -> s sess -> s sess = fun s1 s2 ->
     | DummyBranch, b -> b
     | Close, Close -> Close
     | SelectMulti x, SelectMulti y -> if x==y then SelectMulti x else raise RoleNotEnabled
+    | RequestMulti x, RequestMulti y -> if x==y then RequestMulti x else raise RoleNotEnabled
     | Disconnect _, _ -> raise RoleNotEnabled
-    | Request _, _ -> raise RoleNotEnabled
     | Select _, _ -> raise RoleNotEnabled
     | _, Select _ -> raise RoleNotEnabled
+    | Request _, _ -> raise RoleNotEnabled
+    | _, Request _ -> raise RoleNotEnabled
   end
 
 let rec uget : 's 'a. ('s sess, _, 'a, _) lens -> 'a mpst -> 's sess = fun l (MPST (lazy xs)) ->

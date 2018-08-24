@@ -1,7 +1,10 @@
+(* TODO: implement the POST method *)
 open Mpst.Global
 open Mpst_http
 open Mpst.Base
 let (>>=) = Lwt.(>>=)
+
+type 'c oauth_session={mutable sessionid:string; body:'c}
 
 let http {Mpst.Session.conn=c} =
   match c with
@@ -16,12 +19,12 @@ module HttpUtil = struct
       g
       (fun c params ->
           Lwt.async begin fun () ->
-              (http c).write_request
+              (http c).body.write_request
                 ~path:path
                 ~params:params
             end)
       (fun c ->
-        (http c).read_request ~paths:[path] () >>= fun (req, _body) ->
+        (http c).body.read_request ~paths:[path] () >>= fun (req, _body) ->
         Util.parse req >>= fun (path, params) ->
         Lwt.return params)
       (k1, k2)
@@ -30,27 +33,30 @@ module HttpUtil = struct
     Labels.mklabel2 f g h
       (fun c params ->
         Lwt.async begin fun () ->
-          (http c).write_request
+          (http c).body.write_request
             ~path:path
-            ~params:(encoder params)
+            ~params:(encoder (http c) params)
           end)
       (fun c ->
-        (http c).read_request
-          ~paths:[path] ~predicate:pred () >>= fun (req, _body) ->
+        (http c).body.read_request
+          ~paths:[path] ~predicate:(pred (http c)) () >>= fun (req, _body) ->
         Util.parse req >>= fun (path, params) ->
         filter (path, params))
+      (k1, k2)
+
+  let post path f g (k1, k2) = (* TODO *)
+    Labels.mklabel
+      f
+      g
+      (fun c params ->
+          failwith "NOT IMPLEMENTED")
+      (fun c ->
+        Lwt.return (failwith "NOT IMPLEMENTED"))
       (k1, k2)
 end
 
 
 (* HTTP paths *)
-let access_token (k1, k2) =
-  HttpUtil.get
-    "/access_token"
-    (fun f -> object method access_token=f end)
-    (fun g -> `access_token g)
-    (k1, k2)
-
 let oauth (k1, k2) =
   HttpUtil.get
     "/oauth"
@@ -58,12 +64,42 @@ let oauth (k1, k2) =
     (fun x -> `oauth x)
     (k1, k2)
 
-let callback state (k1, k2) =
+let access_token (k1, k2) =
+  HttpUtil.get
+    "/access_token"
+    (fun f -> object method access_token=f end)
+    (fun g -> `access_token g)
+    (k1, k2)
+
+let submit (k1, k2) =
+  HttpUtil.post
+    "/submit"
+    (fun g -> object method submit=g end)
+    (fun x -> `submit x)
+    (k1, k2)
+
+let success (k1, k2) =
+  HttpUtil.get
+    "/callback_success"
+    (fun g -> object method success=g end)
+    (fun x -> `success x)
+    (k1, k2)
+
+let fail (k1, k2) =
+  HttpUtil.get
+    "/callback_fail"
+    (fun g -> object method fail=g end)
+    (fun x -> `fail x)
+    (k1, k2)
+
+let success_fail (k1, k2) =
   HttpUtil.get2
-    "/callback"
-    (Util.http_parameter_contains ("state", state))
-    (function
-     | Left code -> [("code", [code]); ("state", [state])]
+    "/callback_success_fail"
+    (fun c b ->
+      Util.http_parameter_contains ("state", c.sessionid) b)
+    (fun c ->
+      function
+     | Left code -> [("code", [code]); ("state", [c.sessionid])]
      | Right () -> [])
     (fun (path, query) ->
       match List.assoc_opt "code" query with
@@ -85,11 +121,11 @@ let _200 (k1, k2) =
             ~status:`OK
             ~body:page
             () >>= fun (resp,body) ->
-          (http c).write_response (resp, body)
+          (http c).body.write_response (resp, body)
         end
     )
     (fun c ->
-      (http c).read_response >>= fun (_resp, body) ->
+      (http c).body.read_response >>= fun (_resp, body) ->
       Lwt.return body)
     (k1, k2)
 
@@ -103,9 +139,9 @@ let _302 (k1, k2) =
             ~status:`Found
             ~headers:(Cohttp.Header.init_with "Location" @@ Uri.to_string url)
             ~body:"" () >>= fun (resp,body) ->
-          (http c).write_response (resp, body)
+          (http c).body.write_response (resp, body)
         end
     )
-    (fun (_:(_,cohttp_client) Mpst.Session.conn) ->
+    (fun (_:(_,cohttp_client oauth_session) Mpst.Session.conn) ->
       Lwt.return (failwith "TODO: not implemented" : Uri.t)) (* FIXME *)
     (k1, k2)

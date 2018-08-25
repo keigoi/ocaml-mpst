@@ -19,6 +19,15 @@ val ( --> ) :
   's mpst ->
   'u mpst
 
+val ( *--> ) :
+  (('r3 * 'd) branch sess, (('r2 * 'r3)  * 'd1) selectbranch sess, 's mpst, 't mpst,
+   'r1)
+    role ->
+  ('f sess, ('r1 * 'f1) branch sess, 't mpst, 'u mpst, 'r2) role ->
+  ('d1, 'd proc, 'f1, 'f sess) commm ->
+  's mpst ->
+  'u mpst
+
 val ( -%%-> ) :
   (close sess, ('r2 * 'l) select sess, 'ss mpst, 't mpst, 'r1) role ->
   (close sess, ('r1 * 'r) branch sess, 't mpst, 'u mpst, 'r2) role ->

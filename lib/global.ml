@@ -9,6 +9,8 @@ type ('a, 'b, 'c, 'd, 'r) role = ('a, 'b, 'c, 'd) lens * 'r
 type ('d1, 'd, 'f1, 'f) commm = {sender:'d -> 'd1; receiver:'f -> unit -> 'f1 Lwt.t}
 type ('l, 'x1, 'x2, 'r, 'y1, 'y2) commm2 = {sender2 : 'x1 * 'x2 -> 'l; receiver2: ('y1 * 'y2) -> unit -> 'r Lwt.t}
 
+
+
 let (-->) : type d1 f1 d f s t u r1 r2 c.
                  (d sess, (r2 * d1) select sess, s mpst, t mpst, r1) role
                  -> (f sess, (r1 * f1) branch sess, t mpst, u mpst, r2) role
@@ -18,6 +20,19 @@ let (-->) : type d1 f1 d f s t u r1 r2 c.
   fun (r1_l, r1) (r2_l, r2) comm sobj ->
   let d = lazy (r1_l.get sobj) in
   let tobj = r1_l.put sobj (Select (lazy (r2, comm.sender (Lazy.force d)))) in
+  let f = lazy (r2_l.get tobj) in
+  let uobj = r2_l.put tobj (Branch (r1, [(fun () -> comm.receiver (Lazy.force f) ())])) in
+  uobj
+
+let ( *--> ) : type d1 f1 d f s t u r1 r2 r3 c.
+                 ((r3 * d) branch sess, ((r2 * r3) * d1) selectbranch sess, s mpst, t mpst, r1) role
+                 -> (f sess, (r1 * f1) branch sess, t mpst, u mpst, r2) role
+                 -> (d1, d proc, f1, f sess) commm
+                 -> s mpst
+                 -> u mpst =
+  fun (r1_l, r1) (r2_l, r2) comm sobj ->
+  let d = lazy (r1_l.get sobj) in
+  let tobj = r1_l.put sobj (SelectBranch (lazy ((r2, (Obj.magic ():r3)), (comm.sender @@ mkproc (fun () -> _receive (Lazy.force d)))))) in
   let f = lazy (r2_l.get tobj) in
   let uobj = r2_l.put tobj (Branch (r1, [(fun () -> comm.receiver (Lazy.force f) ())])) in
   uobj
@@ -39,7 +54,7 @@ let (-%%->) : type r1 r2 d1 d2 f1 f2 ss s1 s2 t t1 t2 u v1 v2 r l k1 k2.
   let f1,ssobj_l = lazy (r2_ll.get t1obj), r2_ll.put t1obj Close in
   let d2,t2obj = lazy (r1_lr.get s2obj), r1_lr.put s2obj Close in
   let f2,ssobj_r = lazy (r2_lr.get t2obj), r2_lr.put t2obj Close in
-  let dd = SelectMulti (lazy (r2, comm.sender2 (Lazy.force d1, Lazy.force d2))) in
+  let dd = Select (lazy (r2, comm.sender2 (Lazy.force d1, Lazy.force d2))) in
   let ff = Branch (r1, [(fun () -> comm.receiver2 (Lazy.force f1, Lazy.force f2) ())]) in
   let tobj_l = r1_l.put ssobj_l dd in
   let uobj_l = r2_l.put tobj_l ff in
@@ -95,7 +110,7 @@ let (-!%%->) : type r1 r2 d1 d2 f1 f2 ss s1 s2 t t1 t2 u v1 v2 r l k1 k2.
   let f1,ssobj_l = lazy (r2_ll.get t1obj), r2_ll.put t1obj Close in
   let d2,t2obj = lazy (r1_lr.get s2obj), r1_lr.put s2obj Close in
   let f2,ssobj_r = lazy (r2_lr.get t2obj), r2_lr.put t2obj Close in
-  let dd = RequestMulti (r2, fun k -> k1r.conn <- Some k; comm.sender2 (Lazy.force d1, Lazy.force d2)) in
+  let dd = Request (r2, fun k -> k1r.conn <- Some k; comm.sender2 (Lazy.force d1, Lazy.force d2)) in
   let ff = Accept (r1, [(fun k -> k2r.conn <- Some k; comm.receiver2 (Lazy.force f1, Lazy.force f2) ())]) in
   let tobj_l = r1_l.put ssobj_l dd in
   let uobj_l = r2_l.put tobj_l ff in
@@ -119,7 +134,7 @@ let (-?%%->) : type r1 r2 d1 d2 f1 f2 ss s1 s2 t t1 t2 u v1 v2 r l k1 k2.
   let f1,ssobj_l = lazy (r2_ll.get t1obj), r2_ll.put t1obj Close in
   let d2,t2obj = lazy (r1_lr.get s2obj), r1_lr.put s2obj Close in
   let f2,ssobj_r = lazy (r2_lr.get t2obj), r2_lr.put t2obj Close in
-  let dd = SelectMulti (lazy (r2, comm.sender2 (Disconnect (r2, k1r, Lazy.force d1), (Disconnect (r2, k1r, Lazy.force d2))))) in
+  let dd = Select (lazy (r2, comm.sender2 (Disconnect (r2, k1r, Lazy.force d1), (Disconnect (r2, k1r, Lazy.force d2))))) in
   let ff = Branch (r1, [(fun () -> comm.receiver2 (Disconnect (r1, k2r, Lazy.force f1), (Disconnect (r1, k2r, Lazy.force f2))) ())]) in
   let tobj_l = r1_l.put ssobj_l dd in
   let uobj_l = r2_l.put tobj_l ff in
@@ -169,13 +184,10 @@ let rec unify : type s. s sess -> s sess -> s sess = fun s1 s2 ->
     | b, DummyBranch -> b
     | DummyBranch, b -> b
     | Close, Close -> Close
-    | SelectMulti x, SelectMulti y -> if x==y then SelectMulti x else raise RoleNotEnabled
-    | RequestMulti x, RequestMulti y -> if x==y then RequestMulti x else raise RoleNotEnabled
+    | Select x, Select y -> if x==y then Select x else raise RoleNotEnabled
+    | SelectBranch x, SelectBranch y -> if x==y then SelectBranch x else raise RoleNotEnabled
+    | Request x, Request y ->  if x==y then Request x else raise RoleNotEnabled
     | Disconnect _, _ -> raise RoleNotEnabled
-    | Select _, _ -> raise RoleNotEnabled
-    | _, Select _ -> raise RoleNotEnabled
-    | Request _, _ -> raise RoleNotEnabled
-    | _, Request _ -> raise RoleNotEnabled
   end
 
 let rec uget : 's 'a. ('s sess, _, 'a, _) lens -> 'a mpst -> 's sess = fun l (MPST (lazy xs)) ->

@@ -175,7 +175,7 @@ module Util = struct
     Lwt.return Uri.(path uri, Uri.query uri)
 end
 
-let http {Mpst.Session.conn=c} =
+let http {Mpst.Session.conn=c; _} =
   match c with
   | Some c -> c
   | None -> failwith "mpst: http disconnected. malformed protocol?"
@@ -191,7 +191,7 @@ let get_ f g path ?(pred=(fun _ _->true)) (k1, k2) =
         end)
     (fun c ->
       (http c).read_request ~paths:[path] ~predicate:(pred (http c)) () >>= fun (req, _body) ->
-      Util.parse req >>= fun (path, params) ->
+      Util.parse req >>= fun (_path, params) ->
       Lwt.return params)
     (k1, k2)
 
@@ -213,13 +213,13 @@ let fail ?pred path k12 =
     (fun x -> `fail x)
     path ?pred k12
 
-let post path (k1, k2) = (* TODO *)
+let post _path (k1, k2) = (* TODO *)
   Mpst.Global.Labels.mklabel
     (fun g -> object method post=g end)
     (fun x -> `post x)
-    (fun c params ->
+    (fun _c _params ->
       failwith "NOT IMPLEMENTED")
-    (fun c ->
+    (fun _c ->
       Lwt.return (failwith "NOT IMPLEMENTED"))
     (k1, k2)
 

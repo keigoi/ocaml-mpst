@@ -1,22 +1,22 @@
-let (>>=) = Lwt.(>>=)
-          
+(* dune build light/light.exe && ./_build/default/light/light.exe *)
+
 module Channel : sig
   type 'a t
   val create : unit -> 'a t
   val send : 'a t -> 'a -> unit
-  val recv : 'a t -> 'a Lwt.t
-  val choose : ('a t * 'b) list -> ('a * 'b) Lwt.t
+  val recv : 'a t -> 'a
+  val choose : ('a t * 'b) list -> 'a * 'b
 end = struct
-  type 'a t = 'a Lwt_stream.t * ('a option -> unit)
-  let create = Lwt_stream.create
-  let send (_,push) v = push (Some v)
-  let recv (t,_) = Lwt_stream.next t
+  type 'a t = 'a Event.channel
+  let create () = Event.new_channel ()
+  let send t v = Event.sync (Event.send t v)
+  let recv t = Event.sync (Event.receive t)
   let choose xs =
-    Lwt.choose (List.map (fun ((t,_),co) -> Lwt_stream.next t >>= fun v -> Lwt.return (v, co)) xs)
+    Event.sync (Event.choose (List.map (fun (t,a) -> Event.wrap (Event.receive t) (fun v -> v,a)) xs))
 end
     
 
-module Local = struct
+(* module Local = struct *)
 
   type ('a,'b) either = Left of 'a | Right of 'b
 
@@ -42,8 +42,8 @@ module Local = struct
           
   let receive (_:'r) (Sess s) =
     let xs = List.map (fun (Recv ((_:'r), ch, c)) -> ch, c) s in
-    Channel.choose xs >>= fun (v, cont) ->
-    Lwt.return (v, Sess cont)
+    let v,cont = Channel.choose xs in
+    v, Sess cont
 
   let _select b (_:'r) (Sess s) =
     match s with
@@ -57,17 +57,17 @@ module Local = struct
 
   let branch (_:'r) (Sess s) =
     let xs = List.map (fun (Branch ((_:'r),ch,ls,rs)) -> (ch,(ls,rs))) s in
-    Channel.choose xs >>= fun (b, (ls,rs)) ->
+    let b, (ls,rs) = Channel.choose xs in
     if b then
-      Lwt.return (Left (Sess ls))
+      Left (Sess ls)
     else
-      Lwt.return (Right (Sess rs))
+      Right (Sess rs)
 
   let close (Sess (_:close list)) = ()
-end
-
-module Global = struct
-  open Local
+(* end
+ * 
+ * module Global = struct
+ *   open Local *)
      
 
   let (-->) a b s =
@@ -88,10 +88,10 @@ module Global = struct
     let s = a.lens.put s (Sess [Select (b.role, ch, sal, sar)]) in
     let s = b.lens.put s (Sess [Branch (a.role, ch, sbl, sbr)]) in
     s
-end
-
-module ThreeParty = struct
-  open Local
+(* end
+ * 
+ * module ThreeParty = struct
+ *   open Local *)
   let finish3 =
     let (s1,s2,s3) as roles = [Close],[Close],[Close] in
     Sess s1, Sess s2, Sess s3
@@ -105,12 +105,12 @@ module ThreeParty = struct
   let a = {role=A; lens={get=(fun (x,_,_) -> x); put=(fun (_,y,z) x->(x,y,z))}; merge=merge3}
   let b = {role=B; lens={get=(fun (_,y,_) -> y); put=(fun (x,_,z) y->(x,y,z))}; merge=merge3}
   let c = {role=C; lens={get=(fun (_,_,z) -> z); put=(fun (x,y,_) z->(x,y,z))}; merge=merge3}
-end
+(* end *)
 
-open ThreeParty
+(* open ThreeParty *)
 
 let global_example () =
-  let open Global in
+  (* let open Global in *)
   (a --> b) @@
   (b --> c) @@
   (a -%%-> b)
@@ -120,48 +120,51 @@ let global_example () =
             b --> c @@
             finish3)
 
-open Local
+(* open Local *)
    
 let t1 sa =
   let s = sa in
   let s = send B 100 s in
-  if true then
+  if Random.bool () then
     let s = select_left B s in
-    close s;
-    Lwt.return_unit
+    close s
   else
     let s = select_right B s in
-    receive B s >>= fun (v,s) ->
-    Printf.printf "A: received: %s" v;
-    close s;
-    Lwt.return_unit
+    let v,s = receive B s in
+    Printf.printf "A: received: %s\n" v;
+    close s
   
 let t2 sb =
   let s = sb in
-  receive A s >>= fun (v,s) ->
-  Printf.printf "B: received: %d" v;
+  let v,s = receive A s in
+  Printf.printf "B: received: %d\n" v;
   let s = send C "Hello" s in
-  branch A s >>= function
+  match branch A s with
   | Left s ->
      let s = send C "to C (1)" s in
-     close s;
-     Lwt.return_unit
+     close s
   | Right s ->
      let s = send A "to A" s in
      let s = send C "to C (2)" s in
-     close s;
-     Lwt.return_unit
+     close s
     
 let t3 sc =
   let s = sc in
-  receive B s >>= fun (v,s) ->
-  Printf.printf "C: received: %s" v;
-  receive B s >>= fun (w,s) ->
-  Printf.printf "C: received: %s" w;
-  close s;
-  Lwt.return_unit
+  let v,s = receive B s in
+  Printf.printf "C: received: %s\n" v;
+  let w,s = receive B s in
+  Printf.printf "C: received: %s\n" w;
+  close s
     
 let main () =
+  Random.self_init ();
   let g = global_example () in
   let sa, sb, sc = a.lens.get g, b.lens.get g, c.lens.get g in
-  Lwt.join [t1 sa; t2 sb; t3 sc]
+  let t1id = Thread.create (fun () -> t1 sa) () in
+  let t2id = Thread.create (fun () -> t2 sb) () in
+  t3 sc;
+  Thread.join t1id;
+  Thread.join t2id;
+  ()
+
+let () = main ()

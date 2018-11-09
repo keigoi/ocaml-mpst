@@ -1,5 +1,6 @@
-(library
- (name mpst_light)
- (public_name ocaml-mpst.light)
- (flags ("-g" "-short-paths"))
- (libraries threads lwt))
+(executable
+ (name light)
+  (public_name ex1)
+  (modules light)
+  (flags ("-g" "-short-paths"))
+  (libraries threads))

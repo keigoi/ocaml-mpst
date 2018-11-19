@@ -39,14 +39,14 @@ module Local : sig
   type ('s, 'v, 'r) send
   type ('s, 'v, 'r) recv
   type ('s1, 's2, 'r) select
-  type ('s1, 's2, 'r) branch
+  type ('s1, 's2, 'r) offer
   type close
   type 'c sess
   val send : 'r -> 'v -> ('s,'v,'r) send sess -> 's sess
   val receive : 'r -> ('s,'v,'r) recv sess -> 'v * 's sess
   val select_left : 'r -> ('s1,'s2,'r) select sess -> 's1 sess
   val select_right : 'r -> ('s1,'s2,'r) select sess -> 's2 sess
-  val branch : 'r -> ('s1,'s2,'r) branch sess -> ('s1 sess, 's2 sess) either
+  val offer : 'r -> ('s1,'s2,'r) offer sess -> ('s1 sess, 's2 sess) either
   val close : 'a sess -> unit
 
   (* session creation *)
@@ -57,7 +57,7 @@ module Local : sig
     val s2c_branch :
       from:('r1 * ('sl1 sess Lazy.t * 'sr1 sess Lazy.t)) ->
       to_:('r2 * ('sl2 sess Lazy.t * 'sr2 sess Lazy.t)) ->
-      ('sl1, 'sr1, 'r2) select sess * ('sl2, 'sr2, 'r1) branch sess
+      ('sl1, 'sr1, 'r2) select sess * ('sl2, 'sr2, 'r1) offer sess
     val end_ : close sess
 
     (* merge operator for global description *)
@@ -72,7 +72,7 @@ end = struct
   type ('c,'v,'r) recv
 
   type ('c1,'c2,'r) select
-  type ('c1,'c2,'r) branch
+  type ('c1,'c2,'r) offer
 
   type close
 
@@ -80,7 +80,7 @@ end = struct
     Send of UnsafeChannel.t * raw_sess Lazy.t
   | Recv of (UnsafeChannel.t * raw_sess Lazy.t) list
   | Select of bool Channel.t * raw_sess Lazy.t * raw_sess Lazy.t
-  | Branch of (bool Channel.t * (raw_sess Lazy.t * raw_sess Lazy.t)) list
+  | Offer of (bool Channel.t * (raw_sess Lazy.t * raw_sess Lazy.t)) list
   | Close
 
   type 'c sess = Sess of raw_sess
@@ -110,9 +110,9 @@ end = struct
   let select_left r s = Sess (Lazy.force (fst (_select true s)))
   let select_right r s = Sess (Lazy.force (snd (_select false s)))
 
-  let branch (_:'r) (Sess s) =
+  let offer (_:'r) (Sess s) =
     match s with
-    | Branch (xs) ->
+    | Offer (xs) ->
        let b, (ls, rs) = Channel.choose xs in
        if b then
          Left (Sess (Lazy.force ls))
@@ -133,7 +133,7 @@ end = struct
     let s2c_branch ~from:(_,(sl1,sr1)) ~to_:(_,(sl2,sr2)) =
       let ch = Channel.create () in
       Sess (Select (ch, unsess' sl1, unsess' sr1)),
-      Sess (Branch [(ch, (unsess' sl2, unsess' sr2))])
+      Sess (Offer [(ch, (unsess' sl2, unsess' sr2))])
 
     let end_ = Sess Close
 
@@ -144,11 +144,11 @@ end = struct
          failwith "role not enabled"
       | Recv xs, Recv ys ->
          Sess (Recv (xs @ ys))
-      | Branch xs, Branch ys ->
-         Sess (Branch (xs @ ys))
+      | Offer xs, Offer ys ->
+         Sess (Offer (xs @ ys))
       | Close, Close ->
          Sess Close
-      | Send (_,_), _ | Recv _, _ | Select (_,_,_), _ | Branch _, _ | Close, _
+      | Send (_,_), _ | Recv _, _ | Select (_,_,_), _ | Offer _, _ | Close, _
         -> assert false
   end
 end
@@ -172,7 +172,7 @@ module Global : sig
 
   val ( -%%-> ) :
     ('ra, close sess, ('sal, 'sar, 'rb) select sess, 'c2, 'c3) role ->
-    ('rb, close sess, ('sbl, 'sbr, 'ra) branch sess, 'c3, 'c4) role ->
+    ('rb, close sess, ('sbl, 'sbr, 'ra) offer sess, 'c3, 'c4) role ->
     (('ra, 'sal sess, close sess, 'cl0, 'cl1) role *
      ('rb, 'sbl sess, close sess, 'cl1, 'c2) role) *
     'cl0 ->
@@ -262,7 +262,7 @@ let t2 sb =
   let v,s = receive A s in
   Printf.printf "B: received: %d\n" v;
   let s = send C "Hello" s in
-  match branch A s with
+  match offer A s with
   | Left s ->
      let s = send C "to C (1)" s in
      close s

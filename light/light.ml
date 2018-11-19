@@ -38,15 +38,15 @@ module Local : sig
   type ('a, 'b) either = Left of 'a | Right of 'b
   type ('s, 'v, 'r) send
   type ('s, 'v, 'r) recv
-  type ('s1, 's2, 'r) select
-  type ('s1, 's2, 'r) offer
+  type ('ss, 'r) select
+  type ('ss, 'r) offer
   type close
   type 'c sess
   val send : 'r -> 'v -> ('s,'v,'r) send sess -> 's sess
   val receive : 'r -> ('s,'v,'r) recv sess -> 'v * 's sess
-  val select_left : 'r -> ('s1,'s2,'r) select sess -> 's1 sess
-  val select_right : 'r -> ('s1,'s2,'r) select sess -> 's2 sess
-  val offer : 'r -> ('s1,'s2,'r) offer sess -> ('s1 sess, 's2 sess) either
+  val select_left : 'r -> ('s1 * 's2,'r) select sess -> 's1 sess
+  val select_right : 'r -> ('s1 * 's2,'r) select sess -> 's2 sess
+  val offer : 'r -> ('s1 * 's2,'r) offer sess -> ('s1 sess, 's2 sess) either
   val close : 'a sess -> unit
 
   (* session creation *)
@@ -57,7 +57,7 @@ module Local : sig
     val s2c_branch :
       from:('r1 * ('sl1 sess Lazy.t * 'sr1 sess Lazy.t)) ->
       to_:('r2 * ('sl2 sess Lazy.t * 'sr2 sess Lazy.t)) ->
-      ('sl1, 'sr1, 'r2) select sess * ('sl2, 'sr2, 'r1) offer sess
+      ('sl1 * 'sr1, 'r2) select sess * ('sl2 * 'sr2, 'r1) offer sess
     val end_ : close sess
 
     (* merge operator for global description *)
@@ -68,11 +68,11 @@ end = struct
 
   type ('a,'b) either = Left of 'a | Right of 'b
 
-  type ('c,'v,'r) send
-  type ('c,'v,'r) recv
+  type ('s,'v,'r) send
+  type ('s,'v,'r) recv
 
-  type ('c1,'c2,'r) select
-  type ('c1,'c2,'r) offer
+  type ('ss,'r) select
+  type ('ss,'r) offer
 
   type close
 
@@ -175,8 +175,8 @@ module Global : sig
     'c0 -> 'c2
 
   val ( -%%-> ) :
-    ('ra, close sess, ('sal, 'sar, 'rb) select sess, 'c2, 'c3) role ->
-    ('rb, close sess, ('sbl, 'sbr, 'ra) offer sess, 'c3, 'c4) role ->
+    ('ra, close sess, ('sal * 'sar, 'rb) select sess, 'c2, 'c3) role ->
+    ('rb, close sess, ('sbl * 'sbr, 'ra) offer sess, 'c3, 'c4) role ->
     (('ra, 'sal sess, close sess, 'cl0, 'cl1) role *
      ('rb, 'sbl sess, close sess, 'cl1, 'c2) role) *
     'cl0 ->

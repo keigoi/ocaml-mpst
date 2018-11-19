@@ -36,17 +36,17 @@ end
 
 module Local : sig
   type ('a, 'b) either = Left of 'a | Right of 'b
-  type ('c, 'v, 'r) send
-  type ('c, 'v, 'r) recv
-  type ('c1, 'c2, 'r) select
-  type ('c1, 'c2, 'r) branch
+  type ('s, 'v, 'r) send
+  type ('s, 'v, 'r) recv
+  type ('s1, 's2, 'r) select
+  type ('s1, 's2, 'r) branch
   type close
   type 'c sess
-  val send : 'r -> 'v -> ('c,'v,'r) send sess -> 'c sess
-  val receive : 'r -> ('c,'v,'r) recv sess -> 'v * 'c sess
-  val select_left : 'r -> ('c1,'c2,'r) select sess -> 'c1 sess
-  val select_right : 'r -> ('c1,'c2,'r) select sess -> 'c2 sess
-  val branch : 'r -> ('c1,'c2,'r) branch sess -> ('c1 sess, 'c2 sess) either
+  val send : 'r -> 'v -> ('s,'v,'r) send sess -> 's sess
+  val receive : 'r -> ('s,'v,'r) recv sess -> 'v * 's sess
+  val select_left : 'r -> ('s1,'s2,'r) select sess -> 's1 sess
+  val select_right : 'r -> ('s1,'s2,'r) select sess -> 's2 sess
+  val branch : 'r -> ('s1,'s2,'r) branch sess -> ('s1 sess, 's2 sess) either
   val close : 'a sess -> unit
 
   (* session creation *)
@@ -166,25 +166,19 @@ module Global : sig
                                      
   open Local
   val ( --> ) :
-    ('r1, 's1 sess, ('s1, 'v, 'r2) send sess, 'a0, 'a1) role ->
-    ('r2, 's2 sess, ('s2, 'v, 'r1) recv sess, 'a1, 'a2) role ->
-    'a0 -> 'a2
+    ('ra, 'sa sess, ('sa, 'v, 'rb) send sess, 'c0, 'c1) role ->
+    ('rb, 'sb sess, ('sb, 'v, 'ra) recv sess, 'c1, 'c2) role ->
+    'c0 -> 'c2
 
   val ( -%%-> ) :
-    ('r1, close sess, ('sl1, 'sr1, 'r2) select sess, 'a2, 'a3) role ->
-    ('r2, close sess, ('sl2, 'sr2, 'r1) branch sess, 'a3, 'a4) role ->
-    (('r1, 'sl1 sess, close sess, 'al0, 'al1) role *
-     ('r2, 'sl2 sess, close sess, 'al1, 'a2) role) *
-    'al0 ->
-    (('r1, 'sr1 sess, close sess, 'ar0, 'ar1) role *
-     ('r2, 'sr2 sess, close sess, 'ar1, 'a2) role) *
-    'ar0 -> 'a4
-    
-  val choice : ('r1, close, 's sess, 'a1, 'a2) role ->
-    ('sl sess -> 'sr sess -> 's sess) ->
-    ('r1, 'sl sess, close sess, 'al0, 'a1) role * 'al0 ->
-    ('r1, 'sr sess, close sess, 'ar0, 'a1) role * 'ar0 ->
-    'a2
+    ('ra, close sess, ('sal, 'sar, 'rb) select sess, 'c2, 'c3) role ->
+    ('rb, close sess, ('sbl, 'sbr, 'ra) branch sess, 'c3, 'c4) role ->
+    (('ra, 'sal sess, close sess, 'cl0, 'cl1) role *
+     ('rb, 'sbl sess, close sess, 'cl1, 'c2) role) *
+    'cl0 ->
+    (('ra, 'sar sess, close sess, 'cr0, 'cr1) role *
+     ('rb, 'sbr sess, close sess, 'cr1, 'c2) role) *
+    'cr0 -> 'c4
 end = struct
   type ('v1, 'v2, 's1, 's2) lens = {
     get : 's1 -> 'v1;
@@ -197,30 +191,24 @@ end = struct
   }
   open Local.Internal
 
-  let (-->) a b s =
-    let sa = lazy (a.lens.get s) in
-    let rec sb = lazy (b.lens.get (Lazy.force s')) 
+  let (-->) a b c0 =
+    let sa = lazy (a.lens.get c0) in
+    let rec sb = lazy (b.lens.get (Lazy.force c1)) 
     and sab' = lazy (s2c ~from:(a.role, sa) ~to_:(b.role, sb))
-    and s' = lazy (a.lens.put s (fst (Lazy.force sab'))) in
-    let s'' = b.lens.put (Lazy.force s') (snd (Lazy.force sab')) in
-    s''
+    and c1 = lazy (a.lens.put c0 (fst (Lazy.force sab'))) in
+    let c2 = b.lens.put (Lazy.force c1) (snd (Lazy.force sab')) in
+    c2
 
-  let choice a merge (al,sl) (ar,sr) =
-    let sal, sar = al.lens.get sl, ar.lens.get sr in
-    let sl, sr = al.lens.put sl end_, ar.lens.put sr end_ in
-    let s = al.merge sl sr in
-    a.lens.put s (merge sal sar)
-
-  let (-%%->) a b ((al,bl),sl) ((ar,br),sr) =
-    let sal, sar = lazy (al.lens.get sl), lazy (ar.lens.get sr) in
-    let sl, sr = al.lens.put sl end_, ar.lens.put sr end_ in
-    let sbl, sbr = lazy (bl.lens.get sl), lazy (br.lens.get sr) in
-    let sl, sr = bl.lens.put sl end_, br.lens.put sr end_ in
-    let s = bl.merge sl sr in
+  let (-%%->) a b ((al,bl),cl) ((ar,br),cr) =
+    let sal, sar = lazy (al.lens.get cl), lazy (ar.lens.get cr) in
+    let cl, cr = al.lens.put cl end_, ar.lens.put cr end_ in
+    let sbl, sbr = lazy (bl.lens.get cl), lazy (br.lens.get cr) in
+    let cl, cr = bl.lens.put cl end_, br.lens.put cr end_ in
+    let c = bl.merge cl cr in
     let sa, sb = s2c_branch ~from:(a.role, (sal,sar)) ~to_:(b.role, (sbl,sbr)) in
-    let s = a.lens.put s sa in
-    let s = b.lens.put s sb in
-    s
+    let c = a.lens.put c sa in
+    let c = b.lens.put c sb in
+    c
 end
 
 module ThreeParty = struct

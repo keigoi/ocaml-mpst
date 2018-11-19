@@ -53,7 +53,7 @@ module Local : sig
   val select_left_ : 'r -> ('s left,'r) select sess -> 's sess
   val select_right_ : 'r -> ('s right,'r) select sess -> 's sess
   val offer : 'r -> (('s1, 's2) left_and_right,'r) offer sess -> ('s1 sess, 's2 sess) either
-  val close : 'a sess -> unit
+  val close : close sess -> unit
 
   type ('l, 'r, 'lr) label_merge
 
@@ -396,11 +396,13 @@ module Example2 = struct
     (b ==> c) @@
     choice_at a left_or_right
       (a, (a --> b) left @@
+          (b --> c) left @@
           (b ==> c) @@
           finish3)
       (a, (a --> b) right @@
+          (b --> c) right @@
           (b ==> a) @@
-          (b ==> c) @@
+          (c ==> a) @@
           finish3)
 
   let t1 sa =
@@ -411,8 +413,10 @@ module Example2 = struct
       close s
     else
       let s = select_right B s in
-      let v,s = receive B s in
-      Printf.printf "A: received: %s\n" v;
+      let v1,s = receive B s in
+      Printf.printf "A: received from B: %s\n" v1;
+      let v2,s = receive C s in
+      Printf.printf "A: received from C: %s\n" v2;
       close s
       
   let t2 sb =
@@ -422,20 +426,26 @@ module Example2 = struct
     let s = send C "Hello" s in
     match offer A s with
     | Left s ->
+       let s = select_left_ C s in
        let s = send C "to C (1)" s in
        close s
     | Right s ->
-       let s = send A "to A" s in
-       let s = send C "to C (2)" s in
+       let s = select_right_ C s in
+       let s = send A "to A (2)" s in
        close s
        
   let t3 sc =
     let s = sc in
     let v,s = receive B s in
     Printf.printf "C: received: %s\n" v;
-    let w,s = receive B s in
-    Printf.printf "C: received: %s\n" w;
-    close s
+    match offer B s with
+    | Left s ->
+      let w,s = receive B s in
+      Printf.printf "C: received: %s\n" w;
+      close s
+    | Right s ->
+      let s = send A "to A (2)" s in
+      close s
     
   let main () =
     Random.self_init ();

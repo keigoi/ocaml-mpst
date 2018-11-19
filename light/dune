@@ -4,3 +4,10 @@
   (modules light)
   (flags ("-g" "-short-paths"))
   (libraries threads))
+
+(executable
+ (name poly)
+  (public_name ex2)
+  (modules poly)
+  (flags ("-g" "-short-paths"))
+  (libraries threads))

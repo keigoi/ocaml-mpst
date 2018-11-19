@@ -18,3 +18,10 @@
   (modules poly_choice)
   (flags ("-g" "-short-paths"))
   (libraries threads))
+
+(executable
+ (name poly_conn)
+  (public_name ex4)
+  (modules poly_conn)
+  (flags ("-g" "-short-paths"))
+  (libraries threads))

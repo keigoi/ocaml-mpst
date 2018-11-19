@@ -35,6 +35,8 @@ end = struct
 end
 
 module Local : sig
+  type ('a, 'b) left_or_right
+  type ('a, 'b) left_and_right
   type ('a, 'b) either = Left of 'a | Right of 'b
   type ('s, 'v, 'r) send
   type ('s, 'v, 'r) recv
@@ -44,9 +46,9 @@ module Local : sig
   type 'c sess
   val send : 'r -> 'v -> ('s,'v,'r) send sess -> 's sess
   val receive : 'r -> ('s,'v,'r) recv sess -> 'v * 's sess
-  val select_left : 'r -> ('s1 * 's2,'r) select sess -> 's1 sess
-  val select_right : 'r -> ('s1 * 's2,'r) select sess -> 's2 sess
-  val offer : 'r -> ('s1 * 's2,'r) offer sess -> ('s1 sess, 's2 sess) either
+  val select_left : 'r -> (('s1, 's2) left_or_right,'r) select sess -> 's1 sess
+  val select_right : 'r -> (('s1, 's2) left_or_right,'r) select sess -> 's2 sess
+  val offer : 'r -> (('s1, 's2) left_and_right,'r) offer sess -> ('s1 sess, 's2 sess) either
   val close : 'a sess -> unit
 
   (* session creation *)
@@ -57,7 +59,7 @@ module Local : sig
     val s2c_branch :
       from:('r1 * ('sl1 sess Lazy.t * 'sr1 sess Lazy.t)) ->
       to_:('r2 * ('sl2 sess Lazy.t * 'sr2 sess Lazy.t)) ->
-      ('sl1 * 'sr1, 'r2) select sess * ('sl2 * 'sr2, 'r1) offer sess
+      (('sl1, 'sr1) left_or_right, 'r2) select sess * (('sl2, 'sr2) left_and_right, 'r1) offer sess
     val end_ : close sess
 
     (* merge operator for global description *)
@@ -68,92 +70,85 @@ end = struct
 
   type ('a,'b) either = Left of 'a | Right of 'b
 
-  type ('s,'v,'r) send
-  type ('s,'v,'r) recv
+  type ('s,'v,'r) send = DummySend of 's * 'v * 'r
+  type ('s,'v,'r) recv = DummyRecv of 's * 'v * 'r
 
-  type ('ss,'r) select
-  type ('ss,'r) offer
+  type ('ss,'r) select = DummySelect of 'ss * 'r
+  type ('ss,'r) offer = DummyOffer of 'ss * 'r
 
   type close
 
-  type raw_sess =
-    Send of UnsafeChannel.t * raw_sess Lazy.t
-  | Recv of (UnsafeChannel.t * raw_sess Lazy.t) list
-  | Select of (unit Channel.t * raw_sess Lazy.t) list
-  | Offer of (unit Channel.t * (int * raw_sess Lazy.t)) list
-  | Close
+  type _ raw_sess =
+  | Send : 'r * 'v Channel.t * 's raw_sess Lazy.t -> ('s, 'v, 'r) send raw_sess
+  | Recv : 'r * ('v Channel.t * 's raw_sess Lazy.t) list -> ('s, 'v, 'r) recv raw_sess
+  | Select : 'r * 'ss -> ('ss, 'r) select raw_sess
+  | Offer : 'r * 'ss list -> ('ss, 'r) offer raw_sess
+  | Close : close raw_sess
 
-  type 'c sess = Sess of raw_sess
+  type 'c sess = Sess of 'c raw_sess
   let unsess (Sess s) = s
 
   let send _ v (Sess s) =
     match s with
-    | Send (ch,cont) ->
-       UnsafeChannel.send ch v;
+    | Send (_,ch,cont) ->
+       Channel.send ch v;
        Sess (Lazy.force cont)
-    | _ -> assert false
           
   let receive (_:'r) (Sess s) =
     match s with
-    | Recv xs ->
-       let v,s = UnsafeChannel.choose xs in
+    | Recv (_,xs) ->
+       let v,s = Channel.choose xs in
        v, Sess (Lazy.force s)
-    | _ -> assert false
 
-  let _select i (Sess s) =
-    match s with
-    | Select (xs) ->
-       let ch,s = List.nth xs i in
-       Channel.send ch ();
-       s
-    | _ -> assert false
+  type ('s1, 's2) left_or_right = {left_:unit Channel.t * 's1 sess; right_:unit Channel.t * 's2 sess}
+  type ('s1, 's2) left_and_right = Left_ of unit Channel.t * 's1 sess | Right_ of unit Channel.t * 's2 sess
+       
+  let select_left r (Sess (Select (_,s))) =
+    let ch,s = s.left_ in
+    Channel.send ch ();
+    s
 
-  let select_left r s = Sess (Lazy.force (_select 0 s))
-  let select_right r s = Sess (Lazy.force (_select 1 s))
+  let select_right r (Sess (Select (_,s))) =
+    let ch,s = s.right_ in
+    Channel.send ch ();
+    s
 
   let offer (_:'r) (Sess s) =
     match s with
-    | Offer xs ->
-       let _,(i,s) = Channel.choose xs in
-       if i=0 then
-         Left (Sess (Lazy.force s))
-       else if i=1 then
-         Right (Sess (Lazy.force s))
-       else
-         assert false
-    | _ -> assert false
-
+    | Offer (_,xs) ->
+       let xs = List.map (function Left_ (ch,s) -> (ch,Left s) | Right_ (ch,s) -> (ch,Right s)) xs in
+       snd (Channel.choose xs)
+       
   let close (Sess _) = ()
 
   let unsess' s = lazy (unsess (Lazy.force s))
 
   module Internal = struct
     
-    let s2c ~from:(_,s1) ~to_:(_,s2) =
-      let ch = UnsafeChannel.create () in
-      Sess (Send (ch, unsess' s1)), Sess (Recv [(ch, unsess' s2)])
+    let s2c ~from:(r1,s1) ~to_:(r2,s2) =
+      let ch = Channel.create () in
+      Sess (Send (r2, ch, unsess' s1)), Sess (Recv (r1, [(ch, unsess' s2)]))
 
-    let s2c_branch ~from:(_,(sl1,sr1)) ~to_:(_,(sl2,sr2)) =
+    let s2c_branch ~from:(r1,(sl1,sr1)) ~to_:(r2,(sl2,sr2)) =
       let cl = Channel.create () in
       let cr = Channel.create () in
-      Sess (Select [(cl, unsess' sl1); (cr, unsess' sr1)]),
-      Sess (Offer [(cl, (0, unsess' sl2)); (cr, (1, unsess' sr2))])
+      Sess (Select (r2,{left_=(cl, Lazy.force sl1); right_=(cr, Lazy.force sr1)})),
+      Sess (Offer (r1,[Left_ (cl, Lazy.force sl2); Right_ (cr, Lazy.force sr2)]))
 
     let end_ = Sess Close
 
-    let merge (Sess x) (Sess y) =
+    let merge : type t. t sess -> t sess -> t sess = fun (Sess x) (Sess y) ->
       match x, y with
-      | Send (_,_), Send (_,_)
-        | Select _, Select _ ->
+      | Send (_,_,_), Send (_,_,_) ->
          failwith "role not enabled"
-      | Recv xs, Recv ys ->
-         Sess (Recv (xs @ ys))
-      | Offer xs, Offer ys ->
-         Sess (Offer (xs @ ys))
+      | Select _, Select _ ->
+         failwith "role not enabled"
+      | Recv (r,xs), Recv (_,ys) ->
+         Sess (Recv (r, xs @ ys))
+      | Offer (r, xs), Offer (_, ys) ->
+         Sess (Offer (r, xs @ ys))
       | Close, Close ->
          Sess Close
-      | Send (_,_), _ | Recv _, _ | Select _, _ | Offer _, _ | Close, _
-        -> assert false
   end
 end
 
@@ -175,15 +170,15 @@ module Global : sig
     'c0 -> 'c2
 
   val ( -%%-> ) :
-    ('ra, close sess, ('sal * 'sar, 'rb) select sess, 'c2, 'c3) role ->
-    ('rb, close sess, ('sbl * 'sbr, 'ra) offer sess, 'c3, 'c4) role ->
+    ('ra, close sess, (('sal, 'sar) left_or_right, 'rb) select sess, 'c2, 'c3) role ->
+    ('rb, close sess, (('sbl, 'sbr) left_and_right, 'ra) offer sess, 'c3, 'c4) role ->
     (('ra, 'sal sess, close sess, 'cl0, 'cl1) role *
      ('rb, 'sbl sess, close sess, 'cl1, 'c2) role) *
     'cl0 ->
     (('ra, 'sar sess, close sess, 'cr0, 'cr1) role *
      ('rb, 'sbr sess, close sess, 'cr1, 'c2) role) *
     'cr0 -> 'c4
-end = struct
+end= struct
   type ('v1, 'v2, 's1, 's2) lens = {
     get : 's1 -> 'v1;
     put : 's1 -> 'v2 -> 's2;

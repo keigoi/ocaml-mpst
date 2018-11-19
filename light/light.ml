@@ -79,8 +79,8 @@ end = struct
   type raw_sess =
     Send of UnsafeChannel.t * raw_sess Lazy.t
   | Recv of (UnsafeChannel.t * raw_sess Lazy.t) list
-  | Select of bool Channel.t * raw_sess Lazy.t * raw_sess Lazy.t
-  | Offer of (bool Channel.t * (raw_sess Lazy.t * raw_sess Lazy.t)) list
+  | Select of (unit Channel.t * raw_sess Lazy.t) list
+  | Offer of (unit Channel.t * (int * raw_sess Lazy.t)) list
   | Close
 
   type 'c sess = Sess of raw_sess
@@ -100,24 +100,27 @@ end = struct
        v, Sess (Lazy.force s)
     | _ -> assert false
 
-  let _select b (Sess s) =
+  let _select i (Sess s) =
     match s with
-    | Select (ch,ls,rs) ->
-       Channel.send ch b;
-       (ls,rs)
+    | Select (xs) ->
+       let ch,s = List.nth xs i in
+       Channel.send ch ();
+       s
     | _ -> assert false
 
-  let select_left r s = Sess (Lazy.force (fst (_select true s)))
-  let select_right r s = Sess (Lazy.force (snd (_select false s)))
+  let select_left r s = Sess (Lazy.force (_select 0 s))
+  let select_right r s = Sess (Lazy.force (_select 1 s))
 
   let offer (_:'r) (Sess s) =
     match s with
-    | Offer (xs) ->
-       let b, (ls, rs) = Channel.choose xs in
-       if b then
-         Left (Sess (Lazy.force ls))
+    | Offer xs ->
+       let _,(i,s) = Channel.choose xs in
+       if i=0 then
+         Left (Sess (Lazy.force s))
+       else if i=1 then
+         Right (Sess (Lazy.force s))
        else
-         Right (Sess (Lazy.force rs))
+         assert false
     | _ -> assert false
 
   let close (Sess _) = ()
@@ -131,16 +134,17 @@ end = struct
       Sess (Send (ch, unsess' s1)), Sess (Recv [(ch, unsess' s2)])
 
     let s2c_branch ~from:(_,(sl1,sr1)) ~to_:(_,(sl2,sr2)) =
-      let ch = Channel.create () in
-      Sess (Select (ch, unsess' sl1, unsess' sr1)),
-      Sess (Offer [(ch, (unsess' sl2, unsess' sr2))])
+      let cl = Channel.create () in
+      let cr = Channel.create () in
+      Sess (Select [(cl, unsess' sl1); (cr, unsess' sr1)]),
+      Sess (Offer [(cl, (0, unsess' sl2)); (cr, (1, unsess' sr2))])
 
     let end_ = Sess Close
 
     let merge (Sess x) (Sess y) =
       match x, y with
       | Send (_,_), Send (_,_)
-        | Select (_,_,_), Select (_,_,_) ->
+        | Select _, Select _ ->
          failwith "role not enabled"
       | Recv xs, Recv ys ->
          Sess (Recv (xs @ ys))
@@ -148,7 +152,7 @@ end = struct
          Sess (Offer (xs @ ys))
       | Close, Close ->
          Sess Close
-      | Send (_,_), _ | Recv _, _ | Select (_,_,_), _ | Offer _, _ | Close, _
+      | Send (_,_), _ | Recv _, _ | Select _, _ | Offer _, _ | Close, _
         -> assert false
   end
 end

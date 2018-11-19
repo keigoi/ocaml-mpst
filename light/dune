@@ -11,3 +11,10 @@
   (modules poly)
   (flags ("-g" "-short-paths"))
   (libraries threads))
+
+(executable
+ (name poly_choice)
+  (public_name ex3)
+  (modules poly_choice)
+  (flags ("-g" "-short-paths"))
+  (libraries threads))

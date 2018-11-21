@@ -2,7 +2,7 @@ open Base
 
 type _ select = Select__
 type _ branch = Branch__
-type _ selectbranch = SelectBranch__
+type _ call = Call__
 type _ accept = Accept__
 type _ request = Request__
 type _ disconnect = Disconnec__
@@ -17,11 +17,11 @@ type _ sess =
   | Select : 'a lazy_t -> 'a select sess
   | Branch : ('r1 * (unit -> 'a Lwt.t) list) -> ('r1 * 'a) branch sess (* "fancy" type rep. (hiding Lwt.t) *)
   | DummyBranch : 'a branch sess
-  | SelectBranch : 'a lazy_t -> 'a selectbranch sess
   | Request : 'a -> 'a request sess
   | Accept : 'r1 * ('k1 -> 'a Lwt.t) list -> ('r1 * ('k1 -> 'a)) accept sess
   | Disconnect : 'a -> 'a disconnect sess
   | Close : close sess
+  | Call : 'a lazy_t -> 'a call sess
 
 let send : 'r 'l 'v 's. 'r -> ((< .. > as 'l) -> 'v -> 's sess) -> 'v -> ('r * 'l) select sess -> 's sess =
   fun _ g v (Select (lazy (_,r))) ->
@@ -52,6 +52,6 @@ let disconnect : 'r 'k. 'r -> ('k -> unit Lwt.t) -> ('r * (_, 'k) conn * 's sess
 
 let close : close sess -> unit = fun _ -> ()
 
-let send_receive : 'r1 * 'r2 -> ((< .. > as 'l1) -> 'v -> 'l2 proc) -> 'v -> (('r1 * 'r2) * 'l1) selectbranch sess -> 'l2 Lwt.t =
-  fun _ g v (SelectBranch (lazy (_, r))) ->
+let call : 'r1 * 'r2 -> ((< .. > as 'l1) -> 'v -> 'l2 proc) -> 'v -> (('r1 * 'r2) * 'l1) call sess -> 'l2 Lwt.t =
+  fun _ g v (Call (lazy (_, r))) ->
   g r v ()

@@ -32,7 +32,7 @@ let ( *--> ) : type d1 f1 d f s t u r1 r2 r3 c.
                  -> u mpst =
   fun (r1_l, r1) (r2_l, r2) comm sobj ->
   let d = lazy (r1_l.get sobj) in
-  let tobj = r1_l.put sobj (SelectBranch (lazy ((r2, (Obj.magic ():r3)), (comm.sender @@ mkproc (fun () -> _receive (Lazy.force d)))))) in
+  let tobj = r1_l.put sobj (Call (lazy ((r2, (Obj.magic ():r3)), (comm.sender @@ mkproc (fun () -> _receive (Lazy.force d)))))) in
   let f = lazy (r2_l.get tobj) in
   let uobj = r2_l.put tobj (Branch (r1, [(fun () -> comm.receiver (Lazy.force f) ())])) in
   uobj
@@ -185,9 +185,9 @@ let rec unify : type s. s sess -> s sess -> s sess = fun s1 s2 ->
     | DummyBranch, b -> b
     | Close, Close -> Close
     | Select x, Select y -> if x==y then Select x else raise RoleNotEnabled
-    | SelectBranch x, SelectBranch y -> if x==y then SelectBranch x else raise RoleNotEnabled
     | Request x, Request y ->  if x==y then Request x else raise RoleNotEnabled
     | Disconnect _, _ -> raise RoleNotEnabled
+    | Call x, Call y -> if x==y then Call x else raise RoleNotEnabled
   end
 
 let rec uget : 's 'a. ('s sess, _, 'a, _) lens -> 'a mpst -> 's sess = fun l (MPST (lazy xs)) ->

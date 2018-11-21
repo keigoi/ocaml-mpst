@@ -15,7 +15,7 @@ let () =
   let g = create_g () in
   let ta =
     let s = get_sess a g in
-    send_receive (B, C) (fun x->x#msg) () s >>= fun (`msg((),s)) ->
+    call (B, C) (fun x->x#msg) () s >>= fun (`msg((),s)) ->
     close s;
     print_endline "t1 done";
     Lwt.return ()
@@ -23,7 +23,7 @@ let () =
   let tb =
     let s = get_sess b g in
     receive A s >>= fun (`msg((),s)) ->
-    send_receive (C, C) (fun x->x#right) () s >>= fun (`msg((),s)) ->
+    call (C, C) (fun x->x#right) () s >>= fun (`msg((),s)) ->
     close s;
     print_endline "t2 done";
     Lwt.return ()

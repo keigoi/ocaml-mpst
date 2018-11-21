@@ -42,27 +42,27 @@ module Local : sig
   type close
   type ('k, 'r) conn = DummyConn
 
-  type _ prot =
-  | Send : 'r * ('k -> 'v Channel.o) * 's prot Lazy.t -> ('s, 'v, ('k,'r) conn) send prot
-  | Recv : 'r * (('k -> 'v Channel.i) * 's prot Lazy.t) list -> ('s, 'v, ('k,'r) conn) recv prot
-  | Select : 'r * ('k -> 'ss) -> ('ss, ('k,'r) conn) select prot
-  | Offer : 'r * ('k -> 'ss Channel.i) list -> ('ss, ('k,'r) conn) offer prot
-  | Close : close prot
-     
-  type ('ks, 's) sess
+  type (_,_) prot =
+  | Send : 'r * ('k -> 'v Channel.o) * ('ks -> ('ks,'s) sess) -> ('ks, ('s, 'v, ('k,'r) conn) send) prot
+  | Recv : 'r * (('k -> 'v Channel.i) * ('ks -> ('ks, 's) sess)) list -> ('ks, ('s, 'v, ('k,'r) conn) recv) prot
+  | Select : 'r * ('ks -> 'k -> 'ss) -> ('ks,('ss, ('k,'r) conn) select) prot
+  | Offer : 'r * ('ks -> 'k -> 'ss Channel.i) list -> ('ks, ('ss, ('k,'r) conn) offer) prot
+  | Close : ('ks, close) prot
 
-  val init: 'ks -> 's prot -> ('ks, 's) sess
+  and ('ks,'c) sess = Sess of 'ks * ('ks, 'c) prot
+
+  val init: 'ks -> ('ks,'s) prot -> ('ks, 's) sess
 
   val send : <role:'r; lens:('k,'ks) lens; ..> -> 'v -> ('ks, ('s,'v,('k, 'r) conn) send) sess -> ('ks,'s) sess
   val receive : <role:'r; lens:('k,'ks) lens; ..> -> ('ks,('s,'v,('k,'r) conn) recv) sess -> 'v * ('ks,'s) sess
     
   val select_left :
     <role:'r; lens:('k,'ks) lens; ..> ->
-    ('ks, (< left : 's1 prot; .. >, ('k,'r) conn) select) sess ->
+    ('ks, (< left : ('ks,'s1) sess; .. >, ('k,'r) conn) select) sess ->
     ('ks, 's1) sess
   val select_right :
     <role:'r; lens:('k,'ks) lens; ..> ->
-    ('ks, (< right : 's1 prot; .. >, ('k,'r) conn) select) sess ->
+    ('ks, (< right : ('ks,'s1) sess; .. >, ('k,'r) conn) select) sess ->
     ('ks, 's1) sess
   val offer :
     <role:'r; lens:('k,'ks) lens; ..> ->
@@ -73,7 +73,7 @@ module Local : sig
   (* session creation *)
   module Internal : sig
     (* merge operator for global description *)
-    val merge : 'a prot -> 'a prot -> 'a prot
+    val merge : ('ks,'a) prot -> ('ks,'a) prot -> ('ks,'a) prot
   end
 
 end = struct
@@ -87,14 +87,13 @@ end = struct
   type close
   type ('k, 'r) conn = DummyConn
 
-  type _ prot =
-  | Send : 'r * ('k -> 'v Channel.o) * 's prot Lazy.t -> ('s, 'v, ('k,'r) conn) send prot
-  | Recv : 'r * (('k -> 'v Channel.i) * 's prot Lazy.t) list -> ('s, 'v, ('k,'r) conn) recv prot
-  | Select : 'r * ('k -> 'ss) -> ('ss, ('k,'r) conn) select prot
-  | Offer : 'r * ('k -> 'ss Channel.i) list -> ('ss, ('k,'r) conn) offer prot
-  | Close : close prot
-
-  type ('ks,'c) sess = Sess of 'ks * 'c prot
+  type (_,_) prot =
+  | Send : 'r * ('k -> 'v Channel.o) * ('ks -> ('ks,'s) sess) -> ('ks, ('s, 'v, ('k,'r) conn) send) prot
+  | Recv : 'r * (('k -> 'v Channel.i) * ('ks -> ('ks, 's) sess)) list -> ('ks, ('s, 'v, ('k,'r) conn) recv) prot
+  | Select : 'r * ('ks -> 'k -> 'ss) -> ('ks,('ss, ('k,'r) conn) select) prot
+  | Offer : 'r * ('ks -> 'k -> 'ss Channel.i) list -> ('ks, ('ss, ('k,'r) conn) offer) prot
+  | Close : ('ks, close) prot
+  and ('ks,'c) sess = Sess of 'ks * ('ks, 'c) prot
 
   let init ks p = Sess (ks, p)
     
@@ -103,30 +102,30 @@ end = struct
     let k = ridx#lens.get ks in
     let ch = f k in
     Channel.send ch v;
-    Sess (ks,Lazy.force cont)
+    cont ks
           
   let receive =
     fun ridx (Sess (ks,Recv (_,xs))) ->
     let k = ridx#lens.get ks in
     let xs = List.map (fun (f,s) -> f k, s) xs in
     let v,s = Channel.choose' xs in
-    v, Sess (ks, Lazy.force s)
+    v, s ks
        
   let select_left ridx (Sess (ks, Select (_,f))) =
-    Sess (ks, (f (ridx#lens.get ks))#left)
+    (f ks (ridx#lens.get ks))#left
   
   let select_right ridx (Sess (ks, Select (_,f))) =
-    Sess (ks, (f (ridx#lens.get ks))#right)
+    (f ks (ridx#lens.get ks))#right
   
   let offer ridx (Sess (ks,Offer (_,xs))) =
     let k = ridx#lens.get ks in
-    Channel.choose (List.map (fun f -> f k) xs)
+    Channel.choose (List.map (fun f -> f ks k) xs)
        
   let close (Sess (_,_)) = ()
   
    module Internal = struct
     
-    let merge : type t. t prot -> t prot -> t prot = fun x y ->
+    let merge : type t. ('ks,t) prot -> ('ks,t) prot -> ('ks,t) prot = fun x y ->
       match x, y with
       | Send (_,_,_), Send (_,_,_) ->
          failwith "role not enabled"
@@ -148,61 +147,69 @@ module Global : sig
   
   val ( ==> ) :
         < role : 'ra;
-          lens : ('sa prot, ('sa, 'v, ('k2, 'rb) conn) send prot, 'c0, 'c1) plens;
+          lens : (('ks,'sa) prot, ('ks, ('sa, 'v, ('k2, 'rb) conn) send) prot, 'c0, 'c1) plens;
           ext : 'ms -> 'ms0; .. > ->
         < role : 'rb;
-          lens : ('sb prot, ('sb, 'v, ('k1, 'ra) conn) recv prot, 'c1, 'c2) plens;
+          lens : (('ks, 'sb) prot, ('ks, ('sb, 'v, ('k1, 'ra) conn) recv) prot, 'c1, 'c2) plens;
           ext : 'ms0 -> ('k1, 'k2) medium; .. > ->
         ('ms -> 'c0) -> 'ms -> 'c2
 
-  type ('k1, 'k2, 'lsa, 'lsb, 'sa, 'sb) label1
+  type ('ks1, 'ks2, 'sa, 'sb, 'sa0, 'sb0) label1 = {
+    label1 :
+      'k1 'k2 'ra 'rb.
+        ('k1, 'k2, unit) channel ->
+        ('ra * ('ks1, 'sa0) prot lazy_t) *
+        ('rb * ('ks2, 'sb0) prot lazy_t) ->
+        ('ks1, ('sa, ('k2, 'rb) conn) select) prot *
+        ('ks2, ('sb, ('k1, 'ra) conn) offer) prot;
+  }
+  val left :
+    ('ksa, 'ksb, < left : ('ksa, 'sa) sess >, [> `left of ('ksb, 'sb) sess ], 'sa, 'sb) label1
+  val right :
+    ('ksa, 'ksb, < right : ('ksa, 'sa) sess >, [> `right of ('ksb, 'sb) sess ], 'sa, 'sb) label1
      
   val ( --> ) :
     < role : 'ra;
-      lens : ('sa prot, ('lsa, ('k2, 'rb) conn) select prot, 'g, 'h) plens;
-      ext : 'ms -> 'ms0;
-      .. > ->
+      lens : (('ksa, 'sa) prot,
+              ('ksa, ('la, ('k2, 'rb) conn) select) prot, 'c0, 'c1) plens;
+      ext : 'ms -> 'ms0; .. > ->
     < role : 'rb;
-      lens : ('sb prot, ('lsb, ('k1, 'ra) conn) offer prot, 'h, 'm) plens;
-      ext : 'ms0 -> ('k1, 'k2) medium;
-      .. > ->
-      ('k1, 'k2, 'lsa, 'lsb, 'sa, 'sb) label1 -> ('ms -> 'g) -> 'ms -> 'm
-  
-  
-  val left : ('a, 'b, < left : 'c prot >, [> `left of 'd prot ], 'c, 'd) label1
-  val right : ('a, 'b, < right : 'c prot >, [> `right of 'd prot ], 'c, 'd) label1
+      lens : (('ksb, 'sb) prot,
+              ('ksb, ('lb, ('k1, 'ra) conn) offer) prot, 'c1, 'c2) plens;
+      ext : 'ms0 -> ('k1, 'k2) medium; .. > ->
+    ('ksa, 'ksb, 'la, 'lb, 'sa, 'sb) label1 ->
+    ('ms -> 'c0) -> 'ms -> 'c2
 
   type ('l, 'r, 'lr) label_merge
   val left_or_right :
-    (<left : 'sl prot>, <right : 'sr prot>, <left: 'sl prot; right: 'sr prot>) label_merge
+    (<left : ('ks, 'sl) sess>, <right : ('ks, 'sr) sess>, <left: ('ks, 'sl) sess; right: ('ks,'sr) sess>) label_merge
   val right_or_left :
-    (<right : 'sr prot>, <left : 'sl prot>, <left: 'sl prot; right: 'sr prot>) label_merge
+    (<right : ('ks, 'sr) sess>, <left : ('ks, 'sl) sess>, <left: ('ks, 'sl) sess; right: ('ks,'sr) sess>) label_merge
     
   val choice_at :
-    < lens : (close prot, ('lr, 'ra) select prot, 'c1, 'c2) plens; .. > ->
+    < lens : (('ks, close) prot, ('ks, ('lr, ('k, 'ra) conn) select) prot, 'c1, 'c2) plens; .. > ->
     ('l, 'r, 'lr) label_merge ->
-    < lens : (('l, 'ra) select prot, close prot, 'c0l, 'c1) plens; merge : 'c1 -> 'c1 -> 'c1; .. > * ('ms -> 'c0l) ->
-    < lens : (('r, 'ra) select prot, close prot, 'c0r, 'c1) plens; .. > * ('ms -> 'c0r) ->
-    ('ms -> 'c2)
-
+    < lens : (('ks, ('l, ('k, 'ra) conn) select) prot, ('ks, close) prot, 'c0l, 'c1) plens;
+      merge : 'c1 -> 'c1 -> 'c1; .. > * ('ms -> 'c0l) ->
+    < lens : (('ks, ('r, ('k, 'ra) conn) select) prot, ('ks, close) prot, 'c0r, 'c1) plens; .. > * ('ms -> 'c0r) ->
+    'ms -> 'c2
+                                                                                      
 end = struct
   open Local
   type ('k1,'k2,'v) channel = {receiver: 'k1 -> 'v Channel.i; sender: 'k2 -> 'v Channel.o}
   type ('k1,'k2) medium = {instance : 'v. unit -> ('k1,'k2,'v) channel}
      
-  type ('k1, 'k2, 'sa,'sb,'sa0,'sb0) label1 =
-    {label1:'ra 'rb. ('k1,'k2,unit) channel -> (('ra * 'sa0 prot Lazy.t) * ('rb * 'sb0 prot Lazy.t)
-                      -> ('sa, ('k2,'rb) conn) select prot * ('sb, ('k1,'ra) conn) offer prot)}
-
-  (* open Local.Internal *)
+  type ('ks1, 'ks2, 'sa,'sb,'sa0,'sb0) label1 =
+    {label1:'k1 'k2 'ra 'rb. ('k1,'k2,unit) channel -> (('ra * ('ks1,'sa0) prot Lazy.t) * ('rb * ('ks2,'sb0) prot Lazy.t)
+                      -> ('ks1,('sa, ('k2,'rb) conn) select) prot * ('ks2,('sb, ('k1,'ra) conn) offer) prot)}
 
   let left = {label1=(fun c ((ra,sa), (rb,sb)) ->
-                Select (rb, fun k -> object method left=Channel.send (c.sender k) (); Lazy.force sa end),
-                Offer (ra, [(fun k -> Channel.map (c.receiver k) (fun _ -> `left (Lazy.force sb)))])
+                Select (rb, fun ks k -> object method left=Channel.send (c.sender k) (); Sess (ks, Lazy.force sa) end),
+                Offer (ra, [(fun ks k -> Channel.map (c.receiver k) (fun _ -> `left ((Sess (ks, Lazy.force sb)))))])
              )}
   let right = {label1=(fun c ((ra,sa), (rb,sb)) ->
-                Select (rb, fun k -> object method right=Channel.send (c.sender k) (); Lazy.force sa end),
-                Offer (ra, [(fun k -> Channel.map (c.receiver k) (fun _ -> `right (Lazy.force sb)))])
+                Select (rb, fun ks k -> object method right=Channel.send (c.sender k) (); Sess (ks, Lazy.force sa) end),
+                Offer (ra, [(fun ks k -> Channel.map (c.receiver k) (fun _ -> `right ((Sess (ks, Lazy.force sb)))))])
              )}
 
   let (-->) a b ({label1}) c0 ms =
@@ -217,34 +224,31 @@ end = struct
     c2
 
   type ('l, 'r, 'lr) label_merge =
-    {label_merge: 'rb.
-     (('l, 'rb) select prot -> ('r,'rb) select prot -> ('lr, 'rb) select prot)}
+    {label_merge: 'rb 'ks 'k.
+     (('ks, ('l, ('k,'rb) conn) select) prot -> ('ks, ('r,('k,'rb) conn) select) prot -> ('ks, ('lr, ('k,'rb) conn) select) prot)}
+  
+  let left_or_right : (<left:('ks,'sl) sess>, <right:('ks,'sr) sess>, <left:('ks,'sl) sess; right:('ks,'sr) sess>) label_merge =
+    {label_merge=(fun (Select (rb,ol)) (Select (_,or_)) ->
+         Select (rb, fun ks k -> object method left=(ol ks k)#left method right=(or_ ks k)#right end))}
 
-  let left_or_right :
-    (<left : 'sl prot>, <right : 'sr prot>, <left: 'sl prot; right: 'sr prot>) label_merge =
-    {label_merge=
-       (fun (Select (rb,ol)) (Select (_,or_)) ->
-         Select (rb, fun k -> object method left=(ol k)#left method right=(or_ k)#right end))}
-
-  let right_or_left :
-    (<right : 'sr prot>, <left : 'sl prot>, <left: 'sl prot; right: 'sr prot>) label_merge =
-    {label_merge=
-       (fun (Select (rb,or_)) (Select (_,ol)) ->
-         Select (rb, fun k -> object method left=(ol k)#left method right=(or_ k)#right end))}
-
+  let right_or_left : (<right:('ks,'sr) sess>, <left:('ks,'sl) sess>, <left:('ks,'sl) sess; right:('ks,'sr) sess>) label_merge =
+    {label_merge=(fun (Select (rb,or_)) (Select (_,ol)) ->
+         Select (rb, fun ks k -> object method left=(ol ks k)#left method right=(or_ ks k)#right end))}
+  
+  
   let choice_at a {label_merge} (al,cl) (ar,cr) ms =
     let cl = cl ms and cr = cr ms in
     let sal, sar = al#lens.get cl, ar#lens.get cr in
     let cl, cr = al#lens.put cl Close, ar#lens.put cr Close in
     let c = al#merge cl cr in
     a#lens.put c (label_merge sal sar)
-
+  
   let (==>) : 'ms 'ms0 'sa 'sb 'v 'k1 'k2 'ra 'rb 'c0 'c1 'c2.
         < ext : 'ms -> 'ms0;
-          lens : ('sa prot, ('sa, 'v, ('k2, 'rb) conn) send prot, 'c0, 'c1) plens;
+          lens : (('ks1,'sa) prot, ('ks1, ('sa, 'v, ('k2, 'rb) conn) send) prot, 'c0, 'c1) plens;
           role : 'ra; .. > ->
         < ext : 'ms0 -> ('k1, 'k2) medium;
-          lens : ('sb prot, ('sb, 'v, ('k1, 'ra) conn) recv prot, 'c1, 'c2) plens;
+          lens : (('ks2, 'sb) prot, ('ks2, ('sb, 'v, ('k1, 'ra) conn) recv) prot, 'c1, 'c2) plens;
           role : 'rb; .. > ->
         ('ms -> 'c0) -> 'ms -> 'c2
         = fun a b c0 ms ->
@@ -253,8 +257,8 @@ end = struct
     let rec sb = lazy (b#lens.get (Lazy.force c1)) 
     and m = b#ext (a#ext ms)
     and io = lazy (m.instance ())
-    and sab' = lazy (Send (b#role, (Lazy.force io).sender, sa),
-                     Recv (a#role, [(Lazy.force io).receiver, sb]))
+    and sab' = lazy (Send (b#role, (Lazy.force io).sender, (fun ks -> Sess (ks, Lazy.force sa))),
+                     Recv (a#role, [(Lazy.force io).receiver, (fun ks -> Sess (ks, Lazy.force sb))]))
     and c1 = lazy (a#lens.put c0 (fst (Lazy.force sab'))) in
     let c2 = b#lens.put (Lazy.force c1) (snd (Lazy.force sab')) in
     c2
@@ -269,7 +273,7 @@ module ThreeParty = struct
   type b = B
   type c = C
 
-  open Local.Internal
+  open Internal
   let merge3 (x, y, z) (x', y', z') = merge x x', merge y y', merge z z'
 
   open Global
@@ -277,6 +281,8 @@ module ThreeParty = struct
   let a = object method role=A; method lens={get=(fun (x,_,_) -> x); put=(fun (_,y,z) x->(x,y,z))}; method merge=merge3 method ext x=x#a end
   let b = object method role=B; method lens={get=(fun (_,y,_) -> y); put=(fun (x,_,z) y->(x,y,z))}; method merge=merge3 method ext x=x#b end
   let c = object method role=C; method lens={get=(fun (_,_,z) -> z); put=(fun (x,y,_) z->(x,y,z))}; method merge=merge3 method ext x=x#c end
+
+  let f () = (a --> b) left @@ finish3
 end
 
 open Global
@@ -348,3 +354,5 @@ module Example1 = struct
     Thread.join t2id;
     ()
 end
+
+let () = Example1.main()

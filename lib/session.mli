@@ -1,47 +1,61 @@
-type _ select = Select__
-type _ branch = Branch__
-type _ accept = Accept__
-type _ request = Request__
-type _ disconnect = Disconnec__
-type close = Close__
-type _ call = Call__
+type ('ss, 'r) send = DummySelect
+type ('ss, 'r) receive = DummyOffer
+type ('ks,'ls,'r) request = DummyRequest
+type ('ks,'ls,'r) accept = DummyAccept
+type ('ks,'ls,'r) disconnect = DummyDisconnect
+type close
+type ('k, 'r) conn = DummyConn
 
-type _ sess =
-  Select : 'a lazy_t -> 'a select sess
-| Branch : ('r1 * (unit -> 'a Lwt.t) list) -> ('r1 * 'a) branch sess
-| DummyBranch : 'a branch sess
-| Request : 'a -> 'a request sess
-| Accept : 'r1 *
-             ('k1 -> 'a Lwt.t) list -> ('r1 * ('k1 -> 'a)) accept sess
-| Disconnect : 'a -> 'a disconnect sess
-| Close : close sess
-| Call : 'a lazy_t -> 'a call sess
+type (_,_) prot =
+  | Select :
+      'r * ('k -> 'ks -> 'ls)
+      -> ('ks, ('ls, ('k,'r) conn) send) prot
+  | Offer :
+      'r * ('k -> 'ks -> 'ls Lwt.t) list
+      -> ('ks, ('ls, ('k,'r) conn) receive) prot
+  | Request :
+      'r * ('k -> 'ks2 -> 'ls)
+      -> ('ks, ('ks2, 'ls, ('k, 'r) conn) request) prot
+  | Accept :
+      'r * ('k -> 'ks2 -> 'ls Lwt.t) list
+      -> ('ks, ('ks2, 'ls, ('k, 'r) conn) accept) prot
+  | Disconnect :
+      'r * ('ks2 -> ('ks2, 's) sess) ->
+      ('ks, ('ks2, 's, ('k, 'r) conn) disconnect) prot
+  | Close : ('ks, close) prot
+and ('ks,'c) sess =
+  Sess of 'ks * ('ks, 'c) prot
 
-type ('r, 'k) conn = { mutable conn : 'k option; origin : 'r option; }
-
-type 't proc
-val mkproc : (unit -> 't Lwt.t) -> 't proc
+type ('r, 'v1, 'v2, 's1, 's2) role =
+  {role:'r;
+   lens:('v1, 'v2, 's1, 's2) Base.lens}
 
 val send :
-  'r ->
-  ((< .. > as 'a) -> 'v -> 's sess) ->
-  'v -> ('r * 'a) select sess -> 's sess
+  ('r, 'k, _, 'ks, _) role ->
+  ((< .. > as 'ls) -> 'v -> ('ks,'s) sess) -> 'v -> ('ks, ('ls, ('k, 'r) conn) send) sess -> ('ks,'s) sess
 
-val receive : 'r -> ('r * 'l) branch sess -> 'l Lwt.t
+val receive :
+  ('r, 'k, _, 'ks, _) role ->
+  ('ks, (([>] as 'ls), ('k, 'r) conn) receive) sess -> 'ls Lwt.t
 
-val accept : 'r -> 'k -> ('r * ('k -> 'l)) accept sess -> 'l Lwt.t
+val close : ('a, close) sess -> unit
 
 val request :
-  'r ->
-  ((< .. > as 'a) -> 'v -> 's sess) ->
-  'v -> 'k -> ('r * ('k -> 'a)) request sess -> 's sess
+  ('r, unit, 'k, 'ks, 'ks2) role ->
+  ('ls -> 'v -> ('ks2, 's) sess) ->
+  'v ->
+  'k ->
+  ('ks, ('ks2, 'ls, ('k, 'r) conn) request) sess ->
+  ('ks2, 's) sess
+
+val accept :
+  ('r, unit, 'k, 'ks, 'ks2) role ->
+  'k ->
+  ('ks, ('ks2, 'ls, ('k, 'r) conn) accept) sess -> 'ls Lwt.t
 
 val disconnect :
-  'r ->
-  ('k -> unit Lwt.t) -> ('r * ('a, 'k) conn * 's sess) disconnect sess -> 's sess Lwt.t
+  ('r, 'k, unit, 'ks, 'ks2) role ->
+  ('ks, ('ks2, 's, ('k, 'r) conn) disconnect) sess -> ('ks2, 's) sess
 
-val close : close sess -> unit
-
-val call : 'r1 * 'r2 -> ((< .. > as 'l1) -> 'v -> 'l2 proc) -> 'v -> (('r1 * 'r2) * 'l1) call sess -> 'l2 Lwt.t
-
-val _receive : ('r * 'l) branch sess -> 'l Lwt.t
+module Internal :
+  sig val merge : ('ks, 't) prot -> ('ks, 't) prot -> ('ks, 't) prot end

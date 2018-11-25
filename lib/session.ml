@@ -1,57 +1,98 @@
-open Base
+type ('ls,'r) send = DummySelect
+type ('ls,'r) receive = DummyOffer
+type ('ks,'ls,'r) request = DummyRequest
+type ('ks,'ls,'r) accept = DummyAccept
+type ('ks,'ls,'r) disconnect = DummyDisconnect
+type close
+type ('k, 'r) conn = DummyConn
 
-type _ select = Select__
-type _ branch = Branch__
-type _ call = Call__
-type _ accept = Accept__
-type _ request = Request__
-type _ disconnect = Disconnec__
-type close = Close__
+type (_,_) prot =
+  | Select :
+      'r * ('k -> 'ks -> 'ls)
+      -> ('ks, ('ls, ('k,'r) conn) send) prot
+  | Offer :
+      'r * ('k -> 'ks -> 'ls Lwt.t) list
+      -> ('ks, ('ls, ('k,'r) conn) receive) prot
+  | Request :
+      'r * ('k -> 'ks2 -> 'ls)
+      -> ('ks, ('ks2, 'ls, ('k, 'r) conn) request) prot
+  | Accept :
+      'r * ('k -> 'ks2 -> 'ls Lwt.t) list
+      -> ('ks, ('ks2, 'ls, ('k, 'r) conn) accept) prot
+  | Disconnect :
+      'r * ('ks2 -> ('ks2, 's) sess) ->
+      ('ks, ('ks2, 's, ('k, 'r) conn) disconnect) prot
+  | Close : ('ks, close) prot
+and ('ks,'c) sess =
+  Sess of 'ks * ('ks, 'c) prot
 
-type ('r, 'k) conn = {mutable conn:'k option; origin:'r option}
-type 't proc = unit -> 't Lwt.t
+type ('r, 'v1, 'v2, 's1, 's2) role =
+  {role:'r;
+   lens:('v1, 'v2, 's1, 's2) Base.lens;
+   }
+     
+let send : 'r 'k 'ks 'ls 'v 's.
+  ('r, 'k, _, 'ks, _) role ->
+  ((< .. > as 'ls) -> 'v -> ('ks,'s) sess) ->
+  'v ->
+  ('ks, ('ls, ('k, 'r) conn) send) sess ->
+  ('ks,'s) sess =
+  fun {lens;_} sel v (Sess (ks, Select (_,ls))) ->
+  let k = lens.get ks in
+  let ls = ls k ks in
+  let s = sel ls v in
+  s
 
-let mkproc t = t
+let request : 'r 'k 'ks 'ks2 'v 's.
+      ('r, unit, 'k, 'ks, 'ks2) role ->
+      ('ls -> 'v -> ('ks2, 's) sess) ->
+      'v ->
+      'k ->
+      ('ks, ('ks2, 'ls, ('k, 'r) conn) request) sess ->
+      ('ks2, 's) sess =
+  fun {lens;_} sel v k (Sess (ks, Request (r, ls))) ->
+  let ks2 = lens.put ks k in
+  let ls = ls k ks2 in
+  let s = sel ls v in
+  s
 
-type _ sess =
-  | Select : 'a lazy_t -> 'a select sess
-  | Branch : ('r1 * (unit -> 'a Lwt.t) list) -> ('r1 * 'a) branch sess (* "fancy" type rep. (hiding Lwt.t) *)
-  | DummyBranch : 'a branch sess
-  | Request : 'a -> 'a request sess
-  | Accept : 'r1 * ('k1 -> 'a Lwt.t) list -> ('r1 * ('k1 -> 'a)) accept sess
-  | Disconnect : 'a -> 'a disconnect sess
-  | Close : close sess
-  | Call : 'a lazy_t -> 'a call sess
+let receive : 'r 'k 'ks 'ls.
+  ('r, 'k, _, 'ks, _) role ->
+  ('ks, ('ls, ('k, 'r) conn) receive) sess -> 'ls Lwt.t =
+  fun {lens;_} (Sess (ks, Offer(_, lss))) ->
+  Lwt.choose (List.map (fun ls -> ls (lens.get ks) ks) lss)
 
-let send : 'r 'l 'v 's. 'r -> ((< .. > as 'l) -> 'v -> 's sess) -> 'v -> ('r * 'l) select sess -> 's sess =
-  fun _ g v (Select (lazy (_,r))) ->
-  g r v
+let accept : 'r 'k 'ks 'ks2 'ls.
+      ('r, unit, 'k, 'ks, 'ks2) role ->
+      'k ->
+      ('ks, ('ks2, 'ls, ('k, 'r) conn) accept) sess -> 'ls Lwt.t =
+  fun {lens;_} k (Sess (ks, Accept (r, lss))) ->
+  let ks2 = lens.put ks k in
+  Lwt.choose (List.map (fun ls -> ls k ks2) lss)
+  
+let disconnect :
+      ('r, 'k, unit, 'ks, 'ks2) role ->
+      ('ks, ('ks2, 's, ('k, 'r) conn) disconnect) sess -> ('ks2, 's) sess =
+  fun {lens;_} (Sess (ks, Disconnect (r, cont))) ->
+  let ks2 = lens.put ks () in
+  cont ks2
 
-let request : 'r 'l 'v 's 'k. 'r -> ((< .. > as 'l) -> 'v -> 's sess) -> 'v -> 'k -> ('r * ('k -> 'l)) request sess -> 's sess =
-  fun _ g v k (Request (_,r)) ->
-  g (r k) v
+let close (Sess (_,_)) = ()
 
-let _receive : 'r 'l. ('r * 'l) branch sess -> 'l Lwt.t =
-  fun s ->
-  match s with
-  | Branch (_,fs) -> Lwt.choose @@ List.map (fun f -> f ()) fs
-  | DummyBranch -> Printf.eprintf"fail at receiption"; failwith "dummy branch encountered"
-
-let receive : 'r 'l. 'r -> ('r * 'l) branch sess -> 'l Lwt.t =
-  fun _ -> _receive
-
-let accept : 'r 'l 'k. 'r -> 'k -> ('r * ('k -> 'l)) accept sess -> 'l Lwt.t =
-  fun _ k (Accept (_, ls)) ->
-  Lwt.choose (List.map (fun l -> l k) ls)
-
-let disconnect : 'r 'k. 'r -> ('k -> unit Lwt.t) -> ('r * (_, 'k) conn * 's sess) disconnect sess -> 's sess Lwt.t =
-  fun _ f (Disconnect (_, kr, s)) ->
-  match kr.conn with
-  | Some k -> Lwt.bind (f k) @@ fun () -> kr.conn <- None; Lwt.return s
-  | None -> Printf.eprintf "fail at disconnection"; failwith "connection already closed"
-
-let close : close sess -> unit = fun _ -> ()
-
-let call : 'r1 * 'r2 -> ((< .. > as 'l1) -> 'v -> 'l2 proc) -> 'v -> (('r1 * 'r2) * 'l1) call sess -> 'l2 Lwt.t =
-  fun _ g v (Call (lazy (_, r))) ->
-  g r v ()
+module Internal = struct
+  
+  let merge : type t. ('ks,t) prot -> ('ks,t) prot -> ('ks,t) prot = fun x y ->
+    match x, y with
+    | Select _, Select _ ->
+       failwith "role not enabled"
+    | Request (_,_), Request (_,_) ->
+       failwith "role not enabled"
+    | Disconnect (_, _), Disconnect (_, _) ->
+       failwith "role not enabled"
+    | Offer (r, xs), Offer (_, ys) ->
+       Offer (r, xs @ ys)
+    | Accept (r, xs), Accept (_, ys) ->
+       Accept (r, xs @ ys)
+    | Close, Close ->
+       Close
+end

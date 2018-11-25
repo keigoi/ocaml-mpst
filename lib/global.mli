@@ -1,116 +1,46 @@
 open Base
 open Session
 
-type 'a mpst = MPST of 'a list lazy_t
-type ('a, 'b, 'c, 'd, 'r) role = ('a, 'b, 'c, 'd) lens * 'r
-
-type ('d1, 'd, 'f1, 'f) commm
-type ('l, 'x1, 'x2, 'r, 'y1, 'y2) commm2
-
-val get_sess : ('s sess, 'b, 'a mpst, 'c, 'd) role -> 'a mpst -> 's sess
-val uget : ('s sess, _, 'a, _) lens -> 'a mpst -> 's sess
-
 exception RoleNotEnabled
 
-val ( --> ) :
-  ('d sess, ('r2 * 'd1) select sess, 's mpst, 't mpst, 'r1) role ->
-  ('f sess, ('r1 * 'f1) branch sess, 't mpst, 'u mpst, 'r2) role ->
-  ('d1, 'd sess, 'f1, 'f sess) commm ->
-  's mpst ->
-  'u mpst
+type 'xs mpst = Mpst of 'xs lazy_t
 
-val ( *--> ) :
-  (('r3 * 'd) branch sess, (('r2 * 'r3)  * 'd1) selectbranch sess, 's mpst, 't mpst,
-   'r1)
-    role ->
-  ('f sess, ('r1 * 'f1) branch sess, 't mpst, 'u mpst, 'r2) role ->
-  ('d1, 'd proc, 'f1, 'f sess) commm ->
-  's mpst ->
-  'u mpst
+type ('ka,'kb,'v) channel =
+  {sender: 'ka -> 'v -> unit;
+   receiver: 'kb -> 'v Lwt.t}
 
-val ( -%%-> ) :
-  (close sess, ('r2 * 'l) select sess, 'ss mpst, 't mpst, 'r1) role ->
-  (close sess, ('r1 * 'r) branch sess, 't mpst, 'u mpst, 'r2) role ->
-  ('l, 'd1 sess, 'd2 sess, 'r, 'f1 sess, 'f2 sess) commm2 ->
-  l1:(('d1 sess, close sess, 's1 mpst, 't1 mpst, 'r1) role *
-        ('f1 sess, close sess, 't1 mpst, 'ss mpst, 'r2) role) *
-    's1 mpst ->
-  l2:(('d2 sess, close sess, 's2 mpst, 't2 mpst, 'r1) role *
-        ('f2 sess, close sess, 't2 mpst, 'ss mpst, 'r2) role) *
-    's2 mpst ->
-  'u mpst
+type ('la,'lb,'ca,'cb,'ka,'kb,'v) label =
+  {make_channel: unit -> ('ka,'kb,'v) channel;
+   select_label: ('v -> 'ca) -> 'la;
+   offer_label: 'v * 'cb -> 'lb}
+  
+type ('l, 'r, 'lr) label_merge =
+  {label_merge: 'l -> 'r -> 'lr}
 
-val ( -!-> ) :
-  ('d sess, ('r2 * ('k1 -> 'd1)) request sess, 's mpst, 't mpst, 'r1) role ->
-  ('f sess, ('r1 * ('k2 -> 'f1)) accept sess, 't mpst, 'u mpst, 'r2) role ->
-  (('r1, 'k1) conn * ('r2, 'k2) conn -> ('d1, 'd sess, 'f1, 'f sess) commm) ->
-  (('r1, 'k1) conn * ('r2, 'k2) conn -> 's mpst) ->
-  'u mpst
+val (-->) :
+  ('ra, ('ksa, 'sa) prot, ('ksa, ('la, ('ka, 'rb) conn) send) prot, 'c0 mpst, 'c1 mpst) role ->
+  ('rb, ('ksb, 'sb) prot, ('ksb, ('lb, ('kb, 'ra) conn) receive) prot, 'c1 mpst, 'c2 mpst) role ->
+  ('la, 'lb, ('ksa,'sa) sess, ('ksb,'sb) sess, 'ka, 'kb, 'v) label ->
+  'c0 mpst -> 'c2 mpst
 
-val ( -?-> ) :
-  ('d sess, ('r2 * 'd1) select sess, 's mpst, 't mpst, 'r1) role ->
-  ('f sess, ('r1 * 'f1) branch sess, 't mpst, 'u mpst, 'r2) role ->
-  ('d1, ('r2 * ('r1, 'k1) conn * 'd sess) disconnect sess, 'f1,
-   ('r1 * ('r2, 'k2) conn * 'f sess) disconnect sess) commm ->
-  ('r2, 'k2) conn * ('r1, 'k1) conn ->
-  's mpst ->
-  'u mpst
+val (-!->) :
+  ('ra, ('ksa2, 'sa) prot, ('ksa, ('ksa2, 'la, ('ka, 'rb) conn) request) prot, 'c0 mpst, 'c1 mpst) role ->
+  ('rb, ('ksb2, 'sb) prot, ('ksb, ('ksb2, 'lb, ('kb, 'ra) conn) accept) prot, 'c1 mpst, 'c2 mpst) role ->
+  ('la, 'lb, ('ksa2,'sa) sess, ('ksb2,'sb) sess, 'ka, 'kb, 'v) label ->
+  'c0 mpst -> 'c2 mpst
 
-val (-!%%->) : (close sess, ('r2 * ('k1 -> 'l)) request sess, 'ss mpst, 't mpst, 'r1) role ->
-               (close sess, ('r1 * ('k2 -> 'r)) accept sess, 't mpst, 'u mpst, 'r2) role ->
-               (('r1, 'k1) conn * ('r2, 'k2) conn -> ('l, 'd1 sess, 'd2 sess, 'r, 'f1 sess, 'f2 sess) commm2) ->
-               l1:(('d1 sess, close sess, 's1 mpst, 't1 mpst, 'r1) role *
-                     ('f1 sess, close sess, 't1 mpst, 'ss mpst, 'r2) role) *
-                 (('r1, 'k1) conn * ('r2, 'k2) conn -> 's1 mpst) ->
-               l2:(('d2 sess, close sess, 's2 mpst, 't2 mpst, 'r1) role *
-                     ('f2 sess, close sess, 't2 mpst, 'ss mpst, 'r2) role) *
-                 (('r1, 'k1) conn * ('r2, 'k2) conn -> 's2 mpst) ->
-               'u mpst
-
-val (-?%%->) : (close sess, ('r2 * 'l) select sess, 'ss mpst, 't mpst, 'r1) role ->
-               (close sess, ('r1 * 'r) branch sess, 't mpst, 'u mpst, 'r2) role ->
-               ('l, ('r2 * ('r1, 'k1) conn * 'd1 sess) disconnect sess,
-                ('r2 * ('r1, 'k1) conn * 'd2 sess) disconnect sess, 'r,
-                ('r1 * ('r2, 'k2) conn * 'f1 sess) disconnect sess,
-                ('r1 * ('r2, 'k2) conn * 'f2 sess) disconnect sess)
-                 commm2 ->
-               ('r2, 'k2) conn * ('r1, 'k1) conn ->
-               l1:(('d1 sess, close sess, 's1 mpst, 't1 mpst, 'r1) role *
-                     ('f1 sess, close sess, 't1 mpst, 'ss mpst, 'r2) role) *
-                 's1 mpst ->
-               l2:(('d2 sess, close sess, 's2 mpst, 't2 mpst, 'r1) role *
-                     ('f2 sess, close sess, 't2 mpst, 'ss mpst, 'r2) role) *
-                 's2 mpst ->
-               'u mpst
 val discon :
-  ('d sess, ('r2 * ('r1, 'k1) conn * 'd sess) disconnect sess, 's mpst, 't mpst, 'r1)
-    role ->
-  ('f sess, ('r1 * ('r2, 'k2) conn * 'f sess) disconnect sess, 't mpst, 'u mpst, 'r2)
-    role ->
-  ('r1, 'k1) conn * ('r2, 'k2) conn ->
-  's mpst ->
-  'u mpst
+  ('ra, ('ksa2, 'sa) prot, ('ksa, ('ksa2, 'sa, ('ka, 'rb) conn) disconnect) prot, 'c0 mpst, 'c1 mpst) role ->
+  ('rb, ('ksb2, 'sb) prot, ('ksb, ('ksb2, 'sb, ('kb, 'ra) conn) disconnect) prot, 'c1 mpst, 'c2 mpst) role ->
+  'c0 mpst -> 'c2 mpst
 
-val dummy_close :
-  (close sess, close sess, 'a mpst, 'a mpst, 'r) role -> 'a mpst -> 'a mpst
-val dummy_receive :
-  ('l branch sess, 'l branch sess, 'a mpst, 'a mpst, 'r1) role ->
-  'a mpst -> 'a mpst
+val choice_at :
+  ('c1 -> 'c1 -> 'c1) ->
+  ('ra, ('ks, close) prot, ('ks, ('lr, ('k, 'rb) conn) send) prot, 'c1, 'c2) role ->
+  ('l, 'r, 'lr) label_merge ->
+  ('ra, ('ks, ('l, ('k, 'rb) conn) send) prot, ('ks, close) prot, 'c0l, 'c1) role * 'c0l ->
+  ('ra, ('ks, ('r, ('k, 'rb) conn) send) prot, ('ks, close) prot, 'c0r, 'c1) role * 'c0r ->
+  'c2
 
-val loop_ : 'a mpst lazy_t -> 'a mpst
+val loop : 'c mpst lazy_t -> 'c mpst
 
-module Labels : sig
-  val mklabel :
-    (('a -> 'b) -> 'c) ->
-    ('d * 'e -> 'f) ->
-    ('g -> 'a -> unit) ->
-    ('h -> 'd Lwt.t) -> 'g * 'h -> ('c, 'b, 'f, 'e) commm
-
-  val mklabel2 :
-    (('a -> 'b) -> ('c -> 'd) -> 'e) ->
-    ('f * 'g -> 'h) ->
-    ('i * 'j -> 'h) ->
-    ('k -> ('a, 'c) Base.either -> 'l) ->
-    ('m -> ('f, 'i) Base.either Lwt.t) ->
-    'k * 'm -> ('e, 'b, 'd, 'h, 'g, 'j) commm2
-end

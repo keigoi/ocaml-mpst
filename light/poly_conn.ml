@@ -162,42 +162,39 @@ end
 module Global: sig
   open Local
   type ('k1,'k2,'v) channel = {receiver: 'k1 -> 'v Channel.i; sender: 'k2 -> 'v -> unit}
-  type ('k1,'k2) medium = {instance : 'v. unit -> ('k1,'k2,'v) channel}
   
   val ( ==> ) :
         < role : 'ra;
-          lens : (('ksa,'sa) prot, ('ksa, ('sa, 'v, ('k2, 'rb) conn) send) prot, 'c0, 'c1) plens;
-          ext : 'ms -> 'ms0; .. > ->
+          lens : (('ksa,'sa) prot, ('ksa, ('sa, 'v, ('k2, 'rb) conn) send) prot, 'c0, 'c1) plens; .. > ->
         < role : 'rb;
-          lens : (('ksb, 'sb) prot, ('ksb, ('sb, 'v, ('k1, 'ra) conn) recv) prot, 'c1, 'c2) plens;
-          ext : 'ms0 -> ('k1, 'k2) medium; .. > ->
-        ('ms -> 'c0) -> 'ms -> 'c2
+          lens : (('ksb, 'sb) prot, ('ksb, ('sb, 'v, ('k1, 'ra) conn) recv) prot, 'c1, 'c2) plens; .. > ->
+        < value : ('k1,'k2, 'v) channel; .. > ->
+        'c0 -> 'c2
 
-  type ('ks1, 'ks2, 'sa, 'sb, 'sa0, 'sb0) label1 = {
+  type ('ks1, 'ks2, 'k1, 'k2, 'sa, 'sb, 'sa0, 'sb0) label1 = {
     label1 :
-      'k1 'k2 'ra 'rb.
-        ('k1, 'k2, unit) channel ->
+      'ra 'rb.
         ('ra * ('ks1, 'sa0) prot lazy_t) *
         ('rb * ('ks2, 'sb0) prot lazy_t) ->
         ('ks1, ('sa, ('k2, 'rb) conn) select) prot *
         ('ks2, ('sb, ('k1, 'ra) conn) offer) prot;
   }
   val left :
-    ('ksa, 'ksb, < left : ('ksa, 'sa) sess >, [> `left of ('ksb, 'sb) sess ], 'sa, 'sb) label1
+    <left:('k1,'k2,unit) channel; ..> ->
+    ('ksa, 'ksb, 'k1, 'k2, < left : ('ksa, 'sa) sess >, [> `left of ('ksb, 'sb) sess ], 'sa, 'sb) label1
   val right :
-    ('ksa, 'ksb, < right : ('ksa, 'sa) sess >, [> `right of ('ksb, 'sb) sess ], 'sa, 'sb) label1
+    <right:('k1,'k2,unit) channel; ..> ->
+    ('ksa, 'ksb, 'k1, 'k2, < right : ('ksa, 'sa) sess >, [> `right of ('ksb, 'sb) sess ], 'sa, 'sb) label1
      
   val ( --> ) :
     < role : 'ra;
       lens : (('ksa, 'sa) prot,
-              ('ksa, ('la, ('k2, 'rb) conn) select) prot, 'c0, 'c1) plens;
-      ext : 'ms -> 'ms0; .. > ->
+              ('ksa, ('la, ('k2, 'rb) conn) select) prot, 'c0, 'c1) plens; .. > ->
     < role : 'rb;
       lens : (('ksb, 'sb) prot,
-              ('ksb, ('lb, ('k1, 'ra) conn) offer) prot, 'c1, 'c2) plens;
-      ext : 'ms0 -> ('k1, 'k2) medium; .. > ->
-    ('ksa, 'ksb, 'la, 'lb, 'sa, 'sb) label1 ->
-    ('ms -> 'c0) -> 'ms -> 'c2
+              ('ksb, ('lb, ('k1, 'ra) conn) offer) prot, 'c1, 'c2) plens; .. > ->
+    ('ksa, 'ksb, 'k1, 'k2, 'la, 'lb, 'sa, 'sb) label1 ->
+    'c0 -> 'c2
 
   type ('l, 'r, 'lr) label_merge
   val left_or_right :
@@ -209,42 +206,40 @@ module Global: sig
     < lens : (('ks, close) prot, ('ks, ('lr, ('k, 'ra) conn) select) prot, 'c1, 'c2) plens; .. > ->
     ('l, 'r, 'lr) label_merge ->
     < lens : (('ks, ('l, ('k, 'ra) conn) select) prot, ('ks, close) prot, 'c0l, 'c1) plens;
-      merge : 'c1 -> 'c1 -> 'c1; .. > * ('ms -> 'c0l) ->
-    < lens : (('ks, ('r, ('k, 'ra) conn) select) prot, ('ks, close) prot, 'c0r, 'c1) plens; .. > * ('ms -> 'c0r) ->
-    'ms -> 'c2
+      merge : 'c1 -> 'c1 -> 'c1; .. > * 'c0l ->
+    < lens : (('ks, ('r, ('k, 'ra) conn) select) prot, ('ks, close) prot, 'c0r, 'c1) plens; .. > * 'c0r ->
+    'c2
 
   val (=!=>) : 
     < role : 'ra;
       lens : (('ks11, 'sa) prot, ('ks1, ('sa, 'ks11, 'rb) connect) prot, 'c0, 'c1) plens; .. > ->
     < role : 'rb; 
       lens : (('ks22, 'sb) prot, ('ks2, ('sb, 'ks22, 'ra) connect) prot, 'c1, 'c2) plens; .. > ->
-    ('ms -> 'c0) -> 'ms -> 'c2
+    'c0 -> 'c2
                                                                                       
 end =  struct
   open Local
   type ('k1,'k2,'v) channel = {receiver: 'k1 -> 'v Channel.i; sender: 'k2 -> 'v -> unit}
-  type ('k1,'k2) medium = {instance : 'v. unit -> ('k1,'k2,'v) channel}
      
-  type ('ks1, 'ks2, 'sa,'sb,'sa0,'sb0) label1 =
-    {label1:'k1 'k2 'ra 'rb. ('k1,'k2,unit) channel -> (('ra * ('ks1,'sa0) prot Lazy.t) * ('rb * ('ks2,'sb0) prot Lazy.t)
+  type ('ks1, 'ks2, 'k1, 'k2, 'sa,'sb,'sa0,'sb0) label1 =
+    {label1: 'ra 'rb. (('ra * ('ks1,'sa0) prot Lazy.t) * ('rb * ('ks2,'sb0) prot Lazy.t)
                       -> ('ks1,('sa, ('k2,'rb) conn) select) prot * ('ks2,('sb, ('k1,'ra) conn) offer) prot)}
 
-  let left = {label1=(fun c ((ra,sa), (rb,sb)) ->
+  let left m = {label1=(fun ((ra,sa), (rb,sb)) ->
+                let c = m#left in
                 Select (rb, fun ks k -> object method left=c.sender k (); Sess (ks, Lazy.force sa) end),
                 Offer (ra, [(fun ks k -> Channel.map (c.receiver k) (fun _ -> `left ((Sess (ks, Lazy.force sb)))))])
              )}
-  let right = {label1=(fun c ((ra,sa), (rb,sb)) ->
+  let right m = {label1=(fun ((ra,sa), (rb,sb)) ->
+                let c = m#right in
                 Select (rb, fun ks k -> object method right=c.sender k (); Sess (ks, Lazy.force sa) end),
                 Offer (ra, [(fun ks k -> Channel.map (c.receiver k) (fun _ -> `right ((Sess (ks, Lazy.force sb)))))])
              )}
 
-  let (-->) a b ({label1}) c0 ms =
-    let c0 = c0 ms in
-    let m = b#ext (a#ext ms) in
-    let io = m.instance () in
+  let (-->) a b ({label1}) c0 =
     let sa = lazy (a#lens.get c0) in
     let rec sb = lazy (b#lens.get (Lazy.force c1)) 
-    and sab' = lazy (label1 io ((a#role, sa), (b#role, sb)))
+    and sab' = lazy (label1 ((a#role, sa), (b#role, sb)))
     and c1 = lazy (a#lens.put c0 (fst (Lazy.force sab'))) in
     let c2 = b#lens.put (Lazy.force c1) (snd (Lazy.force sab')) in
     c2
@@ -262,41 +257,36 @@ end =  struct
          Select (rb, fun ks k -> object method left=(ol ks k)#left method right=(or_ ks k)#right end))}
   
   
-  let choice_at a {label_merge} (al,cl) (ar,cr) ms =
-    let cl = cl ms and cr = cr ms in
+  let choice_at a {label_merge} (al,cl) (ar,cr) =
     let sal, sar = al#lens.get cl, ar#lens.get cr in
     let cl, cr = al#lens.put cl Close, ar#lens.put cr Close in
     let c = al#merge cl cr in
     a#lens.put c (label_merge sal sar)
   
-  let (==>) : 'ms 'ms0 'sa 'sb 'v 'k1 'k2 'ra 'rb 'c0 'c1 'c2.
-        < ext : 'ms -> 'ms0;
-          lens : (('ks1,'sa) prot, ('ks1, ('sa, 'v, ('k2, 'rb) conn) send) prot, 'c0, 'c1) plens;
+  let (==>) : 'sa 'sb 'v 'k1 'k2 'ra 'rb 'c0 'c1 'c2.
+        < lens : (('ks1,'sa) prot, ('ks1, ('sa, 'v, ('k2, 'rb) conn) send) prot, 'c0, 'c1) plens;
           role : 'ra; .. > ->
-        < ext : 'ms0 -> ('k1, 'k2) medium;
-          lens : (('ks2, 'sb) prot, ('ks2, ('sb, 'v, ('k1, 'ra) conn) recv) prot, 'c1, 'c2) plens;
+        < lens : (('ks2, 'sb) prot, ('ks2, ('sb, 'v, ('k1, 'ra) conn) recv) prot, 'c1, 'c2) plens;
           role : 'rb; .. > ->
-        ('ms -> 'c0) -> 'ms -> 'c2
-        = fun a b c0 ms ->
-    let c0 = c0 ms in
+        <value:('k1,'k2,'v) channel;..> ->
+        'c0 -> 'c2
+        = fun a b m c0 ->
     let sa = lazy (a#lens.get c0) in
     let rec sb = lazy (b#lens.get (Lazy.force c1)) 
-    and m = b#ext (a#ext ms)
-    and io = lazy (m.instance ())
+    and io = lazy (m#value)
     and sab' = lazy (Send (b#role, (Lazy.force io).sender, (fun ks -> Sess (ks, Lazy.force sa))),
                      Recv (a#role, [(Lazy.force io).receiver, (fun ks -> Sess (ks, Lazy.force sb))]))
     and c1 = lazy (a#lens.put c0 (fst (Lazy.force sab'))) in
     let c2 = b#lens.put (Lazy.force c1) (snd (Lazy.force sab')) in
     c2
   
-  let (=!=>) : 'ra 'ra 'ks1 'ks11 'ks2 'ks22 'sa 'sb 'c0 'c1 'c2 'ms.
+  let (=!=>) : 'ra 'ra 'ks1 'ks11 'ks2 'ks22 'sa 'sb 'c0 'c1 'c2.
     < role : 'ra;
       lens : (('ks11, 'sa) prot, ('ks1, ('sa, 'ks11, 'rb) connect) prot, 'c0, 'c1) plens; .. > ->
     < role : 'rb; 
       lens : (('ks22, 'sb) prot, ('ks2, ('sb, 'ks22, 'ra) connect) prot, 'c1, 'c2) plens; .. > ->
-    ('ms -> 'c0) -> 'ms -> 'c2
-        = fun a b c0 ms ->
-    let c0 = c0 ms in
+    'c0 -> 'c2
+        = fun a b c0 ->
     let sa = lazy (a#lens.get c0) in
     let rec sb = lazy (b#lens.get (Lazy.force c1)) 
     and sab' = lazy (Connect (b#role, (fun ks -> Sess (ks, Lazy.force sa))),
@@ -308,7 +298,7 @@ end
 
 module ThreeParty = struct
   open Local
-  let finish3 ms =
+  let finish3 =
     Close, Close, Close
 
   type a = A
@@ -324,7 +314,18 @@ module ThreeParty = struct
   let b = object method role=B; method lens={get=(fun (_,y,_) -> y); put=(fun (x,_,z) y->(x,y,z))}; method merge=merge3 method ext x=x#b end
   let c = object method role=C; method lens={get=(fun (_,_,z) -> z); put=(fun (x,y,_) z->(x,y,z))}; method merge=merge3 method ext x=x#c end
 
-  let f () = (a --> b) left @@ finish3
+  let shmem =
+    let cre () =
+      let o,i = Channel.create() in
+      {sender=(fun () -> Channel.send o); receiver=(fun () -> i)}
+    in
+    object
+      method value = cre ()
+      method left = cre ()
+      method right = cre ()
+    end
+
+  let f () = (a --> b) (left shmem) @@ finish3
 end
 
 open Global
@@ -332,18 +333,18 @@ open ThreeParty
 include Local
 
 module Example1 = struct
-  let global_example () =
+  let global_example ab ba bc =
     (a =!=> b) @@
     (b =!=> c) @@
-    (a ==> b) @@
-    (b ==> c) @@
+    (a ==> b) ab @@
+    (b ==> c) bc @@
     choice_at a left_or_right
-      (a, (a --> b) left @@
-          (b ==> c) @@
+      (a, (a --> b) (left ab) @@
+          (b ==> c) bc @@
           finish3)
-      (a, (a --> b) right @@
-          (b ==> a) @@
-          (b ==> c) @@
+      (a, (a --> b) (right ab) @@
+          (b ==> a) ba @@
+          (b ==> c) bc @@
           finish3)
 
   let t1 sa =
@@ -384,38 +385,21 @@ module Example1 = struct
     Printf.printf "C: received: %s\n" w;
     close s
 
-  let shmem =
-    let m = {instance=(fun () -> let o,i = Channel.create () in {receiver=(fun () -> i); sender=(fun () -> Channel.send o)})} in
-    let make_ab p = object method a=p method b=p end in
-    let make_bc p = object method b=p method c=p end in
-    let make_ca p = object method a=p method c=p end in
-    object method a=make_bc m method b=make_ca m method c=make_ab m end
 
-  let make :
-        ('kab,'kba) medium * ('kba,'kab) medium ->
-        ('kbc,'kcb) medium * ('kcb,'kbc) medium ->
-        ('kca,'kac) medium * ('kac,'kca) medium ->
-        _
-    = fun ab bc ca ->
-    let (!!) (a,_) = a in
-    let (!?) (_,a) = a in
-    let make_ab v1 v2 = object method a=v1 method b=v2 end in
-    let make_bc v1 v2 = object method b=v1 method c=v2 end in
-    let make_ca v1 v2 = object method c=v1 method a=v2 end in
-    object method a=make_bc !!ab !?ca method b=make_ca !!bc !?ab method c=make_ab !!ca !?bc end
-
-  let ac_stream =
-    let m = {instance=(fun () ->
-               let o,i = Channel.create () in
-               {receiver=(fun () -> i); sender=(fun () -> Channel.send o)})} in
-    let st = {instance=(fun () ->
-                {receiver=(fun (o,i) -> Channel.map i (fun v -> Marshal.from_bytes v 0));
-                 sender=(fun (o,i) v -> Channel.send o (Marshal.to_bytes v []))})} in
-    make (m,m) (st,st) (m,m)
+  let st =
+    let cre () =
+      {receiver=(fun (o,i) -> Channel.map i (fun v -> Marshal.from_bytes v 0));
+       sender=(fun (o,i) v -> Channel.send o (Marshal.to_bytes v []))}
+    in
+    object
+      method value=cre()
+      method left=cre()
+      method right=cre()
+    end
     
   let main () =
     Random.self_init ();
-    let g = global_example () ac_stream in
+    let g = global_example shmem shmem st in
     let sa, sb, sc = a#lens.get g, b#lens.get g, c#lens.get g in
     let (o1,i1), (o2,i2) = Channel.create (), Channel.create () in
     let t1id = Thread.create (fun () -> t1 (init ((),(),()) sa)) () in

@@ -24,9 +24,7 @@ let shmem_disconnect {up} = Lwt.return (up None)
 
 let marshal_flags = []
 
-let write : 'a. (_, dstream) conn -> 'a -> unit = function
-  | {conn=Some{up}} ->
-     fun v ->
+let write c v =
      let str =
        begin
          try
@@ -35,16 +33,21 @@ let write : 'a. (_, dstream) conn -> 'a -> unit = function
          | e -> Printf.eprintf "fail at marshal"; raise e
        end
      in
-     up (Some str)
-  | {conn=None} -> Printf.eprintf"fail at write: disconnected"; failwith "write: disconnected"
+     c.up (Some str)
 
-let read : 'a. (_, dstream) conn -> 'a Lwt.t = function
-  | {conn=Some{down}} ->
-     Lwt_stream.next down >>= fun str ->
-     Lwt.return
+let read c f = 
+  Lwt_stream.peek c.down >>= fun s ->
+  match s with
+  | None ->
+     assert false
+  | Some str ->
        begin try
-           Marshal.from_string str 0
+           let v = Marshal.from_string str 0 in
+           if f v then begin
+             Lwt_stream.next c.down >>= fun _ ->
+             Lwt.return v
+           end else
+             Lwt.choose []
          with
          | e -> Printf.eprintf "fail at unmarshal"; raise e
        end
-  | {conn=None} -> Printf.eprintf"fail at read: disconnected";failwith "read: disconnected"

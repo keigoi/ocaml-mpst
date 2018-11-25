@@ -4,29 +4,37 @@ let (>>=) = Lwt.(>>=)
 
 module M = Marshal_example
 
-let msg k = msg_ M.write M.read k
-let left k = left_ M.write M.read k
-let right k = right_ M.write M.read k
-let leftright k = leftright_ M.write M.read k
+type 'v m = Msg of 'v | Left of 'v | Right of 'v
 
-let swap (a,b) = (b,a)
+let marshal =
+  object
+    method ch_msg ()=
+      {sender=(fun t v -> M.write t (Msg(v)));
+       receiver=(fun t -> M.read t (function Msg(v) -> true | _ -> false))}
+    method ch_left ()=
+      {sender=(fun t v -> M.write t (Left(v)));
+       receiver=(fun t -> M.read t (function Left(v) -> true | _ -> false))}
+    method ch_right ()=
+      {sender=(fun t v -> M.write t (Right(v)));
+       receiver=(fun t -> M.read t (function Right(v) -> true | _ -> false))}
+  end
+  
 
-let mk_g () =
+let mk_g m =
   let g =
-    (b -!-> a) msg @@ (fun kba ->
-    (a -!-> c) msg @@ (fun kac ->
-    (c -%%-> a) (leftright (swap (kac)))
-      ~l1:((c,a),
-           (a --> b) (right (swap kba)) @@
-           discon b a kba @@
-           discon a c kac @@
-           finish)
-      ~l2:((c,a),
-           (a --> b) (left (swap kba)) @@
-           discon b a kba @@
-           discon a c kac @@
-           finish)
-    ))
+    (b -!-> a) (msg_ m) @@
+    (a -!-> c) (msg_ m) @@
+    choice_at c left_or_right
+      (c, (c --> a) (left_ m) @@
+          (a --> b) (right_ m) @@
+          discon a b @@
+          discon a c @@
+          finish)
+      (c, (c --> a) (right_ m) @@
+          (a --> b) (left_ m) @@
+          discon a b @@
+          discon a c @@
+          finish)
   in
   g
 
@@ -35,22 +43,22 @@ let kac = M.create_shmem_channel ()
 
 let ta s =
   M.shmem_accept kab >>= fun kb ->
-  accept B kb s >>= fun (`msg((), s)) ->
+  accept b kb s >>= fun (`msg((), s)) ->
   let kc = M.shmem_connect kac in
-  let s = request C (fun x->x#msg) () kc s in
+  let s = request c (fun x->x#msg) () kc s in
   begin
-    receive C s >>= function
+    receive c s >>= function
     | `left((), s) ->
        print_endline "ta: left";
-       let s = send B (fun x->x#right) () s in
+       let s = send b (fun x->x#right) () s in
        Lwt.return s
     | `right((), s) ->
        print_endline "ta: right";
-       let s = send B (fun x->x#left) () s in
+       let s = send b (fun x->x#left) () s in
        Lwt.return s
   end >>= fun s ->
-  disconnect B M.shmem_disconnect s >>= fun s ->
-  disconnect C M.shmem_disconnect s >>= fun s ->
+  let s = disconnect b s in
+  let s = disconnect c s in
   close s;
   print_endline "ta finished";
   Lwt.return ()
@@ -59,9 +67,9 @@ let ta s =
 
 let tb s =
   let ka = M.shmem_connect kab in
-  let s = request A (fun x->x#msg) () ka s in
+  let s = request a (fun x->x#msg) () ka s in
   begin
-    receive A s >>= function
+    receive a s >>= function
     | `right((),s) ->
        print_endline "tb: right";
        Lwt.return s
@@ -69,7 +77,7 @@ let tb s =
        print_endline "tb: left";
        Lwt.return s
   end >>= fun s ->
-  disconnect A M.shmem_disconnect s >>= fun s ->
+  let s = disconnect a s in
   close s;
   print_endline "tb finished";
   Lwt.return ()
@@ -78,19 +86,19 @@ let tb s =
 
 let tc s =
   M.shmem_accept kac >>= fun ka ->
-  accept A ka s >>= fun (`msg((),s)) ->
+  accept a ka s >>= fun (`msg((),s)) ->
   begin
     if Random.bool () then begin
         print_endline "tc: select left";
-        let s = send A (fun x->x#left) () s in
+        let s = send a (fun x->x#left) () s in
         Lwt.return s
       end else begin
         print_endline "tc: select right";
-        let s = send A (fun x->x#right) () s in
+        let s = send a (fun x->x#right) () s in
         Lwt.return s
       end
   end >>= fun s ->
-  disconnect A M.shmem_disconnect s >>= fun s ->
+  let s = disconnect a s in
   close s;
   print_endline "tc finished";
   Lwt.return ()
@@ -98,58 +106,58 @@ let tc s =
 let () = Random.self_init ()
 
 let () =
-  let g = mk_g () in
+  let g = mk_g marshal in
   Lwt_main.run (Lwt.join [ta (get_sess a g); tb (get_sess b g); tc (get_sess c g)])
 
 
 (* loop example *)
-let mk_g' () =
-    (b -!-> a) msg @@ (fun kba ->
-    (a -!-> c) msg @@ (fun kac ->
+let mk_g' m =
+    (b -!-> a) (msg_ m) @@
+    (a -!-> c) (msg_ m) @@
     let rec g =
       lazy begin
-      (c -%%-> a) (leftright (swap (kac)))
-        ~l1:((c,a),
-             (a --> b) (right (swap kba)) @@
-             discon b a kba @@
-             discon a c kac @@
-             finish)
-        ~l2:((c,a),
-             (a --> b) (left (swap kba)) @@
-             loop_ g)
+      choice_at c left_or_right
+        (c, (c --> a) (left_ m) @@
+            (a --> b) (right_ m) @@
+            discon b a @@
+            discon a c @@
+            finish)
+        (c, (c --> a) (right_ m) @@
+            (a --> b) (left_ m) @@
+            loop g)
         end
     in
-    Lazy.force g))
+    Lazy.force g
 
 let rec ta' s =
   M.shmem_accept kab >>= fun kb ->
-  accept B kb s >>= fun (`msg((), s)) ->
+  accept b kb s >>= fun (`msg((), s)) ->
   let kc = M.shmem_connect kac in
-  let s = request C (fun x->x#msg) () kc s in
+  let s = request c (fun x->x#msg) () kc s in
   let rec loop s =
-    receive C s >>= function
+    receive c s >>= function
     | `left((), s) ->
        print_endline "ta: left";
-       let s = send B (fun x->x#right) () s in
+       let s = send b (fun x->x#right) () s in
        Lwt.return s
     | `right((), s) ->
        print_endline "ta: right";
-       let s = send B (fun x->x#left) () s in
+       let s = send b (fun x->x#left) () s in
        loop s
   in
-  loop s>>= fun s ->
-  disconnect B M.shmem_disconnect s >>= fun s ->
-  disconnect C M.shmem_disconnect s >>= fun s ->
+  loop s >>= fun s ->
+  let s = disconnect b s in
+  let s = disconnect c s in
   close s;
-  print_endline "ta finished";
+  print_endline "ta' finished";
   Lwt.return ()
 
 
 let tb' s =
   let ka = M.shmem_connect kab in
-  let s = request A (fun x->x#msg) () ka s in
+  let s = request a (fun x->x#msg) () ka s in
   let rec loop s =
-    receive A s >>= function
+    receive a s >>= function
     | `right((),s) ->
        print_endline "tb: right";
        Lwt.return s
@@ -158,33 +166,33 @@ let tb' s =
        loop s
   in
   loop s >>= fun s ->
-  disconnect A M.shmem_disconnect s >>= fun s ->
+  let s = disconnect a s in
   close s;
-  print_endline "tb finished";
+  print_endline "tb' finished";
   Lwt.return ()
 
 let tc' s =
   M.shmem_accept kac >>= fun ka ->
-  accept A ka s >>= fun (`msg((),s)) ->
+  accept a ka s >>= fun (`msg((),s)) ->
   let rec loop s =
     if Random.bool () then begin
         print_endline "tc: select left";
-        let s = send A (fun x->x#left) () s in
+        let s = send a (fun x->x#left) () s in
         Lwt.return s
       end else begin
         print_endline "tc: select right";
-        let s = send A (fun x->x#right) () s in
+        let s = send a (fun x->x#right) () s in
         loop s
       end
   in
   loop s >>= fun s ->
-  disconnect A M.shmem_disconnect s >>= fun s ->
+  let s = disconnect a s in
   close s;
-  print_endline "tc finished";
+  print_endline "tc' finished";
   Lwt.return ()
 
 let () =
   print_endline "try calling mk_g'";
-  let g = mk_g' () in
+  let g = mk_g' marshal in
   print_endline "generated";
   Lwt_main.run (Lwt.join [ta' (get_sess a g); tb' (get_sess b g); tc' (get_sess c g)])

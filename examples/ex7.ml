@@ -21,16 +21,16 @@ let marshal =
 
 let mk_g m =
   let g =
-    ((b,b) -!-> (a,a)) (msg_ m) @@
-    ((a,a) -!-> (c,c)) (msg_ m) @@
+    ((b,b) -!-> (a,a)) (msg m) @@
+    ((a,a) -!-> (c,c)) (msg m) @@
     choice_at c left_or_right
-      (c, (c --> a) (left_ m) @@
-          (a --> b) (right_ m) @@
+      (c, (c --> a) (left m) @@
+          (a --> b) (right m) @@
           discon a b @@
           discon a c @@
           finish)
-      (c, (c --> a) (right_ m) @@
-          (a --> b) (left_ m) @@
+      (c, (c --> a) (right m) @@
+          (a --> b) (left m) @@
           discon a b @@
           discon a c @@
           finish)
@@ -111,18 +111,18 @@ let () =
 
 (* loop example *)
 let mk_g' m =
-    ((b,b) -!-> (a,a)) (msg_ m) @@
-    ((a,a) -!-> (c,c)) (msg_ m) @@
+    ((b,b) -!-> (a,a)) (msg m) @@
+    ((a,a) -!-> (c,c)) (msg m) @@
     let rec g =
       lazy begin
       choice_at c left_or_right
-        (c, (c --> a) (left_ m) @@
-            (a --> b) (right_ m) @@
+        (c, (c --> a) (left m) @@
+            (a --> b) (right m) @@
             discon b a @@
             discon a c @@
             finish)
-        (c, (c --> a) (right_ m) @@
-            (a --> b) (left_ m) @@
+        (c, (c --> a) (right m) @@
+            (a --> b) (left m) @@
             loop g)
         end
     in

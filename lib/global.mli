@@ -10,15 +10,14 @@ type ('la,'lb,'ca,'cb,'ka,'kb,'v) label =
    select_label: ('v -> 'ca) -> 'la;
    offer_label: 'v * 'cb -> 'lb}
 
-type ('l, 'r, 'lr) label_merge =
-  {label_merge: 'l -> 'r -> 'lr}
-
+(** scribble-style, labelled value transmission (a --> b) label @@ cont  *)
 val (-->) :
   ('ra, ('ksa, 'sa) prot, ('ksa, ('la, ('ka, 'rb) conn) send) prot, 'c0, 'c1) role ->
   ('rb, ('ksb, 'sb) prot, ('ksb, ('lb, ('kb, 'ra) conn) receive) prot, 'c1, 'c2) role ->
   ('la, 'lb, ('ksa,'sa) sess, ('ksb,'sb) sess, 'ka, 'kb, _) label ->
   'c0 lazy_t -> 'c2 lazy_t
 
+(** explicit connection. use like ((a,a) --> (b,b)) label @@ cont *)
 val (-!->) :
   ('ra, ('ksa2, 'sa) prot, ('ksa, ('ksa2, 'la, ('ka, 'rb) conn) request) prot, 'c0, 'c1) role *
     ('ra, unit, 'kb, 'ksb, 'ksb2) role ->
@@ -27,18 +26,24 @@ val (-!->) :
   ('la, 'lb, ('ksa2,'sa) sess, ('ksb2,'sb) sess, 'ka, 'kb, 'v) label ->
   'c0 lazy_t -> 'c2 lazy_t
 
+(** explicit disconnection discon a b @@ cont *)
 val discon :
   ('ra, ('ksa2, 'sa) prot, ('ksa, ('ksa2, 'sa, ('ka, 'rb) conn) disconnect) prot, 'c0, 'c1) role ->
   ('rb, ('ksb2, 'sb) prot, ('ksb, ('ksb2, 'sb, ('kb, 'ra) conn) disconnect) prot, 'c1, 'c2) role ->
   'c0 lazy_t -> 'c2 lazy_t
 
+(** dummy reception for non-liveness *)
 val dummy_receive :
   (_, _, (_, (_, (_, _) conn) receive) prot, 'c0, 'c1) role ->
   'c0 lazy_t ->
   'c1 lazy_t
 
+(* dummy closing for non-liveness *)
 val dummy_close :
   ('ra, _, (_, close) prot, 'c0, 'c1) role -> 'c0 lazy_t -> 'c1 lazy_t
+
+type ('l, 'r, 'lr) label_merge =
+  {label_merge: 'l -> 'r -> 'lr}
 
 val choice_at :
   ('c1 lazy_t -> 'c1 lazy_t -> 'c1 lazy_t) ->

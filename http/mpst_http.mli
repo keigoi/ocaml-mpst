@@ -1,4 +1,3 @@
-open Mpst
 
 module Util : sig
   val http_parameter_contains : string * string -> Cohttp.Request.t -> bool

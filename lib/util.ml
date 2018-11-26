@@ -4,17 +4,17 @@ open Global
 
 module Labels = struct
 
-  let msg_ o =
+  let msg o =
     {make_channel=o#ch_msg;
      select_label=(fun f -> object method msg=f end);
      offer_label=(fun l -> `msg(l))}
 
-  let left_ o =
+  let left o =
     {make_channel=o#ch_left;
      select_label=(fun f -> object method left=f end);
      offer_label=(fun l -> `left(l))}
 
-  let right_ o =
+  let right o =
     {make_channel=o#ch_right;
      select_label=(fun f -> object method right=f end);
      offer_label=(fun l -> `right(l))}

@@ -42,55 +42,77 @@ val http_connector : base_url:string -> 'a -> 'a cohttp_client Lwt.t
 val close_server : 'a cohttp_server -> unit Lwt.t
 val close_client : 'a cohttp_client -> unit Lwt.t
 
-val get :
-  ?pred:('a cohttp_server -> Cohttp.Request.t -> bool) ->
-  string ->
-  ('r1, 'a cohttp_client) Session.conn *
-    ('r2, 'a cohttp_server) Session.conn ->
-  (< get : (string * string list) list -> 'c >, 'c,
-  [> `get of (string * string list) list * 'd ], 'd)
-    Global.commm
+module Labels :
+  sig
+    type 'a pred = 'a cohttp_server -> Cohttp.Request.t -> bool
+    val get :
+      ?pred:'a pred ->
+      < ch_get : ?pred:'a pred ->
+                 'b -> unit -> ('c, 'd, 'e) Mpst.Global.channel;
+        .. > ->
+      'b ->
+      (< get : 'e -> 'f >, [> `get of 'e * 'g ], 'f, 'g, 'c, 'd, 'e)
+      Mpst.Global.label
+    val post :
+      < ch_post : 'a -> unit -> ('b, 'c, 'd) Mpst.Global.channel; .. > ->
+      'a ->
+      (< post : 'd -> 'e >, [> `post of 'd * 'f ], 'e, 'f, 'b, 'c, 'd)
+      Mpst.Global.label
+    val _302 :
+      < ch_302 : unit -> ('a, 'b, 'c) Mpst.Global.channel; .. > ->
+      (< _302 : 'c -> 'd >, [> `_302 of 'c * 'e ], 'd, 'e, 'a, 'b, 'c)
+      Mpst.Global.label
+    val _200 :
+      < ch_200 : unit -> ('a, 'b, 'c) Mpst.Global.channel; .. > ->
+      (< _200 : 'c -> 'd >, [> `_200 of 'c * 'e ], 'd, 'e, 'a, 'b, 'c)
+      Mpst.Global.label
+    val success :
+      pred:'a pred ->
+      < ch_success : 'b ->
+                     'a pred -> unit -> ('c, 'd, 'e) Mpst.Global.channel;
+        .. > ->
+      'b ->
+      (< success : 'e -> 'f >, [> `success of 'e * 'g ], 'f, 'g, 'c, 'd, 'e)
+      Mpst.Global.label
+    val fail :
+      pred:'a pred ->
+      < ch_fail : 'b -> 'a pred -> unit -> ('c, 'd, 'e) Mpst.Global.channel;
+        .. > ->
+      'b ->
+      (< fail : 'e -> 'f >, [> `fail of 'e * 'g ], 'f, 'g, 'c, 'd, 'e)
+      Mpst.Global.label
+    val success_or_fail :
+      (< success : 'a; .. >, < fail : 'b; .. >, < fail : 'b; success : 'a >)
+      Mpst.Global.label_merge
+    val fail_or_success :
+      (< fail : 'a; .. >, < success : 'b; .. >, < fail : 'a; success : 'b >)
+      Mpst.Global.label_merge
+  end
 
-val success :
-  ?pred:('a cohttp_server -> Cohttp.Request.t -> bool) ->
-  string ->
-  ('r1, 'a cohttp_client) Session.conn *
-    ('r2, 'a cohttp_server) Session.conn ->
-  (< success : (string * string list) list -> 'c >, 'c,
-      [> `success of (string * string list) list * 'd ], 'd)
-    Global.commm
-
-val fail :
-  ?pred:('a cohttp_server -> Cohttp.Request.t -> bool) ->
-  string ->
-  ('r1, 'a cohttp_client) Session.conn *
-    ('r2, 'a cohttp_server) Session.conn ->
-  (< fail : (string * string list) list -> 'c >, 'c,
-   [> `fail of (string * string list) list * 'd ], 'd)
-    Global.commm
-
-val post :
-  'a ->
-  'b * 'c ->
-  (< post : 'd -> 'e >, 'e, [> `post of 'f * 'g ], 'g) Global.commm
-
-val _200 :
-  ('r1, 'a cohttp_server) Session.conn *
-    ('r2, 'a cohttp_client) Session.conn ->
-  (< _200 : string -> 'c >, 'c, [> `_200 of string * 'd ], 'd)
-    Global.commm
-
-val _302 :
-  ('r1, 'a cohttp_server) Session.conn *
-    ('r2, 'a cohttp_client) Session.conn ->
-  (< _302 : Uri.t -> 'c >, 'c, [> `_302 of Uri.t * 'd ], 'd)
-    Global.commm
-
-val _200_success_fail :
-  (('a, 'b) Base.either -> string) ->
-  (string -> ('c, 'd) Base.either) ->
-  ('r1, 'a cohttp_server) Session.conn *
-    ('r2, 'a cohttp_client) Session.conn ->
-  (< fail : 'b -> 'g; success : 'a -> 'h >, 'h, 'g,
-                                      [> `fail of 'd * 'i | `success of 'c * 'j ], 'j, 'i)
-    Global.commm2
+val http :
+  < ch_200 : unit ->
+             ('a cohttp_server, 'b cohttp_client, string) Mpst.Global.channel;
+    ch_302 : unit -> ('c cohttp_server, 'd, Uri.t) Mpst.Global.channel;
+    ch_fail : string ->
+              ('e cohttp_server -> Cohttp.Request.t -> bool) ->
+              unit ->
+              ('f cohttp_client, 'e cohttp_server,
+               (string * string list) list)
+              Mpst.Global.channel;
+    ch_get : ?pred:('g cohttp_server -> Cohttp.Request.t -> bool) ->
+             string ->
+             unit ->
+             ('h cohttp_client, 'g cohttp_server,
+              (string * string list) list)
+             Mpst.Global.channel;
+    ch_post : string ->
+              unit ->
+              ('i cohttp_client, 'j cohttp_server,
+               (string * string list) list)
+              Mpst.Global.channel;
+    ch_success : string ->
+                 ('k cohttp_server -> Cohttp.Request.t -> bool) ->
+                 unit ->
+                 ('l cohttp_client, 'k cohttp_server,
+                  (string * string list) list)
+                 Mpst.Global.channel >

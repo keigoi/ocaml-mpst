@@ -5,12 +5,21 @@
  * b -?-> a : receive, then disconnect.
  *)
 open Mpst.ThreeParty
+open Mpst_http.Labels
 module H = Mpst_http
 let (>>=) = Lwt.(>>=)
 
 (*
+  $ opam install lwt_ssl
   $ ssh ben -R127.0.0.1:8080:127.0.0.1:8080
   $ dune build --profile=release && _build/default/ocaml-mpst/examples/oauth/oauth.exe
+  $ open https://keigoimai.info/scribble/oauth
+ *)
+(*
+  In keigoimai.info, ssl.conf:
+
+    ProxyPass /scribble http://127.0.0.1:8080/scribble
+    ProxyPassReverse /scribble http://127.0.0.1:8080/scribble
  *)
 
 module Params = struct
@@ -27,32 +36,41 @@ let () =
 let u = a
 let p = b
 
-let mk_oauth () =
-  (u -!-> c) (H.get "/oauth") @@ (fun kuc ->
-  (c -?-> u) (H._302 (swap kuc)) kuc @@
-  (u -!-> p) (H.get "-TODO-") @@ (fun kup ->
-  (p -?-> u) (H._200 (swap kup)) kup @@
-  (u -!-> p) (H.post "-TODO-") @@ (fun kup ->
-  (p -?%%-> u) (H._200_success_fail (fun _ -> (*TODO*)failwith "") (fun _ -> (*TODO*)failwith "") kup) kup
-    ~l1:((p,u), (u -!-> c) (H.success ~pred:(fun c -> H.Util.http_parameter_contains ("state", c.H.extra_server)) "/callback") (fun kuc ->
-                (c -!-> p) (H.get "/access_token") (fun kcp ->
-                (p -?-> c) (H._200 (swap kcp)) kcp @@
-                (c -?-> u) (H._200 (swap kuc)) kuc @@
-                finish)))
-    ~l2:((p,u), (u -!-> c) (H.fail ~pred:(fun _ -> H.Util.http_parameter_contains ("error", "access_denied")) "/callback") (fun kuc ->
-                (c -?-> u) (H._200 (swap kuc)) kuc @@
-                finish)))))
+let mk_oauth muc mup mcp =
+  ((u,u) -!-> (c,c)) (get muc "/oauth") @@
+  (c --> u) (_302 muc)  @@
+  discon u c @@      
+  ((u,u) -!-> (p,p)) (get mup "-TODO-") @@
+  (p --> u) (_200 mup) @@
+  discon u p @@
+  ((u,u) -!-> (p,p)) (post mup "-TODO-") @@
+  choice_at p success_or_fail
+    (p, (p --> u) (success ~pred:(fun c -> failwith "TODO") mup "-TODO-") @@
+        discon u p @@
+        ((u,u) -!-> (c,c)) (success ~pred:(fun c -> H.Util.http_parameter_contains ("state", c.H.extra_server)) muc "/callback") @@
+        ((c,c) -!-> (p,p)) (get mcp "/access_token") @@
+        (p --> c) (_200 mcp) @@
+        discon c p @@
+        (c --> u) (_200 muc) @@
+        discon u c @@
+        finish)
+    (p, (p --> u) (fail ~pred:(fun c -> failwith "TODO") mup "-TODO-") @@
+        discon u p @@
+        ((u,u) -!-> (c,c)) (fail ~pred:(fun _ -> H.Util.http_parameter_contains ("error", "access_denied")) muc "/callback") @@
+        (c --> u) (_200 muc) @@
+        discon u c @@
+        finish)
 
 let () =
   Random.self_init ()
 
 let facebook_oauth () =
   print_endline "oauth_consumer started";
-  let g = mk_oauth () in
+  let g = mk_oauth H.http H.http H.http in
   let s = get_sess c g in
   let sessionid = Int64.to_string @@ Random.int64 Int64.max_int in
   my_acceptor sessionid >>= fun srv ->
-  accept A srv s >>= fun (`get(params, s)) ->
+  accept a srv s >>= fun (`get(params, s)) ->
   print_endline "connection accepted";
   let redirect_url =
     Uri.add_query_params'
@@ -61,22 +79,22 @@ let facebook_oauth () =
        ("redirect_uri", Params.callback_url);
        ("state", sessionid)]
   in
-  let s = send A (fun x->x#_302) redirect_url s in
-  disconnect A H.close_server s >>= fun s ->
+  let s = send a (fun x->x#_302) redirect_url s in
+  let s = disconnect a s in
   my_acceptor sessionid >>= fun srv ->
-  accept A srv s >>= function
+  accept a srv s >>= function
   | `success(_,s) ->
      H.http_connector ~base_url:"https://graph.facebook.com/v2.11/oauth" sessionid >>= fun cli ->
-     let s = request B (fun x->x#get) [] cli s in
-     receive B s >>= fun (`_200(_,s)) ->
-     disconnect B (fun k -> k.H.close_client ()) s >>= fun s ->
-     let s = send A (fun x->x#_200) "auth succeeded" s in
-     disconnect A (fun k -> k.H.close_server ()) s >>= fun s ->
+     let s = request b (fun x->x#get) [] cli s in
+     receive b s >>= fun (`_200(_,s)) ->
+     let s = disconnect b s in
+     let s = send a (fun x->x#_200) "auth succeeded" s in
+     let s = disconnect a s in
      close s;
      Lwt.return ()
   | `fail(_,s) ->
-     let s = send A (fun x->x#_200) "auth failed" s in
-     disconnect A (fun k -> k.H.close_server ()) s >>= fun s ->
+     let s = send a (fun x->x#_200) "auth failed" s in
+     let s = disconnect a s in
      close s;
      Lwt.return ()
 

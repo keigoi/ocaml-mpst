@@ -175,104 +175,104 @@ module Util = struct
     Lwt.return Uri.(path uri, Uri.query uri)
 end
 
-let http {Mpst.Session.conn=c; _} =
-  match c with
-  | Some c -> c
-  | None -> failwith "mpst: http disconnected. malformed protocol?"
+module Labels = struct
+  open Mpst.Global
+  type 'a pred = 'a cohttp_server -> Cohttp.Request.t -> bool
 
-let get_ f g path ?(pred=(fun _ _->true)) (k1, k2) =
-  Mpst.Global.Labels.mklabel
-    f g
-    (fun c params ->
-      Lwt.async begin fun () ->
-        (http c).write_request
-          ~path:path
-          ~params:params
-        end)
-    (fun c ->
-      (http c).read_request ~paths:[path] ~predicate:(pred (http c)) () >>= fun (req, _body) ->
-      Util.parse req >>= fun (_path, params) ->
-      Lwt.return params)
-    (k1, k2)
+  let get ?(pred:'a pred option) m path =
+    {make_channel=m#ch_get ?pred path;
+     select_label=(fun f -> object method get=f end);
+     offer_label=(fun l -> `get(l))}
 
-let get ?pred path k12 =
-  get_
-    (fun f -> object method get=f end)
-    (fun x -> `get x)
-    path ?pred k12
+  let post m path =
+    {make_channel=m#ch_post path;
+     select_label=(fun f -> object method post=f end);
+     offer_label=(fun l -> `post(l))}
 
-let success ?pred path k12 =
-  get_
-    (fun f -> object method success=f end)
-    (fun x -> `success x)
-    path ?pred k12
+  let _302 m =
+    {make_channel=m#ch_302;
+     select_label=(fun f -> object method _302=f end);
+     offer_label=(fun l -> `_302(l))}
 
-let fail ?pred path k12 =
-  get_
-    (fun f -> object method fail=f end)
-    (fun x -> `fail x)
-    path ?pred k12
+  let _200 m =
+    {make_channel=m#ch_200;
+     select_label=(fun f -> object method _200=f end);
+     offer_label=(fun l -> `_200(l))}
 
-let post _path (k1, k2) = (* TODO *)
-  Mpst.Global.Labels.mklabel
-    (fun g -> object method post=g end)
-    (fun x -> `post x)
-    (fun _c _params ->
-      failwith "NOT IMPLEMENTED")
-    (fun _c ->
-      Lwt.return (failwith "NOT IMPLEMENTED"))
-    (k1, k2)
+  let success ~(pred:'a pred) m path =
+    {make_channel=m#ch_success path pred;
+     select_label=(fun f -> object method success=f end);
+     offer_label=(fun l -> `success(l))}
 
-(* HTTP response *)
-let _200 (k1, k2) =
-  Mpst.Global.Labels.mklabel
-    (fun f -> object method _200=f end)
-    (fun x -> `_200 x)
-    (fun c page ->
-      Lwt.async begin fun () ->
-          Cohttp_lwt_unix.Server.respond_string
-            ~status:`OK
-            ~body:page
-            () >>= fun (resp,body) ->
-          (http c).write_response (resp, body)
-        end
-    )
-    (fun c ->
-      (http c).read_response >>= fun (_resp, body) ->
-      Lwt.return body)
-    (k1, k2)
+  let fail ~(pred:'a pred) m path =
+    {make_channel=m#ch_fail path pred;
+     select_label=(fun f -> object method fail=f end);
+     offer_label=(fun l -> `fail(l))}
 
-let _302 (k1, k2) =
-  Mpst.Global.Labels.mklabel
-    (fun f -> object method _302=f end)
-    (fun x -> `_302 x)
-    (fun c url ->
-      Lwt.async begin fun () ->
-          Cohttp_lwt_unix.Server.respond_string
-            ~status:`Found
-            ~headers:(Cohttp.Header.init_with "Location" @@ Uri.to_string url)
-            ~body:"" () >>= fun (resp,body) ->
-          (http c).write_response (resp, body)
-        end
-    )
-    (fun (_:(_,_ cohttp_client) Mpst.Session.conn) ->
-      Lwt.return (failwith "TODO: not implemented" : Uri.t)) (* FIXME *)
-    (k1, k2)
+  let success_or_fail =
+    {label_merge=(fun l r ->
+       object
+         method success=l#success
+         method fail=r#fail
+       end
+    )}
+    
+  let fail_or_success =
+    {label_merge=(fun l r ->
+       object
+         method success=r#success
+         method fail=l#fail
+       end
+    )}
 
-let _200_success_fail make_page parse_page (k1, k2) =
-  Mpst.Global.Labels.mklabel2
-    (fun f g -> object method success=f method fail=g end)
-    (fun x -> `success x)
-    (fun x -> `fail x)
-    (fun c v ->
-      Lwt.async begin fun () ->
-          Cohttp_lwt_unix.Server.respond_string
-            ~status:`OK
-            ~body:(make_page v)
-            () >>= fun (resp,body) ->
-          (http c).write_response (resp, body)
-        end)
-    (fun c ->
-      (http c).read_response >>= fun (_resp, body) ->
-      Lwt.return @@ parse_page body) (* FIXME *)
-    (k1, k2)
+end  
+
+let param req =
+  let uri = req |> Cohttp.Request.resource |> Uri.of_string in
+  Uri.query uri
+
+let mkpred = function
+  | Some f -> f
+  | None -> (fun _ _ -> true)
+
+let http =
+  let open Mpst.Global in
+  let get ?pred path () =
+    {sender=(fun c v ->
+       ignore (c.write_request ~path ~params:v));
+     receiver=(fun c ->
+       c.read_request ~paths:[path] ~predicate:(mkpred pred c) () >>= fun (req,_) ->
+       Lwt.return (param req))}
+  in
+  let _200 () =
+    {sender=(fun c v ->
+       Lwt.async begin fun () ->
+         Cohttp_lwt_unix.Server.respond_string
+           ~status:`OK
+           ~body:v
+           () >>= fun (resp,body) ->
+         c.write_response (resp, body)
+         end);
+     receiver=(fun c ->
+       c.read_response >>= fun (_resp, body) ->
+       Lwt.return @@ body)}
+  in
+  let _302 () =
+    {sender=(fun c url ->
+       ignore begin
+           Cohttp_lwt_unix.Server.respond_string
+             ~status:`Found
+             ~headers:(Cohttp.Header.init_with "Location" @@ Uri.to_string url)
+             ~body:"" () >>= fun (resp,body) ->
+           c.write_response (resp, body)
+         end);
+     receiver=(fun _ -> Lwt.fail_with "TODO: not implemented")}
+  in
+  object
+    method ch_get = get
+    method ch_post = get ?pred:None (* FIXME *)
+    method ch_success path pred () = get ~pred path ()
+    method ch_fail path pred () = get ~pred path ()
+    method ch_200 = _200
+    method ch_302 = _302
+  end

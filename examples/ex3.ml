@@ -10,7 +10,7 @@ let mk_g () =
         (b --> a) msg @@
         (a --> c) msg @@
         (c --> b) msg @@
-        loop g
+        lazy (Lazy.force (Lazy.force g))
       end
   in
   Lazy.force g
@@ -35,5 +35,4 @@ let rec tC s =
 
 let () =
   let g = mk_g () in
-  let a,b,c = Mpst.ThreeParty.a,Mpst.ThreeParty.b,Mpst.ThreeParty.c in
   Lwt_main.run (Lwt.join [tA (get_sess a g); tB (get_sess b g); tC (get_sess c g)])

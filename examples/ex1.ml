@@ -21,7 +21,7 @@ let pa, pb, pc =
   get_sess a g, get_sess b g, get_sess c g
 
 (* participant A *)
-let (t1 : unit Lwt.t) =
+let t1 : unit Lwt.t =
   let s = pa in
   let open Lwt in
   receive c s >>= fun (`msg(x, s)) -> begin
@@ -44,7 +44,7 @@ let (t1 : unit Lwt.t) =
   return ()
 
 (* participant B *)
-let (t2 : unit Lwt.t) =
+let t2 : unit Lwt.t =
   let s = pb in
   receive a s >>= begin
       function
@@ -63,7 +63,7 @@ let (t2 : unit Lwt.t) =
   Lwt.return ()
 
 (* participant C *)
-let (t3 : unit Lwt.t) =
+let t3 : unit Lwt.t =
   let s = pc in
   let open Lwt in
   print_endline "C: enter a number (positive or zero or negative):";

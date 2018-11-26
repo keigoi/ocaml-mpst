@@ -1,16 +1,18 @@
-type ('ss, 'r) send = DummySelect
-type ('ss, 'r) receive = DummyOffer
-type ('ks,'ls,'r) request = DummyRequest
-type ('ks,'ls,'r) accept = DummyAccept
-type ('ks,'ls,'r) disconnect = DummyDisconnect
+type ('ls,'r) send = DummySend__
+type ('ls,'r) receive = DummyReceive__
+type ('ks,'ls,'r) request = DummyRequest__
+type ('ks,'ls,'r) accept = DummyAccept__
+type ('ks,'ls,'r) disconnect = DummyDisconnect__
 type close
-type ('k, 'r) conn = DummyConn
+type ('k, 'r) conn = DummyConn__
+
+exception RoleNotEnabled
 
 type (_,_) prot =
-  | Select :
+  | Send :
       'r * ('k -> 'ks -> 'ls)
       -> ('ks, ('ls, ('k,'r) conn) send) prot
-  | Offer :
+  | Receive :
       'r * ('k -> 'ks -> 'ls Lwt.t) list
       -> ('ks, ('ls, ('k,'r) conn) receive) prot
   | Request :
@@ -23,6 +25,8 @@ type (_,_) prot =
       'r * ('ks2 -> ('ks2, 's) sess) ->
       ('ks, ('ks2, 's, ('k, 'r) conn) disconnect) prot
   | Close : ('ks, close) prot
+  | DummyReceive :
+      ('ks, ('ls, ('k, 'r) conn) receive) prot
 and ('ks,'c) sess =
   Sess of 'ks * ('ks, 'c) prot
 

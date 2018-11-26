@@ -18,12 +18,11 @@ let marshal =
       {sender=(fun t v -> M.write t (Right(v)));
        receiver=(fun t -> M.read t (function Right(v) -> true | _ -> false))}
   end
-  
 
 let mk_g m =
   let g =
-    (b -!-> a) (msg_ m) @@
-    (a -!-> c) (msg_ m) @@
+    ((b,b) -!-> (a,a)) (msg_ m) @@
+    ((a,a) -!-> (c,c)) (msg_ m) @@
     choice_at c left_or_right
       (c, (c --> a) (left_ m) @@
           (a --> b) (right_ m) @@
@@ -112,8 +111,8 @@ let () =
 
 (* loop example *)
 let mk_g' m =
-    (b -!-> a) (msg_ m) @@
-    (a -!-> c) (msg_ m) @@
+    ((b,b) -!-> (a,a)) (msg_ m) @@
+    ((a,a) -!-> (c,c)) (msg_ m) @@
     let rec g =
       lazy begin
       choice_at c left_or_right

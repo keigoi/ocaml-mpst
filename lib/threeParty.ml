@@ -50,12 +50,9 @@ let get_sess_ r m =
   let p = r.lens.get m in
   Sess((object method a=() method b=() method c=() end), p)
 
-(* let get_sess_ ab bc ca m =
- *   let pa = a.lens.get m in
- *   let pb = b.lens.get m in
- *   let pc = c.lens.get m in
- *   Sess((object method a=() method b=fst ab method c=snd ca  end), pa),
- *   Sess((object method a=snd ab method b=() method c=fst bc end), pb),
- *   Sess((object method a=fst ca method b=snd bc method c=() end), pc) *)
+let get_sess__ r (a, b, c) m =
+  let p = r.lens.get m in
+  Sess((object method a=a method b=b method c=c end), p)
+
 
 let choice_at x = Global.choice_at merge3 x

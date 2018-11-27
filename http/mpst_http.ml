@@ -180,32 +180,32 @@ module Labels = struct
   type 'a pred = 'a cohttp_server -> Cohttp.Request.t -> bool
 
   let get ?(pred:'a pred option) m path =
-    {make_channel=m#ch_get ?pred path;
+    {channel=m#ch_get ?pred path;
      select_label=(fun f -> object method get=f end);
      offer_label=(fun l -> `get(l))}
 
   let post m path =
-    {make_channel=m#ch_post path;
+    {channel=m#ch_post path;
      select_label=(fun f -> object method post=f end);
      offer_label=(fun l -> `post(l))}
 
   let _302 m =
-    {make_channel=m#ch_302;
+    {channel=m#ch_302;
      select_label=(fun f -> object method _302=f end);
      offer_label=(fun l -> `_302(l))}
 
   let _200 m =
-    {make_channel=m#ch_200;
+    {channel=m#ch_200;
      select_label=(fun f -> object method _200=f end);
      offer_label=(fun l -> `_200(l))}
 
   let success ~(pred:'a pred) m path =
-    {make_channel=m#ch_success path pred;
+    {channel=m#ch_success path pred;
      select_label=(fun f -> object method success=f end);
      offer_label=(fun l -> `success(l))}
 
   let fail ~(pred:'a pred) m path =
-    {make_channel=m#ch_fail path pred;
+    {channel=m#ch_fail path pred;
      select_label=(fun f -> object method fail=f end);
      offer_label=(fun l -> `fail(l))}
 
@@ -238,14 +238,14 @@ let mkpred = function
 let http =
   let open Mpst.Global in
   let open Mpst.Session in
-  let get ?pred path () =
+  let get ?pred path =
     {sender=(fun (Conn c) v ->
        ignore (c.write_request ~path ~params:v));
      receiver=(fun (Conn c) ->
        c.read_request ~paths:[path] ~predicate:(mkpred pred c) () >>= fun (req,_) ->
        Lwt.return (param req))}
   in
-  let _200 () =
+  let _200 =
     {sender=(fun (Conn c) v ->
        Lwt.async begin fun () ->
          Cohttp_lwt_unix.Server.respond_string
@@ -258,7 +258,7 @@ let http =
        c.read_response >>= fun (_resp, body) ->
        Lwt.return @@ body)}
   in
-  let _302 () =
+  let _302 =
     {sender=(fun (Conn c) url ->
        ignore begin
            Cohttp_lwt_unix.Server.respond_string
@@ -272,8 +272,8 @@ let http =
   object
     method ch_get = get
     method ch_post = get ?pred:None (* FIXME *)
-    method ch_success path pred () = get ~pred path ()
-    method ch_fail path pred () = get ~pred path ()
+    method ch_success path pred = get ~pred path
+    method ch_fail path pred = get ~pred path
     method ch_200 = _200
     method ch_302 = _302
   end

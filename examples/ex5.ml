@@ -4,12 +4,12 @@ open Mpst.ThreeParty.Shmem
 let (>>=) = Lwt.(>>=)
 
 let apple =
-  {make_channel=make_shmem_channel;
+  {channel=shmem_channel;
    select_label=(fun x -> object method apple=x end);
    offer_label=(fun x -> `apple(x))}
 
 let banana =
-  {make_channel=make_shmem_channel;
+  {channel=shmem_channel;
    select_label=(fun x -> object method banana=x end);
    offer_label=(fun x -> `banana(x))}
 

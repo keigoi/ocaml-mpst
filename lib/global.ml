@@ -6,47 +6,64 @@ type ('ka,'kb,'v) channel =
    receiver: 'kb conn -> 'v Lwt.t}
 
 type ('la,'lb,'ca,'cb,'ka,'kb,'v) label =
-    {make_channel: unit -> ('ka,'kb,'v) channel;
+    {channel: ('ka,'kb,'v) channel;
      select_label: ('v -> 'ca) -> 'la;
      offer_label: 'v * 'cb -> 'lb}
 
-let (-->) : 'ra 'rb 'ksa 'ksb 'sa 'sb 'la 'lb 'ka 'kb 'c0 'c1 'c2.
-      ('ra, ('ksa, 'sa) prot, ('ksa, ('rb, 'ka, 'la) send) prot, 'c0, 'c1) role ->
-      ('rb, ('ksb, 'sb) prot, ('ksb, ('ra, 'kb, 'lb) receive) prot, 'c1, 'c2) role ->
-      ('la, 'lb, ('ksa,'sa) sess, ('ksb,'sb) sess, 'ka, 'kb, 'v) label ->
-      'c0 lazy_t -> 'c2 lazy_t =
-  fun a b ({make_channel;select_label;offer_label}) c0 ->
-  let c = make_channel () in
+let make_shmem_channel () =
+  let st, push = Lwt_stream.create () in
+  {receiver=(fun Memory -> Lwt_stream.next st);
+   sender=(fun Memory v -> push (Some v))}
+  
+let (-->) : type ra rb ksa ksb sa sb la lb ka kb c0 c1 c2 v.
+      (ra, (ksa, sa) prot, (ksa, (rb, ka, la) send) prot, c0, c1) role ->
+      (rb, (ksb, sb) prot, (ksb, (ra, kb, lb) receive) prot, c1, c2) role ->
+      (la, lb, (ksa,sa) sess, (ksb,sb) sess, ka, kb, v) label ->
+      c0 lazy_t -> c2 lazy_t =
+  fun a b ({channel;select_label;offer_label}) c0 ->
+  let mch = make_shmem_channel () in
   let sa = lazy (a.lens.get c0) in
   let sa =
-    Send (b.role, (fun k ks -> select_label (fun v -> c.sender k v; Sess (ks, Lazy.force sa))))
+    Send (b.role, (fun (k : ka conn) ks ->
+          let sender : v -> unit  =
+            match k with
+            | Memory -> mch.sender Memory
+            | Conn _  -> channel.sender k
+          in
+          select_label (fun v -> sender v; Sess (ks, Lazy.force sa))))
   in
   let c1 = a.lens.put c0 sa in
   let sb = lazy (b.lens.get c1) in
   let sb =
-    Receive (a.role, [(fun k ks -> Lwt.map (fun v -> offer_label (v, (Sess (ks, Lazy.force sb)))) (c.receiver k))])
+    Receive (a.role, [
+          (fun (k : kb conn) ks ->
+            let receiver : v Lwt.t =
+              match k with
+              | Memory -> mch.receiver Memory
+              | Conn _ -> channel.receiver k
+            in
+            Lwt.map (fun v -> offer_label (v, (Sess (ks, Lazy.force sb)))) receiver)])
   in
   let c2 = b.lens.put c1 sb in
   c2
 
 
 let (-!->) : 'ra 'rb 'ksa 'ksa2 'ksb 'ksb2 'sa 'sb 'la 'lb 'ka 'kb 'c0 'c1 'c2.
-      ('ra, ('ksa2, 'sa) prot, ('ksa, ('ksa2, 'rb, 'ka, 'la) request) prot, 'c0, 'c1) role *
-        ('ra, unit, 'kb conn, 'ksb, 'ksb2) role ->
-      ('rb, ('ksb2, 'sb) prot, ('ksb, ('ksb2, 'ra, 'kb, 'lb) accept) prot, 'c1, 'c2) role *
-        ('rb, unit, 'ka conn, 'ksa, 'ksa2) role ->
-      ('la, 'lb, ('ksa2,'sa) sess, ('ksb2,'sb) sess, 'ka, 'kb, 'v) label ->
+      ('ra, ('ksa2, 'sa) prot, ('ksa, ('ksa2, 'rb, 'ka dist, 'la) request) prot, 'c0, 'c1) role *
+        ('ra, unit, 'kb dist conn, 'ksb, 'ksb2) role ->
+      ('rb, ('ksb2, 'sb) prot, ('ksb, ('ksb2, 'ra, 'kb dist, 'lb) accept) prot, 'c1, 'c2) role *
+        ('rb, unit, 'ka dist conn, 'ksa, 'ksa2) role ->
+      ('la, 'lb, ('ksa2,'sa) sess, ('ksb2,'sb) sess, 'ka dist, 'kb dist, 'v) label ->
       'c0 lazy_t -> 'c2 lazy_t =
-  fun (a,_) (b,_) ({make_channel;select_label;offer_label}) c0 ->
-  let c = make_channel () in
+  fun (a,_) (b,_) ({channel;select_label;offer_label}) c0 ->
   let sa = lazy (a.lens.get c0) in
   let sa =
-    Request (b.role, (fun k ks -> select_label (fun v -> c.sender k v; Sess (ks, Lazy.force sa))))
+    Request (b.role, (fun k ks -> select_label (fun v -> channel.sender k v; Sess (ks, Lazy.force sa))))
   in
   let c1 = a.lens.put c0 sa in
   let sb = lazy (b.lens.get c1) in
   let sb =
-    Accept (a.role, [(fun k ks -> Lwt.map (fun v -> offer_label (v, (Sess (ks, Lazy.force sb)))) (c.receiver k))])
+    Accept (a.role, [(fun k ks -> Lwt.map (fun v -> offer_label (v, (Sess (ks, Lazy.force sb)))) (channel.receiver k))])
   in
   let c2 = b.lens.put c1 sb in
   c2

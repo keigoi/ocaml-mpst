@@ -4,7 +4,7 @@ open Mpst.ThreeParty.Shmem
 let (>>=) = Lwt.(>>=)
 
 let stop =
-  {make_channel=make_shmem_channel;
+  {channel=shmem_channel;
    select_label=(fun f -> object method stop=f end);
    offer_label=(fun l -> `stop l)
   }

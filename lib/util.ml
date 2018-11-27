@@ -6,67 +6,46 @@ module Labels = struct
 
   class type ['k1,'k2] ch_msg =
   object
-    method ch_msg : 'v. unit -> ('k1,'k2,'v) channel
+    method ch_msg : ('k1,'k2,'v) channel
   end
 
   let msg (o:('k1,'k2) #ch_msg) =
-    {make_channel=o#ch_msg;
+    {channel=o#ch_msg;
      select_label=(fun f -> object method msg=f end);
      offer_label=(fun l -> `msg(l))}
 
   class type ['k1,'k2] ch_left =
   object
-    method ch_left : 'v. unit -> ('k1,'k2,'v) channel
+    method ch_left : ('k1,'k2,'v) channel
   end
     
   let left (o:('k1,'k2) #ch_left) =
-    {make_channel=o#ch_left;
+    {channel=o#ch_left;
      select_label=(fun f -> object method left=f end);
      offer_label=(fun l -> `left(l))}
 
   class type ['k1,'k2] ch_right =
   object
-    method ch_right : 'v. unit -> ('k1,'k2,'v) channel
+    method ch_right : ('k1,'k2,'v) channel
   end
 
   let right (o:('k1,'k2) #ch_right) =
-    {make_channel=o#ch_right;
+    {channel=o#ch_right;
      select_label=(fun f -> object method right=f end);
      offer_label=(fun l -> `right(l))}
 
-  class type ['k1,'k2] ch_deleg =
-  object
-    method ch_deleg : 'v. unit -> ('k1,'k2,'v) channel
-  end
-
-  let make_shmem_channel () =
-    let st, push = Lwt_stream.create () in
-    {receiver=(fun Memory -> Lwt_stream.next st);
-     sender=(fun Memory v -> push (Some v))}
-
-  let deleg : type k1 k2.
-        ('a, 'b) prot ->
-        (k1, k2) #ch_deleg ->
-        (< deleg : ('a, 'b) sess -> 'c >,
-         [> `deleg of ('a, 'b) sess * 'd ], 'c, 'd,
-         k1, k2, ('a, 'b) sess)
-          label =
-    fun prot (o:(k1,k2) #ch_deleg) ->
-    let open Lwt in
-    let dch = o#ch_deleg() in
-    {make_channel=(fun () ->
-       let mch = make_shmem_channel () in
-       {sender=(fun k (Sess (ks, _) as s) ->
-          match k with
-          | Memory -> mch.sender Memory s
-          | Conn _ -> dch.sender k ks);
+  let deleg_dist :
+        ('ks, 'b) prot ->
+        ('k1, 'k2,'ks) channel ->
+        (< deleg : ('ks, 's) sess -> 'sa >,
+         [> `deleg of ('ks, 's) sess * 'sb ],
+         'sa, 'sb, 'k1, 'k2, ('ks, 's) sess) label =
+    fun prot dch ->
+    {channel=
+       {sender=(fun k (Sess (ks, _)) -> dch.sender k ks);
         receiver=(fun k ->
-          match k with
-          | Memory -> mch.receiver Memory
-          | Conn _ -> 
-             dch.receiver k >>= fun ks ->
-             Lwt.return (Sess (ks, prot)))}
-     );
+             Lwt.bind (dch.receiver k) (fun ks ->
+             Lwt.return (Sess (ks, prot))))};
      select_label=(fun f -> object method deleg=f end);
      offer_label=(fun l -> `deleg(l))}
 
@@ -81,41 +60,42 @@ module Labels = struct
       inherit ['k1,'k2] ch_msg
       inherit ['k1,'k2] ch_left
       inherit ['k1,'k2] ch_right
+      method ch_deleg : 'v. ('k1, 'k2, 'v) channel
     end
 
-  class type ['k1,'k2] standard_deleg =
+  (** dummy - functions are never called *)
+  let shmem_channel =
+    {sender=(fun Memory _ -> ());
+     receiver=(fun Memory -> Lwt.fail_with "impossible")}
+
+  class shmem : [memory,memory] standard =
     object
-      inherit ['k1,'k2] standard
-      inherit ['k1,'k2] ch_deleg
+      method ch_msg : 'v. (memory,memory,'v) channel= shmem_channel
+      method ch_left : 'v. (memory,memory,'v) channel= shmem_channel
+      method ch_right : 'v. (memory,memory,'v) channel= shmem_channel
+      method ch_deleg : 'v. (memory,memory,'v) channel= shmem_channel
     end
-
-  class shmem : [memory,memory] standard_deleg =
-  object
-    method ch_msg : 'v. unit -> (memory,memory,'v) channel = make_shmem_channel
-    method ch_left : 'v. unit -> (memory,memory,'v) channel = make_shmem_channel
-    method ch_right : 'v. unit -> (memory,memory,'v) channel = make_shmem_channel
-    method ch_deleg : 'v. unit -> (memory,memory,'v) channel = make_shmem_channel
-  end
-
+  
+    
   module Shmem = struct
 
     let msg =
-      {make_channel=make_shmem_channel;
+      {channel=shmem_channel;
        select_label=(fun f -> object method msg=f end);
        offer_label=(fun l -> `msg(l))}
 
     let left =
-      {make_channel=make_shmem_channel;
+      {channel=shmem_channel;
        select_label=(fun f -> object method left=f end);
        offer_label=(fun l -> `left(l))}
 
     let right =
-      {make_channel=make_shmem_channel;
+      {channel=shmem_channel;
        select_label=(fun f -> object method right=f end);
        offer_label=(fun l -> `right(l))}
 
     let mklabel f g =
-      {make_channel=make_shmem_channel;
+      {channel=shmem_channel;
        select_label=f;
        offer_label=g}
   end

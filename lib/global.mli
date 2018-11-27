@@ -6,7 +6,7 @@ type ('ka,'kb,'v) channel =
    receiver: 'kb conn -> 'v Lwt.t}
 
 type ('la,'lb,'ca,'cb,'ka,'kb,'v) label =
-  {make_channel: unit -> ('ka,'kb,'v) channel;
+  {channel: ('ka,'kb,'v) channel;
    select_label: ('v -> 'ca) -> 'la;
    offer_label: 'v * 'cb -> 'lb}
 
@@ -19,11 +19,11 @@ val (-->) :
 
 (** explicit connection. use like ((a,a) --> (b,b)) label @@ cont *)
 val (-!->) :
-  ('ra, ('ksa2, 'sa) prot, ('ksa, ('ksa2, 'rb, 'ka, 'la) request) prot, 'c0, 'c1) role *
-    ('ra, unit, 'kb conn, 'ksb, 'ksb2) role ->
-  ('rb, ('ksb2, 'sb) prot, ('ksb, ('ksb2, 'ra, 'kb, 'lb) accept) prot, 'c1, 'c2) role *
-    ('rb, unit, 'ka conn, 'ksa, 'ksa2) role ->
-  ('la, 'lb, ('ksa2,'sa) sess, ('ksb2,'sb) sess, 'ka, 'kb, 'v) label ->
+  ('ra, ('ksa2, 'sa) prot, ('ksa, ('ksa2, 'rb, 'ka dist, 'la) request) prot, 'c0, 'c1) role *
+    ('ra, unit, 'kb dist conn, 'ksb, 'ksb2) role ->
+  ('rb, ('ksb2, 'sb) prot, ('ksb, ('ksb2, 'ra, 'kb dist, 'lb) accept) prot, 'c1, 'c2) role *
+    ('rb, unit, 'ka dist conn, 'ksa, 'ksa2) role ->
+  ('la, 'lb, ('ksa2,'sa) sess, ('ksb2,'sb) sess, 'ka dist, 'kb dist, 'v) label ->
   'c0 lazy_t -> 'c2 lazy_t
 
 (** explicit disconnection discon a b @@ cont *)

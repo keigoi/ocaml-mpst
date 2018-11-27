@@ -4,7 +4,7 @@ let (>>=) = Lwt.(>>=)
 
 module M = Marshal_example
 
-let mk_g (m : ('k1,'k2) #standard) =
+let mk_g (m : ('k1,'k2) standard) =
   let g =
     ((b,b) -!-> (a,a)) (msg m) @@
     ((a,a) -!-> (c,c)) (msg m) @@

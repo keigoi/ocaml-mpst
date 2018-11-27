@@ -237,15 +237,16 @@ let mkpred = function
 
 let http =
   let open Mpst.Global in
+  let open Mpst.Session in
   let get ?pred path () =
-    {sender=(fun c v ->
+    {sender=(fun (Conn c) v ->
        ignore (c.write_request ~path ~params:v));
-     receiver=(fun c ->
+     receiver=(fun (Conn c) ->
        c.read_request ~paths:[path] ~predicate:(mkpred pred c) () >>= fun (req,_) ->
        Lwt.return (param req))}
   in
   let _200 () =
-    {sender=(fun c v ->
+    {sender=(fun (Conn c) v ->
        Lwt.async begin fun () ->
          Cohttp_lwt_unix.Server.respond_string
            ~status:`OK
@@ -253,12 +254,12 @@ let http =
            () >>= fun (resp,body) ->
          c.write_response (resp, body)
          end);
-     receiver=(fun c ->
+     receiver=(fun (Conn c) ->
        c.read_response >>= fun (_resp, body) ->
        Lwt.return @@ body)}
   in
   let _302 () =
-    {sender=(fun c url ->
+    {sender=(fun (Conn c) url ->
        ignore begin
            Cohttp_lwt_unix.Server.respond_string
              ~status:`Found

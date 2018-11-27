@@ -67,10 +67,10 @@ let () =
 let facebook_oauth () =
   print_endline "oauth_consumer started";
   let g = mk_oauth H.http H.http H.http in
-  let s = get_sess c g in
+  let s = get_sess_ c g in
   let sessionid = Int64.to_string @@ Random.int64 Int64.max_int in
   my_acceptor sessionid >>= fun srv ->
-  accept a srv s >>= fun (`get(params, s)) ->
+  accept a (Conn srv) s >>= fun (`get(params, s)) ->
   print_endline "connection accepted";
   let redirect_url =
     Uri.add_query_params'
@@ -82,10 +82,10 @@ let facebook_oauth () =
   let s = send a (fun x->x#_302) redirect_url s in
   let s = disconnect a s in
   my_acceptor sessionid >>= fun srv ->
-  accept a srv s >>= function
+  accept a (Conn srv) s >>= function
   | `success(_,s) ->
      H.http_connector ~base_url:"https://graph.facebook.com/v2.11/oauth" sessionid >>= fun cli ->
-     let s = request b (fun x->x#get) [] cli s in
+     let s = request b (fun x->x#get) [] (Conn cli) s in
      receive b s >>= fun (`_200(_,s)) ->
      let s = disconnect b s in
      let s = send a (fun x->x#_200) "auth succeeded" s in

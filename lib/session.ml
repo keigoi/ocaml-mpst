@@ -56,15 +56,15 @@ let send : 'r 'k 'ks 'ls 'v 's.
   s
 
 let request : 'r 'k 'ks 'ks2 'v 's.
-      ('r, unit, 'k conn, 'ks, 'ks2) role ->
+      ('r, unit, 'k dist conn, 'ks, 'ks2) role ->
       ('ls -> 'v -> ('ks2, 's) sess) ->
       'v ->
-      'k conn ->
-      ('ks, ('ks2, 'r, 'k, 'ls) request) sess ->
+      'k ->
+      ('ks, ('ks2, 'r, 'k dist, 'ls) request) sess ->
       ('ks2, 's) sess =
   fun {lens;_} sel v k (Sess (ks, Request (r, ls))) ->
-  let ks2 = lens_put lens ks k in
-  let ls = ls k ks2 in
+  let ks2 = lens_put lens ks (Conn k) in
+  let ls = ls (Conn k) ks2 in
   let s = sel ls v in
   s
 
@@ -79,12 +79,12 @@ let receive : 'r 'k 'ks 'ls.
      failwith "DummyReceive encountered" 
 
 let accept : 'r 'k 'ks 'ks2 'ls.
-      ('r, unit, 'k conn, 'ks, 'ks2) role ->
-      'k conn ->
-      ('ks, ('ks2, 'r, 'k, 'ls) accept) sess -> 'ls Lwt.t =
+      ('r, unit, 'k dist conn, 'ks, 'ks2) role ->
+      'k ->
+      ('ks, ('ks2, 'r, 'k dist, 'ls) accept) sess -> 'ls Lwt.t =
   fun {lens;_} k (Sess (ks, Accept (r, lss))) ->
-  let ks2 = lens_put lens ks k in
-  Lwt.choose (List.map (fun ls -> ls k ks2) lss)
+  let ks2 = lens_put lens ks (Conn k) in
+  Lwt.choose (List.map (fun ls -> ls (Conn k) ks2) lss)
   
 let disconnect :
       ('r, 'k, unit, 'ks, 'ks2) role ->

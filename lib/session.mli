@@ -54,17 +54,17 @@ val receive :
 val close : ('a, close) sess -> unit
 
 val request :
-  ('r, unit, 'k conn, 'ks, 'ks2) role ->
+  ('r, unit, 'k dist conn, 'ks, 'ks2) role ->
   ('ls -> 'v -> ('ks2, 's) sess) ->
   'v ->
-  'k conn ->
-  ('ks, ('ks2, 'r, 'k, 'ls) request) sess ->
+  'k ->
+  ('ks, ('ks2, 'r, 'k dist, 'ls) request) sess ->
   ('ks2, 's) sess
 
 val accept :
-  ('r, unit, 'k conn, 'ks, 'ks2) role ->
-  'k conn ->
-  ('ks, ('ks2, 'r, 'k, 'ls) accept) sess ->
+  ('r, unit, 'k dist conn, 'ks, 'ks2) role ->
+  'k ->
+  ('ks, ('ks2, 'r, 'k dist, 'ls) accept) sess ->
   'ls Lwt.t
 
 val disconnect :

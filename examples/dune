@@ -40,9 +40,22 @@
   (flags ("-g" "-short-paths"))
   (libraries ocaml-mpst lwt.unix))
 
+(library
+ (name marshal_example)
+ (modules marshal_example)
+ (flags ("-g" "-short-paths"))
+ (libraries ocaml-mpst lwt.unix))
+
 (executable
  (name ex7)
   (public_name ex7)
-  (modules ex7 marshal_example)
+  (modules ex7)
   (flags ("-g" "-short-paths"))
-  (libraries ocaml-mpst lwt.unix))
+  (libraries marshal_example ocaml-mpst lwt.unix))
+
+(executable
+ (name ex8)
+  (public_name ex8)
+  (modules ex8)
+  (flags ("-g" "-short-paths"))
+  (libraries marshal_example ocaml-mpst lwt.unix))

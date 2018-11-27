@@ -4,22 +4,7 @@ let (>>=) = Lwt.(>>=)
 
 module M = Marshal_example
 
-type 'v m = Msg of 'v | Left of 'v | Right of 'v
-
-let marshal =
-  object
-    method ch_msg ()=
-      {sender=(fun t v -> M.write t (Msg(v)));
-       receiver=(fun t -> M.read t (function Msg(v) -> true | _ -> false))}
-    method ch_left ()=
-      {sender=(fun t v -> M.write t (Left(v)));
-       receiver=(fun t -> M.read t (function Left(v) -> true | _ -> false))}
-    method ch_right ()=
-      {sender=(fun t v -> M.write t (Right(v)));
-       receiver=(fun t -> M.read t (function Right(v) -> true | _ -> false))}
-  end
-
-let mk_g m =
+let mk_g (m : ('k1,'k2) #standard) =
   let g =
     ((b,b) -!-> (a,a)) (msg m) @@
     ((a,a) -!-> (c,c)) (msg m) @@
@@ -105,9 +90,8 @@ let tc s =
 let () = Random.self_init ()
 
 let () =
-  let g = mk_g marshal in
+  let g = mk_g (new M.marshal) in
   Lwt_main.run (Lwt.join [ta (get_sess a g); tb (get_sess b g); tc (get_sess c g)])
-
 
 (* loop example *)
 let mk_g' m =
@@ -192,6 +176,6 @@ let tc' s =
 
 let () =
   print_endline "try calling mk_g'";
-  let g = mk_g' marshal in
+  let g = mk_g' (new M.marshal) in
   print_endline "generated";
   Lwt_main.run (Lwt.join [ta' (get_sess a g); tb' (get_sess b g); tc' (get_sess c g)])

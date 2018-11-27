@@ -54,18 +54,18 @@ let read c f =
 
 type 'v m = Msg of 'v | Left of 'v | Right of 'v | Deleg of 'v
 
-class marshal : [dstream, dstream] standard_deleg =
+class marshal : [dstream dist, dstream dist] standard_deleg =
   object
     method ch_msg: 'v. unit -> (_,_,'v) channel = fun () ->
-      {sender=(fun t v -> write t (Msg(v)));
-       receiver=(fun t -> read t (function Msg(v) -> true | _ -> false))}
+      {sender=(fun (Conn t) v -> write t (Msg(v)));
+       receiver=(fun (Conn t) -> read t (function Msg(v) -> true | _ -> false))}
     method ch_left: 'v. unit -> (_,_,'v) channel = fun () ->
-      {sender=(fun t v -> write t (Left(v)));
-       receiver=(fun t -> read t (function Left(v) -> true | _ -> false))}
+      {sender=(fun (Conn t) v -> write t (Left(v)));
+       receiver=(fun (Conn t) -> read t (function Left(v) -> true | _ -> false))}
     method ch_right: 'v. unit -> (_,_,'v) channel = fun () ->
-      {sender=(fun t v -> write t (Right(v)));
-       receiver=(fun t -> read t (function Right(v) -> true | _ -> false))}
+      {sender=(fun (Conn t) v -> write t (Right(v)));
+       receiver=(fun (Conn t) -> read t (function Right(v) -> true | _ -> false))}
     method ch_deleg: 'v. unit -> (_,_,'v) channel = fun () ->
-      {sender=(fun t v -> write t (Deleg(v)));
-       receiver=(fun t -> read t (function Deleg(v) -> true | _ -> false))}
+      {sender=(fun (Conn t) v -> write t (Deleg(v)));
+       receiver=(fun (Conn t) -> read t (function Deleg(v) -> true | _ -> false))}
   end

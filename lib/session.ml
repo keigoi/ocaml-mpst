@@ -1,32 +1,38 @@
-type ('ls,'r) send = DummySend__
-type ('ls,'r) receive = DummyReceive__
-type ('ks,'ls,'r) request = DummyRequest__
-type ('ks,'ls,'r) accept = DummyAccept__
-type ('ks,'ls,'r) disconnect = DummyDisconnect__
+type ('r,'k,'ls) send = DummySend__
+type ('r,'k,'ls) receive = DummyReceive__
+type ('ks,'r,'k,'ls) request = DummyRequest__
+type ('ks,'r,'k,'ls) accept = DummyAccept__
+type ('ks,'r,'k,'ls) disconnect = DummyDisconnect__
 type close
-type ('k, 'r) conn = DummyConn__
+
+type memory = DummyMem__
+type 'k dist = DummyDist__
+
+type 'k conn =
+  Memory : memory conn
+| Conn : 'k -> 'k dist conn
 
 exception RoleNotEnabled
 
 type (_,_) prot =
   | Send :
-      'r * ('k -> 'ks -> 'ls)
-      -> ('ks, ('ls, ('k,'r) conn) send) prot
+      'r * ('k conn -> 'ks -> 'ls)
+      -> ('ks, ('r, 'k, 'ls) send) prot
   | Receive :
-      'r * ('k -> 'ks -> 'ls Lwt.t) list
-      -> ('ks, ('ls, ('k,'r) conn) receive) prot
+      'r * ('k conn -> 'ks -> 'ls Lwt.t) list
+      -> ('ks, ('r, 'k, 'ls) receive) prot
   | Request :
-      'r * ('k -> 'ks2 -> 'ls)
-      -> ('ks, ('ks2, 'ls, ('k, 'r) conn) request) prot
+      'r * ('k conn -> 'ks2 -> 'ls)
+      -> ('ks, ('ks2, 'r, 'k, 'ls) request) prot
   | Accept :
-      'r * ('k -> 'ks2 -> 'ls Lwt.t) list
-      -> ('ks, ('ks2, 'ls, ('k, 'r) conn) accept) prot
+      'r * ('k conn -> 'ks2 -> 'ls Lwt.t) list
+      -> ('ks, ('ks2, 'r, 'k, 'ls) accept) prot
   | Disconnect :
       'r * ('ks2 -> ('ks2, 's) sess) ->
-      ('ks, ('ks2, 's, ('k, 'r) conn) disconnect) prot
+      ('ks, ('ks2, 'r, 'k, 's) disconnect) prot
   | Close : ('ks, close) prot
   | DummyReceive :
-      ('ks, ('ls, ('k, 'r) conn) receive) prot
+      ('ks, ('r, 'k, 'ls) receive) prot
 and ('ks,'c) sess =
   Sess of 'ks * ('ks, 'c) prot
 
@@ -38,10 +44,10 @@ type ('r, 'v1, 'v2, 's1, 's2) role =
    }
      
 let send : 'r 'k 'ks 'ls 'v 's.
-  ('r, 'k, _, 'ks, _) role ->
+  ('r, 'k conn, _, 'ks, _) role ->
   ((< .. > as 'ls) -> 'v -> ('ks,'s) sess) ->
   'v ->
-  ('ks, ('ls, ('k, 'r) conn) send) sess ->
+  ('ks, ('r, 'k, 'ls) send) sess ->
   ('ks,'s) sess =
   fun {lens;_} sel v (Sess (ks, Send (_,ls))) ->
   let k = lens_get lens ks in
@@ -50,11 +56,11 @@ let send : 'r 'k 'ks 'ls 'v 's.
   s
 
 let request : 'r 'k 'ks 'ks2 'v 's.
-      ('r, unit, 'k, 'ks, 'ks2) role ->
+      ('r, unit, 'k conn, 'ks, 'ks2) role ->
       ('ls -> 'v -> ('ks2, 's) sess) ->
       'v ->
-      'k ->
-      ('ks, ('ks2, 'ls, ('k, 'r) conn) request) sess ->
+      'k conn ->
+      ('ks, ('ks2, 'r, 'k, 'ls) request) sess ->
       ('ks2, 's) sess =
   fun {lens;_} sel v k (Sess (ks, Request (r, ls))) ->
   let ks2 = lens_put lens ks k in
@@ -63,8 +69,8 @@ let request : 'r 'k 'ks 'ks2 'v 's.
   s
 
 let receive : 'r 'k 'ks 'ls.
-  ('r, 'k, _, 'ks, _) role ->
-  ('ks, ('ls, ('k, 'r) conn) receive) sess -> 'ls Lwt.t =
+  ('r, 'k conn, _, 'ks, _) role ->
+  ('ks, ('r, 'k, 'ls) receive) sess -> 'ls Lwt.t =
   fun {lens;_} (Sess (ks, s)) ->
   match s with
   | Receive(_, lss) ->
@@ -73,16 +79,16 @@ let receive : 'r 'k 'ks 'ls.
      failwith "DummyReceive encountered" 
 
 let accept : 'r 'k 'ks 'ks2 'ls.
-      ('r, unit, 'k, 'ks, 'ks2) role ->
-      'k ->
-      ('ks, ('ks2, 'ls, ('k, 'r) conn) accept) sess -> 'ls Lwt.t =
+      ('r, unit, 'k conn, 'ks, 'ks2) role ->
+      'k conn ->
+      ('ks, ('ks2, 'r, 'k, 'ls) accept) sess -> 'ls Lwt.t =
   fun {lens;_} k (Sess (ks, Accept (r, lss))) ->
   let ks2 = lens_put lens ks k in
   Lwt.choose (List.map (fun ls -> ls k ks2) lss)
   
 let disconnect :
       ('r, 'k, unit, 'ks, 'ks2) role ->
-      ('ks, ('ks2, 's, ('k, 'r) conn) disconnect) sess -> ('ks2, 's) sess =
+      ('ks, ('ks2, 'r, 'k, 's) disconnect) sess -> ('ks2, 's) sess =
   fun {lens;_} (Sess (ks, Disconnect (r, cont))) ->
   let ks2 = lens_put lens ks () in
   cont ks2

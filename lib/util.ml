@@ -39,12 +39,33 @@ module Labels = struct
     method ch_deleg : 'v. unit -> ('k1,'k2,'v) channel
   end
 
-  let deleg prot (o:('k1,'k2) #ch_deleg) =
+  let make_shmem_channel () =
+    let st, push = Lwt_stream.create () in
+    {receiver=(fun Memory -> Lwt_stream.next st);
+     sender=(fun Memory v -> push (Some v))}
+
+  let deleg : type k1 k2.
+        ('a, 'b) prot ->
+        (k1, k2) #ch_deleg ->
+        (< deleg : ('a, 'b) sess -> 'c >,
+         [> `deleg of ('a, 'b) sess * 'd ], 'c, 'd,
+         k1, k2, ('a, 'b) sess)
+          label =
+    fun prot (o:(k1,k2) #ch_deleg) ->
     let open Lwt in
-    let ch = o#ch_deleg() in
+    let dch = o#ch_deleg() in
     {make_channel=(fun () ->
-       {sender=(fun k (Sess (ks, _)) -> ch.sender k ks);
-        receiver=(fun k -> ch.receiver k >>= fun ks -> Lwt.return (Sess (ks, prot)))}
+       let mch = make_shmem_channel () in
+       {sender=(fun k (Sess (ks, _) as s) ->
+          match k with
+          | Memory -> mch.sender Memory s
+          | Conn _ -> dch.sender k ks);
+        receiver=(fun k ->
+          match k with
+          | Memory -> mch.receiver Memory
+          | Conn _ -> 
+             dch.receiver k >>= fun ks ->
+             Lwt.return (Sess (ks, prot)))}
      );
      select_label=(fun f -> object method deleg=f end);
      offer_label=(fun l -> `deleg(l))}
@@ -68,17 +89,12 @@ module Labels = struct
       inherit ['k1,'k2] ch_deleg
     end
 
-  let make_shmem_channel () =
-    let st, push = Lwt_stream.create () in
-    {receiver=(fun () -> Lwt_stream.next st);
-     sender=(fun () v -> push (Some v))}
-
-  class shmem : [unit,unit] standard_deleg =
+  class shmem : [memory,memory] standard_deleg =
   object
-    method ch_msg : 'v. unit -> (unit,unit,'v) channel = make_shmem_channel
-    method ch_left : 'v. unit -> (unit,unit,'v) channel = make_shmem_channel
-    method ch_right : 'v. unit -> (unit,unit,'v) channel = make_shmem_channel
-    method ch_deleg : 'v. unit -> (unit,unit,'v) channel = make_shmem_channel
+    method ch_msg : 'v. unit -> (memory,memory,'v) channel = make_shmem_channel
+    method ch_left : 'v. unit -> (memory,memory,'v) channel = make_shmem_channel
+    method ch_right : 'v. unit -> (memory,memory,'v) channel = make_shmem_channel
+    method ch_deleg : 'v. unit -> (memory,memory,'v) channel = make_shmem_channel
   end
 
   module Shmem = struct

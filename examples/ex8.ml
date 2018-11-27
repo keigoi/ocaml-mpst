@@ -4,7 +4,7 @@ let (>>=) = Lwt.(>>=)
 
 let g_bc' (m:('k1,'k2) #standard) =
   (b --> c) (left m) @@
-  finish_
+  finish
 
 let g_bc (m:('k1,'k2) #standard) =
   (c --> b) (left m) @@
@@ -17,7 +17,7 @@ let g_abc (m:('k1,'k2) standard_deleg) =
   (a --> b) (msg m) @@
   (b --> a) (deleg ctob m) @@
   (c --> a) (msg m) @@
-  finish_
+  finish
 
 let ta s =
   let s = send b (fun x->x#msg) () s in
@@ -44,11 +44,12 @@ let tc s s_bc =
   close s;
   receive b s_bc >>= fun (`left((),s_bc)) ->
   close s_bc;
+  print_endline "tc finished";
   Lwt.return_unit
 
 let main () =
-  let g_abc = g_abc (new Marshal_example.marshal) in
-  let g_bc = g_bc (new Marshal_example.marshal) in
+  let g_abc = g_abc (new shmem) in
+  let g_bc = g_bc (new shmem) in
   Lwt_main.run @@
     Lwt.join [ta (get_sess a g_abc);
               tb (get_sess b g_abc) (get_sess b g_bc);

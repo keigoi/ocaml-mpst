@@ -13,12 +13,12 @@ let mk_g (m : ('k1,'k2) #standard) =
           (a --> b) (right m) @@
           discon a b @@
           discon a c @@
-          finish)
+          finish_)
       (c, (c --> a) (right m) @@
           (a --> b) (left m) @@
           discon a b @@
           discon a c @@
-          finish)
+          finish_)
   in
   g
 
@@ -27,9 +27,9 @@ let kac = M.create_shmem_channel ()
 
 let ta s =
   M.shmem_accept kab >>= fun kb ->
-  accept b kb s >>= fun (`msg((), s)) ->
+  accept b (Conn kb) s >>= fun (`msg((), s)) ->
   let kc = M.shmem_connect kac in
-  let s = request c (fun x->x#msg) () kc s in
+  let s = request c (fun x->x#msg) () (Conn kc) s in
   begin
     receive c s >>= function
     | `left((), s) ->
@@ -51,7 +51,7 @@ let ta s =
 
 let tb s =
   let ka = M.shmem_connect kab in
-  let s = request a (fun x->x#msg) () ka s in
+  let s = request a (fun x->x#msg) () (Conn ka) s in
   begin
     receive a s >>= function
     | `right((),s) ->
@@ -70,7 +70,7 @@ let tb s =
 
 let tc s =
   M.shmem_accept kac >>= fun ka ->
-  accept a ka s >>= fun (`msg((),s)) ->
+  accept a (Conn ka) s >>= fun (`msg((),s)) ->
   begin
     if Random.bool () then begin
         print_endline "tc: select left";
@@ -91,7 +91,7 @@ let () = Random.self_init ()
 
 let () =
   let g = mk_g (new M.marshal) in
-  Lwt_main.run (Lwt.join [ta (get_sess a g); tb (get_sess b g); tc (get_sess c g)])
+  Lwt_main.run (Lwt.join [ta (get_sess_ a g); tb (get_sess_ b g); tc (get_sess_ c g)])
 
 (* loop example *)
 let mk_g' m =
@@ -104,7 +104,7 @@ let mk_g' m =
             (a --> b) (right m) @@
             discon b a @@
             discon a c @@
-            finish)
+            finish_)
         (c, (c --> a) (right m) @@
             (a --> b) (left m) @@
             loop g)
@@ -114,9 +114,9 @@ let mk_g' m =
 
 let rec ta' s =
   M.shmem_accept kab >>= fun kb ->
-  accept b kb s >>= fun (`msg((), s)) ->
+  accept b (Conn kb) s >>= fun (`msg((), s)) ->
   let kc = M.shmem_connect kac in
-  let s = request c (fun x->x#msg) () kc s in
+  let s = request c (fun x->x#msg) () (Conn kc) s in
   let rec loop s =
     receive c s >>= function
     | `left((), s) ->
@@ -138,7 +138,7 @@ let rec ta' s =
 
 let tb' s =
   let ka = M.shmem_connect kab in
-  let s = request a (fun x->x#msg) () ka s in
+  let s = request a (fun x->x#msg) () (Conn ka) s in
   let rec loop s =
     receive a s >>= function
     | `right((),s) ->
@@ -156,7 +156,7 @@ let tb' s =
 
 let tc' s =
   M.shmem_accept kac >>= fun ka ->
-  accept a ka s >>= fun (`msg((),s)) ->
+  accept a (Conn ka) s >>= fun (`msg((),s)) ->
   let rec loop s =
     if Random.bool () then begin
         print_endline "tc: select left";
@@ -178,4 +178,4 @@ let () =
   print_endline "try calling mk_g'";
   let g = mk_g' (new M.marshal) in
   print_endline "generated";
-  Lwt_main.run (Lwt.join [ta' (get_sess a g); tb' (get_sess b g); tc' (get_sess c g)])
+  Lwt_main.run (Lwt.join [ta' (get_sess_ a g); tb' (get_sess_ b g); tc' (get_sess_ c g)])

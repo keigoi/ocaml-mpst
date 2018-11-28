@@ -10,10 +10,14 @@ module H = Mpst_http
 let (>>=) = Lwt.(>>=)
 
 (*
+  (replace keigoimai.info with appropriate domain)
+
   $ opam install lwt_ssl
   $ ssh ben -R127.0.0.1:8080:127.0.0.1:8080
-  $ dune build --profile=release && _build/default/ocaml-mpst/examples/oauth/oauth.exe
-  $ open https://keigoimai.info/scribble/oauth
+  $ dune build --profile=release examples/oauth/oauth.exe
+  $ _build/default/examples/oauth/oauth.exe
+
+  then open https://keigoimai.info/scribble/oauth
  *)
 (*
   In keigoimai.info, ssl.conf:

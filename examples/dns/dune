@@ -1,0 +1,4 @@
+(executables
+  (names     dnsserver)
+  (modules dnsserver dnshelper)
+  (libraries ocaml-mpst dns-lwt-unix lwt.unix))

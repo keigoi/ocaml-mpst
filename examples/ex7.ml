@@ -11,13 +11,13 @@ let mk_g (m : ('k1,'k2) standard) =
     choice_at c left_or_right
       (c, (c --> a) (left m) @@
           (a --> b) (right m) @@
-          discon a b @@
-          discon a c @@
+          discon (a,a) (b,b) @@
+          discon (a,a) (c,c) @@
           finish_)
       (c, (c --> a) (right m) @@
           (a --> b) (left m) @@
-          discon a b @@
-          discon a c @@
+          discon (a,a) (b,b) @@
+          discon (a,a) (c,c) @@
           finish_)
   in
   g
@@ -26,9 +26,9 @@ let kab = M.create_shmem_channel ()
 let kac = M.create_shmem_channel ()
 
 let ta s =
-  M.shmem_accept kab >>= fun kb ->
+  M.shmem_accept "a" kab >>= fun kb ->
   accept b kb s >>= fun (`msg((), s)) ->
-  let kc = M.shmem_connect kac in
+  let kc = M.shmem_connect "a" kac in
   let s = request c (fun x->x#msg) () kc s in
   begin
     receive c s >>= function
@@ -50,7 +50,7 @@ let ta s =
 
 
 let tb s =
-  let ka = M.shmem_connect kab in
+  let ka = M.shmem_connect "b" kab in
   let s = request a (fun x->x#msg) () ka s in
   begin
     receive a s >>= function
@@ -69,7 +69,7 @@ let tb s =
 
 
 let tc s =
-  M.shmem_accept kac >>= fun ka ->
+  M.shmem_accept "c" kac >>= fun ka ->
   accept a ka s >>= fun (`msg((),s)) ->
   begin
     if Random.bool () then begin
@@ -102,8 +102,8 @@ let mk_g' m =
       choice_at c left_or_right
         (c, (c --> a) (left m) @@
             (a --> b) (right m) @@
-            discon b a @@
-            discon a c @@
+            discon (b,b) (a,a) @@
+            discon (a,a) (c,c) @@
             finish_)
         (c, (c --> a) (right m) @@
             (a --> b) (left m) @@
@@ -113,9 +113,9 @@ let mk_g' m =
     Lazy.force g
 
 let rec ta' s =
-  M.shmem_accept kab >>= fun kb ->
+  M.shmem_accept "a" kab >>= fun kb ->
   accept b kb s >>= fun (`msg((), s)) ->
-  let kc = M.shmem_connect kac in
+  let kc = M.shmem_connect "a" kac in
   let s = request c (fun x->x#msg) () kc s in
   let rec loop s =
     receive c s >>= function
@@ -137,7 +137,7 @@ let rec ta' s =
 
 
 let tb' s =
-  let ka = M.shmem_connect kab in
+  let ka = M.shmem_connect "b" kab in
   let s = request a (fun x->x#msg) () ka s in
   let rec loop s =
     receive a s >>= function
@@ -155,7 +155,7 @@ let tb' s =
   Lwt.return ()
 
 let tc' s =
-  M.shmem_accept kac >>= fun ka ->
+  M.shmem_accept "c" kac >>= fun ka ->
   accept a ka s >>= fun (`msg((),s)) ->
   let rec loop s =
     if Random.bool () then begin

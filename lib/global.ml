@@ -69,10 +69,12 @@ let (-!->) : 'ra 'rb 'ksa 'ksa2 'ksb 'ksb2 'sa 'sb 'la 'lb 'ka 'kb 'c0 'c1 'c2.
   c2
 
 let discon :
-      ('ra, ('ksa2, 'sa) prot, ('ksa, ('ksa2, 'rb, 'ka, 'sa) disconnect) prot, 'c0, 'c1) role ->
-      ('rb, ('ksb2, 'sb) prot, ('ksb, ('ksb2, 'ra, 'kb, 'sb) disconnect) prot, 'c1, 'c2) role ->
+      ('ra, ('ksa2, 'sa) prot, ('ksa, ('ksa2, 'rb, 'ka dist, 'sa) disconnect) prot, 'c0, 'c1) role *
+        ('ra, 'kb dist conn, unit, 'ksb, 'ksb2) role ->
+      ('rb, ('ksb2, 'sb) prot, ('ksb, ('ksb2, 'ra, 'kb dist, 'sb) disconnect) prot, 'c1, 'c2) role *
+        ('rb, 'ka dist conn, unit, 'ksa, 'ksa2) role ->
       'c0 lazy_t -> 'c2 lazy_t =
-  fun a b c0 ->
+  fun (a,_) (b,_) c0 ->
   let sa = lazy (a.lens.get c0) in
   let sa =
     Disconnect (b.role, (fun ks -> Sess (ks, Lazy.force sa)))
@@ -95,10 +97,14 @@ type ('l, 'r, 'lr) label_merge =
     {label_merge: 'l -> 'r -> 'lr}
 
 let label : type l ks k r. (ks, (r, k, l) send) prot -> (k conn -> ks -> l) =
-  fun (Send (_, l)) -> l
+  function
+  | Send (_, l) -> l
+  | Close -> assert false
 
 let role : type l ks k r. (ks, (r, k, l) send) prot -> r =
-  fun (Send (r, _)) -> r
+  function
+  | (Send (r, _)) -> r
+  | Close -> assert false
 
 let choice_at merge a {label_merge} (al,cl) (ar,cr) =
   let sal, sar = al.lens.get cl, ar.lens.get cr in

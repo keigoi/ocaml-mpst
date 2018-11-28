@@ -36,10 +36,10 @@ module Labels = struct
 
   let deleg_dist :
         ('ks, 'b) prot ->
-        ('k1, 'k2,'ks) channel ->
+        ('k1 dist, 'k2 dist,'ks) channel ->
         (< deleg : ('ks, 's) sess -> 'sa >,
          [> `deleg of ('ks, 's) sess * 'sb ],
-         'sa, 'sb, 'k1, 'k2, ('ks, 's) sess) label =
+         'sa, 'sb, 'k1 dist, 'k2 dist, ('ks, 's) sess) label =
     fun prot dch ->
     {channel=
        {sender=(fun k (Sess (ks, _)) -> dch.sender k ks);

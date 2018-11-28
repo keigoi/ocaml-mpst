@@ -68,8 +68,8 @@ val accept :
   'ls Lwt.t
 
 val disconnect :
-  ('r, 'k, unit, 'ks, 'ks2) role ->
-  ('ks, ('ks2, 'r, 'k, 's) disconnect) sess ->
+  ('r, 'k dist conn, unit, 'ks, 'ks2) role ->
+  ('ks, ('ks2, 'r, 'k dist, 's) disconnect) sess ->
   ('ks2, 's) sess
 
 module Internal :

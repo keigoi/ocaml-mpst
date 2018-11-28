@@ -28,9 +28,12 @@ val (-!->) :
 
 (** explicit disconnection discon a b @@ cont *)
 val discon :
-  ('ra, ('ksa2, 'sa) prot, ('ksa, ('ksa2, 'rb, 'ka, 'sa) disconnect) prot, 'c0, 'c1) role ->
-  ('rb, ('ksb2, 'sb) prot, ('ksb, ('ksb2, 'ra, 'kb, 'sb) disconnect) prot, 'c1, 'c2) role ->
+  ('ra, ('ksa2, 'sa) prot, ('ksa, ('ksa2, 'rb, 'ka dist, 'sa) disconnect) prot, 'c0, 'c1) role *
+    ('ra, 'kb dist conn, unit, 'ksb, 'ksb2) role ->
+  ('rb, ('ksb2, 'sb) prot, ('ksb, ('ksb2, 'ra, 'kb dist, 'sb) disconnect) prot, 'c1, 'c2) role *
+    ('rb, 'ka dist conn, unit, 'ksa, 'ksa2) role ->
   'c0 lazy_t -> 'c2 lazy_t
+
 
 (** dummy reception for non-liveness *)
 val dummy_receive :

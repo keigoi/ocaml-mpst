@@ -1,27 +1,20 @@
 (executable
  (name light)
-  (public_name ex1)
+  (public_name light_ex1)
   (modules light)
   (flags ("-g" "-short-paths"))
   (libraries threads))
 
 (executable
  (name poly)
-  (public_name ex2)
+  (public_name light_ex2)
   (modules poly)
   (flags ("-g" "-short-paths"))
   (libraries threads))
 
 (executable
  (name poly_choice)
-  (public_name ex3)
+  (public_name light_ex3)
   (modules poly_choice)
-  (flags ("-g" "-short-paths"))
-  (libraries threads))
-
-(executable
- (name poly_conn)
-  (public_name ex4)
-  (modules poly_conn)
   (flags ("-g" "-short-paths"))
   (libraries threads))

@@ -87,8 +87,8 @@ let accept : 'r 'k 'ks 'ks2 'ls.
   Lwt.choose (List.map (fun ls -> ls (Conn k) ks2) lss)
   
 let disconnect :
-      ('r, 'k, unit, 'ks, 'ks2) role ->
-      ('ks, ('ks2, 'r, 'k, 's) disconnect) sess -> ('ks2, 's) sess =
+      ('r, 'k dist conn, unit, 'ks, 'ks2) role ->
+      ('ks, ('ks2, 'r, 'k dist, 's) disconnect) sess -> ('ks2, 's) sess =
   fun {lens;_} (Sess (ks, Disconnect (r, cont))) ->
   let ks2 = lens_put lens ks () in
   cont ks2

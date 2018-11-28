@@ -39,26 +39,26 @@ let p = b
 let mk_oauth muc mup mcp =
   ((u,u) -!-> (c,c)) (get muc "/oauth") @@
   (c --> u) (_302 muc)  @@
-  discon u c @@      
+  discon (u,u) (c,c) @@      
   ((u,u) -!-> (p,p)) (get mup "-TODO-") @@
   (p --> u) (_200 mup) @@
-  discon u p @@
+  discon (u,u) (p,p) @@
   ((u,u) -!-> (p,p)) (post mup "-TODO-") @@
   choice_at p success_or_fail
     (p, (p --> u) (success ~pred:(fun c -> failwith "TODO") mup "-TODO-") @@
-        discon u p @@
+        discon (u,u) (p,p) @@
         ((u,u) -!-> (c,c)) (success ~pred:(fun c -> H.Util.http_parameter_contains ("state", c.H.extra_server)) muc "/callback") @@
         ((c,c) -!-> (p,p)) (get mcp "/access_token") @@
         (p --> c) (_200 mcp) @@
-        discon c p @@
+        discon (c,c) (p,p) @@
         (c --> u) (_200 muc) @@
-        discon u c @@
+        discon (u,u) (c,c) @@
         finish)
     (p, (p --> u) (fail ~pred:(fun c -> failwith "TODO") mup "-TODO-") @@
-        discon u p @@
+        discon (u,u) (p,p) @@
         ((u,u) -!-> (c,c)) (fail ~pred:(fun _ -> H.Util.http_parameter_contains ("error", "access_denied")) muc "/callback") @@
         (c --> u) (_200 muc) @@
-        discon u c @@
+        discon (u,u) (c,c) @@
         finish)
 
 let () =

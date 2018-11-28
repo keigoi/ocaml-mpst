@@ -20,6 +20,13 @@
   (libraries ocaml-mpst lwt.unix))
 
 (executable
+ (name ex4)
+  (public_name ex4)
+  (modules ex4)
+  (flags ("-g" "-short-paths"))
+  (libraries ocaml-mpst lwt.unix))
+
+(executable
  (name ex5)
   (public_name ex5)
   (modules ex5)

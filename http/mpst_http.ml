@@ -177,9 +177,10 @@ end
 
 module Labels = struct
   open Mpst.Global
-  type 'a pred = 'a cohttp_server -> Cohttp.Request.t -> bool
+  type 'a server_pred = 'a cohttp_server -> Cohttp.Request.t -> bool
+  type 'a client_pred = 'a cohttp_client -> Cohttp.Response.t -> bool
 
-  let get ?(pred:'a pred option) m path =
+  let get ?(pred:'a server_pred option) m path =
     {channel=m#ch_get ?pred path;
      select_label=(fun f -> object method get=f end);
      offer_label=(fun l -> `get(l))}
@@ -199,13 +200,23 @@ module Labels = struct
      select_label=(fun f -> object method _200=f end);
      offer_label=(fun l -> `_200(l))}
 
-  let success ~(pred:'a pred) m path =
+  let success ~(pred:'a server_pred) m path =
     {channel=m#ch_success path pred;
      select_label=(fun f -> object method success=f end);
      offer_label=(fun l -> `success(l))}
 
-  let fail ~(pred:'a pred) m path =
+  let fail ~(pred:'a server_pred) m path =
     {channel=m#ch_fail path pred;
+     select_label=(fun f -> object method fail=f end);
+     offer_label=(fun l -> `fail(l))}
+
+  let success_resp ~(pred:'a client_pred) m =
+    {channel=m#ch_success_resp pred;
+     select_label=(fun f -> object method success=f end);
+     offer_label=(fun l -> `success(l))}
+
+  let fail_resp ~(pred:'a client_pred) m =
+    {channel=m#ch_fail_resp pred;
      select_label=(fun f -> object method fail=f end);
      offer_label=(fun l -> `fail(l))}
 
@@ -254,7 +265,7 @@ let http =
            () >>= fun (resp,body) ->
          c.write_response (resp, body)
          end);
-     receiver=(fun (Conn c) ->
+     receiver=(fun (Conn c) -> (* FIXME: check resposne code *)
        c.read_response >>= fun (_resp, body) ->
        Lwt.return @@ body)}
   in
@@ -274,6 +285,8 @@ let http =
     method ch_post = get ?pred:None (* FIXME *)
     method ch_success path pred = get ~pred path
     method ch_fail path pred = get ~pred path
+    method ch_success_resp _pred = ignore (failwith"TODO"); _200
+    method ch_fail_resp _pred = ignore (failwith"TODO"); _200
     method ch_200 = _200
     method ch_302 = _302
   end

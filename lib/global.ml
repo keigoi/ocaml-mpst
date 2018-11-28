@@ -68,6 +68,43 @@ let (-!->) : 'ra 'rb 'ksa 'ksa2 'ksb 'ksb2 'sa 'sb 'la 'lb 'ka 'kb 'c0 'c1 'c2.
   let c2 = b.lens.put c1 sb in
   c2
 
+let (-?->) : type ra rb ksa ksa2 ksb ksb2 sa sb la lb ka kb c0 c1 c2 v.
+      (ra, (ksa2, sa) prot, (ksa, (rb, ka dist, la) send) prot, c0, c1) role *
+        (ra, kb dist conn, unit, ksb, ksb2) role ->
+      (rb, (ksb2, sb) prot, (ksb, (ra, kb dist, lb) receive) prot, c1, c2) role *
+        (rb, ka dist conn, unit, ksa, ksa2) role ->
+      (la, lb,
+       (ksa, (ksa2, rb, ka dist, sa) disconnect) sess,
+       (ksb, (ksb2, ra, kb dist, sb) disconnect) sess, ka dist, kb dist, v) label ->
+      c0 lazy_t -> c2 lazy_t =
+  fun (a,_) (b,_) ({channel;select_label;offer_label}) c0 ->
+  let sa = lazy (a.lens.get c0) in
+  let sa =
+    Send (b.role, (fun (k : ka dist conn) ks ->
+          let sender : v -> unit  =
+            match k with
+            | Conn _  -> channel.sender k
+          in
+          select_label
+            (fun v -> sender v;
+                      Sess (ks, Disconnect (b.role, (fun ks' -> Sess (ks', Lazy.force sa)))))))
+  in
+  let c1 = a.lens.put c0 sa in
+  let sb = lazy (b.lens.get c1) in
+  let sb =
+    Receive (a.role, [
+          (fun (k : kb dist conn) ks ->
+            let receiver : v Lwt.t =
+              match k with
+              | Conn _ -> channel.receiver k
+            in
+            Lwt.map (fun v ->
+                offer_label (v, (Sess (ks, Disconnect (a.role, (fun ks' -> Sess (ks', Lazy.force sb)))))))
+              receiver)])
+  in
+  let c2 = b.lens.put c1 sb in
+  c2
+
 let discon :
       ('ra, ('ksa2, 'sa) prot, ('ksa, ('ksa2, 'rb, 'ka dist, 'sa) disconnect) prot, 'c0, 'c1) role *
         ('ra, 'kb dist conn, unit, 'ksb, 'ksb2) role ->
@@ -85,7 +122,7 @@ let discon :
     Disconnect (a.role, (fun ks -> Sess (ks, Lazy.force sb)))
   in
   let c2 = b.lens.put c1 sb in
-  c2
+  c2  
 
 let dummy_receive ra c0 =
   ra.lens.put c0 DummyReceive

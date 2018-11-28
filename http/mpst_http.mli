@@ -44,10 +44,11 @@ val close_client : 'a cohttp_client -> unit Lwt.t
 open Mpst.Global
 
 module Labels : sig
-  type 'a pred = 'a cohttp_server -> Cohttp.Request.t -> bool
+  type 'a server_pred = 'a cohttp_server -> Cohttp.Request.t -> bool
+  type 'a client_pred = 'a cohttp_client -> Cohttp.Response.t -> bool
   val get :
-    ?pred:'a pred ->
-    < ch_get : ?pred:'a pred -> 'b -> ('c, 'd, 'e) channel; .. > ->
+    ?pred:'a server_pred ->
+    < ch_get : ?pred:'a server_pred -> 'b -> ('c, 'd, 'e) channel; .. > ->
     'b ->
     (< get : 'e -> 'f >, [> `get of 'e * 'g ], 'f, 'g, 'c, 'd, 'e)
     label
@@ -65,15 +66,25 @@ module Labels : sig
     (< _200 : 'c -> 'd >, [> `_200 of 'c * 'e ], 'd, 'e, 'a, 'b, 'c)
     label
   val success :
-    pred:'a pred ->
-    < ch_success : 'b -> 'a pred -> ('c, 'd, 'e) channel; .. > ->
+    pred:'a server_pred ->
+    < ch_success : 'b -> 'a server_pred -> ('c, 'd, 'e) channel; .. > ->
     'b ->
     (< success : 'e -> 'f >, [> `success of 'e * 'g ], 'f, 'g, 'c, 'd, 'e)
     label
   val fail :
-    pred:'a pred ->
-    < ch_fail : 'b -> 'a pred -> ('c, 'd, 'e) channel; .. > ->
+    pred:'a server_pred ->
+    < ch_fail : 'b -> 'a server_pred -> ('c, 'd, 'e) channel; .. > ->
     'b ->
+    (< fail : 'e -> 'f >, [> `fail of 'e * 'g ], 'f, 'g, 'c, 'd, 'e)
+    label
+  val success_resp :
+    pred:'a client_pred ->
+    < ch_success_resp : 'a client_pred -> ('c, 'd, 'e) channel; .. > ->
+    (< success : 'e -> 'f >, [> `success of 'e * 'g ], 'f, 'g, 'c, 'd, 'e)
+    label
+  val fail_resp :
+    pred:'a client_pred ->
+    < ch_fail_resp : 'a client_pred -> ('c, 'd, 'e) channel; .. > ->
     (< fail : 'e -> 'f >, [> `fail of 'e * 'g ], 'f, 'g, 'c, 'd, 'e)
     label
   val success_or_fail :
@@ -92,11 +103,6 @@ val http :
            channel;
   ch_302 : ('c cohttp_server dist, 'd, Uri.t)
            channel;
-  ch_fail : string ->
-            ('e cohttp_server -> Cohttp.Request.t -> bool) ->
-            ('f cohttp_client dist,
-             'e cohttp_server dist, (string * string list) list)
-            channel;
   ch_get : ?pred:('g cohttp_server -> Cohttp.Request.t -> bool) ->
            string ->
            ('h cohttp_client dist,
@@ -111,4 +117,22 @@ val http :
                ('l cohttp_client dist,
                 'k cohttp_server dist,
                 (string * string list) list)
-               channel >
+               channel;
+  ch_fail : string ->
+            ('e cohttp_server -> Cohttp.Request.t -> bool) ->
+            ('f cohttp_client dist,
+             'e cohttp_server dist, (string * string list) list)
+            channel;
+  ch_success_resp :
+               ('l cohttp_client -> Cohttp.Response.t -> bool) ->
+               ('l cohttp_server dist,
+                'k cohttp_client dist,
+                string)
+               channel;
+  ch_fail_resp : 
+               ('l cohttp_client -> Cohttp.Response.t -> bool) ->
+               ('l cohttp_server dist,
+                'k cohttp_client dist,
+                string)
+                 channel
+               >

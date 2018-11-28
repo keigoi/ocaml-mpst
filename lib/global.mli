@@ -34,6 +34,16 @@ val discon :
     ('rb, 'ka dist conn, unit, 'ksa, 'ksa2) role ->
   'c0 lazy_t -> 'c2 lazy_t
 
+(** trasimission before disconnection *)
+val ( -?-> ) :
+  ('ra, ('ksa2, 'sa) prot, ('ksa, ('rb, 'ka dist, 'la) send) prot, 'c0, 'c1) role *
+    ('ra, 'kb dist conn, unit, 'ksb, 'ksb2) role ->
+  ('rb, ('ksb2, 'sb) prot, ('ksb, ('ra, 'kb dist, 'lb) receive) prot, 'c1, 'c2) role *
+    ('rb, 'ka dist conn, unit, 'ksa, 'ksa2) role ->
+  ('la, 'lb,
+   ('ksa, ('ksa2, 'rb, 'ka dist, 'sa) disconnect) sess,
+   ('ksb, ('ksb2, 'ra, 'kb dist, 'sb) disconnect) sess, 'ka dist, 'kb dist, 'v) label ->
+  'c0 lazy_t -> 'c2 lazy_t
 
 (** dummy reception for non-liveness *)
 val dummy_receive :

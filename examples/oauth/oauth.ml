@@ -33,32 +33,27 @@ let () =
   Cohttp_server_lwt.hook := hook;
   Lwt.async (Cohttp_server_lwt.start_server "/var/empty" 8080 "127.0.0.1" "index.html" None)
 
-let u = a
-let p = b
+type u = U
+type p = P
+let u = {a with role=U}
+let p = {b with role=P}
 
 let mk_oauth muc mup mcp =
   ((u,u) -!-> (c,c)) (get muc "/oauth") @@
-  (c --> u) (_302 muc)  @@
-  discon (u,u) (c,c) @@      
+  ((c,c) -?-> (u,u)) (_302 muc)  @@
   ((u,u) -!-> (p,p)) (get mup "-TODO-") @@
-  (p --> u) (_200 mup) @@
-  discon (u,u) (p,p) @@
+  ((p,p) -?-> (u,u)) (_200 mup) @@
   ((u,u) -!-> (p,p)) (post mup "-TODO-") @@
   choice_at p success_or_fail
-    (p, (p --> u) (success ~pred:(fun c -> failwith "TODO") mup "-TODO-") @@
-        discon (u,u) (p,p) @@
+    (p, ((p,p) -?-> (u,u)) (success_resp ~pred:(fun c -> failwith "TODO") mup) @@
         ((u,u) -!-> (c,c)) (success ~pred:(fun c -> H.Util.http_parameter_contains ("state", c.H.extra_server)) muc "/callback") @@
         ((c,c) -!-> (p,p)) (get mcp "/access_token") @@
-        (p --> c) (_200 mcp) @@
-        discon (c,c) (p,p) @@
-        (c --> u) (_200 muc) @@
-        discon (u,u) (c,c) @@
+        ((p,p) -?-> (c,c)) (_200 mcp) @@
+        ((c,c) -?-> (u,u)) (_200 muc) @@
         finish)
-    (p, (p --> u) (fail ~pred:(fun c -> failwith "TODO") mup "-TODO-") @@
-        discon (u,u) (p,p) @@
+    (p, ((p,p) -?-> (u,u)) (fail_resp ~pred:(fun c -> failwith "TODO") mup) @@
         ((u,u) -!-> (c,c)) (fail ~pred:(fun _ -> H.Util.http_parameter_contains ("error", "access_denied")) muc "/callback") @@
-        (c --> u) (_200 muc) @@
-        discon (u,u) (c,c) @@
+        ((c,c) -?-> (u,u)) (_200 muc) @@
         finish)
 
 let () =
@@ -70,7 +65,7 @@ let facebook_oauth () =
   let s = get_sess_ c g in
   let sessionid = Int64.to_string @@ Random.int64 Int64.max_int in
   my_acceptor sessionid >>= fun srv ->
-  accept a srv s >>= fun (`get(params, s)) ->
+  accept u srv s >>= fun (`get(params, s)) ->
   print_endline "connection accepted";
   let redirect_url =
     Uri.add_query_params'
@@ -79,22 +74,22 @@ let facebook_oauth () =
        ("redirect_uri", Params.callback_url);
        ("state", sessionid)]
   in
-  let s = send a (fun x->x#_302) redirect_url s in
-  let s = disconnect a s in
+  let s = send u (fun x->x#_302) redirect_url s in
+  let s = disconnect u s in
   my_acceptor sessionid >>= fun srv ->
-  accept a srv s >>= function
+  accept u srv s >>= function
   | `success(_,s) ->
      H.http_connector ~base_url:"https://graph.facebook.com/v2.11/oauth" sessionid >>= fun cli ->
-     let s = request b (fun x->x#get) [] cli s in
-     receive b s >>= fun (`_200(_,s)) ->
-     let s = disconnect b s in
-     let s = send a (fun x->x#_200) "auth succeeded" s in
-     let s = disconnect a s in
+     let s = request p (fun x->x#get) [] cli s in
+     receive p s >>= fun (`_200(_,s)) ->
+     let s = disconnect p s in
+     let s = send u (fun x->x#_200) "auth succeeded" s in
+     let s = disconnect u s in
      close s;
      Lwt.return ()
   | `fail(_,s) ->
-     let s = send a (fun x->x#_200) "auth failed" s in
-     let s = disconnect a s in
+     let s = send u (fun x->x#_200) "auth failed" s in
+     let s = disconnect u s in
      close s;
      Lwt.return ()
 

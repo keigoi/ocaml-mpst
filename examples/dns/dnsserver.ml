@@ -55,12 +55,12 @@ let lookup packet =
     >>= fun () ->
     Lwt.return nxdomain
 
-let server sock =
+let server fd =
   let s = get_sess_ srv (dns ()) in
   let rec loop () =
-    accept cli sock s >>= fun (`query(query, s)) ->
+    accept cli fd s >>= fun (`query((dst, query), s)) ->
     lookup query >>= fun answer ->
-    let s = send cli (fun x->x#answer) answer s in
+    let s = send cli (fun x->x#answer) (dst, query, answer) s in
     let s = disconnect cli s in
     close s;
     loop ()
@@ -70,11 +70,7 @@ let server sock =
 let main () =
   Dns_server_unix.bind_fd ~address:"127.0.0.1" ~port:53
   >>= fun (fd, _src) ->
-  let sock =
-    {fd;
-     dst=(*dummy*)Lwt_unix.getsockname fd;
-     query=(*dummy*)dummy_query} in
-  server sock
+  server fd
 
 let () =
   Lwt_main.run (main ())

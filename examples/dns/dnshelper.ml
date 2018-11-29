@@ -2,10 +2,8 @@ open Mpst.Global
 open Mpst.Session
 open Lwt
 
-let sp = Printf.sprintf
-
-let dummy_or_query =
-  {label_merge=(fun l r -> object method dummy=l#dummy method query=r#query end)}
+let query_or_dummy =
+  {label_merge=(fun l r -> object method query=l#query method dummy=r#dummy end)}
 
 let dummy =
   {select_label=(fun f -> object method dummy=f end);
@@ -47,7 +45,7 @@ let answer =
       receiver=(fun (Conn fd) ->
         let buf = Cstruct.create 4096 in
         Cstruct.(Lwt_bytes.recvfrom fd buf.buffer buf.off buf.len [])
-        (* FIXME: check query id -- we need session correlation!! *)
+        (* FIXME: check query id and dst_addr -- we need session correlation!! *)
         >>= fun (len, dst_addr) ->
         let buf = Cstruct.sub buf 0 len in
         let answer = Dns.Packet.parse buf in

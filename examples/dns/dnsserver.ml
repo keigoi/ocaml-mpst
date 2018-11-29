@@ -15,29 +15,31 @@ let forward_port = 53
 
   (in another window)
   $ host nagoya.my.domain 127.0.0.1
+  $ host www.google.com 127.0.0.1
  *)
 
-type cli = Cli
-type srv = Srv
-type oth = Oth
-let cli = {Mpst.ThreeParty.a with role=Cli}
-let srv = {Mpst.ThreeParty.b with role=Srv}
-let fwd = {Mpst.ThreeParty.c with role=Oth}
+module Roles = struct
+  type cli = Cli
+  type srv = Srv
+  type oth = Oth
+end
 
-
+let cli = {Mpst.ThreeParty.a with role=Roles.Cli}
+let srv = {Mpst.ThreeParty.b with role=Roles.Srv}
+let fwd = {Mpst.ThreeParty.c with role=Roles.Oth}
 
 let dns () =
   let open Mpst.ThreeParty in
   let open Dnshelper in
-  ((cli,cli) -!-> (srv,srv)) query @@
-  choice_req_at srv dummy_or_query
-    (srv, ((srv,srv) -!-> (fwd,fwd)) dummy @@
-          discon (srv,srv) (fwd,fwd) @@
-          ((srv,srv) -?-> (cli,cli)) answer @@
+  ((cli,cli) -!-> (srv,srv)) query @@ (* DNS query from a client *)
+  choice_req_at srv query_or_dummy (* do I have an entry for the query?  *)
+    (srv, ((srv,srv) -!-> (fwd,fwd)) query @@  (* if not, forward the query to aoother server *)
+          ((fwd,fwd) -?-> (srv,srv)) answer @@ (* and receive a reply *)
+          ((srv,srv) -?-> (cli,cli)) answer @@ (* then send back it to the client *)
           finish_)
-    (srv, ((srv,srv) -!-> (fwd,fwd)) query @@
-          ((fwd,fwd) -?-> (srv,srv)) answer @@
-          ((srv,srv) -?-> (cli,cli)) answer @@
+    (srv, ((srv,srv) -!-> (fwd,fwd)) dummy @@ (* DUMMY (no effect)  *)
+          discon (srv,srv) (fwd,fwd) @@       (* DUMMY (no effect) *)
+          ((srv,srv) -?-> (cli,cli)) answer @@ (* send back to the client the answer *)
           finish_)
 
 let addresses = [
@@ -48,54 +50,52 @@ let addresses = [
 let nxdomain =
   Dns.Query.({ rcode = Dns.Packet.NXDomain; aa = true; answer = []; authority = []; additional = [] })
 
-let lookup packet =
-  let open Dns.Packet in
-  match packet.questions with
-  | [ { q_class = Q_IN; q_type = Q_A; q_name; _ } ] ->
-    if List.mem_assoc q_name addresses then begin
+let lookup ({ Dns.Packet.q_name; _ } as question) =
+  if List.mem_assoc q_name addresses then begin
       let ip = List.assoc q_name addresses in
-      Lwt_io.printf "DNS: %s is a builtin: %s\n" (to_string packet) Ipaddr.V4.(to_string ip)
+      Lwt_io.printf "DNS: %s is a builtin: %s\n"
+        (Dns.Packet.question_to_string question)
+        Ipaddr.V4.(to_string ip)
       >>= fun () ->
-      let rrs = [ { name = q_name; cls = RR_IN; flush = false; ttl = 0l; rdata = A ip } ] in
+      let rrs = [ { Dns.Packet.name = q_name; cls = RR_IN; flush = false; ttl = 0l; rdata = A ip } ] in
       Lwt.return (Some (Dns.Query.({ rcode = NoError; aa = true; answer = rrs; authority = []; additional = [] })))
     end else begin
       Lwt.return None
     end
-  | _ ->
-    Lwt.return None
 
-let sockaddr addr port =
-  Lwt_unix.(ADDR_INET (Ipaddr_unix.to_inet_addr addr, port))
-
-let server fd_cli fd_other =
+let server (fd_cli : Lwt_unix.file_descr) (fd_other : Lwt_unix.file_descr) =
   let s = Mpst.ThreeParty.get_sess_ srv (dns ()) in
   let rec loop () =
     S.accept cli fd_cli s >>= fun (`query((cli_addr, query), s)) ->
-    lookup query >>= fun answer ->
-    begin match answer with
-    | Some answer ->
-       let s = S.request fwd (fun x->x#dummy) () fd_cli s in (* no effect *)
-       let s = S.disconnect fwd s in (* no effect *)
-       Lwt.return (answer, s)
-    | None ->
-       match query.questions with
-       | [] ->
+    begin match query.questions with
+    | ({Dns.Packet.q_class = Q_IN; q_type = Q_A; _} as question) :: _ ->
+       lookup question >>= fun answer ->
+       begin match answer with
+       | Some answer ->
           let s = S.request fwd (fun x->x#dummy) () fd_cli s in (* no effect *)
           let s = S.disconnect fwd s in (* no effect *)
-          Lwt.return (nxdomain, s)
-       | q::_ -> (* FIXME: discarding rest of queries *)
+          Lwt.return (answer, s)
+       | None ->
           let fwd_query =
             Dns.Query.create
               ~id:(Random.int (1 lsl 16))
               ~dnssec:false
-              q.q_class q.q_type q.q_name
+              question.q_class question.q_type question.q_name
           in
-          let fwd_addr = sockaddr (Ipaddr.of_string_exn forward_ip) forward_port in
+          let fwd_addr =
+            Lwt_unix.(ADDR_INET (Ipaddr_unix.to_inet_addr (Ipaddr.of_string_exn forward_ip),
+                                 forward_port))
+          in
           let s = S.request fwd (fun x->x#query) (fwd_addr, fwd_query) fd_other s in
           S.receive fwd s >>= fun (`answer((_dst, fwd_resp),s)) ->
           let fwd_answer = Dns.Query.answer_of_response fwd_resp in
           let s = S.disconnect fwd s in
           Lwt.return (fwd_answer, s)
+       end
+    | _ ->
+       let s = S.request fwd (fun x->x#dummy) () fd_cli s in (* no effect *)
+       let s = S.disconnect fwd s in (* no effect *)
+       Lwt.return (nxdomain, s)
     end >>= fun (answer, s) ->
     let resp = Dns.Query.response_of_answer query answer in
     let s = S.send cli (fun x->x#answer) (cli_addr, resp) s in

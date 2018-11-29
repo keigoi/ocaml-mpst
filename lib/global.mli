@@ -51,6 +51,11 @@ val dummy_receive :
   'c0 lazy_t ->
   'c1 lazy_t
 
+(** dummy disconnection for non-liveness *)
+val dummy_disconnect :
+  ('ra, ('ks2, 'sa) prot, ('ks, ('ks2, 'ra, 'k, 'sa) disconnect) prot, 'c0, 'c2) role ->
+  'c0 lazy_t -> 'c2 lazy_t
+
 (* dummy closing for non-liveness *)
 val dummy_close :
   ('ra, _, (_, close) prot, 'c0, 'c1) role -> 'c0 lazy_t -> 'c1 lazy_t
@@ -65,5 +70,14 @@ val choice_at :
   ('ra, ('ks, ('rb, 'k, 'l) send) prot, ('ks, close) prot, 'c0l, 'c1) role * 'c0l lazy_t ->
   ('ra, ('ks, ('rb, 'k, 'r) send) prot, ('ks, close) prot, 'c0r, 'c1) role * 'c0r lazy_t ->
   'c2 lazy_t
+  
+val choice_req_at :
+  ('a lazy_t -> 'b lazy_t -> 'c lazy_t) ->
+  ('d, 'e, ('f, ('g, 'h, 'i, 'j) request) prot, 'c, 'k) role ->
+  ('l, 'm, 'j) label_merge ->
+  ('n, ('o, ('g, 'p, 'i, 'l) request) prot, ('q, close) prot, 'r, 'a) role *
+    'r lazy_t ->
+  ('s, ('t, ('g, 'h, 'i, 'm) request) prot, ('u, close) prot, 'v, 'b) role *
+    'v lazy_t -> 'k lazy_t
 
 val loop : 'c lazy_t lazy_t -> 'c lazy_t

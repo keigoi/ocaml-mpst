@@ -130,6 +130,10 @@ let dummy_receive ra c0 =
 let dummy_close ra c0 =
   ra.lens.put c0 Close
 
+let dummy_disconnect ra c0 =
+  let sa = ra.lens.get c0 in
+  ra.lens.put c0 (Disconnect (ra.role, (fun ks -> Sess (ks,sa))))
+
 type ('l, 'r, 'lr) label_merge =
     {label_merge: 'l -> 'r -> 'lr}
 
@@ -148,6 +152,23 @@ let choice_at merge a {label_merge} (al,cl) (ar,cr) =
   let cl, cr = al.lens.put cl Close, ar.lens.put cr Close in
   let c = merge cl cr in
   let lr = Send (role sar, fun ks k -> label_merge (label sal ks k) (label sar ks k)) in
+  a.lens.put c lr
+
+let label : type l ks ks2 k r. (ks, (ks2, r, k, l) request) prot -> (k conn -> ks2 -> l) =
+  function
+  | Request (_, l) -> l
+  | Close -> assert false
+
+let role : type l ks ks2 k r. (ks, (ks2, r, k, l) request) prot -> r =
+  function
+  | (Request (r, _)) -> r
+  | Close -> assert false
+
+let choice_req_at merge a {label_merge} (al,cl) (ar,cr) =
+  let sal, sar = al.lens.get cl, ar.lens.get cr in
+  let cl, cr = al.lens.put cl Close, ar.lens.put cr Close in
+  let c = merge cl cr in
+  let lr = Request (role sar, fun ks k -> label_merge (label sal ks k) (label sar ks k)) in
   a.lens.put c lr
 
 let loop c0 = lazy (Lazy.force (Lazy.force c0))

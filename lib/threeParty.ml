@@ -61,3 +61,4 @@ let get_sess__ r (a, b, c) m =
 
 
 let choice_at x = Global.choice_at merge3 x
+let choice_req_at x = Global.choice_req_at merge3 x

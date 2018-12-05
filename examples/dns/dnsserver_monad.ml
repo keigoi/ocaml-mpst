@@ -1,9 +1,10 @@
-module S = Mpst.Session
-let (>>=) = Lwt.(>>=)
+module S = Mpst.Linsession
+module Monad = Mpst.Monad
+
 open Dnshelper
 
 (* FIXME!!! *)
-let myip = "10.0.1.11"
+let myip = "172.21.24.215"
 let myport = 12345
 
 let forward_ip = "8.8.8.8"
@@ -51,6 +52,7 @@ let nxdomain =
   Dns.Query.({ rcode = Dns.Packet.NXDomain; aa = true; answer = []; authority = []; additional = [] })
 
 let lookup ({ Dns.Packet.q_name; _ } as question) =
+  let (>>=) = Lwt.(>>=) in
   if List.mem_assoc q_name addresses then begin
       let ip = List.assoc q_name addresses in
       Lwt_io.printf "DNS: %s is a builtin: %s\n"
@@ -63,7 +65,10 @@ let lookup ({ Dns.Packet.q_name; _ } as question) =
       Lwt.return None
     end
 
+let _put v = Monad.put Mpst.Base.root v
+
 let server (fd_cli : Lwt_unix.file_descr) (fd_fwd : Lwt_unix.file_descr) =
+  let (>>=) = Monad.(>>=) in
   let fwd_addr =
     Lwt_unix.(ADDR_INET (Ipaddr_unix.to_inet_addr (Ipaddr.of_string_exn forward_ip),
                          forward_port))
@@ -72,42 +77,46 @@ let server (fd_cli : Lwt_unix.file_descr) (fd_fwd : Lwt_unix.file_descr) =
   let fd_cli = create_listener_fd ~fd:fd_cli in
   let s = Mpst.ThreeParty.get_sess_ srv (dns ()) in
   let rec loop () =
-    S.accept cli fd_cli s >>= fun (`query(query, s)) ->
-    begin match query.questions with
-    | ({Dns.Packet.q_class = Q_IN; q_type = Q_A; _} as question) :: _ ->
-       lookup question >>= fun answer ->
-       begin match answer with
-       | Some answer ->
-          let s = S.request fwd (fun x->x#dummy) () fd_fwd s in (* no effect *)
-          let s = S.disconnect fwd s in (* no effect *)
-          Lwt.return (answer, s)
-       | None ->
-          let fwd_query =
-            Dns.Query.create
-              ~id:(Random.int (1 lsl 16))
-              ~dnssec:false
-              question.q_class question.q_type question.q_name
-          in
-          let s = S.request fwd (fun x->x#query) fwd_query fd_fwd s in
-          S.receive fwd s >>= fun (`answer( fwd_resp,s)) ->
-          let fwd_answer = Dns.Query.answer_of_response fwd_resp in
-          let s = S.disconnect fwd s in
-          Lwt.return (fwd_answer, s)
-       end
-    | _ ->
-       let s = S.request fwd (fun x->x#dummy) () fd_fwd s in (* no effect *)
-       let s = S.disconnect fwd s in (* no effect *)
-       Lwt.return (nxdomain, s)
-    end >>= fun (answer, s) ->
-    let resp = Dns.Query.response_of_answer query answer in
-    let s = S.send cli (fun x->x#answer) resp s in
-    let s = S.disconnect cli s in
-    S.close s;
+    Lwt.bind (
+    Monad.__run s begin
+      S.accept cli fd_cli >>= fun (`query(query, tmp)) -> _put tmp >>= fun () ->
+      begin match query.Dns.Packet.questions with
+      | ({Dns.Packet.q_class = Q_IN; q_type = Q_A; _} as question) :: _ ->
+         Monad.lift (lookup question) >>= fun answer ->
+         begin match answer with
+         | Some answer ->
+            S.request fwd (fun x->x#dummy) () fd_fwd >>= fun tmp -> _put tmp >>= fun () -> (* no effect *)
+            S.disconnect fwd >>= fun tmp -> _put tmp >>= fun () -> (* no effect *)
+            Monad.return answer
+         | None ->
+            let fwd_query =
+              Dns.Query.create
+                ~id:(Random.int (1 lsl 16))
+                ~dnssec:false
+                question.q_class question.q_type question.q_name
+            in
+            S.request fwd (fun x->x#query) fwd_query fd_fwd >>= fun tmp -> _put tmp >>= fun () ->
+            S.receive fwd >>= fun (`answer( fwd_resp, tmp)) -> _put tmp >>= fun () ->
+            let fwd_answer = Dns.Query.answer_of_response fwd_resp in
+            S.disconnect fwd >>= fun tmp -> _put tmp >>= fun () ->
+            Monad.return fwd_answer
+         end
+      | _ ->
+         S.request fwd (fun x->x#dummy) () fd_fwd >>= fun tmp -> _put tmp >>= fun () -> (* no effect *)
+         S.disconnect fwd >>= fun tmp -> _put tmp >>= fun () -> (* no effect *)
+         Monad.return nxdomain
+      end >>= fun answer ->
+      let resp = Dns.Query.response_of_answer query answer in
+      S.send cli (fun x->x#answer) resp >>= fun tmp -> _put tmp >>= fun () ->
+      S.disconnect cli >>= fun tmp -> _put tmp >>= fun () ->
+      S.close ()
+      end) (fun _ ->
+        loop ())
+    in
     loop ()
-  in
-  loop ()
 
 let main () =
+  let (>>=) = Lwt.(>>=) in
   Dns_server_unix.bind_fd ~address:"127.0.0.1" ~port:53
   >>= fun (fd_cli, _src) ->
   Dns_server_unix.bind_fd ~address:myip ~port:myport

@@ -43,7 +43,8 @@ type ('r, 'v1, 'v2, 's1, 's2) role =
 val send :
   ('r, 'k conn, _, 'ks, _) role ->
   ((< .. > as 'ls) -> 'v -> ('ks,'s) sess) ->
-  'v -> ('ks, ('r, 'k, 'ls) send) sess ->
+  'v ->
+  ('ks, ('r, 'k, 'ls) send) sess ->
   ('ks,'s) sess
 
 val receive :

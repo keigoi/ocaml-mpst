@@ -7,3 +7,5 @@ type ('v1, 'v2, 's1, 's2) lens = {
 
 let lens_get l s = l.get (Lazy.from_val s)
 let lens_put l s v = Lazy.force (l.put (Lazy.from_val s) v)
+
+let root = {get = (fun s -> Lazy.force s); put = (fun _ v -> Lazy.from_val v)}

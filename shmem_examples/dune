@@ -1,0 +1,6 @@
+(executable
+ (name ex1)
+  (public_name ex1_shmem)
+  (modules ex1)
+  (flags ("-g" "-short-paths"))
+  (libraries shmem lwt.unix))

@@ -1,0 +1,5 @@
+(library
+ (name shmem)
+ (public_name ocaml-mpst.shmem)
+ (flags ("-g" "-short-paths"))
+ (libraries threads lwt lwt.unix))

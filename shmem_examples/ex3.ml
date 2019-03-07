@@ -4,12 +4,12 @@ open Shmem.Global
 open Util
 
 
-let ga = {role=`A; lens=FstOne}
-let gb = {role=`B; lens=Next FstOne}
-let gc = {role=`C; lens=Next (Next FstOne)}
+let ga = {role=`A; lens=Fst}
+let gb = {role=`B; lens=Next Fst}
+let gc = {role=`C; lens=Next (Next Fst)}
 let lv = Lazy.from_val
       
-let finish = lv (ConsOne(lv (ProtOne Close),lv @@ ConsOne(lv (ProtOne Close),lv @@ ConsOne(lv (ProtOne Close), lv Nil))))
+let finish = lv (Cons(lv (ProtOne Close),lv @@ Cons(lv (ProtOne Close),lv @@ Cons(lv (ProtOne Close), lv Nil))))
 
 let (>>=) = Lwt.(>>=)
 

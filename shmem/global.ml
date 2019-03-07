@@ -6,8 +6,8 @@ type ('la,'lb,'ca,'cb,'v1, 'v2) label =
      offer_label: 'v2 * 'cb -> 'lb}
 
 let (-->) : type ra rb sa sb la lb c0 c1 c2 v.
-      (ra, sa prot one, (rb, la) send prot one, c0, c1) role ->
-      (rb, sb prot one, (ra, lb) receive prot one, c1, c2) role ->
+      (ra, sa prot one e, (rb, la) send prot one e, c0, c1) role ->
+      (rb, sb prot one e, (ra, lb) receive prot one e, c1, c2) role ->
       (la, lb, sa prot, sb prot, v, v) label ->
       c0 lazy_t -> c2 lazy_t =
   fun a b ({select_label;offer_label}) c0 ->
@@ -30,8 +30,8 @@ let (-->) : type ra rb sa sb la lb c0 c1 c2 v.
 
 (* broadcast *)
 let (-->>) : type ra rb sa sb la lb c0 c1 c2 v.
-      (ra, sa prot one, (rb, la) send prot one, c1, c2) role ->
-      (rb, sb prot many, (ra, lb) receive prot many, c0, c1) role ->
+      (ra, sa prot one e, (rb, la) send prot one e, c1, c2) role ->
+      (rb, sb prot many e, (ra, lb) receive prot many e, c0, c1) role ->
       (la, lb, sa prot, sb prot, int -> v, v) label ->
       c0 lazy_t -> c2 lazy_t =
   fun a b ({select_label;offer_label}) c0 ->
@@ -65,8 +65,8 @@ let (-->>) : type ra rb sa sb la lb c0 c1 c2 v.
 
 (* gather *)
 let (>>--) : type ra rb sa sb la lb c0 c1 c2 v.
-      (ra, sa prot many, (rb, la) send prot many, c0, c1) role ->
-      (rb, sb prot one, (ra, lb) receive prot one, c1, c2) role ->
+      (ra, sa prot many e, (rb, la) send prot many e, c0, c1) role ->
+      (rb, sb prot one e, (ra, lb) receive prot one e, c1, c2) role ->
       (la, lb, sa prot, sb prot, v, v list) label ->
       c0 lazy_t -> c2 lazy_t =
   fun a b ({select_label;offer_label}) c0 ->
@@ -106,12 +106,12 @@ let dummy_close ra c0 =
 type ('l, 'r, 'lr) label_merge =
     {label_merge: 'l -> 'r -> 'lr}
 
-let label : type l ks k r. (r, l) send prot one lazy_t -> l =
+let label : type l ks k r. (r, l) send prot one e lazy_t -> l =
   function
   | lazy (ProtOne (Send (_, l))) -> l
   | lazy (ProtOne Close) -> assert false
 
-let role : type l ks k r. (r, l) send prot one lazy_t -> r =
+let role : type l ks k r. (r, l) send prot one e lazy_t -> r =
   function
   | lazy (ProtOne (Send (r, _))) -> r
   | lazy (ProtOne Close) -> assert false
@@ -119,14 +119,14 @@ let role : type l ks k r. (r, l) send prot one lazy_t -> r =
 let rec merge_ : type t. t slots lazy_t -> t slots lazy_t -> t slots lazy_t =
   fun l r ->
   match l, r with
-  | lazy (ConsOne(lazy (ProtOne hd_l),tl_l)), lazy (ConsOne(lazy (ProtOne hd_r),tl_r)) ->
-     lazy (ConsOne (lazy (ProtOne (Internal.merge hd_l hd_r)), merge_ tl_l tl_r))
-  | lazy (ConsMany(lazy (ProtMany hd_l),tl_l)), lazy (ConsMany(lazy (ProtMany hd_r),tl_r)) ->
-     lazy (ConsMany (lazy (ProtMany (List.rev @@ List.rev_map2 Internal.merge hd_l hd_r)), merge_ tl_l tl_r))
+  | lazy (Cons(lazy (ProtOne hd_l),tl_l)), lazy (Cons(lazy (ProtOne hd_r),tl_r)) ->
+     lazy (Cons (lazy (ProtOne (Internal.merge hd_l hd_r)), merge_ tl_l tl_r))
+  | lazy (Cons(lazy (ProtMany hd_l),tl_l)), lazy (Cons(lazy (ProtMany hd_r),tl_r)) ->
+     lazy (Cons (lazy (ProtMany (List.rev @@ List.rev_map2 Internal.merge hd_l hd_r)), merge_ tl_l tl_r))
   | lazy Nil, _ ->
      Lazy.from_val Nil
-  | lazy (ConsOne(lazy (ConnOne _),_)), _ -> assert false
-  | lazy (ConsMany(lazy (ConnMany _),_)), _ -> assert false
+  | lazy (Cons(lazy (ConnOne _),_)), _ -> assert false
+  | lazy (Cons(lazy (ConnMany _),_)), _ -> assert false
 
 let choice_at a {label_merge} (al,cl) (ar,cr) =
   let sal, sar = lens_get al.lens cl, lens_get ar.lens cr in

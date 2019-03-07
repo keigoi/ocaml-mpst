@@ -25,9 +25,9 @@ let create_g () =
           (c --> a) msg @@
           finish)
 
-let lazy pa, lazy pb, lazy pc =
+let pa, pb, pc =
   let g = create_g () in
-  lens_get a.lens g, lens_get b.lens g, lens_get c.lens g
+  lens_get_ a.lens g, lens_get_ b.lens g, lens_get_ c.lens g
 
 let a : [`A] = `A
 let b : [`B] = `B

@@ -1,7 +1,18 @@
-open Mpst.ThreeParty
-open Mpst.ThreeParty.Shmem
+open Mpst.Session
+open Mpst.Global
+open Mpst.Parties
+open Mpst.Util
+open Mpst.Util.Labels
+open Mpst.Util.Labels.Shmem
+
 let (>>=) = Lwt.(>>=)
 
+let finish = one @@ one @@ one @@ nil
+
+let a = {role=`A; lens=FstProt}
+let b = {role=`B; lens=Next FstProt}
+let c = {role=`C; lens=Next (Next FstProt)}
+          
 (* A global protocol between A, B, and C *)
 let create_g () =
     (c --> a) msg @@

@@ -55,6 +55,8 @@ let rec lens_get : type a b xs ys. (a, b, xs, ys) lens -> xs lazy_t -> a lazy_t 
   | FstList -> slot_head_list xs
   | Next ln' -> lens_get ln' (slot_tail xs)
 
+let lens_get_ ln s = Lazy.force (lens_get ln s)
+
 let rec lens_put : type a b xs ys. (a,b,xs,ys) lens -> xs lazy_t -> b lazy_t -> ys lazy_t =
   fun ln xs b ->
   match ln with

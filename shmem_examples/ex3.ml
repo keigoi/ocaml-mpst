@@ -49,5 +49,4 @@ let rec tC s =
 
 let () =
   let g = mk_g () in
-  let lens_get a b = Lazy.force @@ lens_get a b in
-  Lwt_main.run (Lwt.join [tA (lens_get ga.lens g); tB (lens_get gb.lens g); tC (lens_get gc.lens g)])
+  Lwt_main.run (Lwt.join [tA (lens_get_ ga.lens g); tB (lens_get_ gb.lens g); tC (lens_get_ gc.lens g)])

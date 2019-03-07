@@ -3,18 +3,29 @@ type ('r,'ls) sendmany = DummySend__
 type ('r,'ls) receive = DummyReceive__
 type close
 
-type 'k dist = DummyDist__
-
 exception RoleNotEnabled
 
-type _ slots =
-  ConsProt : 'x prot lazy_t * 'xs slots lazy_t -> ('x prot * 'xs) slots
-| ConsList : 'x prot list lazy_t * 'xs slots lazy_t -> ('x prot list * 'xs) slots
+type 'a conn = Conn of 'a        
+        
+type _ one =
+  ProtOne : 'a prot -> 'a prot one
+| ConnOne : 'a conn -> 'a conn one
+
+and _ many =
+  ProtMany : 'a prot list -> 'a prot many
+| ConnMany : 'a conn list -> 'a conn many
+        
+and _ slots =
+  (* this distinction between ConsOne/ConsMany is crucial for merging contexts in choice_at *)
+  ConsOne : 'x one lazy_t * 'xs slots lazy_t -> ('x one * 'xs) slots
+| ConsMany : 'x many lazy_t * 'xs slots lazy_t -> ('x many * 'xs) slots
 | Nil : unit slots
 
 and (_,_,_,_) lens =
-  | FstProt  : ('a prot, 'b prot, ('a prot * 'xs) slots, ('b prot * 'xs) slots) lens
-  | FstList  : ('a prot list, 'b prot list, ('a prot list * 'xs) slots, ('b prot list * 'xs) slots) lens
+  (* the elaboration on prot (or prot list) is crucial to make lens_put's source argument non-strict
+     (which is in turn required for defining recursive protocols) *)
+  | FstOne  : ('a one, 'b one, ('a one * 'xs) slots, ('b one * 'xs) slots) lens
+  | FstMany  : ('a many, 'b many, ('a many * 'xs) slots, ('b many * 'xs) slots) lens
   | Next : ('a,'b, 'xs slots,'ys slots) lens
            -> ('a,'b, ('x * 'xs) slots, ('x * 'ys) slots) lens
 
@@ -29,30 +40,36 @@ and _ prot =
   | DummyReceive :
       ('r, 'ls) receive prot
 
+let protone : type t. t prot one -> t prot = function
+    ProtOne p -> p
+
+let protmany : type t. t prot many -> t prot list = function
+    ProtMany p -> p
+  
 let slot_tail : type hd tl. (hd * tl) slots lazy_t -> tl slots lazy_t = fun sl ->
   lazy begin
       match sl with
-      | lazy (ConsProt(_,lazy tl)) -> tl
-      | lazy (ConsList(_,lazy tl)) -> tl
+      | lazy (ConsOne(_,lazy tl)) -> tl
+      | lazy (ConsMany(_,lazy tl)) -> tl
     end
   
 
-let slot_head_prot : type hd tl. (hd prot * tl) slots lazy_t -> hd prot lazy_t = fun sl ->
+let slot_head_one : type hd tl. (hd one * tl) slots lazy_t -> hd one lazy_t = fun sl ->
   lazy begin
       match sl with
-      | lazy (ConsProt(lazy hd,_)) -> hd
+      | lazy (ConsOne(lazy hd,_)) -> hd
     end
 
-let slot_head_list : type hd tl. (hd prot list * tl) slots lazy_t -> hd prot list lazy_t = fun sl ->
+let slot_head_many : type hd tl. (hd many * tl) slots lazy_t -> hd many lazy_t = fun sl ->
   lazy begin
       match sl with
-      | lazy (ConsList(lazy hd,_)) -> hd
+      | lazy (ConsMany(lazy hd,_)) -> hd
     end
   
 let rec lens_get : type a b xs ys. (a, b, xs, ys) lens -> xs lazy_t -> a lazy_t = fun ln xs ->
   match ln with
-  | FstProt -> slot_head_prot xs
-  | FstList -> slot_head_list xs
+  | FstOne -> slot_head_one xs
+  | FstMany -> slot_head_many xs
   | Next ln' -> lens_get ln' (slot_tail xs)
 
 let lens_get_ ln s = Lazy.force (lens_get ln s)
@@ -60,15 +77,17 @@ let lens_get_ ln s = Lazy.force (lens_get ln s)
 let rec lens_put : type a b xs ys. (a,b,xs,ys) lens -> xs lazy_t -> b lazy_t -> ys lazy_t =
   fun ln xs b ->
   match ln with
-  | FstProt -> lazy (ConsProt(b, slot_tail xs))
-  | FstList -> lazy (ConsList(b, slot_tail xs))
+  | FstOne -> lazy (ConsOne(b, slot_tail xs))
+  | FstMany -> lazy (ConsMany(b, slot_tail xs))
   | Next ln' ->
      lazy
        begin match xs with
-       | lazy (ConsProt(a, xs')) -> ConsProt(a, lens_put ln' xs' b)
-       | lazy (ConsList(a, xs')) -> ConsList(a, lens_put ln' xs' b)
+       | lazy (ConsOne(a, xs')) -> ConsOne(a, lens_put ln' xs' b)
+       | lazy (ConsMany(a, xs')) -> ConsMany(a, lens_put ln' xs' b)
        end
 
+let lens_put_ ln s v = lens_put ln s (Lazy.from_val v)
+    
 type ('r, 'v1, 'v2, 's1, 's2) role =
   {role:'r;
    lens:('v1, 'v2, 's1, 's2) lens;

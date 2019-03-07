@@ -2,12 +2,12 @@ open Shmem.Session
 open Shmem.Global
 open Util
 
-let a = {role=`A; lens=FstProt}
-let b = {role=`B; lens=Next FstProt}
-let c = {role=`C; lens=Next (Next FstProt)}
+let a = {role=`A; lens=FstOne}
+let b = {role=`B; lens=Next FstOne}
+let c = {role=`C; lens=Next (Next FstOne)}
 let lv = Lazy.from_val
       
-let finish = lv (ConsProt(lv Close,lv @@ ConsProt(lv Close,lv @@ ConsProt(lv Close, lv Nil))))
+let finish = lv (ConsOne(lv (ProtOne Close),lv @@ ConsOne(lv (ProtOne Close),lv @@ ConsOne(lv (ProtOne Close), lv Nil))))
 
 let (>>=) = Lwt.(>>=)
           
@@ -27,7 +27,7 @@ let create_g () =
 
 let pa, pb, pc =
   let g = create_g () in
-  lens_get_ a.lens g, lens_get_ b.lens g, lens_get_ c.lens g
+  get_sess a g, get_sess b g, get_sess c g
 
 let a : [`A] = `A
 let b : [`B] = `B

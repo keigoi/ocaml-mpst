@@ -4,12 +4,12 @@ open Shmem.Global
 open Util
 
 
-let ga = {role=`A; lens=FstProt}
-let gb = {role=`B; lens=Next FstProt}
-let gc = {role=`C; lens=Next (Next FstProt)}
+let ga = {role=`A; lens=FstOne}
+let gb = {role=`B; lens=Next FstOne}
+let gc = {role=`C; lens=Next (Next FstOne)}
 let lv = Lazy.from_val
       
-let finish = lv (ConsProt(lv Close,lv @@ ConsProt(lv Close,lv @@ ConsProt(lv Close, lv Nil))))
+let finish = lv (ConsOne(lv (ProtOne Close),lv @@ ConsOne(lv (ProtOne Close),lv @@ ConsOne(lv (ProtOne Close), lv Nil))))
 
 let (>>=) = Lwt.(>>=)
 
@@ -49,4 +49,4 @@ let rec tC s =
 
 let () =
   let g = mk_g () in
-  Lwt_main.run (Lwt.join [tA (lens_get_ ga.lens g); tB (lens_get_ gb.lens g); tC (lens_get_ gc.lens g)])
+  Lwt_main.run (Lwt.join [tA (get_sess ga g); tB (get_sess gb g); tC (get_sess gc g)])

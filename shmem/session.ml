@@ -13,8 +13,6 @@ type _ e =
   (* slot contents *)
   ProtOne : 'a prot -> 'a prot one e
 | ProtMany : 'a prot list -> 'a prot many e
-| ConnOne : conn -> conn one e
-| ConnMany : conn list -> conn many e
         
 and _ slots =
   Cons : 'x e lazy_t * 'xs slots lazy_t -> ('x * 'xs) slots

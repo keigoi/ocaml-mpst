@@ -125,8 +125,6 @@ let rec merge_ : type t. t slots lazy_t -> t slots lazy_t -> t slots lazy_t =
      lazy (Cons (lazy (ProtMany (List.rev @@ List.rev_map2 Internal.merge hd_l hd_r)), merge_ tl_l tl_r))
   | lazy Nil, _ ->
      Lazy.from_val Nil
-  | lazy (Cons(lazy (ConnOne _),_)), _ -> assert false
-  | lazy (Cons(lazy (ConnMany _),_)), _ -> assert false
 
 let choice_at a {label_merge} (al,cl) (ar,cr) =
   let sal, sar = lens_get al.lens cl, lens_get ar.lens cr in

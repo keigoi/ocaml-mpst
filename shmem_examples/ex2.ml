@@ -2,11 +2,11 @@ open Shmem.Session
 open Shmem.Global
 
 let a = {role=`A; lens=FstProt}
-let b = {role=`B; lens=Next FstProt}
+let b = {role=`B; lens=Next FstList}
 let c = {role=`C; lens=Next (Next FstProt)}
 let lv = Lazy.from_val
       
-let finish = lv (ConsProt(lv Close,ConsProt(lv Close,ConsProt(lv Close, Nil))))
+let finish = lv (ConsProt(lv Close,ConsList(lv [Close;Close],ConsProt(lv Close, Nil))))
       
 let msg = {select_label=(fun f -> object method msg v=f v end);
            offer_label=(fun (v,c) -> `msg(v,c))}
@@ -24,13 +24,13 @@ let (>>=) = Lwt.(>>=)
 let create_g () =
     (c --> a) msg @@
     choice_at a left_or_right
-      (a, (a --> b) left @@
-          (b --> c) right @@
-          (b --> a) msg @@
+      (a, (a -->> b) left @@
+          (b >>-- c) right @@
+          (b >>-- a) msg @@
           finish)
-      (a, (a --> b) right @@
-          (b --> a) msg @@
-          (b --> c) left @@
+      (a, (a -->> b) right @@
+          (b >>-- a) msg @@
+          (b >>-- c) left @@
           (c --> a) msg @@
           finish)
 
@@ -47,17 +47,18 @@ let t1 : unit Lwt.t =
   let s = pa in
   let open Lwt in
   receive c s >>= fun (`msg(x, s)) -> begin
+      Printf.printf "received: %d\n" x;
       if x = 0 then begin
-          let s = send b (fun x->x#left) () s in
+          let s = send b (fun x->x#left) [(); ()] s in
           receive b s >>= fun (`msg(str,s)) ->
-          Printf.printf "A) B says: %s\n" str;
+          str |> List.iter (Printf.printf "A) B says: %s\n");
           close s;
           return ()
         end else begin
-          let s = send b (fun x->x#right) () s in
-          receive b s >>= fun (`msg(x,s)) ->
+          let s = send b (fun x->x#right) [(); ()] s in
+          receive b s >>= fun (`msg(xs,s)) ->
           receive c s >>= fun (`msg(str,s)) ->
-          Printf.printf "A) B says: %d, C says: %s\n" x str;
+          List.iter (fun x -> Printf.printf "A) B says: %d, C says: %s\n" x str) xs;
           close s;
           return ()
         end;
@@ -66,16 +67,19 @@ let t1 : unit Lwt.t =
   return ()
 
 (* participant B *)
-let t2 : unit Lwt.t =
-  let s = pb in
+let t2 : unit Lwt.t list =
+  pb |>
+  List.map begin fun s ->
   receive a s >>= begin
       function
       | `left(_,s) ->
+         print_endline "B: left.";
          let s = send c (fun x->x#right) () s in
          let s = send a (fun x->x#msg) "Hooray!" s in
          close s;
          Lwt.return ()
       | `right(_,s) ->
+         print_endline "B: right.";
          let s = send a (fun x->x#msg) 1234 s in
          let s = send c (fun x->x#left) () s in
          close s;
@@ -83,6 +87,8 @@ let t2 : unit Lwt.t =
     end >>= fun () ->
   print_endline "B finished.";
   Lwt.return ()
+  end
+
 
 (* participant C *)
 let t3 : unit Lwt.t =
@@ -108,4 +114,4 @@ let t3 : unit Lwt.t =
   return ()
 
 let () =
-  Lwt_main.run (Lwt.join [t1; t2; t3])
+  Lwt_main.run (Lwt.join [t1; Lwt.join t2; t3])

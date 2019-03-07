@@ -1,22 +1,13 @@
 open Shmem.Session
 open Shmem.Global
-
+open Util
+   
 let a = {role=`A; lens=FstProt}
 let b = {role=`B; lens=Next FstList}
 let c = {role=`C; lens=Next (Next FstProt)}
 let lv = Lazy.from_val
       
-let finish = lv (ConsProt(lv Close,ConsList(lv [Close;Close],ConsProt(lv Close, Nil))))
-      
-let msg = {select_label=(fun f -> object method msg v=f v end);
-           offer_label=(fun (v,c) -> `msg(v,c))}
-let left = {select_label=(fun f -> object method left v=f v end);
-           offer_label=(fun (v,c) -> `left(v,c))}
-let right = {select_label=(fun f -> object method right v=f v end);
-           offer_label=(fun (v,c) -> `right(v,c))}
-
-let left_or_right =
-  {label_merge=(fun ol or_ -> object method left=ol#left method right=or_#right end)}
+let finish = lv (ConsProt(lv Close,lv @@ ConsList(lv [Close;Close],lv @@ ConsProt(lv Close, lv Nil))))
 
 let (>>=) = Lwt.(>>=)
           
@@ -49,16 +40,16 @@ let t1 : unit Lwt.t =
   receive c s >>= fun (`msg(x, s)) -> begin
       Printf.printf "received: %d\n" x;
       if x = 0 then begin
-          let s = send b (fun x->x#left) [(); ()] s in
+          let s = send b (fun x->x#left) (fun _ -> ()) s in
           receive b s >>= fun (`msg(str,s)) ->
           str |> List.iter (Printf.printf "A) B says: %s\n");
           close s;
           return ()
         end else begin
-          let s = send b (fun x->x#right) [(); ()] s in
+          let s = send b (fun x->x#right) (fun _ -> ()) s in
           receive b s >>= fun (`msg(xs,s)) ->
           receive c s >>= fun (`msg(str,s)) ->
-          List.iter (fun x -> Printf.printf "A) B says: %d, C says: %s\n" x str) xs;
+          List.iteri (fun i x -> Printf.printf "A) B(%d) says: %d, C says: %s\n" i x str) xs;
           close s;
           return ()
         end;
@@ -69,23 +60,23 @@ let t1 : unit Lwt.t =
 (* participant B *)
 let t2 : unit Lwt.t list =
   pb |>
-  List.map begin fun s ->
+  List.mapi begin fun i s ->
   receive a s >>= begin
       function
       | `left(_,s) ->
-         print_endline "B: left.";
+         Printf.printf "B(%d): left.\n" i;
          let s = send c (fun x->x#right) () s in
-         let s = send a (fun x->x#msg) "Hooray!" s in
+         let s = send a (fun x->x#msg) (Printf.sprintf "Hooray! %d" i) s in
          close s;
          Lwt.return ()
       | `right(_,s) ->
-         print_endline "B: right.";
-         let s = send a (fun x->x#msg) 1234 s in
+         Printf.printf "B(%d): right.\n" i;
+         let s = send a (fun x->x#msg) (1234 * (i+1)) s in
          let s = send c (fun x->x#left) () s in
          close s;
          Lwt.return ()
     end >>= fun () ->
-  print_endline "B finished.";
+  Printf.printf "B(%d) finished.\n" i;
   Lwt.return ()
   end
 

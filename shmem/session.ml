@@ -8,13 +8,13 @@ type 'k dist = DummyDist__
 exception RoleNotEnabled
 
 type _ slots =
-  ConsProt : 'x prot lazy_t * 'xs slots -> ('x prot * 'xs) slots
-| ConsList : 'x prot list lazy_t * 'xs slots -> ('x prot list * 'xs) slots
+  ConsProt : 'x prot lazy_t * 'xs slots lazy_t -> ('x prot * 'xs) slots
+| ConsList : 'x prot list lazy_t * 'xs slots lazy_t -> ('x prot list * 'xs) slots
 | Nil : unit slots
 
 and (_,_,_,_) lens =
-  | FstProt  : ('a prot,'b prot, ('a prot * 'xs) slots, ('b prot * 'xs) slots) lens
-  | FstList  : ('a prot list,'b prot list, ('a prot list * 'xs) slots, ('b prot list * 'xs) slots) lens
+  | FstProt  : ('a prot, 'b prot, ('a prot * 'xs) slots, ('b prot * 'xs) slots) lens
+  | FstList  : ('a prot list, 'b prot list, ('a prot list * 'xs) slots, ('b prot list * 'xs) slots) lens
   | Next : ('a,'b, 'xs slots,'ys slots) lens
            -> ('a,'b, ('x * 'xs) slots, ('x * 'ys) slots) lens
 
@@ -29,24 +29,43 @@ and _ prot =
   | DummyReceive :
       ('r, 'ls) receive prot
 
-let rec lget : type a b xs ys. (a, b, xs, ys) lens -> xs -> a lazy_t = fun ln xs ->
-  match ln,xs with
-  | FstProt, ConsProt(a,_)        -> a
-  | FstList, ConsList(a,_)        -> a
-  | Next ln', ConsProt(_,xs') -> lget ln' xs'
-  | Next ln', ConsList(_,xs') -> lget ln' xs'
+let slot_tail : type hd tl. (hd * tl) slots lazy_t -> tl slots lazy_t = fun sl ->
+  lazy begin
+      match sl with
+      | lazy (ConsProt(_,lazy tl)) -> tl
+      | lazy (ConsList(_,lazy tl)) -> tl
+    end
+  
 
-let lens_get l s = lget l (Lazy.force s)
+let slot_head_prot : type hd tl. (hd prot * tl) slots lazy_t -> hd prot lazy_t = fun sl ->
+  lazy begin
+      match sl with
+      | lazy (ConsProt(lazy hd,_)) -> hd
+    end
 
-let rec lput : type a b xs ys. (a,b,xs,ys) lens -> xs -> b lazy_t -> ys =
+let slot_head_list : type hd tl. (hd prot list * tl) slots lazy_t -> hd prot list lazy_t = fun sl ->
+  lazy begin
+      match sl with
+      | lazy (ConsList(lazy hd,_)) -> hd
+    end
+  
+let rec lens_get : type a b xs ys. (a, b, xs, ys) lens -> xs lazy_t -> a lazy_t = fun ln xs ->
+  match ln with
+  | FstProt -> slot_head_prot xs
+  | FstList -> slot_head_list xs
+  | Next ln' -> lens_get ln' (slot_tail xs)
+
+let rec lens_put : type a b xs ys. (a,b,xs,ys) lens -> xs lazy_t -> b lazy_t -> ys lazy_t =
   fun ln xs b ->
-  match ln, xs with
-  | FstProt, ConsProt(_, xs) -> ConsProt(b, xs)
-  | FstList, ConsList(_, xs) -> ConsList(b, xs)
-  | Next ln', ConsProt(a, xs') -> ConsProt(a, lput ln' xs' b)
-  | Next ln', ConsList(a, xs') -> ConsList(a, lput ln' xs' b)
-
-let lens_put l s v = lazy (lput l (Lazy.force s) v)
+  match ln with
+  | FstProt -> lazy (ConsProt(b, slot_tail xs))
+  | FstList -> lazy (ConsList(b, slot_tail xs))
+  | Next ln' ->
+     lazy
+       begin match xs with
+       | lazy (ConsProt(a, xs')) -> ConsProt(a, lens_put ln' xs' b)
+       | lazy (ConsList(a, xs')) -> ConsList(a, lens_put ln' xs' b)
+       end
 
 type ('r, 'v1, 'v2, 's1, 's2) role =
   {role:'r;

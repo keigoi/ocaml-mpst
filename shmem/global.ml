@@ -32,7 +32,7 @@ let (-->) : type ra rb sa sb la lb c0 c1 c2 v.
 let (-->>) : type ra rb sa sb la lb c0 c1 c2 v.
       (ra, sa prot, (rb, la) send prot, c1, c2) role ->
       (rb, sb prot list, (ra, lb) receive prot list, c0, c1) role ->
-      (la, lb, sa prot, sb prot, v list, v) label ->
+      (la, lb, sa prot, sb prot, int -> v, v) label ->
       c0 lazy_t -> c2 lazy_t =
   fun a b ({select_label;offer_label}) c0 ->
   let sbs = lens_get b.lens c0 in
@@ -54,11 +54,10 @@ let (-->>) : type ra rb sa sb la lb c0 c1 c2 v.
   let sa =
     Lazy.from_val @@
       Send (b.role, 
-            select_label (fun vs ->
-                List.iter2
-                  (fun (_,push) v -> push (Some v))
-                  (Lazy.force sbs)
-                  vs;
+            select_label (fun f ->
+                List.iteri
+                  (fun i (_,push) -> push (Some (f i)))
+                  (Lazy.force sbs);
                 Lazy.force sa))
   in
   let c2 = lens_put a.lens c1 sa in
@@ -117,24 +116,20 @@ let role : type l ks k r. (r, l) send prot lazy_t -> r =
   | lazy (Send (r, _)) -> r
   | lazy Close -> assert false
 
-let rec merge_ : type t. t slots -> t slots -> t slots =
+let rec merge_ : type t. t slots lazy_t -> t slots lazy_t -> t slots lazy_t =
   fun l r ->
   match l, r with
-  | ConsProt(lazy hd_l,tl_l), ConsProt(lazy hd_r,tl_r) ->
-     ConsProt (lazy (Internal.merge hd_l hd_r),
-               merge_ tl_l tl_r)
-  | ConsList(lazy hd_l,tl_l), ConsList(lazy hd_r,tl_r) ->
-     ConsList (lazy (List.rev @@ List.rev_map2 Internal.merge hd_l hd_r),
-               merge_ tl_l tl_r)
-  | Nil, Nil ->
-     Nil
+  | lazy (ConsProt(lazy hd_l,tl_l)), lazy (ConsProt(lazy hd_r,tl_r)) ->
+     lazy (ConsProt (lazy (Internal.merge hd_l hd_r), merge_ tl_l tl_r))
+  | lazy (ConsList(lazy hd_l,tl_l)), lazy (ConsList(lazy hd_r,tl_r)) ->
+     lazy (ConsList (lazy (List.rev @@ List.rev_map2 Internal.merge hd_l hd_r), merge_ tl_l tl_r))
+  | lazy Nil, _ ->
+     Lazy.from_val Nil
 
-let merge (lazy cl) (lazy cr) = lazy (merge_ cl cr)
-    
 let choice_at a {label_merge} (al,cl) (ar,cr) =
   let sal, sar = lens_get al.lens cl, lens_get ar.lens cr in
   let cl, cr = lens_put al.lens cl (Lazy.from_val Close), lens_put ar.lens cr (Lazy.from_val Close) in
-  let c = merge cl cr in
+  let c = merge_ cl cr in
   let lr = lazy (Send (role sar, label_merge (label sal) (label sar))) in
   lens_put a.lens c lr
 

@@ -10,6 +10,7 @@ type 'a many = Many__ of 'a
 type conn = Conn
         
 type _ e =
+  (* slot contents *)
   ProtOne : 'a prot -> 'a prot one e
 | ProtMany : 'a prot list -> 'a prot many e
 | ConnOne : conn -> conn one e
@@ -20,7 +21,7 @@ and _ slots =
 | Nil : unit slots
 
 and (_,_,_,_) lens =
-  | Fst  : ('a e, 'b e, ('a * 'xs) slots, ('b * 'xs) slots) lens
+  | Fst  : ('a, 'b, ('a * 'xs) slots, ('b * 'xs) slots) lens
   | Next : ('a,'b, 'xs slots,'ys slots) lens
            -> ('a,'b, ('x * 'xs) slots, ('x * 'ys) slots) lens
 
@@ -54,14 +55,14 @@ let slot_head : type hd tl. (hd * tl) slots lazy_t -> hd e lazy_t = fun sl ->
       | lazy (Cons(lazy hd,_)) -> hd
     end
   
-let rec lens_get : type a b xs ys. (a, b, xs, ys) lens -> xs lazy_t -> a lazy_t = fun ln xs ->
+let rec lens_get : type a b xs ys. (a, b, xs, ys) lens -> xs lazy_t -> a e lazy_t = fun ln xs ->
   match ln with
   | Fst -> slot_head xs
   | Next ln' -> lens_get ln' (slot_tail xs)
 
 let lens_get_ ln s = Lazy.force (lens_get ln s)
 
-let rec lens_put : type a b xs ys. (a,b,xs,ys) lens -> xs lazy_t -> b lazy_t -> ys lazy_t =
+let rec lens_put : type a b xs ys. (a,b,xs,ys) lens -> xs lazy_t -> b e lazy_t -> ys lazy_t =
   fun ln xs b ->
   match ln with
   | Fst -> lazy (Cons(b, slot_tail xs))

@@ -6,8 +6,8 @@ type ('la,'lb,'ca,'cb,'v1, 'v2) label =
      offer_label: 'v2 * 'cb -> 'lb}
 
 let (-->) : type ra rb sa sb la lb c0 c1 c2 v.
-      (ra, sa prot one e, (rb, la) send prot one e, c0, c1) role ->
-      (rb, sb prot one e, (ra, lb) receive prot one e, c1, c2) role ->
+      (ra, sa prot one, (rb, la) send prot one, c0, c1) role ->
+      (rb, sb prot one, (ra, lb) receive prot one, c1, c2) role ->
       (la, lb, sa prot, sb prot, v, v) label ->
       c0 lazy_t -> c2 lazy_t =
   fun a b ({select_label;offer_label}) c0 ->
@@ -30,8 +30,8 @@ let (-->) : type ra rb sa sb la lb c0 c1 c2 v.
 
 (* broadcast *)
 let (-->>) : type ra rb sa sb la lb c0 c1 c2 v.
-      (ra, sa prot one e, (rb, la) send prot one e, c1, c2) role ->
-      (rb, sb prot many e, (ra, lb) receive prot many e, c0, c1) role ->
+      (ra, sa prot one, (rb, la) send prot one, c1, c2) role ->
+      (rb, sb prot many, (ra, lb) receive prot many, c0, c1) role ->
       (la, lb, sa prot, sb prot, int -> v, v) label ->
       c0 lazy_t -> c2 lazy_t =
   fun a b ({select_label;offer_label}) c0 ->
@@ -65,8 +65,8 @@ let (-->>) : type ra rb sa sb la lb c0 c1 c2 v.
 
 (* gather *)
 let (>>--) : type ra rb sa sb la lb c0 c1 c2 v.
-      (ra, sa prot many e, (rb, la) send prot many e, c0, c1) role ->
-      (rb, sb prot one e, (ra, lb) receive prot one e, c1, c2) role ->
+      (ra, sa prot many, (rb, la) send prot many, c0, c1) role ->
+      (rb, sb prot one, (ra, lb) receive prot one, c1, c2) role ->
       (la, lb, sa prot, sb prot, v, v list) label ->
       c0 lazy_t -> c2 lazy_t =
   fun a b ({select_label;offer_label}) c0 ->

@@ -11,8 +11,8 @@ type conn = Conn
         
 type _ e =
   (* slot contents *)
-  ProtOne : 'a prot -> 'a prot one e
-| ProtMany : 'a prot list -> 'a prot many e
+  One : 'a prot -> 'a prot one e
+| Many : 'a prot list -> 'a prot many e
         
 and _ slots =
   Cons : 'x e lazy_t * 'xs slots lazy_t -> ('x * 'xs) slots
@@ -34,11 +34,11 @@ and _ prot =
   | DummyReceive :
       ('r, 'ls) receive prot
 
-let protone : type t. t prot one e -> t prot = function
-    ProtOne p -> p
+let unone : type t. t prot one e -> t prot = function
+    One p -> p
 
-let protmany : type t. t prot many e -> t prot list = function
-    ProtMany p -> p
+let unmany : type t. t prot many e -> t prot list = function
+    Many p -> p
   
 let slot_tail : type hd tl. (hd * tl) slots lazy_t -> tl slots lazy_t = fun sl ->
   lazy begin

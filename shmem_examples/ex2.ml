@@ -7,7 +7,7 @@ let b = {role=`B; lens=Next Fst}
 let c = {role=`C; lens=Next (Next Fst)}
 let lv = Lazy.from_val
       
-let finish = lv (Cons(lv (ProtOne Close),lv @@ Cons(lv (ProtMany [Close;Close]),lv @@ Cons(lv (ProtOne Close), lv Nil))))
+let finish = lv (Cons(lv (One Close),lv @@ Cons(lv (Many [Close;Close]),lv @@ Cons(lv (One Close), lv Nil))))
 
 let (>>=) = Lwt.(>>=)
           

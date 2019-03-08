@@ -14,15 +14,15 @@ let (-->) : type ra rb sa sb la lb c0 c1 c2 v.
   let sa = lens_get a.lens c0 in
   let sa =
     Lazy.from_val @@
-      ProtOne (Send (b.role, 
-            select_label (fun v -> push (Some v); protone (Lazy.force sa))))
+      One (Send (b.role, 
+            select_label (fun v -> push (Some v); unone (Lazy.force sa))))
   in
   let c1 = lens_put a.lens c0 sa in
   let sb = lens_get b.lens c1 in
   let sb =
     Lazy.from_val @@
-      ProtOne (Receive (a.role, [
-            Lwt.map (fun v -> offer_label (v, protone (Lazy.force sb))) (Lwt_stream.next st)]))
+      One (Receive (a.role, [
+            Lwt.map (fun v -> offer_label (v, unone (Lazy.force sb))) (Lwt_stream.next st)]))
   in
   let c2 = lens_put b.lens c1 sb in
   c2
@@ -46,18 +46,18 @@ let (-->>) : type ra rb sa sb la lb c0 c1 c2 v.
              ]),
            push
          )
-         (protmany (Lazy.force sbs)))
+         (unmany (Lazy.force sbs)))
   in
-  let c1 = lens_put b.lens c0 (lazy (ProtMany (List.map fst (Lazy.force sbs)))) in
+  let c1 = lens_put b.lens c0 (lazy (Many (List.map fst (Lazy.force sbs)))) in
   let sa = lens_get a.lens c1 in
   let sa =
     Lazy.from_val @@
-      ProtOne (Send (b.role, 
+      One (Send (b.role, 
             select_label (fun f ->
                 List.iteri
                   (fun i (_,push) -> push (Some (f i)))
                   (Lazy.force sbs);
-                protone (Lazy.force sa))))
+                unone (Lazy.force sa))))
   in
   let c2 = lens_put a.lens c1 sa in
   c2
@@ -79,17 +79,17 @@ let (>>--) : type ra rb sa sb la lb c0 c1 c2 v.
                  select_label (fun v -> push (Some v); sa)),
            st
          )
-      (protmany (Lazy.force sas)))
+      (unmany (Lazy.force sas)))
   in
-  let c1 = lens_put a.lens c0 (lazy (ProtMany (List.map fst (Lazy.force sas)))) in
+  let c1 = lens_put a.lens c0 (lazy (Many (List.map fst (Lazy.force sas)))) in
   let sb = lens_get b.lens c1 in
   let sb =
     lazy begin
-      ProtOne (Receive (a.role, [
+      One (Receive (a.role, [
             let sts = List.map snd (Lazy.force sas) in
             let vs = Lwt_list.map_s Lwt_stream.next sts in
             Lwt.map
-              (fun v -> offer_label (v, protone (Lazy.force sb)))
+              (fun v -> offer_label (v, unone (Lazy.force sb)))
               vs
         ])) end
   in
@@ -97,48 +97,48 @@ let (>>--) : type ra rb sa sb la lb c0 c1 c2 v.
   c2
 
 let dummy_receive ra c0 =
-  lens_put ra.lens c0 (Lazy.from_val (ProtOne DummyReceive))
+  lens_put ra.lens c0 (Lazy.from_val (One DummyReceive))
 
 let dummy_close ra c0 =
-  lens_put ra.lens c0 (Lazy.from_val (ProtOne Close))
+  lens_put ra.lens c0 (Lazy.from_val (One Close))
 
 type ('l, 'r, 'lr) label_merge =
     {label_merge: 'l -> 'r -> 'lr}
 
 let label : type l ks k r. (r, l) send prot one e lazy_t -> l =
   function
-  | lazy (ProtOne (Send (_, l))) -> l
-  | lazy (ProtOne Close) -> assert false
+  | lazy (One (Send (_, l))) -> l
+  | lazy (One Close) -> assert false
 
 let role : type l ks k r. (r, l) send prot one e lazy_t -> r =
   function
-  | lazy (ProtOne (Send (r, _))) -> r
-  | lazy (ProtOne Close) -> assert false
+  | lazy (One (Send (r, _))) -> r
+  | lazy (One Close) -> assert false
 
 let rec merge_ : type t. t slots lazy_t -> t slots lazy_t -> t slots lazy_t =
   fun l r ->
   match l, r with
-  | lazy (Cons(lazy (ProtOne hd_l),tl_l)), lazy (Cons(lazy (ProtOne hd_r),tl_r)) ->
-     lazy (Cons (lazy (ProtOne (Internal.merge hd_l hd_r)), merge_ tl_l tl_r))
-  | lazy (Cons(lazy (ProtMany hd_l),tl_l)), lazy (Cons(lazy (ProtMany hd_r),tl_r)) ->
-     lazy (Cons (lazy (ProtMany (List.rev @@ List.rev_map2 Internal.merge hd_l hd_r)), merge_ tl_l tl_r))
+  | lazy (Cons(lazy (One hd_l),tl_l)), lazy (Cons(lazy (One hd_r),tl_r)) ->
+     lazy (Cons (lazy (One (Internal.merge hd_l hd_r)), merge_ tl_l tl_r))
+  | lazy (Cons(lazy (Many hd_l),tl_l)), lazy (Cons(lazy (Many hd_r),tl_r)) ->
+     lazy (Cons (lazy (Many (List.rev @@ List.rev_map2 Internal.merge hd_l hd_r)), merge_ tl_l tl_r))
   | lazy Nil, _ ->
      Lazy.from_val Nil
 
 let choice_at a {label_merge} (al,cl) (ar,cr) =
   let sal, sar = lens_get al.lens cl, lens_get ar.lens cr in
-  let cl, cr = lens_put_ al.lens cl (ProtOne Close),
-               lens_put_ ar.lens cr (ProtOne Close) in
+  let cl, cr = lens_put_ al.lens cl (One Close),
+               lens_put_ ar.lens cr (One Close) in
   let c = merge_ cl cr in
-  let lr = lazy (ProtOne (Send (role sar, label_merge (label sal) (label sar)))) in
+  let lr = lazy (One (Send (role sar, label_merge (label sal) (label sar)))) in
   lens_put a.lens c lr
 
 let loop c0 = lazy (Lazy.force (Lazy.force c0))
 
 let get_sess r m =
   let p = lens_get_ r.lens m in
-  match p with ProtOne p -> p
+  match p with One p -> p
 
 let get_sess_many r m =
   let p = lens_get_ r.lens m in
-  match p with ProtMany ps -> ps
+  match p with Many ps -> ps

@@ -1,0 +1,5 @@
+(library
+ (name implicit2)
+ (public_name ocaml-mpst.implicit2)
+ (flags ("-g" "-short-paths"))
+ (libraries threads lwt lwt.unix))

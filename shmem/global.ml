@@ -1,4 +1,3 @@
-open Base
 open Session
 
 type ('la,'lb,'ca,'cb,'v1, 'v2) label =

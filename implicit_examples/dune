@@ -1,0 +1,7 @@
+(executable
+ (name ex1)
+  (public_name ex1_implicit)
+  (modules ex1)
+  (flags ("-g" "-short-paths"))
+  (libraries implicit lwt.unix))
+

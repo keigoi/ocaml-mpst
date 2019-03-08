@@ -37,7 +37,7 @@ let pa, pb, pc =
   get_sess a g, get_sess_many b g, get_sess c g
 
 let a : [`A] one ep = EPOne(Conn,`A)
-let b : [`B] many ep = EPMany([Conn],`B)
+let b : [`B] many ep = EPMany([Conn;Conn;Conn],`B)
 let c : [`C] one ep = EPOne(Conn,`C)
   
 (* participant A *)

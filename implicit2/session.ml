@@ -29,7 +29,7 @@ and _ prot =
       'r * (conn -> 'ls)
       -> ('r, 'ls) send prot
   | SendMany :
-      'r * (conn list -> 'ls)
+      'r * (conn -> 'ls)
       -> ('r, 'ls) sendmany prot
   | Receive :
       'r * (conn -> 'ls Lwt.t list)
@@ -96,13 +96,14 @@ let send : 'r 'ls 'v 's.
 
 let multicast : 'r 'ls 'v 's.
   'r many ep ->
-  ((< .. > as 'ls) -> (int -> 'v) -> 's prot) ->
+  ((< .. > as 'ls) -> 'v -> 's prot) ->
   (int -> 'v) ->
   ('r, 'ls) sendmany prot ->
   's prot =
-  fun (EPMany(ks,_)) sel v (SendMany (_,f)) ->
-  let s = sel (f ks) v in
-  s
+  fun (EPMany(ks,_)) sel f (SendMany (_,ls)) ->
+  match List.mapi (fun i k -> sel (ls k) (f i)) ks with
+  | [] -> failwith "no connection"
+  | s::_ -> s
      
 let receive : 'r 'ls.
   'r one ep ->

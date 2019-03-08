@@ -4,9 +4,8 @@ open Global
 let m = raise Not_found
    
 let msg = {select_label=(fun f -> object method msg v=f v end);
-             offer_label=(fun (v,c) -> `msg(v,c));
-             channel=m
-            }
+           offer_label=(fun (v,c) -> `msg(v,c));
+           channel=m}
 let left = {select_label=(fun f -> object method left v=f v end);
               offer_label=(fun (v,c) -> `left(v,c));
               channel=m

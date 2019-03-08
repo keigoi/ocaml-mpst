@@ -4,10 +4,10 @@ type 'v channel =
   {sender: conn -> 'v -> unit;
    receiver: conn -> 'v Lwt.t}
 
-type ('la,'lb,'ca,'cb,'v1,'v2,'v) label =
+type ('la,'lb,'ca,'cb,'v1, 'v2) label =
     {select_label: ('v1 -> 'ca) -> 'la;
      offer_label: 'v2 * 'cb -> 'lb;
-     channel:'v channel}
+     channel:'v1 channel}
 
 
 type ('r, 'v1, 'v2, 's1, 's2) role =
@@ -18,7 +18,7 @@ type ('r, 'v1, 'v2, 's1, 's2) role =
 let (-->) : type ra rb sa sb la lb c0 c1 c2 v.
       (ra, sa prot, (rb, la) send prot, c0, c1) role ->
       (rb, sb prot, (ra, lb) receive prot, c1, c2) role ->
-      (la, lb, sa prot, sb prot, v, v, v) label ->
+      (la, lb, sa prot, sb prot, v, v) label ->
       c0 lazy_t -> c2 lazy_t =
   fun a b ({select_label;offer_label;channel}) c0 ->
   let sa = lens_get a.lens c0 in
@@ -41,7 +41,7 @@ let (-->) : type ra rb sa sb la lb c0 c1 c2 v.
 let (-->>) : type ra rb sa sb la lb c0 c1 c2 v.
       (ra, sa prot, (rb, la) sendmany prot, c1, c2) role ->
       (rb, sb prot, (ra, lb) receive prot, c0, c1) role ->
-      (la, lb, sa prot, sb prot, int -> v, v, v) label ->
+      (la, lb, sa prot, sb prot, v, v) label ->
       c0 lazy_t -> c2 lazy_t =
   fun a b ({select_label;offer_label;channel}) c0 ->
   let sb = lens_get b.lens c0 in
@@ -57,9 +57,9 @@ let (-->>) : type ra rb sa sb la lb c0 c1 c2 v.
   let sa =
     Lazy.from_val @@
       SendMany (b.role, 
-                (fun ks ->
-                  select_label (fun f ->
-                           List.iteri (fun i k -> channel.sender k (f i)) ks;
+                (fun k ->
+                  select_label (fun v ->
+                           channel.sender k v;
                            Lazy.force sa)))
   in
   let c2 = lens_put a.lens c1 sa in
@@ -69,7 +69,7 @@ let (-->>) : type ra rb sa sb la lb c0 c1 c2 v.
 let (>>--) : type ra rb sa sb la lb c0 c1 c2 v.
       (ra, sa prot, (rb, la) send prot, c0, c1) role ->
       (rb, sb prot, (ra, lb) receivemany prot, c1, c2) role ->
-      (la, lb, sa prot, sb prot, v, v list, v) label ->
+      (la, lb, sa prot, sb prot, v, v list) label ->
       c0 lazy_t -> c2 lazy_t =
   fun a b ({select_label;offer_label;channel}) c0 ->
   let sa = lens_get a.lens c0 in
@@ -84,10 +84,11 @@ let (>>--) : type ra rb sa sb la lb c0 c1 c2 v.
   let sb = lens_get b.lens c1 in
   let sb =
     Lazy.from_val @@
-      ReceiveMany (a.role, fun ks -> [
-              Lwt_list.map_s (fun k -> channel.receiver k) ks |>
-              Lwt.map (fun vs -> offer_label (vs, Lazy.force sb))
-        ])
+      ReceiveMany (a.role,
+                   (fun ks -> [
+                        Lwt_list.map_s (fun k -> channel.receiver k) ks |>
+                        Lwt.map (fun vs -> offer_label (vs, Lazy.force sb))
+                      ]))
   in
   let c2 = lens_put b.lens c1 sb in
   c2
@@ -106,7 +107,7 @@ let label : type l r. (r, l) send prot lazy_t -> conn -> l =
   | lazy (Send (_, l)) -> l
   | lazy Close -> assert false
 
-let labelmany : type l r. (r, l) sendmany prot lazy_t -> conn list -> l =
+let labelmany : type l r. (r, l) sendmany prot lazy_t -> conn -> l =
   function
   | lazy (SendMany (_, l)) -> l
   | lazy Close -> assert false

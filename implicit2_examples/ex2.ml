@@ -1,6 +1,6 @@
-open Implicit2.Session
-open Implicit2.Global
 open Implicit2.Util
+open Session
+open Global
    
 let a = {role=`A; lens=Fst}
 let b = {role=`B; lens=Next Fst}
@@ -23,13 +23,10 @@ let create_g () =
     (c --> a) msg @@
     choicemany_at a left_or_right
       (a, (a -->> b) left @@
-          (b >>-- c) right @@
           (b >>-- a) msg @@
           finish)
       (a, (a -->> b) right @@
           (b >>-- a) msg @@
-          (b >>-- c) left @@
-          (c --> a) msg @@
           finish)
 
 let pa, pb, pc =

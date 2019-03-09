@@ -1,6 +1,6 @@
-open Implicit2.Session
-open Implicit2.Global
 open Implicit2.Util
+open Session
+open Global
 
 let a = {role=`A; lens=Fst}
 let b = {role=`B; lens=Next Fst}
@@ -31,12 +31,11 @@ let pa, pb, pc =
   let g = create_g () in
   get_sess a g, get_sess b g, get_sess c g
 
-let a : [`A] one ep = EPOne(Conn,`A)
-let b : [`B] one ep = EPOne(Conn,`B)
-let c : [`C] one ep = EPOne(Conn,`C)
-  
 (* participant A *)
-let t1 : unit Lwt.t =
+let t1 b_conn c_conn : unit Lwt.t =
+  let b : [`B] one ep = EPOne(b_conn,`B)
+  and c : [`C] one ep = EPOne(c_conn,`C)
+  in
   let s = pa in
   let open Lwt in
   receive c s >>= fun (`msg(x, s)) -> begin
@@ -47,9 +46,13 @@ let t1 : unit Lwt.t =
           close s;
           return ()
         end else begin
+          print_endline "t1 right0";
           let s = send b (fun x->x#right) () s in
+          print_endline "t1 right01";
           receive b s >>= fun (`msg(x,s)) ->
+          print_endline "t1 right1";
           receive c s >>= fun (`msg(str,s)) ->
+          print_endline "t1 right2";
           Printf.printf "A) B says: %d, C says: %s\n" x str;
           close s;
           return ()
@@ -59,16 +62,21 @@ let t1 : unit Lwt.t =
   return ()
 
 (* participant B *)
-let t2 : unit Lwt.t =
+let t2 a_conn c_conn : unit Lwt.t =
+  let a : [`A] one ep = EPOne(a_conn,`A)
+  and c : [`C] one ep = EPOne(c_conn,`C)
+  in
   let s = pb in
   receive a s >>= begin
       function
       | `left(_,s) ->
+         print_endline "t2 left ";
          let s = send c (fun x->x#right) () s in
          let s = send a (fun x->x#msg) "Hooray!" s in
          close s;
          Lwt.return ()
       | `right(_,s) ->
+         print_endline "t2 right ";
          let s = send a (fun x->x#msg) 1234 s in
          let s = send c (fun x->x#left) () s in
          close s;
@@ -78,7 +86,10 @@ let t2 : unit Lwt.t =
   Lwt.return ()
 
 (* participant C *)
-let t3 : unit Lwt.t =
+let t3 a_conn b_conn : unit Lwt.t =
+  let a : [`A] one ep = EPOne(a_conn,`A)
+  and b : [`B] one ep = EPOne(b_conn,`B)
+  in
   let s = pc in
   let open Lwt in
   print_endline "C: enter a number (positive or zero or negative):";
@@ -93,6 +104,7 @@ let t3 : unit Lwt.t =
           return ()
         end
       | `right(_,s) -> begin
+          print_endline "t3 right ";
           close s;
           return ()
         end
@@ -100,6 +112,30 @@ let t3 : unit Lwt.t =
   print_endline "C finished.";
   return ()
 
+let rec loop () = loop ()
+  
+(* let () =
+ *   print_endline "start0!";
+ *   let [conn2;conn3] = forkmany [
+ *                    (fun [conn;conn3] -> print_endline "bar";
+ *                                   conn.out (Msg(Obj.repr ()));
+ *                                   print_endline "child done";
+ *                                   Lwt_main.run (Lwt_stream.next conn3.inp |> Lwt.map (fun (Msg(x)) -> print_endline "bar"));
+ *                    );
+ *                    (fun [conn1;conn2] ->
+ *                                   conn2.out (Msg(Obj.repr ()));
+ *                                   Lwt_main.run (Lwt_stream.next conn1.inp |> Lwt.map (fun (Msg(x)) -> print_endline "baz"));
+ *                                   print_endline "child2 done";
+ *                         )] in
+ *   print_endline "start!";
+ *   Lwt_main.run (Lwt_stream.next conn2.inp |> Lwt.map (fun (Msg(x)) -> print_endline "foo"));
+ *                                   conn3.out (Msg(Obj.repr ()));
+ *   print_endline "main done"; *)
+  
 let () =
-  Lwt_main.run (Lwt.join [t1; t2; t3])
+  let [b_conn; c_conn] =
+    forkmany [
+        {procname="B";procbody=(fun [a_conn;c_conn] -> Lwt_main.run (t2 a_conn c_conn))};
+        {procname="C";procbody=(fun [a_conn;b_conn] -> Lwt_main.run (t3 a_conn b_conn))}] in
+  Lwt_main.run (t1 b_conn c_conn)
 

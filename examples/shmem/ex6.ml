@@ -1,17 +1,19 @@
 (* droppping liveness at some participant *)
-open Mpst.ThreeParty
-open Mpst.ThreeParty.Shmem
+open Mpst_shmem.ThreeParty
+open Mpst_shmem.Global
+open Mpst_shmem.Session
+
 let (>>=) = Lwt.(>>=)
 
 let stop =
-  {channel=shmem_channel;
-   select_label=(fun f -> object method stop=f end);
+  {select_label=(fun f -> object method stop=f end);
    offer_label=(fun l -> `stop l)
   }
 
 let mk_g () =
   let rec g =
     lazy begin
+        (a --> b) msg @@ (* FIXME: fails if this line is removed *)
         choice_at a left_or_right
           (a, (a --> b) left @@
               (b --> c) stop @@
@@ -25,21 +27,27 @@ let mk_g () =
 
 let () =
   let g = mk_g () in
+  print_endline "global generated";
   let _ = get_sess a g in
+  print_endline "endpoint A generated";
   let _ = get_sess b g in
+  print_endline "endpoint B generated";
   let _ = get_sess c g in
-  print_endline "endpoints generated"
+  print_endline "endpoint C generated";
+  ()
 
 let rec tA i s =
+  Printf.printf "A:%d\n" i;
   Lwt_unix.sleep 1.0 >>= fun () ->
+  let s = send `B (fun x ->x#msg) () s in
   if i >= 10 then begin
-    let s = send b (fun x -> x#left) () s in
+    let s = send `B (fun x -> x#left) () s in
     close s;
     print_endline "tA finished";
     Lwt.return ()
   end else begin
       Printf.printf "tA %d\n" i;
-      let s = send b (fun x -> x#right) i s in
+      let s = send `B (fun x -> x#right) i s in
       Lwt.return () >>= fun () ->
       tA (i+1) s
     end
@@ -47,9 +55,10 @@ let rec tA i s =
 
 let rec tB s =
   print_endline "tB";
-  receive a s >>= function
+  receive `A s >>= fun (`msg((),s)) ->
+  receive `A s >>= function
   | `left(i, s) ->
-     let s = send c (fun x -> x#stop) () s in
+     let s = send `C (fun x -> x#stop) () s in
      close s;
      print_endline "tB finished";
      Lwt.return ()
@@ -59,7 +68,7 @@ let rec tB s =
 
 let rec tC s =
   print_endline "tC\n";
-  receive b s >>= fun (`stop((),s)) ->
+  receive `B s >>= fun (`stop((),s)) ->
   close s;
   print_endline "tC finished";
   Lwt.return ()

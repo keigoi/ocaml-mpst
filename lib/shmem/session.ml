@@ -10,7 +10,7 @@ type _ prot =
       'r * 'ls
       -> ('r, 'ls) send prot
   | Receive :
-      'r * 'ls Lwt.t list
+      'r * (unit -> 'ls Lwt.t list)
       -> ('r, 'ls) receive prot
   | Close : close prot
   | DummyReceive :
@@ -33,7 +33,7 @@ let receive : 'r 'ls.
   fun _ s ->
   match s with
   | Receive(_, lss) ->
-     Lwt.choose lss
+     Lwt.choose (lss ())
   | DummyReceive ->
      failwith "DummyReceive encountered" 
 
@@ -46,7 +46,7 @@ module Internal = struct
     | Send _, Send _ ->
        raise RoleNotEnabled
     | Receive (r, xs), Receive (_, ys) ->
-       Receive (r, xs @ ys)
+       Receive (r, (fun () -> xs () @ ys ()))
     | Receive (r, xs), DummyReceive ->
        Receive (r, xs)
     | DummyReceive, Receive (r, xs) ->

@@ -35,82 +35,109 @@ let try_read unwrap {name;inp; _} =
      | None ->
         Lwt.fail ReceiveFail
 
-let conv ((inp,out),name) = create ~name ~inp ~out
+let conv (name,inp,out) = create ~name ~inp ~out
 
-let bipipe () =
-  (* let c_in, s_out = Lwt_unix.pipe_in () in *)
-  let c_in, s_out = Unix.pipe () in
-  let s_in, c_out = Unix.pipe () in
-  (c_in, c_out), (s_in, s_out)
+let bipipe_ parentname childname =
+  let p_in, c_out = Unix.pipe () in
+  let c_in, p_out = Unix.pipe () in
+  (parentname ^ "_" ^ childname, p_in, p_out), (childname ^ "_" ^ parentname, c_in, c_out)
+
+let bipipe parentname childname =
+  let p, c = bipipe_ parentname childname in
+  conv p, conv c
 
 type proc = {procname:string; procbody:conn_ list -> unit}
           
 let forkmany fs =
-  let rec loop name fs(* list of pairs of a function and the pipes to the parents *) =
-    (* add pipes connected to myself *)
-    let cs, fs =
-      List.map (fun (f,ss) ->
-          let c, s = bipipe () in
-          ((c,name ^ "_" ^ f.procname), (f, (s,f.procname ^ "_" ^ name)::ss))) fs
+  let rec loop myname fps(* list of pairs of a function and the list (in reverse order) of the pipes to the parents *) =
+    (* create the pipes connected to children *)
+    let my_pipes, fps =
+      List.map (fun (f, parent_pipes_rev) ->
+          (* create a new pipe pair and append it to the parent pipe list *)
+          let my_pipe, my_pipe_child = bipipe myname f.procname in
+          (my_pipe, (f, my_pipe_child::parent_pipes_rev))) fps
       |> List.split
     in
-    (* let temp_in, temp_out = Unix.pipe () in
-     * let temp_in2, temp_out2 = Unix.pipe () in *)
-    match fs with
+    match fps with
     | [] -> []
-    | (f,ss)::fs ->
+    | (f, parent_pipes_rev)::fps ->
+       (* start the rest of processes recursively, and get the pipes connected to them *)
+       let pipes = loop f.procname fps in
+       let pipes = List.rev_append parent_pipes_rev pipes in
        if Unix.fork () = 0 then begin
-           (* let temp_out = Unix.out_channel_of_descr temp_out in
-            * let temp_in2 = Unix.in_channel_of_descr temp_in2 in
-            * output_value temp_out (); flush temp_out;
-            * (input_value temp_in2 : unit); *)
-           let cs = loop f.procname fs in
-           (f.procbody (List.map conv (List.rev_append ss cs)) : unit);
+           (f.procbody pipes : unit);
            exit 0
          end else begin
-           (* let temp_in = Unix.in_channel_of_descr temp_in in
-            * let temp_out2 = Unix.out_channel_of_descr temp_out2 in
-            * output_value temp_out2 (); flush temp_out2;
-            * (input_value temp_in : unit); *)
-           cs
+           my_pipes
          end
   in
-  let cs = loop "A" (List.map (fun f -> (f, [])) fs) in
-  List.map conv cs
+  loop "main" (List.map (fun f -> (f, [])) fs)
 
 let repeat f c =
   let xs = ref [] in
   for i=0 to (c-1) do
-    xs := f () :: !xs
+    xs := f i :: !xs
   done;
   List.rev !xs
 
-type group = {groupname:string; count:int; func:int -> conn_ list list -> unit}
-           
-(* let forkmany_groups fs =
- *   let rec loop fs(\* list of pairs of a function and the pipes to the parents *\) =
- *     (\* add pipes connected to myself *\)
- *     let css, fs =
- *       List.map (fun (f,sss) ->
- *           let cs, ss = repeat bipipe f.count |> List.split in
- *           (cs, (f, ss::sss))) fs
- *       |> List.split
- *     in
- *     match fs with
- *     | [] -> []
- *     | ({func;count;groupname},sss)::fs ->
- *        for i=0 to count-1 do
- *          if Unix.fork () <> 0 then begin
- *              let css = loop fs in
- *              (func i (List.map (List.map (conv groupname)) (List.rev_append sss css)) : unit);
- *              exit 0
- *            end
- *        done;
- *        css
- *   in
- *   let css = loop (List.map (fun f -> (f, [])) fs) in
- *   List.map (List.map (conv "main")) css *)
+type group = {groupname:string; count:int; groupbody:int -> conn_ list list -> unit}
 
+let rec transpose : 'a list list -> 'a list list = fun xss ->
+  match xss with
+  | [] -> []
+  | []::_ -> []
+  | xss ->
+     let hds, tls =
+       List.map (fun xs -> List.hd xs, List.tl xs) xss |> List.split
+     in
+     hds :: transpose tls
+
+(* outer list: parents, inner list: children*)
+let add_connections (myname,mycount) (childname,childcount) =
+  repeat (fun i ->
+      repeat (fun j -> bipipe myname childname) childcount |> List.split
+    ) mycount |> List.split
+
+
+let forkmany_groups fs =
+  (* Printf.printf "forkmany_groups: length:%d\n" @@ List.length fs; *)
+  flush stdout;
+  let rec loop myname mycount fps(* list of pairs of a function and the pipes to the parents *) =
+    (* Printf.printf "%s (size:%d)\n" myname mycount; *)
+    flush stdout;
+    (* add pipes connected to myself *)
+    let my_pipes, fps =
+      List.map (fun (f, pipes_rev) ->
+          (* Printf.printf "  %s: parent size:%d\n" f.groupname (List.fold_left (fun n xs -> n + List.length xs) 0 pipes_rev); *)
+          flush stdout;
+          let my_pipes, child_pipes = add_connections (myname,mycount) (f.groupname,f.count)
+          in
+          let child_pipes = transpose child_pipes in
+          (* Printf.printf "  %s: children size:%d\n" f.groupname (List.length child_pipes);
+           * Printf.printf "  %s: children all size:%d\n" f.groupname (List.fold_left (fun n xs -> n + List.length xs) 0 child_pipes); *)
+          flush stdout;
+          (my_pipes, (f, child_pipes::pipes_rev))) fps |> List.split
+    in
+    match fps with
+    | [] -> []
+    | ({groupbody;count;groupname}, parent_pipes_rev)::fps ->
+       (* Printf.printf "parent pipes size %s is %d:\n" groupname (List.length parent_pipes_rev); *)
+       let pipes = loop groupname count fps in
+       (* Printf.printf "recursive call on %s done. size %d:\n" groupname (List.length pipes); *)
+       let pipes = List.rev_append parent_pipes_rev pipes in
+       for i=0 to count-1 do
+         (* Printf.printf "%s start. size %d:\n" groupname (List.length ((List.nth pipes i))); *)
+         flush stdout;
+         if Unix.fork () = 0 then begin
+             (groupbody i (List.map (fun xs -> List.nth xs i) pipes) : unit);
+             (* print_endline @@ "started: " ^ groupname; *)
+             exit 0
+           end
+       done;
+       my_pipes
+  in
+  let css = loop "A" 1 (List.map (fun f -> (f, [])) fs) in
+  List.map List.hd css
 
 
 let msg =

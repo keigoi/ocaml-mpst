@@ -39,7 +39,7 @@ module F(X:sig type conn end) = struct
           'r * (conn -> 'ls Lwt.t) list
           -> ('r, 'ls) receive prot
       | ReceiveMany :
-          'r * (conn list -> 'ls Lwt.t list)
+          'r * ((conn list -> 'ls Lwt.t) list)
           -> ('r, 'ls) receivemany prot
       | Close : close prot
       | DummyReceive :
@@ -132,7 +132,7 @@ module F(X:sig type conn end) = struct
       fun (EPMany(ks,_)) s ->
       match s with
       | ReceiveMany(_, f) ->
-         Lwt.choose (f ks)
+         first ks f
 
     let close Close = ()
 
@@ -147,7 +147,7 @@ module F(X:sig type conn end) = struct
         | Receive (r, xs), Receive (_, ys) ->
            Receive (r, xs @ ys)
         | ReceiveMany (r, xs), ReceiveMany (_, ys) ->
-           ReceiveMany (r, fun ks -> xs ks @ ys ks)
+           ReceiveMany (r, xs @ ys)
         | Receive (r, xs), DummyReceive ->
            Receive (r, xs)
         | DummyReceive, Receive (r, xs) ->
@@ -247,10 +247,10 @@ module F(X:sig type conn end) = struct
       let sb =
         Lazy.from_val @@
           ReceiveMany (a.role,
-                       (fun ks -> [
+                       [(fun ks -> 
                             Lwt_list.map_s (fun k -> channel.receiver k) ks |>
                               Lwt.map (fun vs -> offer_label (vs, Lazy.force sb))
-            ]))
+            )])
       in
       let c2 = lens_put b.lens c1 sb in
       c2

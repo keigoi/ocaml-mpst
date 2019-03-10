@@ -1,4 +1,6 @@
-module S = Mpst.Session
+open Mpst_explicit.Global
+open Mpst_explicit.Session
+module S = Mpst_explicit.Session
 let (>>=) = Lwt.(>>=)
 open Dnshelper
 
@@ -25,12 +27,21 @@ module Roles = struct
   type oth = Oth
 end
 
-let cli = {Mpst.ThreeParty.a with role=Roles.Cli}
-let srv = {Mpst.ThreeParty.b with role=Roles.Srv}
-let fwd = {Mpst.ThreeParty.c with role=Roles.Oth}
+let cli = {Mpst_explicit.Parties.a with role=Roles.Cli}
+let srv = {Mpst_explicit.Parties.b with role=Roles.Srv}
+let fwd = {Mpst_explicit.Parties.c with role=Roles.Oth}
+
+let emp = Cons(lv Unit,lv@@Cons(lv Unit,lv@@Cons(lv Unit,lv Nil)))
+let get_sess_ r c = Sess(emp, unprot @@ lens_get_ r.lens c)
+
+let finish_ :
+      (((unit * (unit * (unit * unit))) slots, close) prot *
+         (((unit * (unit * (unit * unit))) slots, close) prot *
+            (((unit * (unit * (unit * unit))) slots, close) prot * unit)))
+        slots lazy_t =
+  lv@@Cons(lv@@Prot Close,lv@@Cons(lv@@Prot Close,lv@@Cons(lv@@Prot Close,lv Nil)))
 
 let dns () =
-  let open Mpst.ThreeParty in
   ((cli,cli) -!-> (srv,srv)) query @@ (* DNS query from a client *)
   choice_req_at srv query_or_dummy (* do I have an entry for the query?  *)
     (srv, ((srv,srv) -!-> (fwd,fwd)) query @@  (* if not, forward the query to aoother server *)
@@ -70,7 +81,7 @@ let server (fd_cli : Lwt_unix.file_descr) (fd_fwd : Lwt_unix.file_descr) =
   in
   let fd_fwd = create_resolver_fd ~fd:fd_fwd ~peer_addr:fwd_addr in
   let fd_cli = create_listener_fd ~fd:fd_cli in
-  let s = Mpst.ThreeParty.get_sess_ srv (dns ()) in
+  let s = get_sess_ srv (dns ()) in
   let rec loop () =
     S.accept cli fd_cli s >>= fun (`query(query, s)) ->
     begin match query.questions with

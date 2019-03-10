@@ -176,7 +176,7 @@ module Util = struct
 end
 
 module Labels = struct
-  open Explicit.Global
+  open Mpst_explicit.Global
   type 'a server_pred = 'a cohttp_server -> Cohttp.Request.t -> bool
   type 'a client_pred = 'a cohttp_client -> Cohttp.Response.t -> bool
 
@@ -247,8 +247,8 @@ let mkpred = function
   | None -> (fun _ _ -> true)
 
 let http =
-  let open Explicit.Global in
-  let open Explicit.Session in
+  let open Mpst_explicit.Global in
+  let open Mpst_explicit.Session in
   let get ?pred path =
     {sender=(fun c v ->
        ignore (c.write_request ~path ~params:v));

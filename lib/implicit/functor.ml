@@ -1,5 +1,5 @@
 
-module F(X:sig type conn end) = struct
+module Make(X:sig type conn end) = struct
   module Session = struct
     type ('r,'ls) send = DummySend__
     type ('r,'ls) sendmany = DummySendMany__

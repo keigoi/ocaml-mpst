@@ -41,7 +41,7 @@ val http_connector : base_url:string -> 'a -> 'a cohttp_client Lwt.t
 val close_server : 'a cohttp_server -> unit Lwt.t
 val close_client : 'a cohttp_client -> unit Lwt.t
 
-open Explicit.Global
+open Mpst_explicit.Global
 
 module Labels : sig
   type 'a server_pred = 'a cohttp_server -> Cohttp.Request.t -> bool

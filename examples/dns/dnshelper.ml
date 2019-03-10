@@ -1,5 +1,4 @@
-open Mpst.Global
-open Mpst.Session
+open Mpst_explicit.Global
 open Lwt
 
 type t =
@@ -26,21 +25,21 @@ let dummy =
   {select_label=(fun f -> object method dummy=f end);
    offer_label=(fun _l -> failwith "impossible");
    channel=
-     {sender=(fun (Conn _fd) () -> ()(* do nothing*));
-      receiver=(fun (Conn _fd) -> Lwt.choose [])}}
+     {sender=(fun _fd () -> ()(* do nothing*));
+      receiver=(fun _fd -> Lwt.choose [])}}
 
 let query =
   {select_label=(fun f -> object method query=f end);
    offer_label=(fun l -> `query l);
    channel=
-     {sender=(fun (Conn ({fd; peer_addr; _} as r)) query -> (* XXX move dstaddr to connection type??*)
+     {sender=(fun ({fd; peer_addr; _} as r) query -> (* XXX move dstaddr to connection type??*)
         r.query_id <- query.Dns.Packet.id;
         let buf = Dns.Packet.marshal query in
         Lwt.async (fun () ->
             Cstruct.(Lwt_bytes.sendto fd buf.buffer buf.off buf.len [] peer_addr)
         )
       );
-      receiver=(fun (Conn ({fd; _} as r)) ->
+      receiver=(fun ({fd; _} as r) ->
         let buf = Cstruct.create 4096 in
         Cstruct.(Lwt_bytes.recvfrom fd buf.buffer buf.off buf.len [])
         >>= fun (len, dst_addr) ->
@@ -55,13 +54,13 @@ let answer =
   {select_label=(fun f -> object method answer=f end);
    offer_label=(fun l -> `answer l);
    channel=
-     {sender=(fun (Conn {fd; peer_addr; _}) resp ->
+     {sender=(fun {fd; peer_addr; _} resp ->
         let buf = Dns.Packet.marshal resp in
         Lwt.async (fun () ->
             Cstruct.(Lwt_bytes.sendto fd buf.buffer buf.off buf.len [] peer_addr)
           )
       );
-      receiver=(fun (Conn {fd; peer_addr; query_id}) ->
+      receiver=(fun {fd; peer_addr; query_id} ->
         let buf = Cstruct.create 4096 in
         Cstruct.(Lwt_bytes.recvfrom fd buf.buffer buf.off buf.len [])
         >>= fun (len, dst_addr) ->

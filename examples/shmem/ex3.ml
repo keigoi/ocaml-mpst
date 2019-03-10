@@ -1,6 +1,6 @@
 (* simple loop *)
-open Shmem.Session
-open Shmem.Global
+open Mpst_shmem.Session
+open Mpst_shmem.Global
 open Util
 
 

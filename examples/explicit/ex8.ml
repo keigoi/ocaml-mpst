@@ -1,8 +1,8 @@
 (* delegation *)
-open Explicit.Session
-open Explicit.Global
-open Explicit.Parties
-open Explicit.Util.Labels
+open Mpst_explicit.Session
+open Mpst_explicit.Global
+open Mpst_explicit.Parties
+open Mpst_explicit.Util.Labels
 let (>>=) = Lwt.(>>=)
 
 module M = Marshal_example

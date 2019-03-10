@@ -12,22 +12,8 @@ type 'k conn = DummyConn__
 
 exception RoleNotEnabled
 
-type _ e =
-  (* slot contents *)
-  Prot : ('a,'b) prot -> ('a,'b) prot e
-| Conn : 'k -> 'k conn e
-| Unit : unit e
-        
-and _ slots =
-  Cons : 'x e lazy_t * 'xs slots lazy_t -> ('x * 'xs) slots
-| Nil : unit slots
 
-and (_,_,_,_) lens =
-  | Fst  : ('a, 'b, ('a * 'xs) slots, ('b * 'xs) slots) lens
-  | Next : ('a,'b, 'xs slots,'ys slots) lens
-           -> ('a,'b, ('x * 'xs) slots, ('x * 'ys) slots) lens
-
-and (_,_) prot =
+type (_,_) prot =
   | Send :
       'r * ('k -> 'ks -> 'ls)
       -> ('ks, ('r, 'k, 'ls) send) prot
@@ -48,6 +34,21 @@ and (_,_) prot =
       ('ks, ('r, 'k, 'ls) receive) prot
 and ('ks,'c) sess =
   Sess of 'ks * ('ks, 'c) prot
+
+type _ e =
+  (* slot contents *)
+  Prot : ('a,'b) prot -> ('a,'b) prot e
+| Conn : 'k -> 'k conn e
+| Unit : unit e
+        
+and _ slots =
+  Cons : 'x e lazy_t * 'xs slots lazy_t -> ('x * 'xs) slots
+| Nil : unit slots
+
+and (_,_,_,_) lens =
+  | Fst  : ('a, 'b, ('a * 'xs) slots, ('b * 'xs) slots) lens
+  | Next : ('a,'b, 'xs slots,'ys slots) lens
+           -> ('a,'b, ('x * 'xs) slots, ('x * 'ys) slots) lens
 
 let unprot : type t u. (t,u) prot e -> (t,u) prot = function
     Prot p -> p

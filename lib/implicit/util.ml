@@ -1,7 +1,7 @@
 
 type conn_ = {name:string; out:Obj.t -> unit; inp:Obj.t Lwt_stream.t}
 
-module M = Functor.F(struct type conn=conn_ end)
+module M = Functor.Make(struct type conn=conn_ end)
 module Session = M.Session
 module Global = M.Global
 

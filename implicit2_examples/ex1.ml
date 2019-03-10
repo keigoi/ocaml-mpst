@@ -111,26 +111,6 @@ let t3 a_conn b_conn : unit Lwt.t =
     end >>= fun () ->
   print_endline "C finished.";
   return ()
-
-let rec loop () = loop ()
-  
-(* let () =
- *   print_endline "start0!";
- *   let [conn2;conn3] = forkmany [
- *                    (fun [conn;conn3] -> print_endline "bar";
- *                                   conn.out (Msg(Obj.repr ()));
- *                                   print_endline "child done";
- *                                   Lwt_main.run (Lwt_stream.next conn3.inp |> Lwt.map (fun (Msg(x)) -> print_endline "bar"));
- *                    );
- *                    (fun [conn1;conn2] ->
- *                                   conn2.out (Msg(Obj.repr ()));
- *                                   Lwt_main.run (Lwt_stream.next conn1.inp |> Lwt.map (fun (Msg(x)) -> print_endline "baz"));
- *                                   print_endline "child2 done";
- *                         )] in
- *   print_endline "start!";
- *   Lwt_main.run (Lwt_stream.next conn2.inp |> Lwt.map (fun (Msg(x)) -> print_endline "foo"));
- *                                   conn3.out (Msg(Obj.repr ()));
- *   print_endline "main done"; *)
   
 let () =
   let [b_conn; c_conn] =

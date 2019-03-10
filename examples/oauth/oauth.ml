@@ -4,10 +4,23 @@
  * a -!-> b : connect, then send.
  * b -?-> a : receive, then disconnect.
  *)
-open Mpst.ThreeParty
+open Explicit.Session
+open Explicit.Global
+open Explicit.Parties
+open Explicit.Util.Labels
 open Mpst_http.Labels
 module H = Mpst_http
 let (>>=) = Lwt.(>>=)
+
+let finish :
+      (((unit * (unit * (unit * unit))) slots, close) prot *
+         (((unit * (unit * (unit * unit))) slots, close) prot *
+            (((unit * (unit * (unit * unit))) slots, close) prot * unit)))
+        slots lazy_t =
+  lv@@Cons(lv@@Prot Close,lv@@Cons(lv@@Prot Close,lv@@Cons(lv@@Prot Close,lv Nil)))
+
+let emp = Cons(lv Unit,lv@@Cons(lv Unit,lv@@Cons(lv Unit,lv Nil)))
+let get_sess_ r c = Sess(emp, unprot @@ lens_get_ r.lens c)
 
 (*
   (replace keigoimai.info with appropriate domain)

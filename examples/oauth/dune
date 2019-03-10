@@ -2,4 +2,4 @@
  (name oauth)
  (public_name oauth)
  (flags ("-g" "-short-paths"))
- (libraries ocaml-mpst ocaml-mpst.http lwt.unix lwt_log cmdliner))
+ (libraries explicit ocaml-mpst.http lwt.unix lwt_log cmdliner))

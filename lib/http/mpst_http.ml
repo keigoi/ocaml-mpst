@@ -176,7 +176,7 @@ module Util = struct
 end
 
 module Labels = struct
-  open Mpst.Global
+  open Explicit.Global
   type 'a server_pred = 'a cohttp_server -> Cohttp.Request.t -> bool
   type 'a client_pred = 'a cohttp_client -> Cohttp.Response.t -> bool
 
@@ -247,17 +247,17 @@ let mkpred = function
   | None -> (fun _ _ -> true)
 
 let http =
-  let open Mpst.Global in
-  let open Mpst.Session in
+  let open Explicit.Global in
+  let open Explicit.Session in
   let get ?pred path =
-    {sender=(fun (Conn c) v ->
+    {sender=(fun c v ->
        ignore (c.write_request ~path ~params:v));
-     receiver=(fun (Conn c) ->
+     receiver=(fun c ->
        c.read_request ~paths:[path] ~predicate:(mkpred pred c) () >>= fun (req,_) ->
        Lwt.return (param req))}
   in
   let _200 =
-    {sender=(fun (Conn c) v ->
+    {sender=(fun c v ->
        Lwt.async begin fun () ->
          Cohttp_lwt_unix.Server.respond_string
            ~status:`OK
@@ -265,12 +265,12 @@ let http =
            () >>= fun (resp,body) ->
          c.write_response (resp, body)
          end);
-     receiver=(fun (Conn c) -> (* FIXME: check resposne code *)
+     receiver=(fun c -> (* FIXME: check resposne code *)
        c.read_response >>= fun (_resp, body) ->
        Lwt.return @@ body)}
   in
   let _302 =
-    {sender=(fun (Conn c) url ->
+    {sender=(fun c url ->
        ignore begin
            Cohttp_lwt_unix.Server.respond_string
              ~status:`Found

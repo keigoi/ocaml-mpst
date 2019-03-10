@@ -41,7 +41,7 @@ val http_connector : base_url:string -> 'a -> 'a cohttp_client Lwt.t
 val close_server : 'a cohttp_server -> unit Lwt.t
 val close_client : 'a cohttp_client -> unit Lwt.t
 
-open Mpst.Global
+open Explicit.Global
 
 module Labels : sig
   type 'a server_pred = 'a cohttp_server -> Cohttp.Request.t -> bool
@@ -95,44 +95,42 @@ module Labels : sig
     label_merge
 end
 
-open Mpst.Session
-
 val http :
-< ch_200 : ('a cohttp_server dist,
-            'b cohttp_client dist, string)
+< ch_200 : ('a cohttp_server,
+            'b cohttp_client, string)
            channel;
-  ch_302 : ('c cohttp_server dist, 'd, Uri.t)
+  ch_302 : ('c cohttp_server, 'd, Uri.t)
            channel;
   ch_get : ?pred:('g cohttp_server -> Cohttp.Request.t -> bool) ->
            string ->
-           ('h cohttp_client dist,
-            'g cohttp_server dist, (string * string list) list)
+           ('h cohttp_client,
+            'g cohttp_server, (string * string list) list)
            channel;
   ch_post : string ->
-            ('i cohttp_client dist,
-             'j cohttp_server dist, (string * string list) list)
+            ('i cohttp_client,
+             'j cohttp_server, (string * string list) list)
             channel;
   ch_success : string ->
                ('k cohttp_server -> Cohttp.Request.t -> bool) ->
-               ('l cohttp_client dist,
-                'k cohttp_server dist,
+               ('l cohttp_client,
+                'k cohttp_server,
                 (string * string list) list)
                channel;
   ch_fail : string ->
             ('e cohttp_server -> Cohttp.Request.t -> bool) ->
-            ('f cohttp_client dist,
-             'e cohttp_server dist, (string * string list) list)
+            ('f cohttp_client,
+             'e cohttp_server, (string * string list) list)
             channel;
   ch_success_resp :
                ('l cohttp_client -> Cohttp.Response.t -> bool) ->
-               ('l cohttp_server dist,
-                'k cohttp_client dist,
+               ('l cohttp_server,
+                'k cohttp_client,
                 string)
                channel;
   ch_fail_resp : 
                ('l cohttp_client -> Cohttp.Response.t -> bool) ->
-               ('l cohttp_server dist,
-                'k cohttp_client dist,
+               ('l cohttp_server,
+                'k cohttp_client,
                 string)
                  channel
                >

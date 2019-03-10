@@ -1,4 +1,4 @@
 (library
  (name mpst_explicit)
  (flags ("-g" "-short-paths"))
- (libraries threads lwt))
+ (libraries lens threads lwt))

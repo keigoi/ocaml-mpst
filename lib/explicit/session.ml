@@ -40,15 +40,8 @@ type _ e =
   Prot : ('a,'b) prot -> ('a,'b) prot e
 | Conn : 'k -> 'k conn e
 | Unit : unit e
-        
-and _ slots =
-  Cons : 'x e lazy_t * 'xs slots lazy_t -> ('x * 'xs) slots
-| Nil : unit slots
 
-and (_,_,_,_) lens =
-  | Fst  : ('a, 'b, ('a * 'xs) slots, ('b * 'xs) slots) lens
-  | Next : ('a,'b, 'xs slots,'ys slots) lens
-           -> ('a,'b, ('x * 'xs) slots, ('x * 'ys) slots) lens
+include Lens.Make(struct type 't u = 't e end)
 
 let unprot : type t u. (t,u) prot e -> (t,u) prot = function
     Prot p -> p
@@ -56,18 +49,6 @@ let unprot : type t u. (t,u) prot e -> (t,u) prot = function
 let unconn : type k. k conn e -> k = function
     Conn p -> p
   
-let slot_tail : type hd tl. (hd * tl) slots lazy_t -> tl slots lazy_t = fun sl ->
-  lazy begin
-      match sl with
-      | lazy (Cons(_,lazy tl)) -> tl
-    end
-
-let slot_head : type hd tl. (hd * tl) slots lazy_t -> hd e lazy_t = fun sl ->
-  lazy begin
-      match sl with
-      | lazy (Cons(hd,_)) -> Lazy.force hd
-    end
-
 let slot_head_prot : type hdx hdy tl. ((hdx, hdy) prot * tl) slots lazy_t -> (hdx,hdy) prot lazy_t = fun sl ->
   lazy begin
       match sl with
@@ -79,25 +60,6 @@ let slot_head_conn : type k tl. (k conn * tl) slots lazy_t -> k lazy_t = fun sl 
       match sl with
       | lazy (Cons(lazy (Conn(hd)),_)) -> hd
     end
-  
-let rec lens_get : type a b xs ys. (a, b, xs, ys) lens -> xs lazy_t -> a e lazy_t = fun ln xs ->
-  match ln with
-  | Fst -> slot_head xs
-  | Next ln' -> lens_get ln' (slot_tail xs)
-
-let lens_get_ ln s = lf (lens_get ln s)
-
-let rec lens_put : type a b xs ys. (a,b,xs,ys) lens -> xs lazy_t -> b e lazy_t -> ys lazy_t =
-  fun ln xs b ->
-  match ln with
-  | Fst -> lazy (Cons(b, slot_tail xs))
-  | Next ln' ->
-     lazy
-       begin match xs with
-       | lazy (Cons(a, xs')) -> Cons(a, lens_put ln' xs' b)
-       end
-
-let lens_put_ ln s v = lens_put ln s (lv v)
 
 type ('r, 'v1, 'v2, 's1, 's2) role =
   {role:'r;

@@ -1,4 +1,27 @@
 open Session
+ 
+type 'a one = One__ of 'a       
+type 'a many = Many__ of 'a       
+type conn = Conn
+
+type _ e =
+  (* slot contents *)
+  One : 'a prot -> 'a prot one e
+| Many : 'a prot list -> 'a prot many e
+
+
+let unone : type t. t prot one e -> t prot = function
+    One p -> p
+
+let unmany : type t. t prot many e -> t prot list = function
+    Many p -> p
+  
+include Lens.Make(struct type 't u = 't e end)
+            
+type ('r, 'v1, 'v2, 's1, 's2) role =
+  {role:'r;
+   lens:('v1, 'v2, 's1, 's2) lens;
+   }
 
 type ('la,'lb,'ca,'cb,'v1, 'v2) label =
     {select_label: ('v1 -> 'ca) -> 'la;

@@ -4,26 +4,8 @@ type ('r,'ls) receive = DummyReceive__
 type close
 
 exception RoleNotEnabled
- 
-type 'a one = One__ of 'a       
-type 'a many = Many__ of 'a       
-type conn = Conn
         
-type _ e =
-  (* slot contents *)
-  One : 'a prot -> 'a prot one e
-| Many : 'a prot list -> 'a prot many e
-        
-and _ slots =
-  Cons : 'x e lazy_t * 'xs slots lazy_t -> ('x * 'xs) slots
-| Nil : unit slots
-
-and (_,_,_,_) lens =
-  | Fst  : ('a, 'b, ('a * 'xs) slots, ('b * 'xs) slots) lens
-  | Next : ('a,'b, 'xs slots,'ys slots) lens
-           -> ('a,'b, ('x * 'xs) slots, ('x * 'ys) slots) lens
-
-and _ prot =
+type _ prot =
   | Send :
       'r * 'ls
       -> ('r, 'ls) send prot
@@ -34,48 +16,6 @@ and _ prot =
   | DummyReceive :
       ('r, 'ls) receive prot
 
-let unone : type t. t prot one e -> t prot = function
-    One p -> p
-
-let unmany : type t. t prot many e -> t prot list = function
-    Many p -> p
-  
-let slot_tail : type hd tl. (hd * tl) slots lazy_t -> tl slots lazy_t = fun sl ->
-  lazy begin
-      match sl with
-      | lazy (Cons(_,lazy tl)) -> tl
-    end
-  
-
-let slot_head : type hd tl. (hd * tl) slots lazy_t -> hd e lazy_t = fun sl ->
-  lazy begin
-      match sl with
-      | lazy (Cons(lazy hd,_)) -> hd
-    end
-  
-let rec lens_get : type a b xs ys. (a, b, xs, ys) lens -> xs lazy_t -> a e lazy_t = fun ln xs ->
-  match ln with
-  | Fst -> slot_head xs
-  | Next ln' -> lens_get ln' (slot_tail xs)
-
-let lens_get_ ln s = Lazy.force (lens_get ln s)
-
-let rec lens_put : type a b xs ys. (a,b,xs,ys) lens -> xs lazy_t -> b e lazy_t -> ys lazy_t =
-  fun ln xs b ->
-  match ln with
-  | Fst -> lazy (Cons(b, slot_tail xs))
-  | Next ln' ->
-     lazy
-       begin match xs with
-       | lazy (Cons(a, xs')) -> Cons(a, lens_put ln' xs' b)
-       end
-
-let lens_put_ ln s v = lens_put ln s (Lazy.from_val v)
-
-type ('r, 'v1, 'v2, 's1, 's2) role =
-  {role:'r;
-   lens:('v1, 'v2, 's1, 's2) lens;
-   }
      
 let send : 'r 'ls 'v 's.
   'r ->

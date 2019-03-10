@@ -1,4 +1,4 @@
 (library
  (name mpst_shmem)
  (flags ("-g" "-short-paths"))
- (libraries threads lwt lwt.unix))
+ (libraries lens threads lwt lwt.unix))

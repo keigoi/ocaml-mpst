@@ -7,12 +7,12 @@ type conn = Conn
 type _ e =
   (* slot contents *)
   One : 'a prot -> 'a prot one e
-| Many : 'a prot list -> 'a prot many e
+| Many : 'a prot lazy_t list -> 'a prot many e
 
 let unone : type t. t prot one e -> t prot = function
     One p -> p
 
-let unmany : type t. t prot many e -> t prot list = function
+let unmany : type t. t prot many e -> t prot lazy_t list = function
     Many p -> p
   
 include Lens.Make(struct type 't u = 't e end)
@@ -62,9 +62,10 @@ let (-->>) : type ra rb sa sb la lb c0 c1 c2 v.
       (List.map
          (fun sb ->
            let st, push = Lwt_stream.create () in
-           Receive (a.role, [
+           Lazy.from_val @@
+             Receive (a.role, [
                  Lwt_stream.next st |>
-                 Lwt.map (fun v -> offer_label (v, sb))
+                 Lwt.map (fun v -> offer_label (v, Lazy.force sb))
              ]),
            push
          )
@@ -97,8 +98,9 @@ let (>>--) : type ra rb sa sb la lb c0 c1 c2 v.
       (List.map
          (fun sa ->
            let st, push = Lwt_stream.create () in
-           Send (b.role, 
-                 select_label (fun v -> push (Some v); sa)),
+           Lazy.from_val @@
+             Send (b.role, 
+                 select_label (fun v -> push (Some v); Lazy.force sa)),
            st
          )
       (unmany (Lazy.force sas)))
@@ -137,13 +139,15 @@ let role : type l ks k r. (r, l) send prot one e lazy_t -> r =
   | lazy (One (Send (r, _))) -> r
   | lazy (One Close) -> assert false
 
+let lf = Lazy.force
+                      
 let rec merge_ : type t. t slots lazy_t -> t slots lazy_t -> t slots lazy_t =
   fun l r ->
   match l, r with
   | lazy (Cons(lazy (One hd_l),tl_l)), lazy (Cons(lazy (One hd_r),tl_r)) ->
      lazy (Cons (lazy (One (Internal.merge hd_l hd_r)), merge_ tl_l tl_r))
   | lazy (Cons(lazy (Many hd_l),tl_l)), lazy (Cons(lazy (Many hd_r),tl_r)) ->
-     lazy (Cons (lazy (Many (List.rev @@ List.rev_map2 Internal.merge hd_l hd_r)), merge_ tl_l tl_r))
+     lazy (Cons (lazy (Many (List.rev @@ List.rev_map2 (fun x y -> lazy (Internal.merge (lf x) (lf y))) hd_l hd_r)), merge_ tl_l tl_r))
   | lazy Nil, _ ->
      Lazy.from_val Nil
 
@@ -163,17 +167,25 @@ let get_sess r m =
 
 let get_sess_many r m =
   let p = lens_get_ r.lens m in
-  match p with Many ps -> ps
+  match p with Many ps -> List.map Lazy.force ps
 
 let lv = Lazy.from_val
-let repeat num v =
+let repeat num f =
   let r = ref [] in
   for i=0 to num-1
   do
-    r := v::!r
+    r := (f i)::!r
   done;
   !r
 
+let count r num c =
+  let cs =
+    repeat num (fun i ->
+        lazy (Lazy.force @@ List.nth (unmany @@ lens_get_ r.lens c) i))
+  in
+  lens_put r.lens c (lazy (Many cs))
+  
+
 let nil = lv Nil
 let one tl = lv @@ Cons(lv @@ One Close, tl)
-let many num tl = lv @@ Cons(lv @@ Many (repeat num Close), tl)
+let many num tl = lv @@ Cons(lv @@ Many (repeat num (fun _ -> Lazy.from_val Close)), tl)

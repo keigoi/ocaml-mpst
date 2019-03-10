@@ -12,7 +12,7 @@ let mk_g () =
         (b --> a) msg @@
         (a --> c) msg @@
         (c --> b) msg @@
-        lazy (Lazy.force (Lazy.force g))
+        loop g
       end
   in
   Lazy.force g

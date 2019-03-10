@@ -18,3 +18,10 @@
   (modules ex3)
   (flags ("-g" "-short-paths"))
   (libraries mpst_shmem lwt.unix))
+
+(executable
+ (name ex7)
+  (public_name ex7_mpst_shmem)
+  (modules ex7)
+  (flags ("-g" "-short-paths"))
+  (libraries mpst_shmem lwt.unix))

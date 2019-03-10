@@ -47,28 +47,28 @@ let close : 'ks. unit -> (('ks, close) sess, empty, unit) monad = fun () ->
     )
 
 let accept : 'r 'k 'ks 'ks2 'ls.
-  ('r, unit, 'k dist conn, 'ks, 'ks2) role ->
+  ('r, unit, 'k conn, 'ks, 'ks2) role ->
   'k ->
-  (('ks, ('ks2, 'r, 'k dist, 'ls) accept) sess, empty, 'ls) monad =
+  (('ks, ('ks2, 'r, 'k, 'ls) accept) sess, empty, 'ls) monad =
   fun r k ->
   Monad.__in (fun s ->
       Lwt.bind (accept r k s) (fun ls ->
       Lwt.return (Empty, ls)))
 
 let request : 'r 'k 'ks 'ks2 'ls 'v 's.
-  ('r, unit, 'k dist conn, 'ks, 'ks2) role ->
+  ('r, unit, 'k conn, 'ks, 'ks2) role ->
   ('ls -> 'v -> ('ks2, 's) sess) ->
   'v ->
   'k ->
-  (('ks, ('ks2, 'r, 'k dist, 'ls) request) sess, empty, ('ks2, 's) sess) monad =
+  (('ks, ('ks2, 'r, 'k, 'ls) request) sess, empty, ('ks2, 's) sess) monad =
   fun r l v k ->
   Monad.__in (fun s ->
       Lwt.return (Empty, (request r l v k s)))
 
 
 let disconnect : 'r 'k 'ks 'ks2 's.
-  ('r, 'k dist conn, unit, 'ks, 'ks2) role ->
-  (('ks, ('ks2, 'r, 'k dist, 's) disconnect) sess, empty, ('ks2, 's) sess) monad =
+  ('r, 'k conn, unit, 'ks, 'ks2) role ->
+  (('ks, ('ks2, 'r, 'k, 's) disconnect) sess, empty, ('ks2, 's) sess) monad =
   fun r ->
   Monad.__in (fun s ->
       Lwt.return (Empty, disconnect r s))

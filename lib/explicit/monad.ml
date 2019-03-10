@@ -13,4 +13,4 @@ let __run s f = f s
 
 let lift m = (fun s -> Lwt.bind m (fun v -> Lwt.return (s, v)))
 
-let put l v = (fun s -> Lwt.return (Lazy.force (lens_put_ l s v), ()))
+(* let put l v = (fun s -> Lwt.return (Lazy.force (lens_put_ l (Lazy.from_val s) (One v)), ())) *)

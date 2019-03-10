@@ -1,4 +1,7 @@
-open Mpst.ThreeParty
+open Explicit.Session
+open Explicit.Global
+open Explicit.Util.Labels
+
 let (>>=) = Lwt.(>>=)
 let cnt =
   let r = ref 1 in
@@ -61,18 +64,18 @@ let read c f =
 
 type 'v m = Msg of 'v | Left of 'v | Right of 'v | Deleg of 'v
 
-class marshal : [dstream dist,dstream dist] standard =
+class marshal : [dstream,dstream] standard =
   object
     method ch_msg: 'v. (_,_,'v) channel =
-      {sender=(fun (Conn t) v -> write t (Msg(v)));
-       receiver=(fun (Conn t) -> read t (function Msg(v) -> Some v | _ -> None))}
+      {sender=(fun t v -> write t (Msg(v)));
+       receiver=(fun t -> read t (function Msg(v) -> Some v | _ -> None))}
     method ch_left: 'v. (_,_,'v) channel =
-      {sender=(fun (Conn t) v -> write t (Left(v)));
-       receiver=(fun (Conn t) -> read t (function Left(v) -> Some v | _ -> None))}
+      {sender=(fun t v -> write t (Left(v)));
+       receiver=(fun t -> read t (function Left(v) -> Some v | _ -> None))}
     method ch_right: 'v. (_,_,'v) channel =
-      {sender=(fun (Conn t) v -> write t (Right(v)));
-       receiver=(fun (Conn t) -> read t (function Right(v) -> Some v | _ -> None))}
+      {sender=(fun t v -> write t (Right(v)));
+       receiver=(fun t -> read t (function Right(v) -> Some v | _ -> None))}
     method ch_deleg: 'v. (_,_,'v) channel =
-      {sender=(fun (Conn t) v -> write t (Deleg(v)));
-       receiver=(fun (Conn t) -> read t (function Deleg(v) -> Some v | _ -> None))}
+      {sender=(fun t v -> write t (Deleg(v)));
+       receiver=(fun t -> read t (function Deleg(v) -> Some v | _ -> None))}
   end

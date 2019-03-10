@@ -10,7 +10,7 @@ val (>>=) :
 
 val lift : 'a Lwt.t -> ('pre, 'pre, 'a) monad
 
-val put : (_, 'v, 'pre, 'post) Session.lens -> 'v -> ('pre, 'post, unit) monad
+(* val put : (_, 'v, 'pre, 'post) Session.lens -> 'v -> ('pre, 'post, unit) monad *)
 
 val __in : ('pre -> ('post * 'a) Lwt.t) -> ('pre, 'post, 'a) monad
 val __run : 'pre -> ('pre, 'post, 'a) monad -> ('post * 'a) Lwt.t

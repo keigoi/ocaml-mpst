@@ -1,7 +1,17 @@
 (* explicit connections *)
-open Mpst.ThreeParty
+open Explicit.Session
+open Explicit.Global
+open Explicit.Parties
+open Explicit.Util.Labels
 let (>>=) = Lwt.(>>=)
 
+let finish_ =
+  lv@@Cons(lv@@Prot Close,lv@@Cons(lv@@Prot Close,lv@@Cons(lv@@Prot Close,lv Nil)))
+
+let emp = Cons(lv Unit,lv@@Cons(lv Unit,lv@@Cons(lv Unit,lv Nil)))
+
+let get_sess_ r c = Sess(emp, unprot @@ lens_get_ r.lens c)
+        
 module M = Marshal_example
 
 let mk_g (m : ('k1,'k2) standard) =

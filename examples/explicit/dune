@@ -1,61 +1,19 @@
-(executable
- (name ex1)
-  (public_name ex1)
-  (modules ex1)
-  (flags ("-g" "-short-paths"))
-  (libraries ocaml-mpst lwt.unix))
-
-(executable
- (name ex2)
-  (public_name ex2)
-  (modules ex2)
-  (flags ("-g" "-short-paths"))
-  (libraries ocaml-mpst lwt.unix))
-
-(executable
- (name ex3)
-  (public_name ex3)
-  (modules ex3)
-  (flags ("-g" "-short-paths"))
-  (libraries ocaml-mpst lwt.unix))
-
-(executable
- (name ex4)
-  (public_name ex4)
-  (modules ex4)
-  (flags ("-g" "-short-paths"))
-  (libraries ocaml-mpst lwt.unix))
-
-(executable
- (name ex5)
-  (public_name ex5)
-  (modules ex5)
-  (flags ("-g" "-short-paths"))
-  (libraries ocaml-mpst lwt.unix))
-
-(executable
- (name ex6)
-  (public_name ex6)
-  (modules ex6)
-  (flags ("-g" "-short-paths"))
-  (libraries ocaml-mpst lwt.unix))
-
 (library
  (name marshal_example)
  (modules marshal_example)
  (flags ("-g" "-short-paths"))
- (libraries ocaml-mpst lwt.unix))
+ (libraries explicit lwt.unix))
 
 (executable
  (name ex7)
   (public_name ex7)
   (modules ex7)
   (flags ("-g" "-short-paths"))
-  (libraries marshal_example ocaml-mpst lwt.unix))
+  (libraries marshal_example explicit lwt.unix))
 
 (executable
  (name ex8)
   (public_name ex8)
   (modules ex8)
   (flags ("-g" "-short-paths"))
-  (libraries marshal_example ocaml-mpst lwt.unix))
+  (libraries marshal_example explicit lwt.unix))

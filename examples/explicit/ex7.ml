@@ -5,12 +5,20 @@ open Mpst_explicit.Parties
 open Mpst_explicit.Util.Labels
 let (>>=) = Lwt.(>>=)
 
-let finish_ =
-  lv@@Cons(lv@@Prot Close,lv@@Cons(lv@@Prot Close,lv@@Cons(lv@@Prot Close,lv Nil)))
+let slot : (('ks slots, close) prot * unit) slots lazy_t =
+  lv@@Cons(lv@@Prot Close, lv Nil)
+  
+let one (s : ((('ks slots, close) prot * 'ps) as 'pss) slots lazy_t)
+  : (('ks slots, close) prot * 'pss) slots lazy_t =
+  lv@@Cons(lv@@Prot Close, s)
+  
+let finish_ = one @@ one @@ slot
 
-let emp = Cons(lv Unit,lv@@Cons(lv Unit,lv@@Cons(lv Unit,lv Nil)))
+let emp = Cons(lv Unit,lv Nil)
 
-let get_sess_ r c = Sess(emp, unprot @@ lens_get_ r.lens c)
+let one_ s = Cons(lv Unit,lv s)
+        
+let get_sess_ r c = Sess(one_ @@ one_ @@ emp, unprot @@ lens_get_ r.lens c)
         
 module M = Marshal_example
 

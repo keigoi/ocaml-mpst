@@ -4,11 +4,11 @@
   (modules dnsserver)
   (libraries mpst_explicit dns-lwt-unix lwt.unix dnshelper))
 
-(executable
-  (public_name dnsserver_monad)
-  (name     dnsserver_monad)
-  (modules dnsserver_monad)
-  (libraries mpst_explicit dns-lwt-unix lwt.unix dnshelper))
+;(executable
+;  (public_name dnsserver_monad)
+;  (name     dnsserver_monad)
+;  (modules dnsserver_monad)
+;  (libraries mpst_explicit dns-lwt-unix lwt.unix dnshelper))
 
 (library
   (name dnshelper)

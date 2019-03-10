@@ -9,7 +9,6 @@ type _ e =
   One : 'a prot -> 'a prot one e
 | Many : 'a prot list -> 'a prot many e
 
-
 let unone : type t. t prot one e -> t prot = function
     One p -> p
 
@@ -165,3 +164,16 @@ let get_sess r m =
 let get_sess_many r m =
   let p = lens_get_ r.lens m in
   match p with Many ps -> ps
+
+let lv = Lazy.from_val
+let repeat num v =
+  let r = ref [] in
+  for i=0 to num-1
+  do
+    r := v::!r
+  done;
+  !r
+
+let nil = lv Nil
+let one tl = lv @@ Cons(lv @@ One Close, tl)
+let many num tl = lv @@ Cons(lv @@ Many (repeat num Close), tl)

@@ -1,5 +1,5 @@
-open Mpst_shmem.Session
-open Mpst_shmem.Global
+open Session
+open Global
       
 let msg = {select_label=(fun f -> object method msg v=f v end);
            offer_label=(fun (v,c) -> `msg(v,c))}

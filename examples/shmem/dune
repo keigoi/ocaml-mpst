@@ -1,26 +1,20 @@
-(library
- (name util)
- (flags ("-g" "-short-paths"))
-  (modules util)
- (libraries mpst_shmem threads lwt lwt.unix))
-
 (executable
  (name ex1)
   (public_name ex1_mpst_shmem)
   (modules ex1)
   (flags ("-g" "-short-paths"))
-  (libraries mpst_shmem util lwt.unix))
+  (libraries mpst_shmem lwt.unix))
 
 (executable
  (name ex2)
   (public_name ex2_mpst_shmem)
   (modules ex2)
   (flags ("-g" "-short-paths"))
-  (libraries mpst_shmem util lwt.unix))
+  (libraries mpst_shmem lwt.unix))
 
 (executable
  (name ex3)
   (public_name ex3_mpst_shmem)
   (modules ex3)
   (flags ("-g" "-short-paths"))
-  (libraries mpst_shmem util lwt.unix))
+  (libraries mpst_shmem lwt.unix))

@@ -1,13 +1,6 @@
 open Mpst_shmem.Session
 open Mpst_shmem.Global
-open Util
-
-let a = {role=`A; lens=Fst}
-let b = {role=`B; lens=Next Fst}
-let c = {role=`C; lens=Next (Next Fst)}
-let lv = Lazy.from_val
-      
-let finish = lv (Cons(lv (One Close),lv @@ Cons(lv (One Close),lv @@ Cons(lv (One Close), lv Nil))))
+open Mpst_shmem.ThreeParty
 
 let (>>=) = Lwt.(>>=)
           

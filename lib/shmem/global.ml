@@ -179,15 +179,21 @@ let repeat num f =
     r := (f i)::!r
   done;
   !r
-
-let count r num c =
-  let cs =
-    repeat num (fun i ->
-        lazy (Lazy.force @@ List.nth (unmany @@ lens_get_ r.lens c) i))
-  in
-  lens_put r.lens c (lazy (Many cs))
   
 
 let nil = lv Nil
 let one tl = lv @@ Cons(lv @@ One (lv Close), tl)
-let many num tl = lv @@ Cons(lv @@ Many (repeat num (fun _ -> Lazy.from_val Close)), tl)
+
+let many_at (role: ('r, close prot one, close prot many, 'c0, 'c1) role) num (cont:'c0 lazy_t) =
+  let cs =
+    repeat num (fun i -> lazy Close)
+  in
+  lens_put role.lens cont (lazy (Many cs))
+                          
+
+let many_at_ role num cont =
+  let cs =
+    repeat num (fun i ->
+        lazy (Lazy.force @@ List.nth (unmany @@ lens_get_ role.lens cont) i))
+  in
+  lens_put role.lens cont (lazy (Many cs))

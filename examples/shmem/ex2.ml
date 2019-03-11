@@ -1,11 +1,12 @@
+(* multicasts *)
 open Mpst_shmem.Session
 open Mpst_shmem.Global
 open Mpst_shmem.ThreeParty
-      
-let finish = one @@ many 10 @@ one @@ nil
+
+let finish = many_at b 10 finish
 
 let (>>=) = Lwt.(>>=)
-          
+
 (* A global protocol between A, B, and C *)
 let create_g () =
     (c --> a) msg @@

@@ -1,4 +1,4 @@
-(* simple loop *)
+(* simple loop w/ multicasts *)
 open Mpst_shmem.Session
 open Mpst_shmem.Global
 open Mpst_shmem.ThreeParty
@@ -9,11 +9,10 @@ let mk_g () =
   let rec g =
     lazy
       begin
-        count b 10 @@
         (b >>-- a) msg @@
         (a --> c) msg @@
         (c -->> b) msg @@
-        loop g
+        many_at_ b 10 @@ loop g
       end
   in
   Lazy.force g
@@ -28,7 +27,7 @@ let rec tB ss =
   ss |>
     List.mapi (fun i s ->
         let rec loop s =
-          Lwt_io.print "tB\n" >>= fun () ->
+          Lwt_io.print (Printf.sprintf "tB(%d)\n" i) >>= fun () ->
           let s = send `A (fun x->x#msg) () s in
           receive `C s >>= fun (`msg((),s)) ->
           loop s in

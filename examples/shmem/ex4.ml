@@ -1,7 +1,14 @@
 (* loop with branching *)
-open Mpst.ThreeParty
-open Mpst.ThreeParty.Shmem
+open Mpst_shmem.Global
+open Mpst_shmem.Session
+open Mpst_shmem.Util
 let (>>=) = Lwt.(>>=)
+
+let a = {role=`A; lens=Fst}
+let b = {role=`B; lens=Next Fst}
+let c = {role=`C; lens=Next (Next Fst)}
+
+let finish = one @@ one @@ one @@ nil
 
 let mk_g () =
   let rec g =
@@ -23,18 +30,18 @@ let mk_g () =
 let rec tA s : unit Lwt.t =
   let open Lwt in
   print_endline "tA";
-  receive b s >>= fun (`msg(v,s)) ->
+  receive `B s >>= fun (`msg(v,s)) ->
   print_endline "tA cont";
   if v > 100 then begin
       print_endline ">100";
-      let s = send b (fun x -> x#left) "> 100" s in
-      receive c s >>= fun (`msg(v,s)) ->
+      let s = send `B (fun x -> x#left) "> 100" s in
+      receive `C s >>= fun (`msg(v,s)) ->
       close s;
       Lwt.return ()
     end else begin
       print_endline "<=100";
-      let s = send b (fun x -> x#right) false s in
-      receive c s >>= fun (`msg(v,s)) ->
+      let s = send `B (fun x -> x#right) false s in
+      receive `C s >>= fun (`msg(v,s)) ->
       print_endline "tA received from c";
       tA s
     end
@@ -42,26 +49,26 @@ let rec tA s : unit Lwt.t =
 let rec tB i s : unit Lwt.t =
   let open Lwt in
   Printf.printf "tB %d\n" i;
-  let s = send a (fun x -> x#msg) i s in
-  receive a s >>= function
+  let s = send `A (fun x -> x#msg) i s in
+  receive `A s >>= function
   | `left(v,s) ->
-     let s = send c (fun x->x#left) () s in
+     let s = send `C (fun x->x#left) () s in
      close s;
      Lwt.return ()
   | `right(v,s) ->
-     let s = send c (fun x->x#right) () s in
+     let s = send `C (fun x->x#right) () s in
      tB (i+1) s
 
 let rec tC s : unit Lwt.t =
   print_endline "tC";
   let open Lwt in
-  receive b s >>= function
+  receive `B s >>= function
   | `left(v,s) ->
-     let s = send a (fun x->x#msg) 100 s in
+     let s = send `A (fun x->x#msg) 100 s in
      close s;
      Lwt.return ()
   | `right(w,s) ->
-     let s = send a (fun x->x#msg) "abc" s in
+     let s = send `A (fun x->x#msg) "abc" s in
      tC s
 
 

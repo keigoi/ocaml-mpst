@@ -1,9 +1,13 @@
 (* multicasts *)
 open Mpst_shmem.Session
 open Mpst_shmem.Global
-open Mpst_shmem.ThreeParty
+open Mpst_shmem.Util
 
-let finish = many_at b 10 finish
+let a = {role=`A; lens=Fst}
+let b = {role=`B; lens=Next Fst}
+let c = {role=`C; lens=Next (Next Fst)}
+
+let finish = many_at b 10 (one @@ one @@ one @@ nil)
 
 let (>>=) = Lwt.(>>=)
 

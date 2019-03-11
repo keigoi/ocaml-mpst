@@ -20,6 +20,20 @@
   (libraries mpst_shmem lwt.unix))
 
 (executable
+ (name ex4)
+  (public_name ex4_mpst_shmem)
+  (modules ex4)
+  (flags ("-g" "-short-paths"))
+  (libraries mpst_shmem lwt.unix))
+
+(executable
+ (name ex5)
+  (public_name ex5_mpst_shmem)
+  (modules ex5)
+  (flags ("-g" "-short-paths"))
+  (libraries mpst_shmem lwt.unix))
+
+(executable
  (name ex6)
   (public_name ex6_mpst_shmem)
   (modules ex6)

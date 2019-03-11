@@ -1,16 +1,21 @@
 (* create your own labels (see util.ml for other examples) *)
-open Mpst.ThreeParty
-open Mpst.ThreeParty.Shmem
+open Mpst_shmem.Global
+open Mpst_shmem.Session
+open Mpst_shmem.Util
 let (>>=) = Lwt.(>>=)
 
+let a = {role=`A; lens=Fst}
+let b = {role=`B; lens=Next Fst}
+let c = {role=`C; lens=Next (Next Fst)}
+
+let finish = one @@ one @@ one @@ nil
+
 let apple =
-  {channel=shmem_channel;
-   select_label=(fun x -> object method apple=x end);
+  {select_label=(fun x -> object method apple=x end);
    offer_label=(fun x -> `apple(x))}
 
 let banana =
-  {channel=shmem_channel;
-   select_label=(fun x -> object method banana=x end);
+  {select_label=(fun x -> object method banana=x end);
    offer_label=(fun x -> `banana(x))}
 
 let apple_or_banana =
@@ -72,19 +77,19 @@ let mk_g3 () =
 
 let rec tA i s =
   if i >= 10 then (* will be stack overflow or segfault when > 1000000 *)
-    let s = send b (fun x -> x#apple) () s in
+    let s = send `B (fun x -> x#apple) () s in
     close s;
     print_endline "tA finished";
     Lwt.return ()
   else
-    let s = send b (fun x -> x#banana) i s in
+    let s = send `B (fun x -> x#banana) i s in
     Lwt.return () >>= fun () ->
     tA (i+1) s
 
 let rec tB s =
-  receive a s >>= function
+  receive `A s >>= function
   | `apple(i, s) ->
-     let s = send c (fun x -> x#msg) () s in
+     let s = send `C (fun x -> x#msg) () s in
      close s;
      print_endline "tB finished";
      Lwt.return ()
@@ -93,7 +98,7 @@ let rec tB s =
      tB s
 
 let rec tC s =
-  receive b s >>= fun (`msg((),s)) ->
+  receive `B s >>= fun (`msg((),s)) ->
   close s;
   print_endline "tC finished";
   Lwt.return ()

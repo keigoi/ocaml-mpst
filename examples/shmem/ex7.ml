@@ -1,9 +1,12 @@
 (* simple loop w/ multicasts *)
 open Mpst_shmem.Session
 open Mpst_shmem.Global
-open Mpst_shmem.ThreeParty
-
+open Mpst_shmem.Util
 let (>>=) = Lwt.(>>=)
+
+let a = {role=`A; lens=Fst}
+let b = {role=`B; lens=Next Fst}
+let c = {role=`C; lens=Next (Next Fst)}
 
 let mk_g () =
   let rec g =

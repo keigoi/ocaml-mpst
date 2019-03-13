@@ -1,9 +1,8 @@
-type ('r,'ls) send = DummySend__
-type ('r,'ls) sendmany = DummySend__
-type ('r,'ls) receive = DummyReceive__
+open Mpst_base
+type ('r,'ls) send = Send__
+type ('r,'ls) sendmany = SendMany__
+type ('r,'ls) receive = Receive__
 type close
-
-exception RoleNotEnabled
         
 type _ prot =
   | Send :
@@ -16,6 +15,7 @@ type _ prot =
   | DummyReceive :
       ('r, 'ls) receive prot
 
+type 'p sess = 'p prot
      
 let send : 'r 'ls 'v 's.
   'r ->

@@ -1,15 +1,13 @@
+open Mpst_implicit.Session
+open Mpst_implicit.Global
 open Mpst_implicit.Util
-open Session
-open Global
    
 let a = {role=`A; lens=Fst}
 let b = {role=`B; lens=Next Fst}
 let c = {role=`C; lens=Next (Next Fst)}
 let lv = Lazy.from_val
       
-let finish = lv (Cons(lv @@ Prot Close,
-             lv @@ Cons(lv @@ Prot Close,
-             lv @@ Cons(lv @@ Prot Close, lv Nil))))
+let finish = one @@ one @@ one @@ nil
 
 let (>>=) = Lwt.(>>=)
 
@@ -99,6 +97,7 @@ let () =
     let g = create_g () in
     get_sess a g, get_sess b g, get_sess c g
   in
+  let open Mpst_implicit.Forkpipe in
   let [b_conns; [c_conn]] =
     forkmany_groups [
         {groupname="B";count=5;groupbody=(fun i [[a_conn];[c_conn]] ->

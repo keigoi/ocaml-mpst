@@ -2,12 +2,22 @@ module Make(X:sig type conn end) = struct
   module Session = Session.Make(X)
   open Session
 
-  type _ e = Prot : 't prot -> 't prot e
+  type 't one = 't
+
+  type 't count = Count__
+
+  type _ e =
+    Prot : 't prot -> 't prot e
+  | ProtCount : 't prot * int -> 't prot count e
+  | Session : 't sess list -> 't sess e
            
   let unprot : type t. t prot e -> t prot = function
     Prot p -> p
+           
+  let unprotcount : type t. t prot count e -> t prot * int = function
+    ProtCount(p,i) -> p, i
      
-  include Lens.Make(struct type 't u = 't e end)
+  include Mpst_base.Lens.Make(struct type 't u = 't e end)
 
   type 'v channel =
     {sender: conn -> 'v -> unit;
@@ -138,6 +148,7 @@ module Make(X:sig type conn end) = struct
        lazy (Cons (lazy (Prot(Internal.merge hd_l hd_r)), merge_ tl_l tl_r))
     | lazy Nil, _ ->
        Lazy.from_val Nil
+    | _ -> failwith "merge_"
 
   let choice_at a {label_merge} (al,cl) (ar,cr) =
     let sal, sar = lens_get al.lens cl, lens_get ar.lens cr in
@@ -157,11 +168,17 @@ module Make(X:sig type conn end) = struct
 
   let loop c0 = lazy (Lazy.force (Lazy.force c0))
 
+  let count r cnt c0 =
+    let Prot(p) = lens_get_ r.lens c0 in
+    lens_put_ r.lens c0 (ProtCount(p,cnt))
+              
   let get_sess r m =
-    Sess(ConnTable.create (),unprot @@ lens_get_ r.lens m)
+    Sess(ConnTable.create (), unprot @@ lens_get_ r.lens m)
 
   let add_conn r k (Sess(kt,p)) = Sess(ConnTable.putone kt r k, p)
 
   let add_conn_many r ks (Sess(kt,p)) = Sess(ConnTable.putmany kt r ks, p)
     
+  let nil = Lazy.from_val Nil
+  let one tl = Lazy.from_val @@ Cons(Lazy.from_val @@ Prot Close, tl)
 end

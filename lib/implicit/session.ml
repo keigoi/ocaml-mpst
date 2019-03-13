@@ -1,13 +1,12 @@
+open Mpst_base
+
 module Make(X:sig type conn end) = struct
   
-  type ('r,'ls) send = DummySend__
-  type ('r,'ls) sendmany = DummySendMany__
-  type ('r,'ls) receive = DummyReceive__
-  type ('r,'ls) receivemany = DummyReceiveMany__
+  type ('r,'ls) send = Send__
+  type ('r,'ls) sendmany = SendMany__
+  type ('r,'ls) receive = Receive__
+  type ('r,'ls) receivemany = ReceiveMany__
   type close
-
-  exception RoleNotEnabled
-  exception ReceiveFail
           
   type conn = X.conn
 

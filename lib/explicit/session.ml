@@ -1,17 +1,16 @@
-type ('r,'k,'ls) send = DummySend__
-type ('r,'k,'ls) receive = DummyReceive__
-type ('ks,'r,'k,'ls) request = DummyRequest__
-type ('ks,'r,'k,'ls) accept = DummyAccept__
-type ('ks,'r,'k,'ls) disconnect = DummyDisconnect__
+open Mpst_base
+
+type ('r,'k,'ls) send = Send__
+type ('r,'k,'ls) receive = Receive__
+type ('ks,'r,'k,'ls) request = Request__
+type ('ks,'r,'k,'ls) accept = Accept__
+type ('ks,'r,'k,'ls) disconnect = Disconnect__
 type close
 
 let lv = Lazy.from_val
 let lf = Lazy.force
 
-type 'k conn = DummyConn__
-
-exception RoleNotEnabled
-
+type 'k conn = Conn__
 
 type (_,_) prot =
   | Send :
@@ -41,7 +40,7 @@ type _ e =
 | Conn : 'k -> 'k conn e
 | Unit : unit e
 
-include Lens.Make(struct type 't u = 't e end)
+include Mpst_base.Lens.Make(struct type 't u = 't e end)
 
 let unprot : type t u. (t,u) prot e -> (t,u) prot = function
     Prot p -> p

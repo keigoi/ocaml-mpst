@@ -1,4 +1,6 @@
+module Session = Session
 open Session
+
  
 type 'a one = One__ of 'a       
 type 'a many = Many__ of 'a       
@@ -15,7 +17,7 @@ let unone : type t. t prot one e -> t prot = function
 let unmany : type t. t prot many e -> t prot lazy_t list = function
     Many p -> p
   
-include Lens.Make(struct type 't u = 't e end)
+include Mpst_base.Lens.Make(struct type 't u = 't e end)
             
 type ('r, 'v1, 'v2, 's1, 's2) role =
   {role:'r;

@@ -1,2 +1,4 @@
 (library
- (name lens))
+ (name mpst_base)
+ (flags ("-g" "-short-paths"))
+ (libraries lwt))

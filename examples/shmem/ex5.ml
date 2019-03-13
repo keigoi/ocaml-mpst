@@ -36,7 +36,7 @@ let () =
   begin try
       ignore (get_sess c g)
     with
-      RoleNotEnabled ->
+      Mpst_base.RoleNotEnabled ->
       print_endline "Exception RoleNotEnabled raised as expected"
   end;
   ()

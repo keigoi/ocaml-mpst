@@ -1,0 +1,5 @@
+(executable
+ (name msgsize)
+  (public_name benchmark_msgsize)
+  (flags ("-g" "-short-paths"))
+  (libraries mpst_shmem mpst_implicit mpst_explicit lwt.unix core_bench))

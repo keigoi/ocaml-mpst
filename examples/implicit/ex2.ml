@@ -1,7 +1,8 @@
 (* multicasts *)
-open Mpst_implicit.Session
-open Mpst_implicit.Global
-open Mpst_implicit.Util
+open Mpst_implicit.IPC
+open Session
+open Global
+open Util
    
 let a : ([`A],_,_,_,_) role = {role=`A; lens=Fst}
 let b : ([`B],_,_,_,_) role = {role=`B; lens=Next Fst}

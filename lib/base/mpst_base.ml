@@ -1,14 +1,8 @@
-module Lens = Lens
 module S = S
+module Lens = Lens
+module Connection = Connection
 
-exception RoleNotEnabled
-exception ReceiveFail
+module Raw_unixpipe = Raw_unixpipe
+module Raw_lwtstream = Raw_lwtstream
 
-let repeat num f =
-  let r = ref [] in
-  for i=0 to num-1
-  do
-    r := (f i)::!r
-  done;
-  !r
-            
+include Base

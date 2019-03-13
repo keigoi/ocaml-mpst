@@ -4,9 +4,9 @@ open Mpst_shmem.Util
 
 let (>>=) = Lwt.(>>=)
 
-let a = {role=`A; lens=Fst}
-let b = {role=`B; lens=Next Fst}
-let c = {role=`C; lens=Next (Next Fst)}
+let a : ([`A],_,_,_,_) role = {role=`A; lens=Fst}
+let b : ([`B],_,_,_,_) role = {role=`B; lens=Next Fst}
+let c : ([`C],_,_,_,_) role = {role=`C; lens=Next (Next Fst)}
 
 let finish = one @@ one @@ one @@ nil
 

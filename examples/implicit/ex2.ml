@@ -1,11 +1,11 @@
+(* multicasts *)
 open Mpst_implicit.Session
 open Mpst_implicit.Global
 open Mpst_implicit.Util
    
-let a = {role=`A; lens=Fst}
-let b = {role=`B; lens=Next Fst}
-let c = {role=`C; lens=Next (Next Fst)}
-let lv = Lazy.from_val
+let a : ([`A],_,_,_,_) role = {role=`A; lens=Fst}
+let b : ([`B],_,_,_,_) role = {role=`B; lens=Next Fst}
+let c : ([`C],_,_,_,_) role = {role=`C; lens=Next (Next Fst)}
 
 let finish = many_at b 10 (one @@ one @@ one @@ nil)
 

@@ -144,21 +144,28 @@ let role : type l ks k r. (r, l) send prot one e lazy_t -> r =
 let lf = Lazy.force
 
 let lv = Lazy.from_val
-                      
+
+let rec merge__ : type t. t e -> t e -> t e = fun l r ->
+  match l,r with
+  | One(l), One(r) ->
+     One(lazy (Internal.merge (lf l) (lf r)))
+  | Many(ls), Many(rs) ->
+     Many(List.map2 (fun x y -> lazy (Internal.merge (lf x) (lf y))) ls rs)
+
 let rec merge_ : type t. t slots lazy_t -> t slots lazy_t -> t slots lazy_t =
   fun l r ->
-  match l, r with
-  | lazy (Cons(lazy (One hd_l),tl_l)), lazy (Cons(lazy (One hd_r), tl_r)) ->
-     lazy (Cons (lv (One (lazy (Internal.merge (lf hd_l) (lf hd_r)))), merge_ tl_l tl_r))
-  | lazy (Cons(lazy (Many hd_l),tl_l)), lazy (Cons(lazy (Many hd_r),tl_r)) ->
-     lazy (Cons (lazy (Many (List.rev @@ List.rev_map2 (fun x y -> lazy (Internal.merge (lf x) (lf y))) hd_l hd_r)), merge_ tl_l tl_r))
-  | lazy Nil, _ ->
-     Lazy.from_val Nil
+  lazy begin
+      match l, r with
+      | lazy (Cons(hd_l,tl_l)), lazy (Cons(hd_r, tl_r)) ->
+         (Cons(lazy (merge__ (lf hd_l) (lf hd_r)), merge_ tl_l tl_r))
+      | lazy Nil, _ ->
+         Nil
+    end
 
 let choice_at a {label_merge} (al,cl) (ar,cr) =
   let sal, sar = lens_get al.lens cl, lens_get ar.lens cr in
-  let cl, cr = lens_put al.lens cl (Lazy.from_val @@ One (lv Close)),
-               lens_put ar.lens cr (Lazy.from_val @@ One (lv Close)) in
+  let cl, cr = lens_put_ al.lens cl (One (lv Close)),
+               lens_put_ ar.lens cr (One (lv Close)) in
   let c = merge_ cl cr in
   let lr = lazy (One (lazy (Send (role sar, label_merge (label sal) (label sar))))) in
   lens_put a.lens c lr

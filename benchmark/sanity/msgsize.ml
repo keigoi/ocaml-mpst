@@ -26,7 +26,7 @@ module Bench(S:Mpst_base.S.SESSION)(G:Mpst_base.S.GLOBAL with module Session = S
   let tA cnt s =
     let rec loop i s =
       receive `B s >>= fun (`msg((),s)) ->
-      if i > 0 then begin
+      if i = 0 then begin
           let s = send `B (fun x->x#left) () s in
           close s;
           Lwt.return ()
@@ -54,31 +54,25 @@ end
 module Bench_shmem = Bench(Mpst_shmem.Session)(Mpst_shmem.Global)(Mpst_shmem.Util)
 module Bench_implicit = Bench(Mpst_implicit.Session)(Mpst_implicit.Global)(Mpst_implicit.Util)
 
-let count = 10000
+let counts = [100; 1000; 10000; 100000]
 
-let run_shmem () =
+let run_shmem cnt = Core.Staged.stage @@ fun () ->
   let open Bench_shmem in
   let open Mpst_shmem.Global in
   let g = mkglobal () in
   let sa = get_sess a g in
   let sb = get_sess b g in
-  Lwt_main.run (Lwt.join [tA count sa; tB sb])
+  Lwt_main.run (Lwt.join [tA cnt sa; tB sb])
 
-let run_implicit () =
+let run_implicit cnt =
   let open Bench_implicit in
   let open Mpst_implicit.Global in
-  let g = mkglobal () in
+  let g = Mpst_implicit.Util.mkpipes [`A;`B] (mkglobal ()) in
   let sa = get_sess a g in
   let sb = get_sess b g in
-  let open Mpst_implicit.Forkpipe in
-  let [b_conn] =
-    forkmany [{procname="B";procbody=(fun [a_conn] ->
-                               Lwt_main.run @@ tB (sb |> add_conn `A a_conn)
-                             )}]
-  in
-  Lwt_main.run @@ tA count (sa |> add_conn `B b_conn);
-  b_conn.close ()
-                            
+  Core.Staged.stage @@ fun () ->
+  Mpst_implicit.Util.fork (fun () -> Lwt_main.run (tB sb));
+  Lwt_main.run (tA cnt sa)
   
 (* https://blog.janestreet.com/core_bench-micro-benchmarking-for-ocaml/ *)
 let () =
@@ -86,6 +80,8 @@ let () =
   let open Core_bench in
   Command.run
     (Bench.make_command [
-         Bench.Test.create ~name:"shmem" run_shmem;
-         Bench.Test.create ~name:"implicit" run_implicit;
+         Bench.Test.create_indexed ~name:"shmem" ~args:counts run_shmem;
+         Bench.Test.create_indexed ~name:"implicit" ~args:counts run_implicit;
     ])
+
+(* let () = run_shmem() *)

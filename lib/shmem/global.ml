@@ -167,7 +167,7 @@ let choice_at a {label_merge} (al,cl) (ar,cr) =
   let cl, cr = lens_put_ al.lens cl (One (lv Close)),
                lens_put_ ar.lens cr (One (lv Close)) in
   let c = merge_ cl cr in
-  let lr = lazy (One (lazy (Send (role sar, label_merge (label sal) (label sar))))) in
+  let lr = lv (One (lv (Send (role sar, label_merge (label sal) (label sar))))) in
   lens_put a.lens c lr
 
 let loop c0 = lazy (Lazy.force (Lazy.force c0))

@@ -43,7 +43,7 @@ module Util = struct
     | [], lazy Nil -> lazy Nil
     | _ -> assert false
     
-  let rec mkconn : type t. [>] list -> t slots lazy_t -> t slots lazy_t  =
+  let rec mkpipes : type t. [>] list -> t slots lazy_t -> t slots lazy_t  =
     fun rs ss ->
     let roles = count (rs, ss) in
     let pipes = Forkpipe.mpst_pipes_groups roles in

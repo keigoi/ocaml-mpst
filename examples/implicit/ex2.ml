@@ -6,8 +6,8 @@ let a = {role=`A; lens=Fst}
 let b = {role=`B; lens=Next Fst}
 let c = {role=`C; lens=Next (Next Fst)}
 let lv = Lazy.from_val
-      
-let finish = one @@ one @@ one @@ nil
+
+let finish = many_at b 10 (one @@ one @@ one @@ nil)
 
 let (>>=) = Lwt.(>>=)
 
@@ -95,13 +95,9 @@ let t3 s : unit Lwt.t =
 let () =
   let pa, pb, pc =
     let g = create_g () in
-    get_sess a g, get_sess b g, get_sess c g
+    let g = mkpipes [`A;`B;`C] g in
+    get_sess a g, get_sess_many b g, get_sess c g
   in
-  let open Mpst_implicit.Forkpipe in
-  let [b_conns; [c_conn]] =
-    forkmany_groups [
-        {groupname="B";count=5;groupbody=(fun i [[a_conn];[c_conn]] ->
-           Lwt_main.run (t2 i (pb |> add_conn `A a_conn |> add_conn `C c_conn)))};
-        {groupname="C";count=1;groupbody=(fun _ [[a_conn];b_conns] ->
-           Lwt_main.run (t3 (pc |> add_conn `A a_conn |> add_conn_many `B b_conns)))}] in
-  Lwt_main.run (t1 (pa |> add_conn_many `B b_conns |> add_conn `C c_conn))
+  List.iteri (fun i s -> fork (fun () -> Lwt_main.run (t2 i s))) pb;
+  fork (fun () -> Lwt_main.run (t3 pc));
+  Lwt_main.run (t1 pa)

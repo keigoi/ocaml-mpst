@@ -26,7 +26,7 @@ module Make(X:sig type conn end) = struct
     Many p -> Lazy.force p
 
   let unsess_many p =
-    List.hd @@ List.map (fun (Sess(_,p)) -> p) (unmany p) 
+    List.map (fun (Sess(_,p)) -> p) (unmany p) 
      
   include Mpst_base.Lens.Make(struct type 't u = 't e end)
 
@@ -76,15 +76,15 @@ module Make(X:sig type conn end) = struct
                     (la, lb, sa sess, sb sess, v, v) label ->
                     c0 lazy_t -> c2 lazy_t =
     fun a b ({select_label;offer_label;channel}) c0 ->
-    let sb = lens_get b.lens c0 in
+    let sbs = lens_get b.lens c0 in
     let sbs =
-      Lazy.from_val @@
-        Many (Lazy.from_val @@
-               [sess_ @@
+      lazy 
+        (Many (lazy (List.map
+              (fun sb ->                
+               sess_ @@
                     Receive (a.role, [(fun kt ->
                              channel.receiver (ConnTable.getone kt a.role) |>
-                               Lwt.map (fun v -> offer_label (v, Sess(kt,unsess_many @@ Lazy.force sb))))
-          ])])
+                               Lwt.map (fun v -> offer_label (v, Sess(kt, sb))))])) @@ unsess_many (Lazy.force sbs))))
     in
     let c1 = lens_put b.lens c0 sbs in
     let sa = lens_get a.lens c1 in
@@ -107,15 +107,17 @@ module Make(X:sig type conn end) = struct
                     (la, lb, sa sess, sb sess, v, v list) label ->
                     c0 lazy_t -> c2 lazy_t =
     fun a b ({select_label;offer_label;channel}) c0 ->
-    let sa = lens_get a.lens c0 in
+    let sas = lens_get a.lens c0 in
     let sa =
-      Lazy.from_val @@
-        Many (Lazy.from_val @@
-                [sess_ @@
+      lazy 
+        (Many (lazy (List.map
+              (fun sa ->                
+               sess_ @@
                    Send (b.role, 
                          (fun kt -> select_label (fun v ->
                                         channel.sender (ConnTable.getone kt b.role) v;
-                                        Sess(kt, unsess_many @@ Lazy.force sa))))])
+                                        Sess(kt, sa)))))
+           @@ unsess_many (Lazy.force sas))))
     in
     let c1 = lens_put a.lens c0 sa in
     let sb = lens_get b.lens c1 in
@@ -165,9 +167,10 @@ module Make(X:sig type conn end) = struct
     match l, r with
     | lazy (Cons(lazy (One(lazy(Sess(_,hd_l)))),tl_l)), lazy (Cons(lazy (One(lazy(Sess(_,hd_r)))),tl_r)) ->
        lazy (Cons (lazy (One(sess @@ Internal.merge hd_l hd_r)), merge_ tl_l tl_r))
+    | lazy (Cons(lazy (Many (lazy hd_l)),tl_l)), lazy (Cons(lazy (Many (lazy hd_r)),tl_r)) ->
+       lazy (Cons (lazy (Many (lazy (List.rev @@ List.rev_map2 (fun (Sess(_,x)) (Sess(_,y)) -> sess_ @@ Internal.merge x y) hd_l hd_r))), merge_ tl_l tl_r))
     | lazy Nil, _ ->
        Lazy.from_val Nil
-    | _ -> failwith "merge_"
 
   let choice_at a {label_merge} (al,cl) (ar,cr) =
     let sal, sar = lens_get al.lens cl, lens_get ar.lens cr in
@@ -179,10 +182,10 @@ module Make(X:sig type conn end) = struct
 
   let choicemany_at a {label_merge} (al,cl) (ar,cr) =
     let sal, sar = lens_get al.lens cl, lens_get ar.lens cr in
-    let cl, cr = lens_put_ al.lens cl (Many(Lazy.from_val@@[sess_ Close])),
-                 lens_put_ ar.lens cr (Many(Lazy.from_val@@[sess_ Close])) in
+    let cl, cr = lens_put_ al.lens cl (One(sess Close)),
+                 lens_put_ ar.lens cr (One(sess Close)) in
     let c = merge_ cl cr in
-    let lr = Many(Lazy.from_val @@ [sess_ @@ SendMany (rolemany sar, (fun ks k -> label_merge (labelmany sal ks k) (labelmany sar ks k)))]) in
+    let lr = One(sess @@ SendMany (rolemany sar, (fun ks k -> label_merge (labelmany sal ks k) (labelmany sar ks k)))) in
     lens_put_ a.lens c lr
 
   let loop c0 = lazy (Lazy.force (Lazy.force c0))
@@ -200,6 +203,25 @@ module Make(X:sig type conn end) = struct
   let get_sess r m =
     unone @@ lens_get_ r.lens m
     
+  let get_sess_many r m =
+    unmany @@ lens_get_ r.lens m
+    
   let nil = Lazy.from_val Nil
   let one tl = Lazy.from_val @@ Cons(Lazy.from_val @@ One(sess Close), tl)
+
+  open Mpst_base
+
+  let many_at (role: ('r, close sess one, close sess many, 'c0, 'c1) role) num (cont:'c0 lazy_t) =
+    let cs =
+      repeat num (fun i -> sess_ Close)
+    in
+    lens_put role.lens cont (lazy (Many (lazy cs)))
+    
+
+  let many_at_ role num cont =
+    let cs =
+      repeat num (fun i ->
+          List.nth (unmany @@ lens_get_ role.lens cont) i)
+    in
+    lens_put role.lens cont (lazy (Many (lazy cs)))
 end

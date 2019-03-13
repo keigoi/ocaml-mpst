@@ -96,7 +96,7 @@ let t3 s : unit Lwt.t =
   
 let () =
   let g = create_g () in
-  let g = mkconn [`A;`B;`C] g in
+  let g = mkpipes [`A;`B;`C] g in
   let pa, pb, pc = get_sess a g, get_sess b g, get_sess c g in
   fork (fun () -> Lwt_main.run (t2 pb));
   fork (fun () -> Lwt_main.run (t3 pc));

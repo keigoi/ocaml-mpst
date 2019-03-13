@@ -1,4 +1,5 @@
 module Session = Session
+open Mpst_base
 open Session
 
  
@@ -173,13 +174,6 @@ let get_sess_many r m =
   match p with Many ps -> List.map Lazy.force ps
 
 let lv = Lazy.from_val
-let repeat num f =
-  let r = ref [] in
-  for i=0 to num-1
-  do
-    r := (f i)::!r
-  done;
-  !r
   
 
 let nil = lv Nil

@@ -96,13 +96,9 @@ let t3 s : unit Lwt.t =
   
 let () =
   let g = create_g () in
+  let g = mkconn [`A;`B;`C] g in
   let pa, pb, pc = get_sess a g, get_sess b g, get_sess c g in
-  let open Mpst_implicit.Forkpipe in
-  let [b_conn; c_conn] =
-    forkmany [
-        {procname="B";procbody=(fun [a_conn;c_conn] ->
-           Lwt_main.run (t2 (pb |> add_conn `A a_conn |> add_conn `C c_conn)))};
-         {procname="C";procbody=(fun [a_conn;b_conn] ->
-            Lwt_main.run (t3 (pc |> add_conn `A a_conn |> add_conn `B b_conn)))}] in
-  Lwt_main.run (t1 (pa |> add_conn `B b_conn |> add_conn `C c_conn))
+  fork (fun () -> Lwt_main.run (t2 pb));
+  fork (fun () -> Lwt_main.run (t3 pc));
+  Lwt_main.run (t1 pa)
 

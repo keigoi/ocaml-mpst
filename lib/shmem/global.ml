@@ -4,7 +4,6 @@ open Session
  
 type 'a one = One__ of 'a       
 type 'a many = Many__ of 'a       
-type conn = Conn
 
 type _ e =
   (* slot contents *)

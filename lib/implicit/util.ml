@@ -1,7 +1,7 @@
 open Mpst_base
 
-module Make(X:S.RAW) = struct
-  module Global = Global.Make(X)
+module Make(F:S.FLAG)(X:S.RAW) = struct
+  module Global = Global.Make(F)(X)
   open Global
   open X
   

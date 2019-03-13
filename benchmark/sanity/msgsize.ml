@@ -1,8 +1,11 @@
+open Mpst_base
 let (>>=) = Lwt.(>>=)
 
-module Bench(S:Mpst_base.S.SESSION)(G:Mpst_base.S.GLOBAL with module Session = S)(U:Mpst_base.S.UTIL with module Global = G) = struct
-  open G
-  open U
+module Bench(M:S.MPST) = struct
+  open M
+  open Global
+  open Session
+  open Util
 
   let a = {role=`A; lens=Fst}
   let b = {role=`B; lens=Next Fst}
@@ -22,7 +25,6 @@ module Bench(S:Mpst_base.S.SESSION)(G:Mpst_base.S.GLOBAL with module Session = S
     in
     Lazy.force g
 
-  open S
   let tA cnt s =
     let rec loop i s =
       receive `B s >>= fun (`msg((),s)) ->
@@ -51,11 +53,10 @@ module Bench(S:Mpst_base.S.SESSION)(G:Mpst_base.S.GLOBAL with module Session = S
 
 end
 
-module Bench_shmem = Bench(Mpst_shmem.Session)(Mpst_shmem.Global)(Mpst_shmem.Util)
-module Bench_implicit_ipc = Bench(Mpst_implicit.IPC.Session)(Mpst_implicit.IPC.Global)(Mpst_implicit.IPC.Util)
-module Bench_implicit_lwt = Bench(Mpst_implicit.Lwt.Session)(Mpst_implicit.Lwt.Global)(Mpst_implicit.Lwt.Util)
-
-
+module Bench_shmem = Bench(Mpst_shmem)
+module Bench_implicit_ipc = Bench(Mpst_implicit.IPC)
+module Bench_implicit_lwt = Bench(Mpst_implicit.Lwt)
+                          
 let run_shmem cnt = Core.Staged.stage @@ fun () ->
   let open Bench_shmem in
   let open Mpst_shmem.Global in
@@ -64,39 +65,66 @@ let run_shmem cnt = Core.Staged.stage @@ fun () ->
   let sb = get_sess b g in
   Lwt_main.run (Lwt.join [tA cnt sa; tB sb])
 
-let run_implicit_ipc cnt =
-  let open Bench_implicit_ipc in
-  let open Mpst_implicit.IPC in
+module type IMPLICIT = sig
+  include S.MPST
+  type conn
+  val assign :
+    (Obj.t * (Obj.t * conn list list) list) list ->
+    'a Global.slots lazy_t -> 'a Global.slots lazy_t
+  val mkpipes :
+    [>  ] list ->
+    't Global.slots lazy_t -> (Obj.t * (Obj.t * conn list list) list) list
+  val pipes : [>  ] list -> 'a Global.slots lazy_t -> 'a Global.slots lazy_t
+end
+                     
+
+let run_implicit_lwt0 (module M:IMPLICIT) cnt =
+  let module Bench = Bench(M) in
+  let open Bench in
+  let open M in
   let open Global in
-  let g = mkpipes [`A;`B] (mkglobal ()) in
+  let pipes = mkpipes [`A;`B] (mkglobal ()) in
+  Core.Staged.stage @@ fun () ->
+  let g = assign pipes (mkglobal ()) in
   let sa = get_sess a g in
   let sb = get_sess b g in
+  Lwt_main.run (Lwt.join [tA cnt sa; tB sb])
+
+let run_implicit_lwt_nodynchk cnt =
+  run_implicit_lwt0 (module Mpst_implicit.LwtNoDynCheck) cnt
+
+let run_implicit_lwt cnt =
+  run_implicit_lwt0 (module Mpst_implicit.Lwt) cnt
+
+let run_implicit_pipe_nodynchk cnt =
+  run_implicit_lwt0 (module Mpst_implicit.IPCNoDynCheck) cnt
+
+let run_implicit_pipe cnt =
+  run_implicit_lwt0 (module Mpst_implicit.IPC) cnt
+
+let run_implicit_fork (module M:IMPLICIT) cnt =
+  let module Bench = Bench(M) in
+  let open Bench in
+  let open M in
+  let open Global in
+  let pipes = mkpipes [`A;`B] (mkglobal ()) in
   Core.Staged.stage @@ fun () ->
+  let g = assign pipes (mkglobal ()) in
+  let sa = get_sess a g in
+  let sb = get_sess b g in
   fork (fun () -> Lwt_main.run (tB sb));
   Lwt_main.run (tA cnt sa)
 
-let run_implicit_pipe cnt =
-  let open Bench_implicit_ipc in
-  let open Mpst_implicit.IPC in
-  let open Global in
-  let g = mkpipes [`A;`B] (mkglobal ()) in
-  let sa = get_sess a g in
-  let sb = get_sess b g in
-  Core.Staged.stage @@ fun () ->
-  Lwt_main.run (Lwt.join [tA cnt sa; tB sb])
+let run_implicit_ipc_nodynchk cnt =
+  run_implicit_fork (module Mpst_implicit.IPCNoDynCheck) cnt
 
-let run_implicit_lwt cnt =
-  let open Bench_implicit_lwt in
-  let open Mpst_implicit.Lwt in
-  let open Global in
-  let g = mkpipes [`A;`B] (mkglobal ()) in
-  let sa = get_sess a g in
-  let sb = get_sess b g in
-  Core.Staged.stage @@ fun () ->
-  Lwt_main.run (Lwt.join [tA cnt sa; tB sb])
+let run_implicit_ipc cnt =
+  run_implicit_fork (module Mpst_implicit.IPC) cnt
   
 (* let counts = [1000;2000;3000;5000;10000] *)
-let counts = [1000;10000]
+(* let counts = [1000;10000] *)
+(* let counts = [10000] *)
+let counts = [1000]
 
 (* https://blog.janestreet.com/core_bench-micro-benchmarking-for-ocaml/ *)
 let () =
@@ -104,8 +132,11 @@ let () =
   let open Core_bench in
   Command.run
     (Bench.make_command [
-         Bench.Test.create_indexed ~name:"shmem" ~args:counts run_shmem;
+         (* Bench.Test.create_indexed ~name:"shmem" ~args:counts run_shmem; *)
+         Bench.Test.create_indexed ~name:"implicit/lwt(nodyn)" ~args:counts run_implicit_lwt_nodynchk;
          Bench.Test.create_indexed ~name:"implicit/lwt" ~args:counts run_implicit_lwt;
-         Bench.Test.create_indexed ~name:"implicit/pipe" ~args:counts run_implicit_pipe;
-         Bench.Test.create_indexed ~name:"implicit/IPCpipe" ~args:counts run_implicit_ipc;
+         (* Bench.Test.create_indexed ~name:"implicit/pipe(nodyn)" ~args:counts run_implicit_pipe_nodynchk; *)
+         (* Bench.Test.create_indexed ~name:"implicit/pipe" ~args:counts run_implicit_pipe; *)
+         (* Bench.Test.create_indexed ~name:"implicit/IPCpipe(nodyn)" ~args:counts run_implicit_ipc_nodynchk; *)
+         (* Bench.Test.create_indexed ~name:"implicit/IPCpipe" ~args:counts run_implicit_ipc; *)
     ])

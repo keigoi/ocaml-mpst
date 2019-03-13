@@ -1,6 +1,6 @@
 open Mpst_base
 
-module Make(X:sig type conn end) = struct
+module Make(Flag:S.FLAG)(X:sig type conn end) = struct
   
   type ('r,'ls) send = Send__
   type ('r,'ls) sendmany = SendMany__
@@ -48,7 +48,7 @@ module Make(X:sig type conn end) = struct
         ('r, 'ls) receive prot
     
   type 'p sess =
-    Sess of ConnTable.t * 'p prot
+    {once:Flag.t; conn:ConnTable.t; prot:'p prot}
 
   let send : 'r 'ls 'v 's.
              ([>] as 'r) ->
@@ -56,8 +56,9 @@ module Make(X:sig type conn end) = struct
              'v ->
              ('r, 'ls) send sess ->
              's sess =
-    fun _ sel v (Sess(ks,(Send (_,f)))) ->
-    let s = sel (f ks) v in
+    fun _ sel v {once;conn;prot=Send (_,f)} ->
+    Flag.use once;
+    let s = sel (f conn) v in
     s
 
   let multicast : 'r 'ls 'v 's.
@@ -66,8 +67,9 @@ module Make(X:sig type conn end) = struct
                   (int -> 'v) ->
                   ('r, 'ls) sendmany sess ->
                   's sess =
-    fun _ sel f (Sess(ks,SendMany (r,ls))) ->
-    match List.mapi (fun i k -> sel (ls ks k) (f i)) (ConnTable.getmany ks r) with
+    fun _ sel f {once;conn;prot=SendMany (r,ls)} ->
+    Flag.use once;
+    match List.mapi (fun i k -> sel (ls conn k) (f i)) (ConnTable.getmany conn r) with
     | [] -> failwith "no connection"
     | s::_ -> s
   
@@ -81,20 +83,22 @@ module Make(X:sig type conn end) = struct
   let receive : 'r 'ls.
                 ([>] as 'r) ->
                 ('r, 'ls) receive sess -> 'ls Lwt.t =
-    fun _ (Sess(ks,s)) ->
+    fun _ {once;conn;prot=s} ->
+    Flag.use once;
     match s with
     | Receive(_, fs) ->
-       first ks fs
+       first conn fs
     | DummyReceive ->
        failwith "Session: DummyReceive encountered" 
 
   let gather : 'r 'ls.
                ([>] as 'r) ->
                ('r, 'ls) receivemany sess -> 'ls Lwt.t =
-    fun _ (Sess(ks,ReceiveMany(_,f))) ->
-    first ks f
+    fun _ {once;conn;prot=ReceiveMany(_,f)} ->
+    Flag.use once;
+    first conn f
 
-  let close (Sess(_,Close)) = ()
+  let close {once;conn;prot=Close} = Flag.use once
 
   module Internal = struct
     

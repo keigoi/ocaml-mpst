@@ -1,4 +1,4 @@
 (library
  (name mpst_base)
  (flags ("-g" "-short-paths"))
- (libraries lwt unix lwt.unix))
+ (libraries core lwt unix lwt.unix))

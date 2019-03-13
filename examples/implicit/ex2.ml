@@ -96,9 +96,9 @@ let t3 s : unit Lwt.t =
 let () =
   let pa, pb, pc =
     let g = create_g () in
-    let g = mkpipes [`A;`B;`C] g in
+    let g = pipes [`A;`B;`C] g in
     get_sess a g, get_sess_many b g, get_sess c g
   in
-  List.iteri (fun i s -> fork (fun () -> Lwt_main.run (t2 i s))) pb;
-  fork (fun () -> Lwt_main.run (t3 pc));
+  List.iteri (fun i s -> Mpst_base.fork (fun () -> Lwt_main.run (t2 i s))) pb;
+  Mpst_base.fork (fun () -> Lwt_main.run (t3 pc));
   Lwt_main.run (t1 pa)

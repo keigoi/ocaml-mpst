@@ -127,6 +127,12 @@ module type UTIL =
         Global.label_merge
   end
 
+module type MPST = sig
+  module Session : SESSION
+  module Global : GLOBAL with module Session = Session
+  module Util : UTIL with module Global = Global
+end
+  
 module type RAW =
   sig
     type conn
@@ -135,3 +141,9 @@ module type RAW =
     val try_read : ('a -> Obj.t option) -> conn -> 'b Lwt.t
   end
     
+module type FLAG = sig
+  type t
+  val create     : unit -> t
+  val use        : t -> unit
+  val try_use    : t -> bool
+end

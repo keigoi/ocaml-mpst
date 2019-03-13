@@ -1,5 +1,9 @@
-module Make(X:sig type conn end) = struct
-  module Session = Session.Make(X)
+open Mpst_base
+
+let (>>=) = Lwt.(>>=)
+
+module Make(Flag:S.FLAG)(X:sig type conn end) = struct
+  module Session = Session.Make(Flag)(X)
   open Session
 
   type 'a one = One__ of 'a
@@ -14,21 +18,23 @@ module Make(X:sig type conn end) = struct
     One p -> Lazy.force p
 
   let unsess p =
-    match unone p with Sess(_,p) -> p
-
-  let sess p =
-    Lazy.from_val @@ Sess(ConnTable.create(),p)
+    match unone p with {prot; _} -> prot
 
   let sess_ p =
-    Sess(ConnTable.create(),p)
+    {once=Flag.create();
+     conn=ConnTable.create();
+     prot=p}
+
+  let sess p =
+    Lazy.from_val @@ sess_ p
            
   let unmany : type t. t sess many e -> t sess list = function
     Many p -> Lazy.force p
 
   let unsess_many p =
-    List.map (fun (Sess(_,p)) -> p) (unmany p) 
+    List.map (fun {prot; _} -> prot) (unmany p) 
      
-  include Mpst_base.Lens.Make(struct type 't u = 't e end)
+  include Lens.Make(struct type 't u = 't e end)
 
   type 'v channel =
     {sender: conn -> 'v -> unit;
@@ -56,15 +62,23 @@ module Make(X:sig type conn end) = struct
       Lazy.from_val @@
         One (sess @@
                Send (b.role, 
-                     (fun kt -> select_label (fun v -> channel.sender (ConnTable.getone kt b.role) v; Sess(kt,unsess @@ Lazy.force sa)))))
+                     (fun kt ->
+                       select_label (fun v ->
+                           channel.sender (ConnTable.getone kt b.role) v;
+                           {once=Flag.create();
+                            conn=kt;
+                            prot=unsess @@ Lazy.force sa}))))
     in
     let c1 = lens_put a.lens c0 sa in
     let sb = lens_get b.lens c1 in
     let sb =
       Lazy.from_val @@
         One (sess @@
-               Receive (a.role, [(fun kt ->
-                                    Lwt.map (fun v -> offer_label (v, Sess(kt,unsess @@ Lazy.force sb))) (channel.receiver (ConnTable.getone kt a.role)))]))
+               Receive (a.role,
+                        [(fun kt ->
+                            channel.receiver (ConnTable.getone kt a.role) |> Lwt.map @@ fun v ->
+                            offer_label
+                              (v, {once=Flag.create(); conn=kt; prot=unsess @@ Lazy.force sb}))]))
     in
     let c2 = lens_put b.lens c1 sb in
     c2
@@ -78,15 +92,17 @@ module Make(X:sig type conn end) = struct
     fun a b ({select_label;offer_label;channel}) c0 ->
     let sbs = lens_get b.lens c0 in
     let sbs =
-      lazy 
-        (Many (lazy (List.map
-              (fun sb ->                
-               sess_ @@
-                    Receive (a.role, [(fun kt ->
-                             channel.receiver (ConnTable.getone kt a.role) |>
-                               Lwt.map (fun v -> offer_label (v, Sess(kt, sb))))])) @@ unsess_many (Lazy.force sbs))))
+      lazy begin
+          unsess_many (Lazy.force sbs) |>
+          List.map (fun sb ->
+                sess_ @@
+                  Receive (a.role,
+                           [(fun kt ->
+                             channel.receiver (ConnTable.getone kt a.role) |> Lwt.map @@ fun v ->
+                             offer_label (v, {once=Flag.create();conn=kt;prot=sb}))]))
+        end
     in
-    let c1 = lens_put b.lens c0 sbs in
+    let c1 = lens_put b.lens c0 (Lazy.from_val @@ Many sbs) in
     let sa = lens_get a.lens c1 in
     let sa =
       Lazy.from_val @@
@@ -95,7 +111,9 @@ module Make(X:sig type conn end) = struct
                          (fun kt k ->
                            select_label (fun v ->
                                channel.sender k v;
-                               Sess(kt,unsess @@ Lazy.force sa)))))
+                               {once=Flag.create();
+                                conn=kt;
+                                prot=unsess @@ Lazy.force sa}))))
     in
     let c2 = lens_put a.lens c1 sa in
     c2
@@ -108,27 +126,30 @@ module Make(X:sig type conn end) = struct
                     c0 lazy_t -> c2 lazy_t =
     fun a b ({select_label;offer_label;channel}) c0 ->
     let sas = lens_get a.lens c0 in
-    let sa =
-      lazy 
-        (Many (lazy (List.map
-              (fun sa ->                
-               sess_ @@
-                   Send (b.role, 
-                         (fun kt -> select_label (fun v ->
-                                        channel.sender (ConnTable.getone kt b.role) v;
-                                        Sess(kt, sa)))))
-           @@ unsess_many (Lazy.force sas))))
+    let sas =
+      lazy begin
+          unsess_many (Lazy.force sas) |>
+          List.map (fun sa ->                
+               sess_ @@ Send (b.role, 
+                              (fun kt ->
+                                select_label (fun v ->
+                                    channel.sender (ConnTable.getone kt b.role) v;
+                                    {once=Flag.create();
+                                     conn=kt;
+                                     prot=sa}))))
+        end
     in
-    let c1 = lens_put a.lens c0 sa in
+    let c1 = lens_put a.lens c0 (Lazy.from_val @@ Many sas) in
     let sb = lens_get b.lens c1 in
     let sb =
       Lazy.from_val @@
-        One (sess @@
-                    ReceiveMany (a.role,
-                     [(fun kt -> 
-                         Lwt_list.map_s (fun k -> channel.receiver k) (ConnTable.getmany kt a.role) |>
-                           Lwt.map (fun vs -> offer_label (vs, Sess(kt,unsess @@ Lazy.force sb)))
-          )]))
+        One (sess @@ ReceiveMany
+                       (a.role,
+                        [(fun kt ->
+                            let ks = ConnTable.getmany kt a.role in
+                            Lwt_list.map_s (fun k -> channel.receiver k) ks |> Lwt.map @@ fun vs ->
+                            offer_label (vs, {once=Flag.create(); conn=kt; prot=unsess @@ Lazy.force sb})
+                          )]))
     in
     let c2 = lens_put b.lens c1 sb in
     c2
@@ -144,31 +165,35 @@ module Make(X:sig type conn end) = struct
 
   let label : type l r. (r, l) send sess one e lazy_t -> ConnTable.t -> l =
     function
-    | lazy (One(lazy (Sess(_,Send (_, l))))) -> l
-    | lazy (One(lazy (Sess(_,Close)))) -> assert false
+    | lazy (One(lazy {prot=Send (_, l); _})) -> l
+    | lazy (One(lazy {prot=Close; _})) -> assert false
 
   let labelmany : type l r. (r, l) sendmany sess one e lazy_t -> ConnTable.t -> conn -> l =
     function
-    | lazy (One(lazy(Sess(_,SendMany (_, l))))) -> l
-    | lazy (One(lazy(Sess(_,Close)))) -> assert false
+    | lazy (One(lazy {prot=SendMany(_, l); _})) -> l
+    | lazy (One(lazy {prot=Close; _})) -> assert false
 
   let role : type l r. (r, l) send sess one e lazy_t -> r =
     function
-    | lazy (One(lazy(Sess(_,Send (r, _))))) -> r
-    | lazy (One(lazy(Sess(_,Close)))) -> assert false
+    | lazy (One(lazy {prot=Send(r, _); _})) -> r
+    | lazy (One(lazy {prot=Close; _})) -> assert false
 
   let rolemany : type l r. (r, l) sendmany sess one e lazy_t -> r =
     function
-    | lazy (One(lazy(Sess(_,SendMany (r, _))))) -> r
-    | lazy (One(lazy(Sess(_,Close)))) -> assert false
+    | lazy (One(lazy {prot=SendMany(r, _); _})) -> r
+    | lazy (One(lazy {prot=Close; _})) -> assert false
 
   let rec merge_ : type t. t slots lazy_t -> t slots lazy_t -> t slots lazy_t =
     fun l r ->
     match l, r with
-    | lazy (Cons(lazy (One(lazy(Sess(_,hd_l)))),tl_l)), lazy (Cons(lazy (One(lazy(Sess(_,hd_r)))),tl_r)) ->
+    | lazy (Cons(lazy (One(lazy {prot=hd_l;_})),tl_l)), lazy (Cons(lazy (One(lazy {prot=hd_r;_})),tl_r)) ->
        lazy (Cons (lazy (One(sess @@ Internal.merge hd_l hd_r)), merge_ tl_l tl_r))
     | lazy (Cons(lazy (Many (lazy hd_l)),tl_l)), lazy (Cons(lazy (Many (lazy hd_r)),tl_r)) ->
-       lazy (Cons (lazy (Many (lazy (List.rev @@ List.rev_map2 (fun (Sess(_,x)) (Sess(_,y)) -> sess_ @@ Internal.merge x y) hd_l hd_r))), merge_ tl_l tl_r))
+       lazy (Cons (lazy (Many (lazy (List.rev @@
+                                       List.rev_map2
+                                         (fun {prot=x; _} {prot=y; _} ->
+                                           sess_ @@ Internal.merge x y) hd_l hd_r))),
+                   merge_ tl_l tl_r))
     | lazy Nil, _ ->
        Lazy.from_val Nil
 
@@ -190,16 +215,6 @@ module Make(X:sig type conn end) = struct
 
   let loop c0 = lazy (Lazy.force (Lazy.force c0))
 
-  (* let count r cnt c0 =
-   *   let Prot(p) = lens_get_ r.lens c0 in
-   *   lens_put_ r.lens c0 (ProtCount(p,cnt))
-   *             
-   * let get_sess r m =
-   *   Sess(ConnTable.create (), unprot @@ lens_get_ r.lens m)
-   * 
-   * let add_conn r k (Sess(kt,p)) = Sess(ConnTable.putone kt r k, p)
-   * 
-   * let add_conn_many r ks (Sess(kt,p)) = Sess(ConnTable.putmany kt r ks, p) *)
   let get_sess r m =
     unone @@ lens_get_ r.lens m
     

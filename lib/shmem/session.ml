@@ -1,4 +1,7 @@
 open Mpst_base
+
+(* module Make(Flag:S.FLAG) = struct *)
+  
 type ('r,'ls) send = Send__
 type ('r,'ls) sendmany = SendMany__
 type ('r,'ls) receive = Receive__
@@ -56,3 +59,5 @@ module Internal = struct
     | Close, Close ->
        Close
 end
+
+(* end *)

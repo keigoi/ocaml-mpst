@@ -75,9 +75,13 @@ let t2 s : unit Lwt.t =
 (* participant C *)
 let t3 s : unit Lwt.t =
   let open Lwt in
+  Random.self_init ();
   print_endline "C: enter a number (positive or zero or negative):";
-  Lwt_io.read_line Lwt_io.stdin >>= fun line ->
-  let num = int_of_string line in
+  (* Lwt_io.read_line Lwt_io.stdin >>= fun line ->
+   * let num = int_of_string line in *)
+  let num =
+    if Random.bool () then 0 else 1
+  in
   let s = send `A (fun x->x#msg) num s in
   receive `B s >>= begin
       function

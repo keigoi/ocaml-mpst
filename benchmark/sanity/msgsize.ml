@@ -55,7 +55,6 @@ module Bench_shmem = Bench(Mpst_shmem.Session)(Mpst_shmem.Global)(Mpst_shmem.Uti
 module Bench_implicit_ipc = Bench(Mpst_implicit.IPC.Session)(Mpst_implicit.IPC.Global)(Mpst_implicit.IPC.Util)
 module Bench_implicit_lwt = Bench(Mpst_implicit.Lwt.Session)(Mpst_implicit.Lwt.Global)(Mpst_implicit.Lwt.Util)
 
-let counts = [100; 1000; 10000; 100000]
 
 let run_shmem cnt = Core.Staged.stage @@ fun () ->
   let open Bench_shmem in
@@ -76,6 +75,16 @@ let run_implicit_ipc cnt =
   fork (fun () -> Lwt_main.run (tB sb));
   Lwt_main.run (tA cnt sa)
 
+let run_implicit_pipe cnt =
+  let open Bench_implicit_ipc in
+  let open Mpst_implicit.IPC in
+  let open Global in
+  let g = mkpipes [`A;`B] (mkglobal ()) in
+  let sa = get_sess a g in
+  let sb = get_sess b g in
+  Core.Staged.stage @@ fun () ->
+  Lwt_main.run (Lwt.join [tA cnt sa; tB sb])
+
 let run_implicit_lwt cnt =
   let open Bench_implicit_lwt in
   let open Mpst_implicit.Lwt in
@@ -86,6 +95,9 @@ let run_implicit_lwt cnt =
   Core.Staged.stage @@ fun () ->
   Lwt_main.run (Lwt.join [tA cnt sa; tB sb])
   
+(* let counts = [1000;2000;3000;5000;10000] *)
+let counts = [1000;10000]
+
 (* https://blog.janestreet.com/core_bench-micro-benchmarking-for-ocaml/ *)
 let () =
   let open Core in
@@ -93,8 +105,7 @@ let () =
   Command.run
     (Bench.make_command [
          Bench.Test.create_indexed ~name:"shmem" ~args:counts run_shmem;
-         Bench.Test.create_indexed ~name:"IPC" ~args:counts run_implicit_ipc;
-         Bench.Test.create_indexed ~name:"Lwt" ~args:counts run_implicit_lwt;
+         Bench.Test.create_indexed ~name:"implicit/lwt" ~args:counts run_implicit_lwt;
+         Bench.Test.create_indexed ~name:"implicit/pipe" ~args:counts run_implicit_pipe;
+         Bench.Test.create_indexed ~name:"implicit/IPCpipe" ~args:counts run_implicit_ipc;
     ])
-
-(* let () = run_shmem() *)

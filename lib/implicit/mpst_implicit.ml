@@ -58,25 +58,22 @@ end
 
 module IPC = struct
   include Make(Flags.NanoMutexFlag)(Raw_unixpipe)
+  module Lin = LinSession.Make(Session)
 end
                     
 module Lwt = struct
   include Make(Flags.NanoMutexFlag)(Raw_lwtstream)
+  module Lin = LinSession.Make(Session)
 end
                     
 
 module IPCNoDynCheck = struct
   include Make(Flags.NoFlag)(Raw_unixpipe)
-
-  let fork f =
-    if Unix.fork () = 0 then begin
-        (f () : unit);
-        exit 0
-      end else
-      ()
+  module Lin = LinSession.Make(Session)
 end
                     
 module LwtNoDynCheck = struct
   include Make(Flags.NoFlag)(Raw_lwtstream)
+  module Lin = LinSession.Make(Session)
 end
 

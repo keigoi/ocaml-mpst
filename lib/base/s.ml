@@ -147,3 +147,59 @@ module type FLAG = sig
   val use        : t -> unit
   val try_use    : t -> bool
 end
+
+module type LIN_MONAD = sig
+  type _ slots =
+    Cons : 'x lazy_t * 'xs slots lazy_t -> ('x * 'xs) slots
+  | Nil : unit slots
+  and (_, _, _, _) lens =
+    Fst : ('a, 'b, ('a * 'xs) slots, ('b * 'xs) slots) lens
+  | Next :
+      ('a, 'b, 'xs slots, 'ys slots) lens -> ('a, 'b, ('x * 'xs) slots,
+                                              ('x * 'ys) slots)
+                                               lens
+  type 't slots_ = 't slots lazy_t
+
+  type 'a data = { data : 'a; }
+  type 'a lin = { __lindata : 'a; }
+  type 'f bind = { __call : 'f; }
+  type ('pre, 'post, 'a) monad = {__run:'pre -> ('post * 'a) Lwt.t}
+
+  val return : 'a -> ('b, 'b, 'a data) monad
+  val bind :
+    ('pre, 'mid, 'a data) monad ->
+    ('a -> ('mid, 'post, 'b) monad) -> ('pre, 'post, 'b) monad
+  val linbind :
+    ('pre, 'mid, 'a lin) monad ->
+    ('a lin -> ('mid, 'post, 'b) monad) bind -> ('pre, 'post, 'b) monad
+  val run :
+    (unit slots_, unit slots_, 'a data) monad ->
+    'a Lwt.t
+  val at :
+    ('p, 'q, 'a) monad ->
+    ('p, 'q, 'pre, 'post) lens ->
+    ('pre lazy_t, 'post lazy_t, 'a) monad
+  val expand :
+    ('t slots lazy_t, (unit * 't) slots lazy_t, unit) monad
+  val shrink :
+    ((unit * 't) slots lazy_t, 't slots lazy_t, unit) monad
+
+  module Op :
+  sig
+    val ( >>= ) :
+      ('pre, 'mid, 'a data) monad ->
+      ('a -> ('mid, 'post, 'b) monad) ->
+      ('pre, 'post, 'b) monad
+    val ( >>- ) :
+      ('pre, 'mid, 'a lin) monad ->
+      ('a lin -> ('mid, 'post, 'b) monad) bind ->
+      ('pre, 'post, 'b) monad
+    val ( @> ) :
+      ('p, 'q, 'a) monad ->
+      ('p, 'q, 'pre, 'post) lens ->
+      ('pre lazy_t, 'post lazy_t, 'a) monad
+  end
+
+end  
+                  
+                     

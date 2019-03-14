@@ -5,7 +5,7 @@ module Make(X:sig type 't u end) = struct
     Cons : 'x u lazy_t * 'xs slots lazy_t -> ('x * 'xs) slots
   | Nil : unit slots
 
-  and (_,_,_,_) lens =
+  type (_,_,_,_) lens =
     | Fst  : ('a, 'b, ('a * 'xs) slots, ('b * 'xs) slots) lens
     | Next : ('a,'b, 'xs slots,'ys slots) lens
              -> ('a,'b, ('x * 'xs) slots, ('x * 'ys) slots) lens

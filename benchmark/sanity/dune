@@ -1,9 +1,8 @@
 (executable
- (name msgsize)
- (modules msgsize)
+ (name iteration)
+ (modules iteration)
  (public_name benchmark_msgsize)
  (ocamlopt_flags -O3)
 ;  (ocamlopt_flags -Oclassic)
  (flags ("-g" "-short-paths"))
  (libraries mpst_shmem mpst_implicit mpst_explicit lwt.unix core_bench))
-

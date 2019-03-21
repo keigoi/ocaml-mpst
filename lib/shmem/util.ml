@@ -1,6 +1,8 @@
-module Global = Global
-open Session
-open Global
+open Mpst_base
+
+module Make(F:S.FLAG) = struct
+  module Global = Global.Make(F)
+  open Global
 
 let msg = {select_label=(fun f -> object method msg v=f v end);
            offer_label=(fun (v,c) -> `msg(v,c))}
@@ -14,3 +16,4 @@ let left_or_right =
 
 let right_or_left =
   {label_merge=(fun ol or_ -> object method left=or_#left method right=ol#right end)}
+end

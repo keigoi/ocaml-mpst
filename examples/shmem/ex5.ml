@@ -108,3 +108,13 @@ let () =
   ignore (get_sess c g);
   print_endline "got endpoint at Role C successfully";
   Lwt_main.run @@ Lwt.join [tA 0 (get_sess a g); tB (get_sess b g); tC (get_sess c g)]
+
+let () =
+  let g = (a --> b) apple finish in
+  let sa = get_sess a g in
+  let _ = send `B (fun x->x#apple) () sa in
+  try
+    ignore (send `B (fun x->x#apple) () sa)
+  with
+    Mpst_base.InvalidEndpoint ->
+    print_endline "Exception InvalidEndpoint raised as expected"

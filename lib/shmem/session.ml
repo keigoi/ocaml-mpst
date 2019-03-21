@@ -1,12 +1,12 @@
 open Mpst_base
 
-(* module Make(Flag:S.FLAG) = struct *)
-  
+module Make(Flag:S.FLAG) = struct
+
 type ('r,'ls) send = Send__
 type ('r,'ls) sendmany = SendMany__
 type ('r,'ls) receive = Receive__
 type close
-        
+
 type _ prot =
   | Send :
       'r * 'ls
@@ -18,32 +18,35 @@ type _ prot =
   | DummyReceive :
       ('r, 'ls) receive prot
 
-type 'p sess = 'p prot
-     
+type 'p sess =
+  {once:Flag.t; prot:'p prot}
+
 let send : 'r 'ls 'v 's.
   'r ->
-  ((< .. > as 'ls) -> 'v -> 's prot) ->
+  ((< .. > as 'ls) -> 'v -> 's sess) ->
   'v ->
-  ('r, 'ls) send prot ->
-  's prot =
-  fun _ sel v (Send (_,ls)) ->
+  ('r, 'ls) send sess ->
+  's sess =
+  fun _ sel v {once;prot=Send (_,ls)} ->
+  Flag.use once;
   let s = sel ls v in
   s
-     
+
 let receive : 'r 'ls.
   'r ->
-  ('r, 'ls) receive prot -> 'ls Lwt.t =
-  fun _ s ->
+  ('r, 'ls) receive sess -> 'ls Lwt.t =
+  fun _ {once;prot=s} ->
+  Flag.use once;
   match s with
   | Receive(_, lss) ->
      Lwt.choose (lss ())
   | DummyReceive ->
-     failwith "DummyReceive encountered" 
+     failwith "DummyReceive encountered"
 
-let close Close = ()
+let close {once;prot=Close} = Flag.use once
 
 module Internal = struct
-  
+
   let merge : type t. t prot -> t prot -> t prot = fun x y ->
     match x, y with
     | Send _, Send _ ->
@@ -60,4 +63,4 @@ module Internal = struct
        Close
 end
 
-(* end *)
+end

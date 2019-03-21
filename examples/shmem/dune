@@ -46,3 +46,19 @@
   (modules ex7)
   (flags ("-g" "-short-paths"))
   (libraries mpst_shmem lwt.unix))
+
+(executable
+ (name calc)
+  (public_name calc_mpst_shmem)
+  (modules calc)
+  (preprocess (pps lwt_ppx))
+  (flags ("-g" "-short-paths"))
+  (libraries mpst_shmem lwt.unix))
+
+(executable
+ (name calc_reuse)
+  (public_name calc_reuse_mpst_shmem)
+  (modules calc_reuse)
+  (preprocess (pps lwt_ppx))
+  (flags ("-g" "-short-paths"))
+  (libraries mpst_shmem lwt.unix))

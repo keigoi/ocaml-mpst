@@ -55,3 +55,47 @@ let () =
   and es = get_sess srv calc
   in
   Lwt_main.run (Lwt.join [tCli ec; tSrv es])
+
+(* custom label declaration *)
+let current = {select_label=(fun f-> object method current v=f v end); offer_label=(fun (v,c) -> `current(v,c))}
+
+(* merger *)
+let compute_result_or_current =
+  {label_merge=(fun l r ->
+    object method compute=l#compute method result=l#result
+           method current=r#current end)}
+
+let calc2 () =
+  let rec g =
+    lazy (choice_at cli compute_result_or_current
+       (cli, choice_at cli compute_or_result
+             (cli, (cli --> srv) compute @@
+                   loop g)
+             (cli, (cli --> srv) result @@
+                   (srv --> cli) answer @@
+                   finish))
+       (cli, (cli --> srv) current @@
+             (srv --> cli) answer @@
+             loop g))
+  in Lazy.force g
+
+let tSrv2 es =
+  let rec loop acc es =
+    match%lwt receive `Cli es with
+    | `compute((sym,num), es) ->
+      let op = match sym with
+        | Add -> (+)   | Sub -> (-)
+        | Mul -> ( * ) | Div -> (/)
+      in loop (op acc num) es
+    | `result((), es) ->
+      let es = send `Cli (fun x->x#answer) acc es in
+      close es; Lwt.return ()
+    | `current((), es) ->
+      let es = send `Cli (fun x->x#answer) acc es in
+      loop acc es
+  in loop 0 es
+
+let () =
+  let calc2 = calc2 () in
+  let ec = get_sess cli calc2 and es = get_sess srv calc2
+  in Lwt_main.run (Lwt.join [tCli ec; tSrv2 es])

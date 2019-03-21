@@ -57,8 +57,8 @@ let srvloop body acc es =
 
 let tSrv es =
   let rec loop acc es =
-    receive `Cli es >>=
-    srvloop loop acc es
+    let%lwt lab = receive `Cli es in
+    srvloop loop acc es lab
   in loop 0 es
 
 let () =

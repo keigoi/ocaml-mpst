@@ -1,7 +1,7 @@
 open Mpst_base
 
-module Make(F:S.FLAG) = struct
-  module Global = Global.Make(F)
+module Make(F:S.FLAG)(L:S.LIN) = struct
+  module Global = Global.Make(F)(L)
   open Global
 
 let msg = {select_label=(fun f -> object method msg v=f v end);

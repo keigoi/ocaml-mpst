@@ -1,6 +1,7 @@
 open Mpst_base
 
-module Make(Flag:S.FLAG)(X:sig type conn end) = struct
+module Make(F:S.FLAG)(X:sig type conn end) = struct
+  module Flag = F
   
   type ('r,'ls) send = Send__
   type ('r,'ls) sendmany = SendMany__

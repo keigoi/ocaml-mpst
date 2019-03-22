@@ -1,12 +1,14 @@
 module Session = Session
 open Mpst_base
 
-module Make(Flag:S.FLAG) = struct
-  module Session = Session.Make(Flag)
+module Make(F:S.FLAG)(L:S.LIN) = struct
+  module Lin = L
+  module Session = Session.Make(F)
   open Session
 
 type 'a one = One__ of 'a
 type 'a many = Many__ of 'a
+type 'a lin = 'a Lin.lin
 
 type _ e =
   (* slot contents *)
@@ -45,7 +47,7 @@ type ('la,'lb,'ca,'cb,'v1, 'v2) label =
 let (-->) : type ra rb sa sb la lb c0 c1 c2 v.
       (ra, sa sess one, (rb, la) send sess one, c0, c1) role ->
       (rb, sb sess one, (ra, lb) receive sess one, c1, c2) role ->
-      (la, lb, sa sess, sb sess, v, v) label ->
+      (la, lb, sa sess lin, sb sess lin, v, v) label ->
       c0 lazy_t -> c2 lazy_t =
   fun a b ({select_label;offer_label}) c0 ->
   let st, push = Lwt_stream.create () in
@@ -55,8 +57,9 @@ let (-->) : type ra rb sa sb la lb c0 c1 c2 v.
       One (sess @@  Send (b.role,
                           select_label (fun v ->
                               push (Some v);
-                              {once=Flag.create();
-                               prot=unsess_one (Lazy.force sa)})))
+                              Lin.mklin @@
+                                {once=Flag.create();
+                                 prot=unsess_one (Lazy.force sa)})))
   in
   let c1 = lens_put a.lens c0 sa in
   let sb = lens_get b.lens c1 in
@@ -66,8 +69,7 @@ let (-->) : type ra rb sa sb la lb c0 c1 c2 v.
              Receive (a.role,
                       (fun () -> [
                            Lwt_stream.next st |> Lwt.map (fun v ->
-                           offer_label (v, {once=Flag.create();
-                                            prot=unsess_one (Lazy.force sb)}))])))
+                           offer_label (v, Lin.mklin @@ {once=Flag.create(); prot=unsess_one (Lazy.force sb)}))])))
   in
   let c2 = lens_put b.lens c1 sb in
   c2
@@ -76,7 +78,7 @@ let (-->) : type ra rb sa sb la lb c0 c1 c2 v.
 let (-->>) : type ra rb sa sb la lb c0 c1 c2 v.
       (ra, sa sess one, (rb, la) send sess one, c1, c2) role ->
       (rb, sb sess many, (ra, lb) receive sess many, c0, c1) role ->
-      (la, lb, sa sess, sb sess, int -> v, v) label ->
+      (la, lb, sa sess lin, sb sess lin, int -> v, v) label ->
       c0 lazy_t -> c2 lazy_t =
   fun a b ({select_label;offer_label}) c0 ->
   let sbs = lens_get b.lens c0 in
@@ -88,8 +90,7 @@ let (-->>) : type ra rb sa sb la lb c0 c1 c2 v.
            sess @@
              Receive (a.role, (fun () -> [
                  Lwt_stream.next st |> Lwt.map (fun v ->
-                 offer_label (v, {once=Flag.create();
-                                  prot=unsess @@ Lazy.force sb}))
+                 offer_label (v, Lin.mklin @@ {once=Flag.create(); prot=unsess @@ Lazy.force sb}))
              ])),
            push
          )
@@ -104,8 +105,7 @@ let (-->>) : type ra rb sa sb la lb c0 c1 c2 v.
                 List.iteri
                   (fun i (_,push) -> push (Some (f i)))
                   (Lazy.force sbs);
-                {once=Flag.create();
-                 prot=unsess_one (Lazy.force sa)})))
+                Lin.mklin @@ {once=Flag.create();  prot=unsess_one (Lazy.force sa)})))
   in
   let c2 = lens_put a.lens c1 sa in
   c2
@@ -114,7 +114,7 @@ let (-->>) : type ra rb sa sb la lb c0 c1 c2 v.
 let (>>--) : type ra rb sa sb la lb c0 c1 c2 v.
       (ra, sa sess many, (rb, la) send sess many, c0, c1) role ->
       (rb, sb sess one, (ra, lb) receive sess one, c1, c2) role ->
-      (la, lb, sa sess, sb sess, v, v list) label ->
+      (la, lb, sa sess lin, sb sess lin, v, v list) label ->
       c0 lazy_t -> c2 lazy_t =
   fun a b ({select_label;offer_label}) c0 ->
   let sas = lens_get a.lens c0 in
@@ -125,7 +125,7 @@ let (>>--) : type ra rb sa sb la lb c0 c1 c2 v.
            let st, push = Lwt_stream.create () in
            sess @@
              Send (b.role,
-                 select_label (fun v -> push (Some v); {once=Flag.create(); prot=unsess @@ Lazy.force sa})),
+                 select_label (fun v -> push (Some v); Lin.mklin {once=Flag.create(); prot=unsess @@ Lazy.force sa})),
            st
          )
       (unmany (Lazy.force sas)))
@@ -138,7 +138,7 @@ let (>>--) : type ra rb sa sb la lb c0 c1 c2 v.
             let sts = List.map snd (Lazy.force sas) in
             let vs = Lwt_list.map_s Lwt_stream.next sts in
             Lwt.map
-              (fun v -> offer_label (v, {once=Flag.create(); prot=unsess_one (Lazy.force sb)}))
+              (fun v -> offer_label (v, Lin.mklin {once=Flag.create(); prot=unsess_one (Lazy.force sb)}))
               vs
         ]))) end
   in

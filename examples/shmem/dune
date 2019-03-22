@@ -3,49 +3,49 @@
   (public_name ex1_mpst_shmem)
   (modules ex1)
   (flags ("-g" "-short-paths"))
-  (libraries mpst_shmem lwt.unix))
+  (libraries ocaml-mpst.shmem lwt.unix))
 
 (executable
  (name ex2)
   (public_name ex2_mpst_shmem)
   (modules ex2)
   (flags ("-g" "-short-paths"))
-  (libraries mpst_shmem lwt.unix))
+  (libraries ocaml-mpst.shmem lwt.unix))
 
 (executable
  (name ex3)
   (public_name ex3_mpst_shmem)
   (modules ex3)
   (flags ("-g" "-short-paths"))
-  (libraries mpst_shmem lwt.unix))
+  (libraries ocaml-mpst.shmem lwt.unix))
 
 (executable
  (name ex4)
   (public_name ex4_mpst_shmem)
   (modules ex4)
   (flags ("-g" "-short-paths"))
-  (libraries mpst_shmem lwt.unix))
+  (libraries ocaml-mpst.shmem lwt.unix))
 
 (executable
  (name ex5)
   (public_name ex5_mpst_shmem)
   (modules ex5)
   (flags ("-g" "-short-paths"))
-  (libraries mpst_shmem lwt.unix))
+  (libraries ocaml-mpst.shmem lwt.unix))
 
 (executable
  (name ex6)
   (public_name ex6_mpst_shmem)
   (modules ex6)
   (flags ("-g" "-short-paths"))
-  (libraries mpst_shmem lwt.unix))
+  (libraries ocaml-mpst.shmem lwt.unix))
 
 (executable
  (name ex7)
   (public_name ex7_mpst_shmem)
   (modules ex7)
   (flags ("-g" "-short-paths"))
-  (libraries mpst_shmem lwt.unix))
+  (libraries ocaml-mpst.shmem lwt.unix))
 
 (executable
  (name calc)
@@ -53,7 +53,7 @@
   (modules calc)
   (preprocess (pps lwt_ppx))
   (flags ("-g" "-short-paths"))
-  (libraries mpst_shmem lwt.unix))
+  (libraries ocaml-mpst.shmem lwt.unix))
 
 (executable
  (name calc_reuse)
@@ -61,4 +61,4 @@
   (modules calc_reuse)
   (preprocess (pps lwt_ppx))
   (flags ("-g" "-short-paths"))
-  (libraries mpst_shmem lwt.unix))
+  (libraries ocaml-mpst.shmem lwt.unix))

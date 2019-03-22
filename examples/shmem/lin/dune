@@ -1,0 +1,71 @@
+(executable
+ (name ex1)
+  (public_name ex1_mpst_shmem_lin)
+  (modules ex1)
+  (preprocess (pps ocaml-mpst.ppx))
+  (flags ("-g" "-short-paths"))
+  (libraries ocaml-mpst.shmem lwt.unix))
+; 
+; (executable
+;  (name ex2)
+;   (public_name ex2_mpst_shmem_lin)
+;   (modules ex2)
+;   (preprocess (pps ocaml-mpst.ppx))
+;   (flags ("-g" "-short-paths"))
+;   (libraries ocaml-mpst.shmem lwt.unix))
+; 
+; (executable
+;  (name ex3)
+;   (public_name ex3_mpst_shmem_lin)
+;   (modules ex3)
+;   (preprocess (pps ocaml-mpst.ppx))
+;   (flags ("-g" "-short-paths"))
+;   (libraries ocaml-mpst.shmem lwt.unix))
+; 
+; (executable
+;  (name ex4)
+;   (public_name ex4_mpst_shmem_lin)
+;   (modules ex4)
+;   (preprocess (pps ocaml-mpst.ppx))
+;   (flags ("-g" "-short-paths"))
+;   (libraries ocaml-mpst.shmem lwt.unix))
+; 
+; (executable
+;  (name ex5)
+;   (public_name ex5_mpst_shmem_lin)
+;   (modules ex5)
+;   (preprocess (pps ocaml-mpst.ppx))
+;   (flags ("-g" "-short-paths"))
+;   (libraries ocaml-mpst.shmem lwt.unix))
+; 
+; (executable
+;  (name ex6)
+;   (public_name ex6_mpst_shmem_lin)
+;   (modules ex6)
+;   (preprocess (pps ocaml-mpst.ppx))
+;   (flags ("-g" "-short-paths"))
+;   (libraries ocaml-mpst.shmem lwt.unix))
+; 
+; (executable
+;  (name ex7)
+;   (public_name ex7_mpst_shmem_lin)
+;   (modules ex7)
+;   (preprocess (pps ocaml-mpst.ppx))
+;   (flags ("-g" "-short-paths"))
+;   (libraries ocaml-mpst.shmem lwt.unix))
+; 
+; (executable
+;  (name calc)
+;   (public_name calc_mpst_shmem_lin)
+;   (modules calc)
+;   (preprocess (pps ocaml-mpst.ppx))
+;   (flags ("-g" "-short-paths"))
+;   (libraries ocaml-mpst.shmem lwt.unix))
+; 
+; (executable
+;  (name calc_reuse)
+;   (public_name calc_reuse_mpst_shmem_lin)
+;   (modules calc_reuse)
+;   (preprocess (pps ocaml-mpst.ppx))
+;   (flags ("-g" "-short-paths"))
+;   (libraries ocaml-mpst.shmem lwt.unix))

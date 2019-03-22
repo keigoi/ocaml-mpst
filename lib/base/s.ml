@@ -1,5 +1,13 @@
+module type FLAG = sig
+  type t
+  val create     : unit -> t
+  val use        : t -> unit
+  val try_use    : t -> bool
+end
+
 module type SESSION =
   sig
+    module Flag : FLAG
     type ('r, 'ls) send
     type ('r, 'ls) receive
     type close
@@ -26,6 +34,7 @@ module type GLOBAL =
     module Session : SESSION
     open Session
 
+    type _ lin
     type _ e
     type _ one
     type _ slots =
@@ -53,7 +62,7 @@ module type GLOBAL =
       ('rb, 'sb sess one, ('ra, 'lb) receive sess one, 'c1,
        'c2)
         role ->
-      ('la, 'lb, 'sa sess, 'sb sess, 'v, 'v) label ->
+      ('la, 'lb, 'sa sess lin, 'sb sess lin, 'v, 'v) label ->
       'c0 lazy_t -> 'c2 lazy_t
     (* val ( -->> ) :
      *   ('ra, 'sa sess, ('rb, 'la) sendmany sess, 'c1,
@@ -89,21 +98,9 @@ module type GLOBAL =
       ('l, ('c, 'h) send sess one, close sess one,
        'm, 'e slots)
         role * 'm lazy_t -> 'f lazy_t
-    (* val choicemany_at :
-     *   ('a, 'b, ('c, 'd) sendmany sess, 'e slots, 'f) role ->
-     *   ('g, 'h, 'd) label_merge ->
-     *   ('i, ('j, 'g) sendmany sess,
-     *    close sess, 'k, 'e slots)
-     *   role * 'k lazy_t ->
-     *   ('l, ('c, 'h) sendmany sess,
-     *    close sess, 'm, 'e slots)
-     *   role * 'm lazy_t -> 'f lazy_t *)
     val loop : 'a lazy_t lazy_t -> 'a lazy_t
     val get_sess :
       ('a, 'b sess one, 'c, 'd, 'e) role -> 'd lazy_t -> 'b sess
-    (* val add_conn : 'a -> X.conn -> 'b sess -> 'b sess
-     * val add_conn_many :
-     *   'a -> X.conn list -> 'b sess -> 'b sess *)
     val nil : unit slots lazy_t
     val one :
       'a slots lazy_t -> (close sess one * 'a) slots lazy_t
@@ -132,7 +129,7 @@ module type MPST = sig
   module Global : GLOBAL with module Session = Session
   module Util : UTIL with module Global = Global
 end
-  
+
 module type RAW =
   sig
     type conn
@@ -140,14 +137,12 @@ module type RAW =
     val write : (Obj.t -> 'a) -> conn -> 'b -> unit
     val try_read : ('a -> Obj.t option) -> conn -> 'b Lwt.t
   end
-    
-module type FLAG = sig
-  type t
-  val create     : unit -> t
-  val use        : t -> unit
-  val try_use    : t -> bool
-end
 
+module type LIN = sig
+  type 'a lin
+  val mklin : 'a -> 'a lin
+end
+                 
 module type LIN_MONAD = sig
   type _ slots =
     Cons : 'x lazy_t * 'xs slots lazy_t -> ('x * 'xs) slots
@@ -158,8 +153,15 @@ module type LIN_MONAD = sig
       ('a, 'b, 'xs slots, 'ys slots) lens -> ('a, 'b, ('x * 'xs) slots,
                                               ('x * 'ys) slots)
                                                lens
+  val lens_get : ('a, 'b, 'xs, 'ys) lens -> 'xs lazy_t -> 'a lazy_t
+  val lens_get_ : ('a, 'b, 'c, 'd) lens -> 'c lazy_t -> 'a
+  val lens_put :
+    ('a, 'b, 'xs, 'ys) lens -> 'xs lazy_t -> 'b lazy_t -> 'ys lazy_t
+  val lens_put_ : ('a, 'b, 'c, 'd) lens -> 'c lazy_t -> 'b -> 'd lazy_t
+
   type 't slots_ = 't slots lazy_t
 
+  type empty = Empty
   type 'a data = { data : 'a; }
   type 'a lin = { __lindata : 'a; }
   type 'f bind = { __call : 'f; }
@@ -169,20 +171,18 @@ module type LIN_MONAD = sig
   val bind :
     ('pre, 'mid, 'a data) monad ->
     ('a -> ('mid, 'post, 'b) monad) -> ('pre, 'post, 'b) monad
-  val linbind :
+  val bind_lin :
     ('pre, 'mid, 'a lin) monad ->
     ('a lin -> ('mid, 'post, 'b) monad) bind -> ('pre, 'post, 'b) monad
   val run :
     (unit slots_, unit slots_, 'a data) monad ->
     'a Lwt.t
-  val at :
-    ('p, 'q, 'a) monad ->
-    ('p, 'q, 'pre, 'post) lens ->
-    ('pre lazy_t, 'post lazy_t, 'a) monad
+  val lift :
+    'a Lwt.t -> ('pre, 'pre, 'a data) monad
   val expand :
-    ('t slots lazy_t, (unit * 't) slots lazy_t, unit) monad
+    ('t slots lazy_t, (empty * 't) slots lazy_t, unit data) monad
   val shrink :
-    ((unit * 't) slots lazy_t, 't slots lazy_t, unit) monad
+    ((empty * 't) slots lazy_t, 't slots lazy_t, unit data) monad
 
   module Op :
   sig
@@ -194,12 +194,23 @@ module type LIN_MONAD = sig
       ('pre, 'mid, 'a lin) monad ->
       ('a lin -> ('mid, 'post, 'b) monad) bind ->
       ('pre, 'post, 'b) monad
-    val ( @> ) :
-      ('p, 'q, 'a) monad ->
-      ('p, 'q, 'pre, 'post) lens ->
-      ('pre lazy_t, 'post lazy_t, 'a) monad
   end
 
-end  
-                  
-                     
+  module Syntax :
+  sig
+    type 'f bind_ = 'f bind = { __call : 'f; }
+    type 'a lin_ = 'a lin = { __lindata : 'a; }
+    type 'a data_ = 'a data = { data : 'a; }
+    val bind :
+      ('pre, 'mid, 'a data) monad ->
+      ('a -> ('mid, 'post, 'b) monad) -> ('pre, 'post, 'b) monad
+    val bind_lin :
+      ('pre, 'mid, 'a lin) monad ->
+      ('a lin -> ('mid, 'post, 'b) monad) bind -> ('pre, 'post, 'b) monad
+    val return_lin : 'a -> ('b, 'b, 'a lin) monad
+    val get_lin : ('a lin, empty, 'pre, 'post) lens -> ('pre lazy_t,'post lazy_t,'a lin) monad
+    val put_linval : (empty,'a lin,'pre,'post) lens -> 'a -> ('pre lazy_t,'post lazy_t,unit data) monad
+  end
+
+
+end

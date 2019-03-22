@@ -14,14 +14,14 @@
 ;   (flags ("-g" "-short-paths"))
 ;   (libraries ocaml-mpst.shmem lwt.unix))
 ; 
-; (executable
-;  (name ex3)
-;   (public_name ex3_mpst_shmem_lin)
-;   (modules ex3)
-;   (preprocess (pps ocaml-mpst.ppx))
-;   (flags ("-g" "-short-paths"))
-;   (libraries ocaml-mpst.shmem lwt.unix))
-; 
+(executable
+ (name ex3)
+  (public_name ex3_mpst_shmem_lin)
+  (modules ex3)
+  (preprocess (pps ocaml-mpst.ppx))
+  (flags ("-g" "-short-paths"))
+  (libraries ocaml-mpst.shmem lwt.unix))
+
 ; (executable
 ;  (name ex4)
 ;   (public_name ex4_mpst_shmem_lin)

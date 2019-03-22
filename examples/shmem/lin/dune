@@ -54,14 +54,14 @@
 ;   (flags ("-g" "-short-paths"))
 ;   (libraries ocaml-mpst.shmem lwt.unix))
 ; 
-; (executable
-;  (name calc)
-;   (public_name calc_mpst_shmem_lin)
-;   (modules calc)
-;   (preprocess (pps ocaml-mpst.ppx))
-;   (flags ("-g" "-short-paths"))
-;   (libraries ocaml-mpst.shmem lwt.unix))
-; 
+(executable
+ (name calc)
+  (public_name calc_mpst_shmem_lin)
+  (modules calc)
+  (preprocess (pps ocaml-mpst.ppx))
+  (flags ("-g" "-short-paths"))
+  (libraries ocaml-mpst.shmem lwt.unix))
+
 ; (executable
 ;  (name calc_reuse)
 ;   (public_name calc_reuse_mpst_shmem_lin)

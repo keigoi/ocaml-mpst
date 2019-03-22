@@ -1,9 +1,10 @@
 (* simple loop *)
 open Mpst_shmem.Lin
-open Mpst_shmem.Lin.Global
-open Mpst_shmem.Lin.Util
-open Mpst_shmem.Lin.LinMonad
-open Mpst_shmem.Lin.LinMonad.Op
+open Util
+open Global
+open Session
+open LinMonad
+open LinMonad.Op
 
 let a = {role=`A; lens=Fst}
 let b = {role=`B; lens=Next Fst}

@@ -1,10 +1,9 @@
-module Session = Session
 open Mpst_base
 
 module Make(F:S.FLAG)(L:S.LIN) = struct
   module Lin = L
-  module Session = Session.Make(F)
-  open Session
+  module Sess = Session.Make(F)
+  open Sess
 
 type 'a one = One__ of 'a
 type 'a many = Many__ of 'a

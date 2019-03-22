@@ -32,6 +32,10 @@ let mkbindfun ~loc ?attrs expr =
   let fieldname = {loc; txt = Longident.parse (!root_module ^ ".__call")} in
   Exp.record ~loc ?attrs [(fieldname, expr)] None
 
+let mkdataconstr ~loc ?attrs expr =
+  let fieldname = {loc; txt = Longident.parse (!root_module ^ ".data")} in
+  Exp.record ~loc ?attrs [(fieldname, expr)] None
+
 let mklinpat ~loc pat =
   precord ~loc ~closed:Closed [(!root_module ^ ".__lindata", pat)]
 
@@ -104,6 +108,10 @@ let convert_pattern (p : pattern) : pattern * (Longident.t Location.loc * string
     (* `A             (None)
            `A P           (Some P)
      *)
+                                    
+    | Ppat_record ([({txt=id; _}, _)], Closed) when ["data"]=Longident.flatten id ->
+       patouter (* do nothing inside {data=pat} *)
+       
     | Ppat_record (recpats, Closed) ->
        {patouter with
          ppat_desc=Ppat_record(List.map (fun (field,pat) -> (field,traverse pat)) recpats, Closed)
@@ -181,15 +189,17 @@ let rec linval ({pexp_desc;pexp_loc;pexp_attributes} as outer) =
      let exprs, bindings = List.split (List.map linval exprs) in
      {pexp_desc=Pexp_tuple(exprs);pexp_loc;pexp_attributes}, List.concat bindings
 
-  | Pexp_construct ({txt=Lident "Data"; _},Some(expr)) ->
-     constr ~loc:pexp_loc ~attrs:pexp_attributes "Linocaml.Base.Data" [expr], []
-
   | Pexp_construct (lid,Some(expr)) ->
      let expr, binding = linval expr in
      {pexp_desc=Pexp_construct(lid,Some(expr));pexp_loc;pexp_attributes}, binding
   | Pexp_variant (lab,Some(expr)) ->
      let expr, binding = linval expr in
      {pexp_desc=Pexp_variant(lab,Some(expr));pexp_loc;pexp_attributes}, binding
+
+  (* {data=exp} --> {Syntax.data=exp} (do we actually need this?) *)
+  | Pexp_record ([({txt=id; _}, expr)],None) when ["data"]=Longident.flatten id ->
+     mkdataconstr ~loc:pexp_loc ~attrs:pexp_attributes expr, []
+    
   | Pexp_record (fields,expropt) ->
      let fields, bindings =
        List.split (List.map (fun (lid,expr) -> let e,b = linval expr in (lid,e),b) fields)

@@ -31,8 +31,8 @@ module type SESSION =
 
 module type GLOBAL =
   sig
-    module Session : SESSION
-    open Session
+    module Sess : SESSION
+    open Sess
 
     type _ lin
     type _ e
@@ -126,7 +126,7 @@ module type UTIL =
 
 module type MPST = sig
   module Session : SESSION
-  module Global : GLOBAL with module Session = Session
+  module Global : GLOBAL with module Sess = Session
   module Util : UTIL with module Global = Global
 end
 

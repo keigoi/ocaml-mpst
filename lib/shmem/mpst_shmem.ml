@@ -9,14 +9,16 @@ end
 module Lin = struct
   module F = Flags.NoFlag
   module L = struct type 'a lin = 'a Mpst_base.LinMonad.Syntax.lin_ let mklin x = {Mpst_base.LinMonad.Syntax.__lindata=x} end
-  (* module M = Make(F)(L) *)
-  module Sess = Session.Make(F)
-  module Glob = Global.Make(F)(L)
+  module BareSession = Session.Make(F)
+  module Global = Global.Make(F)(L)
   module Util = Util.Make(F)(L)
-  include LinSession.Make(Sess)(Glob)
-  open Global
-  open Session
-  open Mpst_base.LinMonad
+  module LinMonad = Mpst_base.LinMonad
+
+  module Session = struct
+    include LinSession.Make(BareSession)(Global)
+    open BareSession
+    open Global
+    open Mpst_base.LinMonad
 
   let lv = Lazy.from_val
 
@@ -42,6 +44,8 @@ module Lin = struct
        | {__lindata=One (lazy s)} ->
           Lwt.return (lens_put_ lens pre Empty, {__lindata=s})
     }
+  end
+
 end
 
            

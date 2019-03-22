@@ -1,11 +1,9 @@
-module Make(Sess:S.SESSION)(Glob:S.GLOBAL)
+module Make(BareSession:S.SESSION)(Global:S.GLOBAL)
        : sig
-  module Session : S.SESSION
-  module Global : S.GLOBAL
-  module LinMonad : S.LIN_MONAD
-  open Session
+  open BareSession
   open LinMonad
 
+  type 's sess = 's BareSession.sess
   type 'g global
 
   val create_global : (unit -> 'g Global.slots lazy_t) -> [>] list -> 'g global 
@@ -31,20 +29,26 @@ module Make(Sess:S.SESSION)(Glob:S.GLOBAL)
     (close sess lin, empty, 'pre, 'post) lens ->
     ('pre lazy_t, 'post lazy_t, unit data) monad
 
-end with module Session = Sess and module Global = Glob and module LinMonad = LinMonad
+end
   = struct
-  module Session = Sess
-  module Global = Glob
-  module LinMonad = LinMonad
+  module S = BareSession
+  module G = Global
 
   open LinMonad
+
+  type 's sess = 's BareSession.sess
 
   type 'g global =
     {locals:(Obj.t * 'g Global.slots lazy_t Lwt_stream.t) list}
 
   let create_global f rs =
-    let st = Lwt_stream.from_direct (fun () -> Some (f ())) in
-    {locals=List.map (fun r -> Obj.repr r, Lwt_stream.clone st) rs}
+    (* let st = Lwt_stream.from_direct (fun () -> Some (f ())) in
+     * {locals=List.map (fun r -> Obj.repr r, Lwt_stream.clone st) rs} *)
+    match rs with
+    | [] -> failwith "empty"
+    | r::rs ->
+       let st = Lwt_stream.from_direct (fun () -> Some (f ())) in
+       {locals=(Obj.repr r,st) :: List.map (fun r -> Obj.repr r, Lwt_stream.clone st) rs}
 
   let connect {locals} {Global.role;lens} =
     {__run=
@@ -58,7 +62,7 @@ end with module Session = Sess and module Global = Glob and module LinMonad = Li
     {__run=
        fun pre ->
        let {__lindata=s} = LinMonad.lens_get_ lens pre in
-       let s = Session.send r (fun o v-> (sel o {data=v}).__lindata) v s in
+       let s = BareSession.send r (fun o v-> (sel o {data=v}).__lindata) v s in
        Lwt.return (LinMonad.lens_put_ lens pre Empty, {__lindata=s})
     }
 
@@ -66,7 +70,7 @@ end with module Session = Sess and module Global = Glob and module LinMonad = Li
     {__run=
        fun pre ->
        let {__lindata=s} = LinMonad.lens_get_ lens pre in
-       Lwt.bind (Session.receive r s) @@ fun ls ->
+       Lwt.bind (BareSession.receive r s) @@ fun ls ->
        Lwt.return (LinMonad.lens_put_ lens pre Empty, {__lindata=ls})
     }
 
@@ -74,7 +78,7 @@ end with module Session = Sess and module Global = Glob and module LinMonad = Li
     {__run=
        fun pre ->
        let {__lindata=s} = LinMonad.lens_get_ lens pre in
-       let () = Session.close s in
+       let () = BareSession.close s in
        Lwt.return (LinMonad.lens_put_ lens pre Empty, {data=()})
     }
 end

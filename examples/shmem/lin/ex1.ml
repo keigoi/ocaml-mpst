@@ -1,8 +1,9 @@
 open Mpst_shmem.Lin
-open Mpst_shmem.Lin.Global
-open Mpst_shmem.Lin.Util
-open Mpst_shmem.Lin.LinMonad
-open Mpst_shmem.Lin.LinMonad.Op
+open Util
+open Global
+open Session
+open LinMonad
+open LinMonad.Op
 
 let a : ([`A],_,_,_,_) role = {role=`A; lens=Fst}
 let b : ([`B],_,_,_,_) role = {role=`B; lens=Next Fst}
@@ -26,7 +27,7 @@ let f () =
 
 let g = create_global f [`A; `B; `C]
 
-let _0 = Mpst_shmem.Lin.LinMonad.Fst
+let _0 = Mpst_base.LinMonad.Fst
 
 (* participant A *)
 let t1 () =
@@ -46,7 +47,7 @@ let t1 () =
       close _0
     end >>= fun () ->
   print_endline "A finished.";
-  return ()
+  LinMonad.return ()
 
 (* participant B *)
 let t2 () =

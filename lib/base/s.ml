@@ -145,7 +145,7 @@ end
                  
 module type LIN_MONAD = sig
   type _ slots =
-    Cons : 'x lazy_t * 'xs slots lazy_t -> ('x * 'xs) slots
+    Cons : 'x * 'xs slots -> ('x * 'xs) slots
   | Nil : unit slots
   and (_, _, _, _) lens =
     Fst : ('a, 'b, ('a * 'xs) slots, ('b * 'xs) slots) lens
@@ -153,13 +153,9 @@ module type LIN_MONAD = sig
       ('a, 'b, 'xs slots, 'ys slots) lens -> ('a, 'b, ('x * 'xs) slots,
                                               ('x * 'ys) slots)
                                                lens
-  val lens_get : ('a, 'b, 'xs, 'ys) lens -> 'xs lazy_t -> 'a lazy_t
-  val lens_get_ : ('a, 'b, 'c, 'd) lens -> 'c lazy_t -> 'a
+  val lens_get : ('a, 'b, 'xs, 'ys) lens -> 'xs -> 'a
   val lens_put :
-    ('a, 'b, 'xs, 'ys) lens -> 'xs lazy_t -> 'b lazy_t -> 'ys lazy_t
-  val lens_put_ : ('a, 'b, 'c, 'd) lens -> 'c lazy_t -> 'b -> 'd lazy_t
-
-  type 't slots_ = 't slots lazy_t
+    ('a, 'b, 'xs, 'ys) lens -> 'xs -> 'b -> 'ys
 
   type empty = Empty
   type 'a data = { data : 'a; }
@@ -175,14 +171,14 @@ module type LIN_MONAD = sig
     ('pre, 'mid, 'a lin) monad ->
     ('a lin -> ('mid, 'post, 'b) monad) bind -> ('pre, 'post, 'b) monad
   val run :
-    (unit slots_, unit slots_, 'a data) monad ->
+    (unit slots, unit slots, 'a data) monad ->
     'a Lwt.t
   val lift :
     'a Lwt.t -> ('pre, 'pre, 'a data) monad
   val expand :
-    ('t slots lazy_t, (empty * 't) slots lazy_t, unit data) monad
+    ('t slots, (empty * 't) slots, unit data) monad
   val shrink :
-    ((empty * 't) slots lazy_t, 't slots lazy_t, unit data) monad
+    ((empty * 't) slots, 't slots, unit data) monad
 
   module Op :
   sig
@@ -208,8 +204,8 @@ module type LIN_MONAD = sig
       ('pre, 'mid, 'a lin) monad ->
       ('a lin -> ('mid, 'post, 'b) monad) bind -> ('pre, 'post, 'b) monad
     val return_lin : 'a -> ('b, 'b, 'a lin) monad
-    val get_lin : ('a lin, empty, 'pre, 'post) lens -> ('pre lazy_t,'post lazy_t,'a lin) monad
-    val put_linval : (empty,'a lin,'pre,'post) lens -> 'a -> ('pre lazy_t,'post lazy_t,unit data) monad
+    val get_lin : ('a lin, empty, 'pre, 'post) lens -> ('pre,'post,'a lin) monad
+    val put_linval : (empty,'a lin,'pre,'post) lens -> 'a -> ('pre,'post,unit data) monad
   end
 
 

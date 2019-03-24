@@ -40,7 +40,7 @@ type _ e =
 | Conn : 'k -> 'k conn e
 | Unit : unit e
 
-include Mpst_base.Lens.Make(struct type 't u = 't e end)
+include Mpst_base.LensLazy.Make(struct type 't u = 't e end)
 
 let unprot : type t u. (t,u) prot e -> (t,u) prot = function
     Prot p -> p

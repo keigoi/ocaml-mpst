@@ -1,7 +1,7 @@
-module Lens = Lens.Make(struct type 't u = 't end)
+module Lens = LensStrict
 
 type 't slots = 't Lens.slots =
-  Cons : 'x lazy_t * 'xs slots lazy_t -> ('x * 'xs) slots
+  Cons : 'x * 'xs slots -> ('x * 'xs) slots
 | Nil : unit slots
 and ('v1, 'v2, 's1, 's2) lens = ('v1,'v2,'s1,'s2) Lens.lens =
                                   Fst : ('a, 'b, ('a * 'xs) slots, ('b * 'xs) slots) lens
@@ -10,13 +10,9 @@ and ('v1, 'v2, 's1, 's2) lens = ('v1,'v2,'s1,'s2) Lens.lens =
                                                                           ('x * 'ys) slots)
                                                                            lens
 
-let lens_get_ = Lens.lens_get_
 let lens_get = Lens.lens_get
-let lens_put_ = Lens.lens_put_
 let lens_put = Lens.lens_put
                               
-type 't slots_ = 't slots lazy_t
-
 type empty = Empty
 type 'a data = {data:'a}
 type 'a lin = {__lindata:'a}
@@ -60,29 +56,29 @@ let lift t =
      
 
 let run m =
-  Lwt.map (fun (_,a) -> a.data) @@ m.__run (Lazy.from_val Lens.Nil)
+  Lwt.map (fun (_,a) -> a.data) @@ m.__run Lens.Nil
 
 let get_lin l =
   {__run=
      fun pre ->
-     Lwt.return (Lens.lens_put_ l pre Empty, Lens.lens_get_ l pre)
+     Lwt.return (Lens.lens_put l pre Empty, Lens.lens_get l pre)
   }
 
 let put_linval l v =
   {__run=
      fun pre ->
-     Lwt.return (Lens.lens_put_ l pre {__lindata=v}, {data=()})
+     Lwt.return (Lens.lens_put l pre {__lindata=v}, {data=()})
   }
 
 let expand =
   {__run=
      fun pre ->
-     Lwt.return (Lazy.from_val (Lens.Cons(Lazy.from_val Empty, pre)), {data=()})
+     Lwt.return (Lens.Cons(Empty, pre), {data=()})
   }
 
 let shrink =
   {__run=
-     fun (lazy (Lens.Cons(_, pre))) ->
+     fun (Lens.Cons(_, pre)) ->
      Lwt.return (pre, {data=()})
   }
 

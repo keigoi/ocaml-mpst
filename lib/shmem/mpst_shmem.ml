@@ -20,32 +20,29 @@ module Lin = struct
     open Global
     open Mpst_base.LinMonad
 
-  let lv = Lazy.from_val
-
   let fork : 'a 'pre 'post.
     ('a, empty, 'pre, 'post) lens ->
-    (unit -> (('a * unit) slots_, (empty * unit) slots_, unit data) monad) ->
-    ('pre lazy_t, 'post lazy_t, unit data) monad =
+    (unit -> (('a * unit) slots, (empty * unit) slots, unit data) monad) ->
+    ('pre, 'post, unit data) monad =
     fun lens m ->
     {__run=
        fun pre ->
        Lwt.async (fun () ->
-           (m ()).__run (lv (Cons (lens_get lens pre, lv Nil))));
-       Lwt.return (lens_put_ lens pre Empty, {data=()})
+           (m ()).__run (Cons (lens_get lens pre, Nil)));
+       Lwt.return (lens_put lens pre Empty, {data=()})
     }
     
   let unone :
         type s pre post.
              (s sess one e lin, empty, pre, post) lens ->
-             (pre lazy_t, post lazy_t, s sess lin) monad = fun lens ->
+             (pre, post, s sess lin) monad = fun lens ->
     {__run=
        fun pre ->
-       match lens_get_ lens pre with
-       | {__lindata=One (lazy s)} ->
-          Lwt.return (lens_put_ lens pre Empty, {__lindata=s})
+       match lens_get lens pre with
+       | {__lindata=One s} ->
+          Lwt.return (lens_put lens pre Empty, {__lindata=Lazy.force s})
     }
   end
-
 end
 
            

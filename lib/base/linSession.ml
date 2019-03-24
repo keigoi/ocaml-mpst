@@ -18,16 +18,16 @@ module Make(BareSession:S.SESSION)(Global:S.GLOBAL)
     ((< .. > as 'ls) -> 'v data -> 's sess lin) ->
     'v ->
     (('r, 'ls) send sess lin, empty, 'pre, 'post) lens ->
-    ('pre lazy_t, 'post lazy_t, 's sess lin) monad
+    ('pre, 'post, 's sess lin) monad
 
   val receive :
     ([>  ] as 'r) ->
     (('r, 'ls) receive sess lin, empty, 'pre, 'post) lens ->
-    ('pre lazy_t, 'post lazy_t, 'ls lin) monad
+    ('pre, 'post, 'ls lin) monad
 
   val close :
     (close sess lin, empty, 'pre, 'post) lens ->
-    ('pre lazy_t, 'post lazy_t, unit data) monad
+    ('pre, 'post, unit data) monad
 
 end
   = struct
@@ -61,24 +61,24 @@ end
   let send r sel v lens =
     {__run=
        fun pre ->
-       let {__lindata=s} = LinMonad.lens_get_ lens pre in
+       let {__lindata=s} = LinMonad.lens_get lens pre in
        let s = BareSession.send r (fun o v-> (sel o {data=v}).__lindata) v s in
-       Lwt.return (LinMonad.lens_put_ lens pre Empty, {__lindata=s})
+       Lwt.return (LinMonad.lens_put lens pre Empty, {__lindata=s})
     }
 
   let receive r lens =
     {__run=
        fun pre ->
-       let {__lindata=s} = LinMonad.lens_get_ lens pre in
+       let {__lindata=s} = LinMonad.lens_get lens pre in
        Lwt.bind (BareSession.receive r s) @@ fun ls ->
-       Lwt.return (LinMonad.lens_put_ lens pre Empty, {__lindata=ls})
+       Lwt.return (LinMonad.lens_put lens pre Empty, {__lindata=ls})
     }
 
   let close lens =
     {__run=
        fun pre ->
-       let {__lindata=s} = LinMonad.lens_get_ lens pre in
+       let {__lindata=s} = LinMonad.lens_get lens pre in
        let () = BareSession.close s in
-       Lwt.return (LinMonad.lens_put_ lens pre Empty, {data=()})
+       Lwt.return (LinMonad.lens_put lens pre Empty, {data=()})
     }
 end

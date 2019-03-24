@@ -1,5 +1,5 @@
 module S = S
-module Lens = Lens
+module LensLazy = LensLazy
 module Connection = Connection
 
 module Flags = Flags

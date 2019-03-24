@@ -34,7 +34,7 @@ module Make(Flag:S.FLAG)(X:sig type conn end) = struct
   let unsess_many p =
     List.map (fun {prot; _} -> prot) (unmany p) 
      
-  include Lens.Make(struct type 't u = 't e end)
+  include LensLazy.Make(struct type 't u = 't e end)
 
   type 'v channel =
     {sender: conn -> 'v -> unit;

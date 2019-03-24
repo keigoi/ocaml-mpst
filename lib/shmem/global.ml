@@ -32,7 +32,7 @@ let unsess {prot; _} = prot
 let unmany : type t. t sess many e -> t sess lazy_t list = function
     Many p -> p
 
-include Mpst_base.Lens.Make(struct type 't u = 't e end)
+include Mpst_base.LensLazy.Make(struct type 't u = 't e end)
 
 type ('r, 'v1, 'v2, 's1, 's2) role =
   {role:'r;

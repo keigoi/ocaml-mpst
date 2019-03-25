@@ -91,11 +91,10 @@ let calc2 () =
              loop g))
   in Lazy.force g
 
-type ('a,'b) t = [`compute of 'a | `result of 'b]
 let tSrv2 es =
   let rec loop acc es =
     receive `Cli es >>= function
-    | (#t as v) ->
+    | (`compute(_) | `result(_) as v) ->
        srvloop loop acc es v
     | `current((), es) ->
       let es = send `Cli (fun x->x#answer) acc es in

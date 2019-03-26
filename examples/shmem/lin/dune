@@ -69,3 +69,10 @@
 ;   (preprocess (pps ocaml-mpst.ppx))
 ;   (flags ("-g" "-short-paths"))
 ;   (libraries ocaml-mpst.shmem lwt.unix))
+(executable
+ (name deleg)
+  (public_name deleg_mpst_shmem_lin)
+  (modules deleg)
+  (preprocess (pps ocaml-mpst.ppx))
+  (flags ("-g" "-short-paths"))
+  (libraries ocaml-mpst.shmem lwt.unix))

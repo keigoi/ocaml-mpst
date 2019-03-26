@@ -19,6 +19,13 @@ module Make(BareSession:S.SESSION)(Global:S.GLOBAL)
     'v ->
     (('r, 'ls) send sess lin, empty, 'pre, 'post) lens ->
     ('pre, 'post, 's sess lin) monad
+    
+  val deleg_send :
+    ([>  ] as 'r) ->
+    ((< .. > as 'ls) -> 't sess lin -> 's sess lin) ->
+    ('t sess lin, empty, 'pre, 'mid) lens ->
+    (('r, 'ls) send sess lin, empty, 'mid, 'post) lens ->
+    ('pre, 'post, 's sess lin) monad
 
   val receive :
     ([>  ] as 'r) ->
@@ -64,6 +71,16 @@ end
        let {__lindata=s} = LinMonad.lens_get lens pre in
        let s = BareSession.send r (fun o v-> (sel o {data=v}).__lindata) v s in
        Lwt.return (LinMonad.lens_put lens pre Empty, {__lindata=s})
+    }
+
+  let deleg_send r sel lens1 lens0 =
+    {__run=
+       fun pre ->
+       let t = LinMonad.lens_get lens1 pre in
+       let mid = LinMonad.lens_put lens1 pre Empty in
+       let {__lindata=s} = LinMonad.lens_get lens0 mid in
+       let s = BareSession.send r (fun o v-> (sel o v).__lindata) t s in
+       Lwt.return (LinMonad.lens_put lens0 mid Empty, {__lindata=s})
     }
 
   let receive r lens =

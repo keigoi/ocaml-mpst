@@ -215,24 +215,7 @@ end
   include G
 
   let stream_tee stream =
-    let m = Mutex.create () in
-    let next self other _i =
-      Mutex.lock m;
-      let value =
-        if Queue.is_empty self then begin
-            let value = Stream.next stream in
-            Queue.add value other;
-            Some value
-          end else begin
-            Some (Queue.take self)
-          end
-      in
-      Mutex.unlock m;
-      value
-    in
-    let q1 = Queue.create () in
-    let q2 = Queue.create () in
-    (Stream.from (next q1 q2), Stream.from (next q2 q1))
+    failwith "TODO"
 
   type 'g global =
     {locals:(Obj.t * 'g eps lazy_t Stream.t) list}

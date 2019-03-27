@@ -13,6 +13,12 @@ let tA = Thread.create (fun () ->
   print_endline "A done";
   close ea) ()
 
+(* let tA_bad (_:Obj.t) = Thread.create (fun () ->
+ *   let `role_c(`msg((), ea)) = Event.sync ea in
+ *   let ea = ea#role_b#msg () in
+ *   print_endline "A done";
+ *   close ea) () *)
+
 let tB = Thread.create (fun () ->
   let `role_a(`msg((), eb)) = Event.sync eb in
   let eb = eb#role_c#msg () in

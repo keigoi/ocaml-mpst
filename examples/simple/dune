@@ -4,3 +4,25 @@
   (modules ring)
   (flags ("-g" "-short-paths"))
   (libraries ocaml-mpst.simple))
+
+(executable
+ (name calc)
+  (public_name calc_mpst_simple)
+  (modules calc)
+  (flags ("-g" "-short-paths"))
+  (libraries ocaml-mpst.simple))
+
+(executable
+ (name calc_reuse)
+  (public_name calc_reuse_mpst_simple)
+  (modules calc_reuse)
+  (flags ("-g" "-short-paths"))
+  (libraries ocaml-mpst.simple))
+
+(executable
+ (name calc_lin)
+  (public_name calc_lin_mpst_simple)
+  (modules calc_lin)
+  (preprocess (pps ocaml-mpst.ppx))
+  (flags ("-g" "-short-paths"))
+  (libraries ocaml-mpst.simple))

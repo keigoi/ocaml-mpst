@@ -1,0 +1,6 @@
+(executable
+ (name ring)
+  (public_name ring_mpst_simple)
+  (modules ring)
+  (flags ("-g" "-short-paths"))
+  (libraries ocaml-mpst.simple))

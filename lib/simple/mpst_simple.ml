@@ -191,10 +191,10 @@ module Lin : sig
     ('pre, 'post, 's lin) monad
 
   val deleg_send :
-    ((< .. > as 'obj) -> 't sess lin -> 's sess lin) ->
-    ('t sess lin, empty, 'pre, 'mid) lens ->
+    ((< .. > as 'obj) -> 't lin -> 's lin) ->
+    ('t lin, empty, 'pre, 'mid) lens ->
     ('obj lin, empty, 'mid, 'post) lens ->
-    ('pre, 'post, 's sess lin) monad
+    ('pre, 'post, 's lin) monad
 
   val receive :
     ('var Event.event lin, empty, 'pre, 'post) lens ->
@@ -213,7 +213,6 @@ end
 
   module G = MakeGlobal(L)
   include G
-
 
   let stream_tee stream =
     let m = Mutex.create () in

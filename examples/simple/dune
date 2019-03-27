@@ -26,3 +26,11 @@
   (preprocess (pps ocaml-mpst.ppx))
   (flags ("-g" "-short-paths"))
   (libraries ocaml-mpst.simple))
+
+(executable
+ (name deleg_lin)
+  (public_name deleg_lin_mpst_simple)
+  (modules deleg_lin)
+  (preprocess (pps ocaml-mpst.ppx))
+  (flags ("-g" "-short-paths"))
+  (libraries ocaml-mpst.simple))

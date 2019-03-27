@@ -9,6 +9,10 @@ let cli = {lens=Fst;
 let srv = {lens=Next Fst;
            role={make_obj=(fun v->object method role_srv=v end);
                  make_var=(fun v->(`role_srv(v):[`role_srv of _]))}}
+let mst = {lens=Next (Next Fst);
+           role={make_obj=(fun v->object method role_mst=v end);
+                 make_var=(fun v->(`role_mst(v):[`role_mst of _]))}}
+
 
 let compute = {make_obj=(fun v-> object method compute=v end); make_var=(fun v -> `compute(v))}
 let result = {make_obj=(fun v-> object method result=v end); make_var=(fun v -> `result(v))}
@@ -18,7 +22,7 @@ let compute_or_result =
 let to_srv m =
   {obj_merge=(fun l r -> object method role_srv=m.obj_merge l#role_srv r#role_srv end)}
 
-let finish = one @@ one @@ nil
+let finish = one @@ one @@ one @@ nil
 
 type op = Add | Sub | Mul | Div
 let calc () =
@@ -31,7 +35,13 @@ let calc () =
                  finish))
   in Lazy.force g
 
+let worker () =
+  (srv --> mst) msg @@
+  (mst --> srv) msg @@
+  finish
+
 let _0 = Mpst_simple.LinMonad.Fst
+let _1 = Mpst_simple.LinMonad.Next Mpst_simple.LinMonad.Fst
 
 let tCli_monad () =
   let%lin #_0 = send (fun x->x#role_srv#compute) (Add, 20) _0 in
@@ -57,15 +67,62 @@ let tSrv_monad () =
       close _0
   in loop 0
 
-let g = create_global calc [`role_cli(); `role_srv()]
+let calc_sh = create_global calc [`role_cli(); `role_srv()]
+let work_sh = create_global worker [`role_mst(); `role_srv()]
 
-let run f g r =
+let tSrvWorker i =
+  print_endline "worker started";
+  let rec loop () =
+    let%lin #_1 = connect work_sh srv in
+    let%lin #_1 = send (fun x->x#role_mst#msg) i _1 in
+    let%lin `role_mst(`msg(#_0, #_1)) = receive _1 in
+    close _1 >>= fun () ->
+    tSrv_monad () >>= fun () ->
+    loop ()
+  in loop ()
+
+let tMaster () =
+  print_endline "master started";
+  let rec loop () =
+    let%lin #_0 = connect calc_sh srv in
+    print_endline "master: client comes";
+    let%lin #_1 = connect work_sh mst in
+    let%lin `role_srv(`msg({data=i}, #_1)) = receive _1 in
+    Printf.printf "master: connecrted to a worker %d\n" i;
+    let%lin #_1 = deleg_send (fun x->x#role_srv#msg) _0 _1 in
+    close _1 >>= loop
+  in loop ()
+
+let run f x =
   LinMonad.run begin
       LinMonad.expand >>= fun () ->
-      let%lin #_0 = connect g r in
-      f () >>= fun () ->
+      LinMonad.expand >>= fun () ->
+      f x >>= fun () ->
+      LinMonad.shrink >>= fun () ->
       LinMonad.shrink
   end
 
+let repeat cnt f =
+  let rec loop cnt acc =
+    if cnt > 0 then begin
+      let v = f cnt in
+      loop (cnt-1) (v::acc)
+    end else
+      acc
+  in
+  loop cnt []
+
+
+let _ : Thread.t list =
+  repeat 10 (fun i ->
+      Thread.create (fun () -> run (fun () -> tSrvWorker i)) ())
+
+let _ : Thread.t =
+  Thread.create (fun () -> run tMaster) ()
+
 let () =
-   List.iter Thread.join [Thread.create (run tCli_monad g) cli; Thread.create (run tSrv_monad g) srv]
+  List.iter Thread.join @@
+                    repeat 10 (fun i -> print_endline"here"; Thread.create (run (fun () ->
+                                            Printf.printf "%d\n" i;
+                                            let%lin #_0 = connect calc_sh cli in
+                                            tCli_monad ())) ())

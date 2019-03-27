@@ -1,9 +1,7 @@
 (* simple ring protocol *)
 open Mpst_simple
    
-let ring = comm a b msg
-             (comm b c msg
-               (comm c a msg finish))
+let ring = (a --> b) msg @@ (b --> c) msg @@ (c --> a) msg finish
 
 let ea = get_sess a ring
 and eb = get_sess b ring

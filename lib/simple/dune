@@ -1,0 +1,19 @@
+(executable
+ (name simple)
+  (public_name simple)
+  (modules simple)
+  (flags ("-g" "-short-paths"))
+  (libraries threads))
+
+(executable
+ (name simple2)
+  (public_name simple2)
+  (modules simple2)
+  (flags ("-g" "-short-paths"))
+  (libraries threads))
+
+; (executable
+;  (public_name ocaml-mpst.simple)
+;  (name mpst_simple)
+;  (flags ("-g" "-short-paths"))
+;  (libraries threads))

@@ -23,33 +23,33 @@ let unwrap : type t. t wrap -> t = function
   | WrapRecv(ev) -> ev
   | WrapClose -> Close
 
-type _ epseq =
-  Cons : 'hd wrap * 'tl epseq lazy_t -> ('hd * 'tl) epseq
-| Nil : unit epseq
+type _ seq =
+  Cons : 'hd wrap * 'tl seq lazy_t -> ('hd * 'tl) seq
+| Nil : unit seq
 
-let epseq_head : type hd tl. (hd * tl) epseq lazy_t -> hd wrap =
+let seq_head : type hd tl. (hd * tl) seq lazy_t -> hd wrap =
   fun (lazy (Cons(hd,_))) -> hd
 
-let epseq_tail : type hd tl. (hd * tl) epseq lazy_t -> tl epseq lazy_t = fun xs ->
+let seq_tail : type hd tl. (hd * tl) seq lazy_t -> tl seq lazy_t = fun xs ->
   lazy begin
       match xs with
       | lazy (Cons(_,lazy tl)) -> tl
     end
 
 type (_,_,_,_) lens =
-  | Fst  : ('hd0, 'hd1, ('hd0 * 'tl) epseq, ('hd1 * 'tl) epseq) lens
-  | Next : ('a, 'b, 'tl0 epseq, 'tl1 epseq) lens
-           -> ('a,'b, ('hd * 'tl0) epseq, ('hd * 'tl1) epseq) lens
+  | Fst  : ('hd0, 'hd1, ('hd0 * 'tl) seq, ('hd1 * 'tl) seq) lens
+  | Next : ('a, 'b, 'tl0 seq, 'tl1 seq) lens
+           -> ('a,'b, ('hd * 'tl0) seq, ('hd * 'tl1) seq) lens
 
 let rec get : type a b xs ys. (a, b, xs, ys) lens -> xs lazy_t -> a wrap = fun ln xs ->
   match ln with
-  | Fst -> epseq_head xs
-  | Next ln' -> get ln' (epseq_tail xs)
+  | Fst -> seq_head xs
+  | Next ln' -> get ln' (seq_tail xs)
 
 let rec put : type a b xs ys. (a,b,xs,ys) lens -> xs lazy_t -> b wrap -> ys lazy_t =
   fun ln xs b ->
   match ln with
-  | Fst -> lazy (Cons(b, epseq_tail xs))
+  | Fst -> lazy (Cons(b, seq_tail xs))
   | Next ln' ->
      lazy
        begin match xs with
@@ -69,11 +69,11 @@ let merge_wrap : type s. s wrap -> s wrap -> s wrap = fun l r ->
   | _, _ -> assert false (* OCaml typechecker cannot check exhaustiveness in this case *)
 
 
-let rec merge_epseq : type t. t epseq lazy_t -> t epseq lazy_t -> t epseq lazy_t = fun ls rs ->
+let rec merge_seq : type t. t seq lazy_t -> t seq lazy_t -> t seq lazy_t = fun ls rs ->
   lazy begin
       match ls, rs with
       | lazy (Cons(hd_l,tl_l)), lazy (Cons(hd_r, tl_r)) ->
-         (Cons(merge_wrap hd_l hd_r, merge_epseq tl_l tl_r))
+         (Cons(merge_wrap hd_l hd_r, merge_seq tl_l tl_r))
       | lazy Nil, _ ->
          Nil
     end
@@ -126,17 +126,17 @@ module type LIN = sig
 end
 
 let choice_at : 'obj 'obj0 'obj1 'g 'g1 'g00 'g01.
-      (_, _, _, close, < .. > as 'obj, 'g1 epseq, 'g epseq) role ->
+      (_, _, _, close, < .. > as 'obj, 'g1 seq, 'g seq) role ->
       ('obj, < .. > as 'obj0, < .. > as 'obj1) obj_merge ->
-      (_, _, _, 'obj0, close, 'g00 epseq, 'g1 epseq) role * 'g00 epseq lazy_t ->
-      (_, _, _, 'obj1, close, 'g01 epseq, 'g1 epseq) role * 'g01 epseq lazy_t ->
-      'g epseq lazy_t
+      (_, _, _, 'obj0, close, 'g00 seq, 'g1 seq) role * 'g00 seq lazy_t ->
+      (_, _, _, 'obj1, close, 'g01 seq, 'g1 seq) role * 'g01 seq lazy_t ->
+      'g seq lazy_t
   = fun r merge (r1,g1) (r2,g2) ->
   let e1, e2 = get r1.lens g1, get r2.lens g2 in
   let g1', g2' =
     put r1.lens g1 WrapClose,
     put r2.lens g2 WrapClose in
-  let g = merge_epseq g1' g2' in
+  let g = merge_seq g1' g2' in
   let e = WrapSend (merge.obj_merge (send_obj e1) (send_obj e2)) in
   put r.lens g e
 
@@ -187,11 +187,11 @@ module Lin : sig
 
   type 'g global
 
-  val create_shared : (unit -> 'g epseq lazy_t) -> [>] list -> 'g global
+  val create_shared : (unit -> 'g seq lazy_t) -> [>] list -> 'g global
 
   val connect :
     'g global ->
-    (_, _, unit, 's, _, 'g epseq, _) role ->
+    (_, _, unit, 's, _, 'g seq, _) role ->
     ('pre, 'pre, 's LinMonad.lin) LinMonad.monad
 
   open LinMonad
@@ -230,7 +230,7 @@ end
     failwith "TODO"
 
   type 'g global =
-    {locals:(Obj.t * 'g epseq lazy_t Stream.t) list}
+    {locals:(Obj.t * 'g seq lazy_t Stream.t) list}
 
   let create_shared f rs =
     let st0 = Stream.from (fun _ -> Some (f ())) in

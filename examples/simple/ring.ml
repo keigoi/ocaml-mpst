@@ -1,11 +1,11 @@
 (* simple ring protocol *)
 open Mpst_simple
-   
+
 let ring = (a --> b) msg @@ (b --> c) msg @@ (c --> a) msg finish
 
-let ea = get_sess a ring
-and eb = get_sess b ring
-and ec = get_sess c ring
+let ea = get_ep a ring
+and eb = get_ep b ring
+and ec = get_ep c ring
 
 let tA = Thread.create (fun () ->
   let ea = ea#role_b#msg () in

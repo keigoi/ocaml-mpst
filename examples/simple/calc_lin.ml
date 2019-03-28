@@ -4,10 +4,10 @@ open Mpst_simple.LinMonad
 open Mpst_simple.LinMonad.Op
 
 let cli = {lens=Fst;
-           role={make_obj=(fun v->object method role_cli=v end);
+           label={make_obj=(fun v->object method role_cli=v end);
                  make_var=(fun v->(`role_cli(v):[`role_cli of _]))}}
 let srv = {lens=Next Fst;
-           role={make_obj=(fun v->object method role_srv=v end);
+           label={make_obj=(fun v->object method role_srv=v end);
                  make_var=(fun v->(`role_srv(v):[`role_srv of _]))}}
 
 let compute = {make_obj=(fun v-> object method compute=v end); make_var=(fun v -> `compute(v))}
@@ -57,7 +57,7 @@ let tSrv_monad () =
       close _0
   in loop 0
 
-let g = create_global calc [`role_cli(); `role_srv()]
+let g = create_shared calc [`role_cli(); `role_srv()]
 
 let run f g r =
   LinMonad.run begin

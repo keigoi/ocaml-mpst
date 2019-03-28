@@ -4,13 +4,13 @@ open Mpst_simple.LinMonad
 open Mpst_simple.LinMonad.Op
 
 let cli = {lens=Fst;
-           role={make_obj=(fun v->object method role_cli=v end);
+           label={make_obj=(fun v->object method role_cli=v end);
                  make_var=(fun v->(`role_cli(v):[`role_cli of _]))}}
 let srv = {lens=Next Fst;
-           role={make_obj=(fun v->object method role_srv=v end);
+           label={make_obj=(fun v->object method role_srv=v end);
                  make_var=(fun v->(`role_srv(v):[`role_srv of _]))}}
 let mst = {lens=Next (Next Fst);
-           role={make_obj=(fun v->object method role_mst=v end);
+           label={make_obj=(fun v->object method role_mst=v end);
                  make_var=(fun v->(`role_mst(v):[`role_mst of _]))}}
 
 

@@ -1,62 +1,62 @@
-module Dyncheck = Dyncheck
-
 module LinMonad = LinMonad
 
 type ('la,'lb,'va,'vb) label =
     {make_obj: 'va -> 'la;
      make_var: 'vb -> 'lb}
 
-type ('lr, 'l, 'r) obj_merge =
+type ('l, 'r, 'lr) obj_merge =
     {obj_merge: 'l -> 'r -> 'lr}
 
-type close = Close
+module Flag = Mpst_base.Flags.NanoMutexFlag
+type flag = Flag.t
 
-let close Close = ()
+type close = Close of flag
+let close (Close f) = Flag.use f
 
 type _ wrap =
-  | WrapSend : (< .. > as 'obj) -> 'obj wrap
-  | WrapRecv : ([>] as 'var) Event.event -> 'var Event.event wrap
+  | WrapSend : (flag -> (< .. > as 'obj)) -> 'obj wrap
+  | WrapRecv : (flag -> ([>] as 'var) Event.event) -> 'var Event.event wrap
   | WrapClose : close wrap
 
-let unwrap : type t. t wrap -> t = function
-  | WrapSend(obj) -> obj
-  | WrapRecv(ev) -> ev
-  | WrapClose -> Close
+let unwrap : type t. flag -> t wrap -> t = fun f -> function
+  | WrapSend(obj) -> obj f
+  | WrapRecv(ev) -> ev f
+  | WrapClose -> Close f
 
-type _ epseq =
-  Cons : 'hd wrap * 'tl epseq lazy_t -> ('hd * 'tl) epseq
-| Nil : unit epseq
+type _ hlist =
+  Cons : 'hd wrap * 'tl hlist lazy_t -> ('hd * 'tl) hlist
+| Nil : unit hlist
 
-let epseq_head : type hd tl. (hd * tl) epseq lazy_t -> hd wrap =
+let slot_head : type hd tl. (hd * tl) hlist lazy_t -> hd wrap =
   fun (lazy (Cons(hd,_))) -> hd
 
-let epseq_tail : type hd tl. (hd * tl) epseq lazy_t -> tl epseq lazy_t = fun xs ->
+let slot_tail : type hd tl. (hd * tl) hlist lazy_t -> tl hlist lazy_t = fun sl ->
   lazy begin
-      match xs with
+      match sl with
       | lazy (Cons(_,lazy tl)) -> tl
     end
 
 type (_,_,_,_) lens =
-  | Fst  : ('hd0, 'hd1, ('hd0 * 'tl) epseq, ('hd1 * 'tl) epseq) lens
-  | Next : ('a, 'b, 'tl0 epseq, 'tl1 epseq) lens
-           -> ('a,'b, ('hd * 'tl0) epseq, ('hd * 'tl1) epseq) lens
+  | Fst  : ('hd0, 'hd1, ('hd0 * 'tl) hlist, ('hd1 * 'tl) hlist) lens
+  | Next : ('a, 'b, 'tl0 hlist, 'tl1 hlist) lens
+           -> ('a,'b, ('hd * 'tl0) hlist, ('hd * 'tl1) hlist) lens
 
-let rec get : type a b xs ys. (a, b, xs, ys) lens -> xs lazy_t -> a wrap = fun ln xs ->
+let rec lens_get : type a b xs ys. (a, b, xs, ys) lens -> xs lazy_t -> a wrap = fun ln xs ->
   match ln with
-  | Fst -> epseq_head xs
-  | Next ln' -> get ln' (epseq_tail xs)
+  | Fst -> slot_head xs
+  | Next ln' -> lens_get ln' (slot_tail xs)
 
-let rec put : type a b xs ys. (a,b,xs,ys) lens -> xs lazy_t -> b wrap -> ys lazy_t =
+let rec lens_put : type a b xs ys. (a,b,xs,ys) lens -> xs lazy_t -> b wrap -> ys lazy_t =
   fun ln xs b ->
   match ln with
-  | Fst -> lazy (Cons(b, epseq_tail xs))
+  | Fst -> lazy (Cons(b, slot_tail xs))
   | Next ln' ->
      lazy
        begin match xs with
-       | lazy (Cons(a, xs')) -> Cons(a, put ln' xs' b)
+       | lazy (Cons(a, xs')) -> Cons(a, lens_put ln' xs' b)
        end
 
-type ('robj,'rvar,'c,'a,'b,'xs,'ys) role = {label:('robj,'rvar,'c,'c) label; lens:('a,'b,'xs,'ys) lens}
+type ('robj,'rvar,'c,'a,'b,'xs,'ys) role = {role:('robj,'rvar,'c,'c) label; lens:('a,'b,'xs,'ys) lens}
 
 
 exception RoleNotEnabled
@@ -64,33 +64,33 @@ exception RoleNotEnabled
 let merge_wrap : type s. s wrap -> s wrap -> s wrap = fun l r ->
   match l, r with
   | WrapSend _, WrapSend _ -> raise RoleNotEnabled
-  | WrapRecv l, WrapRecv r -> WrapRecv (Event.choose [l; r])
+  | WrapRecv l, WrapRecv r -> WrapRecv (fun f -> Event.choose [l f; r f])
   | WrapClose, WrapClose -> WrapClose
   | _, _ -> assert false (* OCaml typechecker cannot check exhaustiveness in this case *)
 
 
-let rec merge_epseq : type t. t epseq lazy_t -> t epseq lazy_t -> t epseq lazy_t = fun ls rs ->
+let rec merge_hlist : type t. t hlist lazy_t -> t hlist lazy_t -> t hlist lazy_t = fun ls rs ->
   lazy begin
       match ls, rs with
       | lazy (Cons(hd_l,tl_l)), lazy (Cons(hd_r, tl_r)) ->
-         (Cons(merge_wrap hd_l hd_r, merge_epseq tl_l tl_r))
+         (Cons(merge_wrap hd_l hd_r, merge_hlist tl_l tl_r))
       | lazy Nil, _ ->
          Nil
     end
 
-let send_obj : 'obj. (< .. > as 'obj) wrap -> 'obj = function[@warning "-8"]
+let send_obj : 'obj. (< .. > as 'obj) wrap -> flag -> 'obj = function[@warning "-8"]
   | WrapSend obj -> obj
 
 let goto l =
   lazy (Lazy.force @@ Lazy.force l)
 
-let a = {label={make_obj=(fun v->object method role_a=v end);
+let a = {role={make_obj=(fun v->object method role_a=v end);
                make_var=(fun v->(`role_a(v):[`role_a of _]))}; (* explicit annotataion is mandatory *)
          lens=Fst}
-let b = {label={make_obj=(fun v->object method role_b=v end);
+let b = {role={make_obj=(fun v->object method role_b=v end);
                make_var=(fun v->(`role_b(v):[`role_b of _]))}; (* explicit annotataion is mandatory *)
          lens=Next Fst}
-let c = {label={make_obj=(fun v->object method role_c=v end);
+let c = {role={make_obj=(fun v->object method role_c=v end);
                make_var=(fun v->(`role_c(v):[`role_c of _]))}; (* explicit annotataion is mandatory *)
          lens=Next (Next Fst)}
 let msg =
@@ -113,7 +113,7 @@ let b_or_c =
  *   let rec fini = lazy (Cons(Close, fini)) in
  *   Lazy.from_val (Lazy.force fini) *)
 
-let get_ep r g = unwrap (get r.lens g)
+let get_sess r g = unwrap (Flag.create ()) (lens_get r.lens g)
 
 let one xs = Lazy.from_val (Cons(WrapClose, xs))
 let nil = Lazy.from_val Nil
@@ -125,73 +125,55 @@ module type LIN = sig
   val mklin : 'a -> 'a lin
 end
 
-let choice_at : 'obj 'obj0 'obj1 'g 'g1 'g00 'g01.
-      (_, _, _, close, < .. > as 'obj, 'g1 epseq, 'g epseq) role ->
-      ('obj, < .. > as 'obj0, < .. > as 'obj1) obj_merge ->
-      (_, _, _, 'obj0, close, 'g00 epseq, 'g1 epseq) role * 'g00 epseq lazy_t ->
-      (_, _, _, 'obj1, close, 'g01 epseq, 'g1 epseq) role * 'g01 epseq lazy_t ->
-      'g epseq lazy_t
-  = fun r merge (r1,g1) (r2,g2) ->
-  let e1, e2 = get r1.lens g1, get r2.lens g2 in
-  let g1', g2' =
-    put r1.lens g1 WrapClose,
-    put r2.lens g2 WrapClose in
-  let g = merge_epseq g1' g2' in
-  let e = WrapSend (merge.obj_merge (send_obj e1) (send_obj e2)) in
-  put r.lens g e
-
 module MakeGlobal(X:LIN) = struct
 
-  let put_ep r g ep =
-    put r.lens g ep
+  let (-->) a b label g0 =
+    let ch = Event.new_channel () in
+    let obj f =
+      b.role.make_obj @@
+        label.make_obj
+          (fun v ->
+            Flag.use f;
+            Event.sync (Event.send ch v);
+            X.mklin @@ unwrap (Flag.create ()) (lens_get a.lens g0)) in
+    let g1 = lens_put a.lens g0 (WrapSend obj) in
+    let ev f =
+      let ev = Event.receive ch in
+      Event.wrap ev (fun v ->
+          Flag.use f;
+          a.role.make_var @@ label.make_var (v, X.mklin @@ unwrap (Flag.create ()) (lens_get b.lens g1))) in
+    let g2 = lens_put b.lens g1 (WrapRecv ev) in
+    g2
 
-  let make_send rB lab ch epA =
-    let method_ v =
-      Event.sync (Event.send ch v);
-      X.mklin (Lazy.force epA)
-    in
-    (* <role_rB : < lab : v -> epA > > *)
-    rB.label.make_obj (lab.make_obj method_)
-
-  let make_recv rA lab ch epB =
-    let wrapvar v epB =
-      (* [`role_rA of [`lab of v * epB ] ] *)
-      rA.label.make_var
-        (lab.make_var (v, X.mklin epB))
-    in
-    Event.wrap
-      (Event.receive ch)
-      (fun v -> wrapvar v (Lazy.force epB))
-
-  let ( --> ) rA rB label g0 =
-    let ch = Event.new_channel ()
-    in
-    let epB = lazy (get_ep rB g0) in
-    let ev  = make_recv rA label ch epB in
-    let g1  = put_ep rB g0 (WrapRecv ev)
-    in
-    let epA = lazy (get_ep rA g1) in
-    let obj = make_send rB label ch epA in
-    let g2  = put_ep rA g1 (WrapSend obj)
-    in g2
+  let choice_at a merge (al,cl) (ar,cr) =
+    let sal, sar = lens_get al.lens cl, lens_get ar.lens cr in
+    let cl, cr = lens_put al.lens cl WrapClose,
+                 lens_put ar.lens cr WrapClose in
+    let c = merge_hlist cl cr in
+    let lr = WrapSend (fun f -> merge.obj_merge (send_obj sal f) (send_obj sar f)) in
+    lens_put a.lens c lr
 end
 
 include MakeGlobal(struct type 'a lin = 'a let mklin x = x end)
 
 module Lin : sig
   val ( --> ) :
-    (_,  [>  ] as 'roleAvar, 'labelvar, 'epA, 'roleBobj,             'g1, 'g2) role ->
-    (< .. > as 'roleBobj, _, 'labelobj, 'epB, 'roleAvar Event.event, 'g0, 'g1) role ->
-    (< .. > as 'labelobj, [> ] as 'labelvar, 'v -> 'epA LinMonad.lin, 'v * 'epB LinMonad.lin) label ->
-    'g0 lazy_t -> 'g2 lazy_t
+      ('a, [>  ] as 'var, 'b, 'c, < .. > as 'd, 'e, 'f) role ->
+      ('d, 'g, 'h, 'i, 'var Event.event, 'f, 'j) role ->
+      ('h, 'b, 'k -> 'c LinMonad.lin, 'k * 'i LinMonad.lin) label -> 'e lazy_t -> 'j lazy_t
+  val choice_at :
+      ('a, 'b, 'c, 'd, < .. > as 'e, 'f hlist, 'g) role ->
+      (< .. > as 'h, < .. > as 'i, 'e) obj_merge ->
+      ('j, 'k, 'l, 'h, close, 'm, 'f hlist) role * 'm lazy_t ->
+      ('n, 'o, 'p, 'i, close, 'q, 'f hlist) role * 'q lazy_t -> 'g lazy_t
 
   type 'g global
 
-  val create_shared : (unit -> 'g epseq lazy_t) -> [>] list -> 'g global
+  val create_shared : (unit -> 'g hlist lazy_t) -> [>] list -> 'g global
 
   val connect :
     'g global ->
-    (_, _, unit, 's, _, 'g epseq, _) role ->
+    (_, _, unit, 's, _, 'g hlist, _) role ->
     ('pre, 'pre, 's LinMonad.lin) LinMonad.monad
 
   open LinMonad
@@ -230,7 +212,7 @@ end
     failwith "TODO"
 
   type 'g global =
-    {locals:(Obj.t * 'g epseq lazy_t Stream.t) list}
+    {locals:(Obj.t * 'g hlist lazy_t Stream.t) list}
 
   let create_shared f rs =
     let st0 = Stream.from (fun _ -> Some (f ())) in
@@ -247,12 +229,12 @@ end
        in
        {locals=(Obj.repr r,st0)::locals}
 
-  let connect {locals} r =
+  let connect {locals} {role;lens} =
     {LinMonad.__run=
        fun pre->
-       let st = List.assoc (Obj.repr (r.label.make_var ())) locals in
+       let st = List.assoc (Obj.repr (role.make_var ())) locals in
        Stream.next st |> (fun g ->
-       (pre, {LinMonad.__lindata=unwrap @@ get r.lens g}))
+       (pre, {LinMonad.__lindata=unwrap (Flag.create ()) @@ lens_get lens g}))
     }
 
   let send sel v lens =

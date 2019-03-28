@@ -1,10 +1,10 @@
 open Mpst_simple
 
 let cli = {lens=Fst;
-           role={make_obj=(fun v->object method role_cli=v end);
+           label={make_obj=(fun v->object method role_cli=v end);
                  make_var=(fun v->(`role_cli(v):[`role_cli of _]))}}
 let srv = {lens=Next Fst;
-           role={make_obj=(fun v->object method role_srv=v end);
+           label={make_obj=(fun v->object method role_srv=v end);
                  make_var=(fun v->(`role_srv(v):[`role_srv of _]))}}
 
 let compute = {make_obj=(fun v-> object method compute=v end); make_var=(fun v -> `compute(v))}
@@ -54,8 +54,8 @@ let tSrv es =
 
 let () =
   let g = calc () in
-  let ec = get_sess cli g
-  and es = get_sess srv g
+  let ec = get_ep cli g
+  and es = get_ep srv g
   in List.iter Thread.join [Thread.create tCli ec; Thread.create tSrv es]
 
 (* custom label declaration *)
@@ -100,6 +100,6 @@ let tSrv2 es =
 
 let () =
   let calc2 = calc2 () in
-  let ec = get_sess cli calc2 and es = get_sess srv calc2 in
+  let ec = get_ep cli calc2 and es = get_ep srv calc2 in
   ignore @@ Thread.create tSrv2 es;
   tCli ec

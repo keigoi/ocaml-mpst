@@ -177,7 +177,7 @@ module Lin : sig
 
   type 'g global
 
-  val create_global : (unit -> 'g eps lazy_t) -> [>] list -> 'g global
+  val create_shared : (unit -> 'g eps lazy_t) -> [>] list -> 'g global
 
   val connect :
     'g global ->
@@ -220,7 +220,7 @@ end
   type 'g global =
     {locals:(Obj.t * 'g eps lazy_t Stream.t) list}
 
-  let create_global f rs =
+  let create_shared f rs =
     let st0 = Stream.from (fun _ -> Some (f ())) in
     match rs with
     | [] -> failwith "empty roles"

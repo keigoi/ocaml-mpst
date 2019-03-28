@@ -67,8 +67,8 @@ let tSrv_monad () =
       close _0
   in loop 0
 
-let calc_sh = create_global calc [`role_cli(); `role_srv()]
-let work_sh = create_global worker [`role_mst(); `role_srv()]
+let calc_sh = create_shared calc [`role_cli(); `role_srv()]
+let work_sh = create_shared worker [`role_mst(); `role_srv()]
 
 let tSrvWorker i =
   print_endline "worker started";

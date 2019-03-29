@@ -3,11 +3,11 @@ open Mpst_simple
 
 
 let cli = {lens=Fst;
-           label={make_obj=(fun v->object method role_cli=v end);
-                 make_var=(fun v->(`role_cli(v):[`role_cli of _]))}}
+           label={make_obj=(fun v->object method role_Cli=v end);
+                 make_var=(fun v->(`role_Cli(v):[`role_Cli of _]))}}
 let srv = {lens=Next Fst;
-           label={make_obj=(fun v->object method role_srv=v end);
-                 make_var=(fun v->(`role_srv(v):[`role_srv of _]))}}
+           label={make_obj=(fun v->object method role_Srv=v end);
+                 make_var=(fun v->(`role_Srv(v):[`role_Srv of _]))}}
 
 let compute = {make_obj=(fun v-> object method compute=v end); make_var=(fun v -> `compute(v))}
 let result = {make_obj=(fun v-> object method result=v end); make_var=(fun v -> `result(v))}
@@ -15,7 +15,7 @@ let answer = {make_obj=(fun v-> object method answer=v end); make_var=(fun v -> 
 let compute_or_result =
      {obj_merge=(fun l r -> object method compute=l#compute method result=r#result end)}
 let to_srv m =
-  {obj_merge=(fun l r -> object method role_srv=m.obj_merge l#role_srv r#role_srv end)}
+  {obj_merge=(fun l r -> object method role_Srv=m.obj_merge l#role_Srv r#role_Srv end)}
 
 let finish = one @@ one @@ nil
 
@@ -36,11 +36,11 @@ let calc' () =
 
 (* same as before *)
 let tCli ec =
-  let ec = ec#role_srv#compute (Add, 20) in
-  let ec = ec#role_srv#compute (Sub, 45) in
-  let ec = ec#role_srv#compute (Mul, 10) in
-  let ec = ec#role_srv#result () in
-  let `role_srv(`answer(ans, ec)) = Event.sync ec in
+  let ec = ec#role_Srv#compute (Add, 20) in
+  let ec = ec#role_Srv#compute (Sub, 45) in
+  let ec = ec#role_Srv#compute (Mul, 10) in
+  let ec = ec#role_Srv#result () in
+  let `role_Srv(`answer(ans, ec)) = Event.sync ec in
   close ec;
   (* outputs "Answer: -250" (= (20 - 45) * 10) *)
   Printf.printf "Answer: %d\n" ans
@@ -54,12 +54,12 @@ let srvbody self acc es =
         | Mul -> ( * ) | Div -> (/)
       in self (op acc num) es
     | `result((), es) ->
-      let es = es#role_cli#answer acc in
+      let es = es#role_Cli#answer acc in
       close es
 
 let tSrv' es =
   let rec loop acc es =
-    let `role_cli(lab) = Event.sync es in
+    let `role_Cli(lab) = Event.sync es in
     srvbody loop acc es lab
   in loop 0 es
 
@@ -95,12 +95,12 @@ let calc2' () =
 
 let tSrv2' es =
   let rec loop acc es =
-    let `role_cli(label) = Event.sync es in
+    let `role_Cli(label) = Event.sync es in
     match label with
     | (`compute(_) | `result(_) as v) ->
        srvbody loop acc es v
     | `current((), es) ->
-      let es = es#role_cli#answer acc in
+      let es = es#role_Cli#answer acc in
       loop acc es
   in loop 0 es
 
@@ -110,13 +110,13 @@ let () =
   in List.iter Thread.join [Thread.create tCli ec; Thread.create tSrv2' es]
 
 let tCli2 ec =
-  let ec = ec#role_srv#compute (Add,100) in
-  let ec = ec#role_srv#current () in
-  let `role_srv(`answer(num,ec)) = Event.sync ec in
+  let ec = ec#role_Srv#compute (Add,100) in
+  let ec = ec#role_Srv#current () in
+  let `role_Srv(`answer(num,ec)) = Event.sync ec in
   assert (num = 100);
-  let ec = ec#role_srv#compute (Sub,1) in
-  let ec = ec#role_srv#result () in
-  let `role_srv(`answer(num,ec)) = Event.sync ec in
+  let ec = ec#role_Srv#compute (Sub,1) in
+  let ec = ec#role_Srv#result () in
+  let `role_Srv(`answer(num,ec)) = Event.sync ec in
   assert (num = 99);
   close ec;
   Printf.printf "Answer: %d\n" num

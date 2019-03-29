@@ -4,14 +4,14 @@ open Mpst_simple.LinMonad
 open Mpst_simple.LinMonad.Op
 
 let cli = {lens=Fst;
-           label={make_obj=(fun v->object method role_cli=v end);
-                 make_var=(fun v->(`role_cli(v):[`role_cli of _]))}}
+           label={make_obj=(fun v->object method role_Cli=v end);
+                 make_var=(fun v->(`role_Cli(v):[`role_Cli of _]))}}
 let srv = {lens=Next Fst;
-           label={make_obj=(fun v->object method role_srv=v end);
-                 make_var=(fun v->(`role_srv(v):[`role_srv of _]))}}
+           label={make_obj=(fun v->object method role_Srv=v end);
+                 make_var=(fun v->(`role_Srv(v):[`role_Srv of _]))}}
 let mst = {lens=Next (Next Fst);
-           label={make_obj=(fun v->object method role_mst=v end);
-                 make_var=(fun v->(`role_mst(v):[`role_mst of _]))}}
+           label={make_obj=(fun v->object method role_Mst=v end);
+                 make_var=(fun v->(`role_Mst(v):[`role_Mst of _]))}}
 
 
 let compute = {make_obj=(fun v-> object method compute=v end); make_var=(fun v -> `compute(v))}
@@ -20,7 +20,7 @@ let answer = {make_obj=(fun v-> object method answer=v end); make_var=(fun v -> 
 let compute_or_result =
      {obj_merge=(fun l r -> object method compute=l#compute method result=r#result end)}
 let to_srv m =
-  {obj_merge=(fun l r -> object method role_srv=m.obj_merge l#role_srv r#role_srv end)}
+  {obj_merge=(fun l r -> object method role_Srv=m.obj_merge l#role_Srv r#role_Srv end)}
 
 let finish = one @@ one @@ one @@ nil
 
@@ -44,11 +44,11 @@ let _0 = Mpst_simple.LinMonad.Fst
 let _1 = Mpst_simple.LinMonad.Next Mpst_simple.LinMonad.Fst
 
 let tCli_monad () =
-  let%lin #_0 = send (fun x->x#role_srv#compute) (Add, 20) _0 in
-  let%lin #_0 = send (fun x->x#role_srv#compute) (Sub, 45) _0 in
-  let%lin #_0 = send (fun x->x#role_srv#compute) (Mul, 10) _0 in
-  let%lin #_0 = send (fun x->x#role_srv#result) () _0 in
-  let%lin `role_srv(`answer(ans, #_0)) = receive _0 in
+  let%lin #_0 = send (fun x->x#role_Srv#compute) (Add, 20) _0 in
+  let%lin #_0 = send (fun x->x#role_Srv#compute) (Sub, 45) _0 in
+  let%lin #_0 = send (fun x->x#role_Srv#compute) (Mul, 10) _0 in
+  let%lin #_0 = send (fun x->x#role_Srv#result) () _0 in
+  let%lin `role_Srv(`answer(ans, #_0)) = receive _0 in
   close _0 >>= fun () ->
   (* outputs "Answer: -250" (= (20 - 45) * 10) *)
   Printf.printf "Answer: %d\n" ans;
@@ -57,25 +57,25 @@ let tCli_monad () =
 let tSrv_monad () =
   let rec loop acc =
     match%lin receive _0 with
-    | `role_cli(`compute({data=(sym,num)}, #_0)) ->
+    | `role_Cli(`compute({data=(sym,num)}, #_0)) ->
       let op = match sym with
         | Add -> (+)   | Sub -> (-)
         | Mul -> ( * ) | Div -> (/)
       in loop (op acc num)
-    | `role_cli(`result(_, #_0)) ->
-      let%lin #_0 = send (fun x->x#role_cli#answer) acc _0 in
+    | `role_Cli(`result(_, #_0)) ->
+      let%lin #_0 = send (fun x->x#role_Cli#answer) acc _0 in
       close _0
   in loop 0
 
-let calc_sh = create_shared calc [`role_cli(); `role_srv()]
-let work_sh = create_shared worker [`role_mst(); `role_srv()]
+let calc_sh = create_shared calc [`role_Cli(); `role_Srv()]
+let work_sh = create_shared worker [`role_Mst(); `role_Srv()]
 
 let tSrvWorker i =
   print_endline "worker started";
   let rec loop () =
     let%lin #_1 = connect work_sh srv in
-    let%lin #_1 = send (fun x->x#role_mst#msg) i _1 in
-    let%lin `role_mst(`msg(#_0, #_1)) = receive _1 in
+    let%lin #_1 = send (fun x->x#role_Mst#msg) i _1 in
+    let%lin `role_Mst(`msg(#_0, #_1)) = receive _1 in
     close _1 >>= fun () ->
     tSrv_monad () >>= fun () ->
     loop ()
@@ -87,9 +87,9 @@ let tMaster () =
     let%lin #_0 = connect calc_sh srv in
     print_endline "master: client comes";
     let%lin #_1 = connect work_sh mst in
-    let%lin `role_srv(`msg({data=i}, #_1)) = receive _1 in
+    let%lin `role_Srv(`msg({data=i}, #_1)) = receive _1 in
     Printf.printf "master: connecrted to a worker %d\n" i;
-    let%lin #_1 = deleg_send (fun x->x#role_srv#msg) _0 _1 in
+    let%lin #_1 = deleg_send (fun x->x#role_Srv#msg) _0 _1 in
     close _1 >>= loop
   in loop ()
 

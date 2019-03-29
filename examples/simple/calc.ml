@@ -1,11 +1,11 @@
 open Mpst_simple
 
 let cli = {lens=Fst;
-           label={make_obj=(fun v->object method role_cli=v end);
-                 make_var=(fun v->(`role_cli(v):[`role_cli of _]))}}
+           label={make_obj=(fun v->object method role_Cli=v end);
+                 make_var=(fun v->(`role_Cli(v):[`role_Cli of _]))}}
 let srv = {lens=Next Fst;
-           label={make_obj=(fun v->object method role_srv=v end);
-                 make_var=(fun v->(`role_srv(v):[`role_srv of _]))}}
+           label={make_obj=(fun v->object method role_Srv=v end);
+                 make_var=(fun v->(`role_Srv(v):[`role_Srv of _]))}}
 
 let compute = {make_obj=(fun v-> object method compute=v end); make_var=(fun v -> `compute(v))}
 let result = {make_obj=(fun v-> object method result=v end); make_var=(fun v -> `result(v))}
@@ -13,7 +13,7 @@ let answer = {make_obj=(fun v-> object method answer=v end); make_var=(fun v -> 
 let compute_or_result =
      {obj_merge=(fun l r -> object method compute=l#compute method result=r#result end)}
 let to_srv m =
-  {obj_merge=(fun l r -> object method role_srv=m.obj_merge l#role_srv r#role_srv end)}
+  {obj_merge=(fun l r -> object method role_Srv=m.obj_merge l#role_Srv r#role_Srv end)}
 
 let finish = one @@ one @@ nil
 
@@ -28,19 +28,62 @@ let calc () =
                  finish))
   in Lazy.force g
 
+(* the above is equivalent to following: *)
+module ChVecExample = struct
+  let force = Lazy.force
+
+  let calc () =
+    let ch0 = Event.new_channel ()
+    and ch1 = Event.new_channel ()
+    and ch2 = Event.new_channel ()
+    in
+    let rec ec0 =
+      lazy (object method role_Srv =
+                object
+                  method compute v =
+                    Event.sync (Event.send ch0 v);
+                    force ec0
+                  method result v =
+                    Event.sync (Event.send ch1 v);
+                    force ec1
+                end
+            end)
+    and ec1 =
+      lazy (Event.wrap (Event.receive ch2)
+              (fun v -> `role_Srv(`answer(v, Close))))
+    in
+    let rec es0 =
+      lazy (Event.choose
+              [(Event.wrap (Event.receive ch0)
+                  (fun v -> `role_Cli(`compute(v, force es0))));
+               (Event.wrap (Event.receive ch1)
+                  (fun v -> `role_Cli(`result(v, force es1))))])
+    and es1 =
+      lazy (object method role_Cli =
+                object method answer v =
+                    Event.sync (Event.send ch2 v);
+                    Close
+                end
+            end)
+    in
+    let ec = force ec0 and es = force es0
+    in
+    lazy (Cons(WrapSend(ec), lazy(Cons(WrapRecv(es), lazy Nil))))
+end
+
 let tCli ec =
-  let ec = ec#role_srv#compute (Add, 20) in
-  let ec = ec#role_srv#compute (Sub, 45) in
-  let ec = ec#role_srv#compute (Mul, 10) in
-  let ec = ec#role_srv#result () in
-  let `role_srv(`answer(ans, ec)) = Event.sync ec in
+  let ec = ec#role_Srv#compute (Add, 20) in
+  let ec = ec#role_Srv#compute (Sub, 45) in
+  let ec = ec#role_Srv#compute (Mul, 10) in
+  let ec = ec#role_Srv#result () in
+  let `role_Srv(`answer(ans, ec)) = Event.sync ec in
   close ec;
   (* outputs "Answer: -250" (= (20 - 45) * 10) *)
   Printf.printf "Answer: %d\n" ans
 
 let tSrv es =
   let rec loop acc es =
-    let `role_cli(label) = Event.sync es in
+    let `role_Cli(label) = Event.sync es in
     match label with
     | `compute((sym,num), es) ->
       let op = match sym with
@@ -48,11 +91,12 @@ let tSrv es =
         | Mul -> ( * ) | Div -> (/)
       in loop (op acc num) es
     | `result((), es) ->
-      let es = es#role_cli#answer acc in
+      let es = es#role_Cli#answer acc in
       close es
   in loop 0 es
 
 let () =
+  (* let g = ChVecExample.calc () in *)
   let g = calc () in
   let ec = get_ep cli g
   and es = get_ep srv g
@@ -83,7 +127,7 @@ let calc2 () =
 
 let tSrv2 es =
   let rec loop acc es =
-    let `role_cli(label) = Event.sync es in
+    let `role_Cli(label) = Event.sync es in
     match label with
     | `compute((sym,num), es) ->
       let op = match sym with
@@ -91,10 +135,10 @@ let tSrv2 es =
         | Mul -> ( * ) | Div -> (/)
       in loop (op acc num) es
     | `result((), es) ->
-      let es = es#role_cli#answer acc in
+      let es = es#role_Cli#answer acc in
       close es
     | `current((), es) ->
-      let es = es#role_cli#answer acc in
+      let es = es#role_Cli#answer acc in
       loop acc es
   in loop 0 es
 

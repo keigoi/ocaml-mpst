@@ -3,13 +3,13 @@ open Mpst_simple.Lin
 open Mpst_simple.LinMonad
 open Mpst_simple.LinMonad.Op
 
-let cli = {lens=Fst;
+let cli = {lens=Zero;
            label={make_obj=(fun v->object method role_Cli=v end);
                  make_var=(fun v->(`role_Cli(v):[`role_Cli of _]))}}
-let srv = {lens=Next Fst;
+let srv = {lens=Succ Zero;
            label={make_obj=(fun v->object method role_Srv=v end);
                  make_var=(fun v->(`role_Srv(v):[`role_Srv of _]))}}
-let mst = {lens=Next (Next Fst);
+let mst = {lens=Succ (Succ Zero);
            label={make_obj=(fun v->object method role_Mst=v end);
                  make_var=(fun v->(`role_Mst(v):[`role_Mst of _]))}}
 

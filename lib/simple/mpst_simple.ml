@@ -37,20 +37,20 @@ let seq_tail : type hd tl. (hd * tl) seq lazy_t -> tl seq lazy_t = fun xs ->
     end
 
 type (_,_,_,_) lens =
-  | Fst  : ('hd0, 'hd1, ('hd0 * 'tl) seq, ('hd1 * 'tl) seq) lens
-  | Next : ('a, 'b, 'tl0 seq, 'tl1 seq) lens
+  | Zero  : ('hd0, 'hd1, ('hd0 * 'tl) seq, ('hd1 * 'tl) seq) lens
+  | Succ : ('a, 'b, 'tl0 seq, 'tl1 seq) lens
            -> ('a,'b, ('hd * 'tl0) seq, ('hd * 'tl1) seq) lens
 
 let rec get : type a b xs ys. (a, b, xs, ys) lens -> xs lazy_t -> a wrap = fun ln xs ->
   match ln with
-  | Fst -> seq_head xs
-  | Next ln' -> get ln' (seq_tail xs)
+  | Zero -> seq_head xs
+  | Succ ln' -> get ln' (seq_tail xs)
 
 let rec put : type a b xs ys. (a,b,xs,ys) lens -> xs lazy_t -> b wrap -> ys lazy_t =
   fun ln xs b ->
   match ln with
-  | Fst -> lazy (Cons(b, seq_tail xs))
-  | Next ln' ->
+  | Zero -> lazy (Cons(b, seq_tail xs))
+  | Succ ln' ->
      lazy
        begin match xs with
        | lazy (Cons(a, xs')) -> Cons(a, put ln' xs' b)
@@ -61,38 +61,35 @@ type ('robj,'rvar,'c,'a,'b,'xs,'ys) role = {label:('robj,'rvar,'c,'c) label; len
 
 exception RoleNotEnabled
 
-let merge_wrap : type s. s wrap -> s wrap -> s wrap = fun l r ->
+let wrap_merge : type s. s wrap -> s wrap -> s wrap = fun l r ->
   match l, r with
   | WrapSend _, WrapSend _ -> raise RoleNotEnabled
   | WrapRecv l, WrapRecv r -> WrapRecv (Event.choose [l; r])
   | WrapClose, WrapClose -> WrapClose
   | _, _ -> assert false (* OCaml typechecker cannot check exhaustiveness in this case *)
 
+let force = Lazy.force
 
-let rec merge_seq : type t. t seq lazy_t -> t seq lazy_t -> t seq lazy_t = fun ls rs ->
-  lazy begin
-      match ls, rs with
-      | lazy (Cons(hd_l,tl_l)), lazy (Cons(hd_r, tl_r)) ->
-         (Cons(merge_wrap hd_l hd_r, merge_seq tl_l tl_r))
-      | lazy Nil, _ ->
-         Nil
-    end
-
-let send_obj : 'obj. (< .. > as 'obj) wrap -> 'obj = function[@warning "-8"]
-  | WrapSend obj -> obj
+let rec seq_merge : type t.
+    t seq lazy_t -> t seq lazy_t -> t seq lazy_t =
+  fun ls rs -> lazy begin
+  match force ls, force rs with
+  | Cons(hd_l,tl_l), Cons(hd_r, tl_r) ->
+     Cons(wrap_merge hd_l hd_r, seq_merge tl_l tl_r)
+  | Nil, _ -> Nil end
 
 let goto l =
   lazy (Lazy.force @@ Lazy.force l)
 
 let a = {label={make_obj=(fun v->object method role_A=v end);
                make_var=(fun v->(`role_A(v):[`role_A of _]))}; (* explicit annotataion is mandatory *)
-         lens=Fst}
+         lens=Zero}
 let b = {label={make_obj=(fun v->object method role_B=v end);
                make_var=(fun v->(`role_B(v):[`role_B of _]))}; (* explicit annotataion is mandatory *)
-         lens=Next Fst}
+         lens=Succ Zero}
 let c = {label={make_obj=(fun v->object method role_C=v end);
                make_var=(fun v->(`role_C(v):[`role_C of _]))}; (* explicit annotataion is mandatory *)
-         lens=Next (Next Fst)}
+         lens=Succ (Succ Zero)}
 let msg =
   {make_obj=(fun f -> object method msg=f end);
    make_var=(fun v -> `msg(v))}
@@ -125,25 +122,23 @@ module type LIN = sig
   val mklin : 'a -> 'a lin
 end
 
-let choice_at : 'obj 'obj0 'obj1 'g 'g1 'g00 'g01.
-      (_, _, _, close, < .. > as 'obj, 'g1 seq, 'g seq) role ->
-      ('obj, < .. > as 'obj0, < .. > as 'obj1) obj_merge ->
-      (_, _, _, 'obj0, close, 'g00 seq, 'g1 seq) role * 'g00 seq lazy_t ->
-      (_, _, _, 'obj1, close, 'g01 seq, 'g1 seq) role * 'g01 seq lazy_t ->
-      'g seq lazy_t
-  = fun r merge (r1,g1) (r2,g2) ->
-  let e1, e2 = get r1.lens g1, get r2.lens g2 in
-  let g1', g2' =
-    put r1.lens g1 WrapClose,
-    put r2.lens g2 WrapClose in
-  let g = merge_seq g1' g2' in
-  let e = WrapSend (merge.obj_merge (send_obj e1) (send_obj e2)) in
-  put r.lens g e
+let put_ep r g ep = put r.lens g ep
+
+let choice_at : 'ep 'ep_l 'ep_r 'g0_l 'g0_r 'g1 'g2.
+  (_, _, _, close, < .. > as 'ep, 'g1 seq, 'g2 seq) role ->
+  ('ep, < .. > as 'ep_l, < .. > as 'ep_r) obj_merge ->
+  (_, _, _, 'ep_l, close, 'g0_l seq, 'g1 seq) role * 'g0_l seq lazy_t ->
+  (_, _, _, 'ep_r, close, 'g0_r seq, 'g1 seq) role * 'g0_r seq lazy_t ->
+  'g2 seq lazy_t
+  = fun r merge (r',g0left) (r'',g0right) ->
+  let oleft, oright = get_ep r' g0left, get_ep r'' g0right in
+  let g1left, g1right =
+    put_ep r' g0left WrapClose, put_ep r'' g0right WrapClose in
+  let g1 = seq_merge g1left g1right in
+  let omerge = merge.obj_merge oleft oright in
+  put_ep r g1 (WrapSend omerge)
 
 module MakeGlobal(X:LIN) = struct
-
-  let put_ep r g ep =
-    put r.lens g ep
 
   let make_send rB lab ch epA =
     let method_ v =

@@ -1,11 +1,10 @@
 (* code reuse through polymorphic variants *)
 open Mpst_simple
 
-
-let cli = {lens=Fst;
+let cli = {lens=Zero;
            label={make_obj=(fun v->object method role_Cli=v end);
                  make_var=(fun v->(`role_Cli(v):[`role_Cli of _]))}}
-let srv = {lens=Next Fst;
+let srv = {lens=Succ Zero;
            label={make_obj=(fun v->object method role_Srv=v end);
                  make_var=(fun v->(`role_Srv(v):[`role_Srv of _]))}}
 

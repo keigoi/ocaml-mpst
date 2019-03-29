@@ -84,14 +84,14 @@ let send_obj : 'obj. (< .. > as 'obj) wrap -> 'obj = function[@warning "-8"]
 let goto l =
   lazy (Lazy.force @@ Lazy.force l)
 
-let a = {label={make_obj=(fun v->object method role_a=v end);
-               make_var=(fun v->(`role_a(v):[`role_a of _]))}; (* explicit annotataion is mandatory *)
+let a = {label={make_obj=(fun v->object method role_A=v end);
+               make_var=(fun v->(`role_A(v):[`role_A of _]))}; (* explicit annotataion is mandatory *)
          lens=Fst}
-let b = {label={make_obj=(fun v->object method role_b=v end);
-               make_var=(fun v->(`role_b(v):[`role_b of _]))}; (* explicit annotataion is mandatory *)
+let b = {label={make_obj=(fun v->object method role_B=v end);
+               make_var=(fun v->(`role_B(v):[`role_B of _]))}; (* explicit annotataion is mandatory *)
          lens=Next Fst}
-let c = {label={make_obj=(fun v->object method role_c=v end);
-               make_var=(fun v->(`role_c(v):[`role_c of _]))}; (* explicit annotataion is mandatory *)
+let c = {label={make_obj=(fun v->object method role_C=v end);
+               make_var=(fun v->(`role_C(v):[`role_C of _]))}; (* explicit annotataion is mandatory *)
          lens=Next (Next Fst)}
 let msg =
   {make_obj=(fun f -> object method msg=f end);

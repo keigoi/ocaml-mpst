@@ -1,3 +1,4 @@
+
 open Mpst_simple
 
 let cli = {lens=Zero;
@@ -66,7 +67,7 @@ module ChVecExample = struct
     in
     let ec = force ec0 and es = force es0
     in
-    lazy (Cons(WrapSend(ec), lazy(Cons(WrapRecv(es), lazy Nil))))
+    Cons(WrapSend(ec), Cons(WrapRecv(es), Nil))
 end
 
 let tCli ec =

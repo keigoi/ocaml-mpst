@@ -47,7 +47,7 @@ module ChVecExample = struct
     in
     let ea = force ea0 and eb = force eb0 and ec = force ec0
     in
-    lazy (Cons(WrapSend(ea), lazy(Cons(WrapRecv(eb), lazy(Cons(WrapRecv(ec), lazy Nil))))))
+    Cons(WrapSend(ea), Cons(WrapRecv(eb), Cons(WrapRecv(ec), Nil)))
 
 end
 (* let ring = ChVecExample.ring () *)
@@ -169,4 +169,34 @@ let test9 () =
 let c =
   let g = test9 ()
   in
-  get_ep c g
+  let ea = get_ep a g in
+  let eb = get_ep b g in
+  let ec = get_ep c g in
+  let ta = Thread.create (fun () ->
+               let ea = ea#role_B#right () in
+               let ea = ea#role_B#right () in
+               let ea = ea#role_B#right () in
+               let ea = ea#role_B#right () in
+               let ea = ea#role_B#left () in
+               let ea = ea#role_C#left () in
+               close ea
+             )()
+  and tb = Thread.create (fun () ->
+               let rec loop eb =
+                 match Event.sync eb with
+                 | `role_A(`right(_,eb)) ->
+                    print_endline "B: right";
+                    loop eb
+                 | `role_A(`left(_,eb)) ->
+                    print_endline "B: left";
+                    close eb
+               in
+               loop eb) ()
+  and tc = Thread.create (fun () ->
+               let `role_A(`left(_,ec)) = Event.sync ec in
+               print_endline "C: closing";
+               close ec) ()
+  in
+  List.iter Thread.join [ta; tb; tc];
+  ()
+      

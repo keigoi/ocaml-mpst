@@ -3,11 +3,11 @@ module Dyncheck = Dyncheck
 module LinMonad = LinMonad
 
 type ('la,'lb,'va,'vb) label =
-    {make_obj: 'va -> 'la;
-     make_var: 'vb -> 'lb}
+  {make_obj: 'va -> 'la;
+   make_var: 'vb -> 'lb}
 
 type ('lr, 'l, 'r) obj_merge =
-    {obj_merge: 'l -> 'r -> 'lr}
+  {obj_merge: 'l -> 'r -> 'lr}
 
 type close = Close
 
@@ -25,7 +25,7 @@ let rec find_physeq : 'a. 'a list -> 'a -> bool = fun xs y ->
   match xs with
   | x::xs -> if x==y then true else find_physeq xs y
   | [] -> false
-  
+        
 let rec remove_guards : type t. t wrap lazy_t list -> t wrap lazy_t -> t wrap = fun acc w ->
   if find_physeq acc w then
     raise UngardedLoop
@@ -44,37 +44,34 @@ let rec unwrap : type t. t wrap -> t = function
      unwrap w
 
 type _ seq =
-  Cons : 'hd wrap * 'tl seq lazy_t -> ('hd * 'tl) seq
+  Cons : 'hd wrap * 'tl seq -> ('hd * 'tl) seq
 | Nil : unit seq
 
-let seq_head : type hd tl. (hd * tl) seq lazy_t -> hd wrap =
-  fun (lazy (Cons(hd,_))) -> hd
+let seq_head : type hd tl. (hd * tl) seq -> hd wrap =
+  fun (Cons(hd,_)) -> hd
 
-let seq_tail : type hd tl. (hd * tl) seq lazy_t -> tl seq lazy_t = fun xs ->
-  lazy begin
-      match xs with
-      | lazy (Cons(_,lazy tl)) -> tl
-    end
+let seq_tail : type hd tl. (hd * tl) seq -> tl seq = fun xs ->
+  match xs with
+  | Cons(_,tl) -> tl
 
 type (_,_,_,_) lens =
   | Zero  : ('hd0, 'hd1, ('hd0 * 'tl) seq, ('hd1 * 'tl) seq) lens
   | Succ : ('a, 'b, 'tl0 seq, 'tl1 seq) lens
            -> ('a,'b, ('hd * 'tl0) seq, ('hd * 'tl1) seq) lens
 
-let rec get : type a b xs ys. (a, b, xs, ys) lens -> xs lazy_t -> a wrap = fun ln xs ->
+let rec get : type a b xs ys. (a, b, xs, ys) lens -> xs -> a wrap = fun ln xs ->
   match ln with
   | Zero -> seq_head xs
   | Succ ln' -> get ln' (seq_tail xs)
 
-let rec put : type a b xs ys. (a,b,xs,ys) lens -> xs lazy_t -> b wrap -> ys lazy_t =
+let rec put : type a b xs ys. (a,b,xs,ys) lens -> xs -> b wrap -> ys =
   fun ln xs b ->
   match ln with
-  | Zero -> lazy (Cons(b, seq_tail xs))
+  | Zero -> Cons(b, seq_tail xs)
   | Succ ln' ->
-     lazy
-       begin match xs with
-       | lazy (Cons(a, xs')) -> Cons(a, put ln' xs' b)
-       end
+     begin match xs with
+     | Cons(a, xs') -> Cons(a, put ln' xs' b)
+     end
 
 type ('robj,'rvar,'c,'a,'b,'xs,'ys) role = {label:('robj,'rvar,'c,'c) label; lens:('a,'b,'xs,'ys) lens}
 
@@ -102,49 +99,47 @@ let rec wrap_merge : type s. s wrap -> s wrap -> s wrap = fun l r ->
                           
   (* | _, _ -> assert false (\* OCaml typechecker cannot check exhaustiveness in this case *\) *)
 
-let force = Lazy.force
-
 let rec seq_merge : type t.
-    t seq lazy_t -> t seq lazy_t -> t seq lazy_t =
-  fun ls rs -> lazy begin
-  match force ls, force rs with
+    t seq -> t seq -> t seq =
+  fun ls rs ->
+  match ls, rs with
   | Cons(hd_l,tl_l), Cons(hd_r, tl_r) ->
      Cons(wrap_merge hd_l hd_r,
           seq_merge tl_l tl_r)
-  | Nil, _ -> Nil end
-             
+  | Nil, _ -> Nil
+            
 (* let goto l =
  *   lazy (Lazy.force @@ Lazy.force l) *)
 
 let rec goto2 =fun xs ->
-  Lazy.from_val @@ Cons(WrapGuard(lazy (get Zero (Lazy.force xs))),
-  Lazy.from_val @@ Cons(WrapGuard(lazy (get (Succ Zero) (Lazy.force xs))),
-  Lazy.from_val Nil))
+  Cons(WrapGuard(lazy (get Zero (Lazy.force xs))),
+  Cons(WrapGuard(lazy (get (Succ Zero) (Lazy.force xs))),
+  Nil))
 
 let rec goto3 =fun xs ->
-  Lazy.from_val @@ Cons(WrapGuard(lazy (get Zero (Lazy.force xs))),
-  Lazy.from_val @@ Cons(WrapGuard(lazy (get (Succ Zero) (Lazy.force xs))),
-  Lazy.from_val @@ Cons(WrapGuard(lazy (get (Succ (Succ Zero)) (Lazy.force xs))),
-  Lazy.from_val Nil)))
+  Cons(WrapGuard(lazy (get Zero (Lazy.force xs))),
+  Cons(WrapGuard(lazy (get (Succ Zero) (Lazy.force xs))),
+  Cons(WrapGuard(lazy (get (Succ (Succ Zero)) (Lazy.force xs))),
+  Nil)))
 
 let rec goto4 =fun xs ->
-  Lazy.from_val @@ Cons(WrapGuard(lazy (get Zero (Lazy.force xs))),
-  Lazy.from_val @@ Cons(WrapGuard(lazy (get (Succ Zero) (Lazy.force xs))),
-  Lazy.from_val @@ Cons(WrapGuard(lazy (get (Succ (Succ Zero)) (Lazy.force xs))),
-  Lazy.from_val @@ Cons(WrapGuard(lazy (get (Succ (Succ (Succ Zero))) (Lazy.force xs))),
-  Lazy.from_val Nil))))
+  Cons(WrapGuard(lazy (get Zero (Lazy.force xs))),
+  Cons(WrapGuard(lazy (get (Succ Zero) (Lazy.force xs))),
+  Cons(WrapGuard(lazy (get (Succ (Succ Zero)) (Lazy.force xs))),
+  Cons(WrapGuard(lazy (get (Succ (Succ (Succ Zero))) (Lazy.force xs))),
+  Nil))))
 
 let rec goto5 =fun xs ->
-  Lazy.from_val @@ Cons(WrapGuard(lazy (get Zero (Lazy.force xs))),
-  Lazy.from_val @@ Cons(WrapGuard(lazy (get (Succ Zero) (Lazy.force xs))),
-  Lazy.from_val @@ Cons(WrapGuard(lazy (get (Succ (Succ Zero)) (Lazy.force xs))),
-  Lazy.from_val @@ Cons(WrapGuard(lazy (get (Succ (Succ (Succ Zero))) (Lazy.force xs))),
-  Lazy.from_val @@ Cons(WrapGuard(lazy (get (Succ (Succ (Succ (Succ Zero)))) (Lazy.force xs))),
-  Lazy.from_val Nil)))))
+  Cons(WrapGuard(lazy (get Zero (Lazy.force xs))),
+  Cons(WrapGuard(lazy (get (Succ Zero) (Lazy.force xs))),
+  Cons(WrapGuard(lazy (get (Succ (Succ Zero)) (Lazy.force xs))),
+  Cons(WrapGuard(lazy (get (Succ (Succ (Succ Zero))) (Lazy.force xs))),
+  Cons(WrapGuard(lazy (get (Succ (Succ (Succ (Succ Zero)))) (Lazy.force xs))),
+  Nil)))))
   
 
-let one xs  = Lazy.from_val (Cons(WrapClose, xs))
-let nil = Lazy.from_val Nil
+let one xs  = Cons(WrapClose, xs)
+let nil = Nil
 
   
 let a = {label={make_obj=(fun v->object method role_A=v end);
@@ -178,8 +173,8 @@ let b_or_c =
 
 let get_ep r g = unwrap (get r.lens g)
 
-let one xs = Lazy.from_val (Cons(WrapClose, xs))
-let nil = Lazy.from_val Nil
+let one xs = Cons(WrapClose, xs)
+let nil = Nil
 
 let finish2 = one @@ one @@ nil
 let finish3 = one @@ one @@ one @@ nil
@@ -196,9 +191,9 @@ let put_ep r g ep = put r.lens g ep
 let choice_at : 'ep 'ep_l 'ep_r 'g0_l 'g0_r 'g1 'g2.
   (_, _, _, close, < .. > as 'ep, 'g1 seq, 'g2 seq) role ->
   ('ep, < .. > as 'ep_l, < .. > as 'ep_r) obj_merge ->
-  (_, _, _, 'ep_l, close, 'g0_l seq, 'g1 seq) role * 'g0_l seq lazy_t ->
-  (_, _, _, 'ep_r, close, 'g0_r seq, 'g1 seq) role * 'g0_r seq lazy_t ->
-  'g2 seq lazy_t
+  (_, _, _, 'ep_l, close, 'g0_l seq, 'g1 seq) role * 'g0_l seq ->
+  (_, _, _, 'ep_r, close, 'g0_r seq, 'g1 seq) role * 'g0_r seq ->
+  'g2 seq
   = fun r merge (r',g0left) (r'',g0right) ->
   let oleft, oright = get_ep r' g0left, get_ep r'' g0right in
   let g1left, g1right =
@@ -212,7 +207,7 @@ module MakeGlobal(X:LIN) = struct
   let make_send rB lab ch epA =
     let method_ v =
       Event.sync (Event.send ch v);
-      X.mklin (Lazy.force epA)
+      X.mklin (unwrap epA)
     in
     (* <role_rB : < lab : v -> epA > > *)
     rB.label.make_obj (lab.make_obj method_)
@@ -221,20 +216,20 @@ module MakeGlobal(X:LIN) = struct
     let wrapvar v epB =
       (* [`role_rA of [`lab of v * epB ] ] *)
       rA.label.make_var
-        (lab.make_var (v, X.mklin epB))
+        (lab.make_var (v, X.mklin (unwrap epB)))
     in
     Event.wrap
       (Event.receive ch)
-      (fun v -> wrapvar v (Lazy.force epB))
+      (fun v -> wrapvar v epB)
 
   let ( --> ) rA rB label g0 =
     let ch = Event.new_channel ()
     in
-    let epB = lazy (get_ep rB g0) in
+    let epB = get rB.lens g0 in
     let ev  = make_recv rA label ch epB in
     let g1  = put_ep rB g0 (WrapRecv ev)
     in
-    let epA = lazy (get_ep rA g1) in
+    let epA = get rA.lens g1 in
     let obj = make_send rB label ch epA in
     let g2  = put_ep rA g1 (WrapSend obj)
     in g2
@@ -247,11 +242,11 @@ module Lin : sig
     (_,  [>  ] as 'roleAvar, 'labelvar, 'epA, 'roleBobj,             'g1, 'g2) role ->
     (< .. > as 'roleBobj, _, 'labelobj, 'epB, 'roleAvar Event.event, 'g0, 'g1) role ->
     (< .. > as 'labelobj, [> ] as 'labelvar, 'v -> 'epA LinMonad.lin, 'v * 'epB LinMonad.lin) label ->
-    'g0 lazy_t -> 'g2 lazy_t
+    'g0 -> 'g2
 
   type 'g global
 
-  val create_shared : (unit -> 'g seq lazy_t) -> [>] list -> 'g global
+  val create_shared : (unit -> 'g seq) -> [>] list -> 'g global
 
   val connect :
     'g global ->
@@ -294,7 +289,7 @@ end
     failwith "TODO"
 
   type 'g global =
-    {locals:(Obj.t * 'g seq lazy_t Stream.t) list}
+    {locals:(Obj.t * 'g seq Stream.t) list}
 
   let create_shared f rs =
     let st0 = Stream.from (fun _ -> Some (f ())) in
@@ -356,40 +351,4 @@ end
        let () = close s in
        (lens_put lens pre Empty, {data=()})
     }
-end
-
-module type Role = sig
-  type _ ts
-  val choice_at0 :
-    ('ep, < .. > as 'ep_l, < .. > as 'ep_r) obj_merge ->
-    'ep_l ts seq lazy_t ->
-    'ep_r ts seq lazy_t ->
-    'ep ts seq lazy_t
-end
-(* module type R0 = Role with type 'a ts = 'a * unit *)
-
-module type S = sig
-  type t
-end
-module type S1 = sig
-  val f : (module S with type t = 'a) -> 'a
-end
-(* module type S2 = sig
- *   val f : (module Role with type 'a ts = 'a) -> 'a
- * end *)
-
-module type R0 = sig
-  type cont
-  val choice_at0 :
-    ('ep, < .. > as 'ep_l, < .. > as 'ep_r) obj_merge ->
-    'ep_l * cont seq lazy_t ->
-    'ep_r * cont seq lazy_t ->
-    'ep * cont seq lazy_t
-end
-
-module type R = functor (X:sig type cont end) -> sig
-  val merge :
-    ('x * X.cont) seq lazy_t ->
-    ('x * X.cont) seq lazy_t ->
-    ('x * X.cont) seq lazy_t
 end

@@ -17,11 +17,31 @@ type _ wrap =
   | WrapSend : (< .. > as 'obj) -> 'obj wrap
   | WrapRecv : ([>] as 'var) Event.event -> 'var Event.event wrap
   | WrapClose : close wrap
+  | WrapGuard : 'a wrap lazy_t -> 'a wrap
 
-let unwrap : type t. t wrap -> t = function
+exception UngardedLoop
+
+let rec find_physeq : 'a. 'a list -> 'a -> bool = fun xs y ->
+  match xs with
+  | x::xs -> if x==y then true else find_physeq xs y
+  | [] -> false
+  
+let rec remove_guards : type t. t wrap lazy_t list -> t wrap lazy_t -> t wrap = fun acc w ->
+  if find_physeq acc w then
+    raise UngardedLoop
+  else begin match Lazy.force w with
+       | WrapGuard w' ->
+          remove_guards (w'::acc) w'
+       | w -> w
+       end
+  
+let rec unwrap : type t. t wrap -> t = function
   | WrapSend(obj) -> obj
   | WrapRecv(ev) -> ev
   | WrapClose -> Close
+  | WrapGuard w ->
+     let w = remove_guards [] w in
+     unwrap w
 
 type _ seq =
   Cons : 'hd wrap * 'tl seq lazy_t -> ('hd * 'tl) seq
@@ -61,12 +81,26 @@ type ('robj,'rvar,'c,'a,'b,'xs,'ys) role = {label:('robj,'rvar,'c,'c) label; len
 
 exception RoleNotEnabled
 
-let wrap_merge : type s. s wrap -> s wrap -> s wrap = fun l r ->
+let rec wrap_merge : type s. s wrap -> s wrap -> s wrap = fun l r ->
   match l, r with
   | WrapSend _, WrapSend _ -> raise RoleNotEnabled
   | WrapRecv l, WrapRecv r -> WrapRecv (Event.choose [l; r])
   | WrapClose, WrapClose -> WrapClose
-  | _, _ -> assert false (* OCaml typechecker cannot check exhaustiveness in this case *)
+  | WrapGuard w1, w2 ->
+     WrapGuard
+       (let rec w =
+          (lazy begin
+               try
+                 let w1 = remove_guards [w] w1 in
+                 wrap_merge w1 w2
+               with
+                 UngardedLoop -> w2
+             end)
+        in w)
+  | w1, ((WrapGuard _) as w2) -> wrap_merge w2 w1
+  | _ -> assert false
+                          
+  (* | _, _ -> assert false (\* OCaml typechecker cannot check exhaustiveness in this case *\) *)
 
 let force = Lazy.force
 
@@ -75,12 +109,44 @@ let rec seq_merge : type t.
   fun ls rs -> lazy begin
   match force ls, force rs with
   | Cons(hd_l,tl_l), Cons(hd_r, tl_r) ->
-     Cons(wrap_merge hd_l hd_r, seq_merge tl_l tl_r)
+     Cons(wrap_merge hd_l hd_r,
+          seq_merge tl_l tl_r)
   | Nil, _ -> Nil end
+             
+(* let goto l =
+ *   lazy (Lazy.force @@ Lazy.force l) *)
 
-let goto l =
-  lazy (Lazy.force @@ Lazy.force l)
+let rec goto2 =fun xs ->
+  Lazy.from_val @@ Cons(WrapGuard(lazy (get Zero (Lazy.force xs))),
+  Lazy.from_val @@ Cons(WrapGuard(lazy (get (Succ Zero) (Lazy.force xs))),
+  Lazy.from_val Nil))
 
+let rec goto3 =fun xs ->
+  Lazy.from_val @@ Cons(WrapGuard(lazy (get Zero (Lazy.force xs))),
+  Lazy.from_val @@ Cons(WrapGuard(lazy (get (Succ Zero) (Lazy.force xs))),
+  Lazy.from_val @@ Cons(WrapGuard(lazy (get (Succ (Succ Zero)) (Lazy.force xs))),
+  Lazy.from_val Nil)))
+
+let rec goto4 =fun xs ->
+  Lazy.from_val @@ Cons(WrapGuard(lazy (get Zero (Lazy.force xs))),
+  Lazy.from_val @@ Cons(WrapGuard(lazy (get (Succ Zero) (Lazy.force xs))),
+  Lazy.from_val @@ Cons(WrapGuard(lazy (get (Succ (Succ Zero)) (Lazy.force xs))),
+  Lazy.from_val @@ Cons(WrapGuard(lazy (get (Succ (Succ (Succ Zero))) (Lazy.force xs))),
+  Lazy.from_val Nil))))
+
+let rec goto5 =fun xs ->
+  Lazy.from_val @@ Cons(WrapGuard(lazy (get Zero (Lazy.force xs))),
+  Lazy.from_val @@ Cons(WrapGuard(lazy (get (Succ Zero) (Lazy.force xs))),
+  Lazy.from_val @@ Cons(WrapGuard(lazy (get (Succ (Succ Zero)) (Lazy.force xs))),
+  Lazy.from_val @@ Cons(WrapGuard(lazy (get (Succ (Succ (Succ Zero))) (Lazy.force xs))),
+  Lazy.from_val @@ Cons(WrapGuard(lazy (get (Succ (Succ (Succ (Succ Zero)))) (Lazy.force xs))),
+  Lazy.from_val Nil)))))
+  
+
+let one xs  = Lazy.from_val (Cons(WrapClose, xs))
+let nil = Lazy.from_val Nil
+
+  
 let a = {label={make_obj=(fun v->object method role_A=v end);
                make_var=(fun v->(`role_A(v):[`role_A of _]))}; (* explicit annotataion is mandatory *)
          lens=Zero}
@@ -102,9 +168,9 @@ let right =
 let left_or_right =
   {obj_merge=(fun l r -> object method left=l#left method right=r#right end)}
 let to_b m =
-  {obj_merge=(fun l r -> object method role_b=m.obj_merge l#role_b r#role_b end)}
+  {obj_merge=(fun l r -> object method role_B=m.obj_merge l#role_B r#role_B end)}
 let b_or_c =
-  {obj_merge=(fun l r -> object method role_b=l#role_b method role_c=r#role_c end)}
+  {obj_merge=(fun l r -> object method role_B=l#role_B method role_C=r#role_C end)}
 
 (* let finish =
  *   let rec fini = lazy (Cons(Close, fini)) in
@@ -115,7 +181,10 @@ let get_ep r g = unwrap (get r.lens g)
 let one xs = Lazy.from_val (Cons(WrapClose, xs))
 let nil = Lazy.from_val Nil
 
-let finish = one @@ one @@ one @@ nil
+let finish2 = one @@ one @@ nil
+let finish3 = one @@ one @@ one @@ nil
+let finish4 = one @@ one @@ one @@ one @@ nil
+let finish5 = one @@ one @@ one @@ one @@ one @@ nil
 
 module type LIN = sig
   type 'a lin
@@ -287,4 +356,40 @@ end
        let () = close s in
        (lens_put lens pre Empty, {data=()})
     }
+end
+
+module type Role = sig
+  type _ ts
+  val choice_at0 :
+    ('ep, < .. > as 'ep_l, < .. > as 'ep_r) obj_merge ->
+    'ep_l ts seq lazy_t ->
+    'ep_r ts seq lazy_t ->
+    'ep ts seq lazy_t
+end
+(* module type R0 = Role with type 'a ts = 'a * unit *)
+
+module type S = sig
+  type t
+end
+module type S1 = sig
+  val f : (module S with type t = 'a) -> 'a
+end
+(* module type S2 = sig
+ *   val f : (module Role with type 'a ts = 'a) -> 'a
+ * end *)
+
+module type R0 = sig
+  type cont
+  val choice_at0 :
+    ('ep, < .. > as 'ep_l, < .. > as 'ep_r) obj_merge ->
+    'ep_l * cont seq lazy_t ->
+    'ep_r * cont seq lazy_t ->
+    'ep * cont seq lazy_t
+end
+
+module type R = functor (X:sig type cont end) -> sig
+  val merge :
+    ('x * X.cont) seq lazy_t ->
+    ('x * X.cont) seq lazy_t ->
+    ('x * X.cont) seq lazy_t
 end

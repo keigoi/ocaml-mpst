@@ -15,17 +15,15 @@ let compute_or_result =
 let to_srv m =
   {obj_merge=(fun l r -> object method role_Srv=m.obj_merge l#role_Srv r#role_Srv end)}
 
-let finish = one @@ one @@ nil
-
 type op = Add | Sub | Mul | Div
 let calc () =
   let rec g =
     lazy (choice_at cli (to_srv compute_or_result)
            (cli, (cli --> srv) compute @@
-                 goto g)
+                 goto2 g)
            (cli, (cli --> srv) result @@
                  (srv --> cli) answer @@
-                 finish))
+                 finish2))
   in Lazy.force g
 
 (* the above is equivalent to following: *)
@@ -116,13 +114,13 @@ let calc2 () =
     lazy (choice_at cli (to_srv compute_result_or_current)
        (cli, choice_at cli (to_srv compute_or_result)
              (cli, (cli --> srv) compute @@
-                   goto g)
+                   goto3 g)
              (cli, (cli --> srv) result @@
                    (srv --> cli) answer @@
-                   finish))
+                   finish3))
        (cli, (cli --> srv) current @@
              (srv --> cli) answer @@
-             goto g))
+             goto3 g))
   in Lazy.force g
 
 let tSrv2 es =

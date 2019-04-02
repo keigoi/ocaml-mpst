@@ -1,7 +1,7 @@
 (* simple ring protocol *)
 open Mpst_simple
 
-let ring = (a --> b) msg @@ (b --> c) msg @@ (c --> a) msg finish
+let ring = (a --> b) msg @@ (b --> c) msg @@ (c --> a) msg finish3
 
 (* the above is equivalent to following: *)
 module ChVecExample = struct
@@ -81,3 +81,92 @@ let tC = Thread.create (fun () ->
   close ec) ()
 
 let () = List.iter Thread.join [tA; tB; tC]
+
+(* let test =
+ *   choice_at a (to_b left_or_right)
+ *     (a, (a --> b) left @@ (a --> c) left @@ finish)
+ *     (a, (a --> b) right @@ finish) *)
+
+(* let test2 =
+ *   choice_at a (to_b left_or_right)
+ *     (a, (a --> b) left @@ (b --> c) msg @@ (c --> a) msg @@ finish)
+ *     (a, (a --> b) right @@ (b --> c) msg @@ finish) *)
+
+(* let test3 =
+ *   choice_at a (to_b left_or_right)
+ *     (a, (a --> b) left  @@ (b --> c) msg @@ (c --> a) msg @@ (c --> b) msg @@ finish)
+ *     (a, (a --> b) right @@ (b --> c) msg @@ (c --> a) msg @@ finish) *)
+
+(* receive from multiple roles *)
+(* let rec g = lazy (\* will be a type error *\)
+ *   (choice_at a b_or_c
+ *    (a, (a --> b) left @@ (b --> c) left @@ goto g)
+ *    (a, (a --> c) right @@ (c --> b) right @@ goto g)) *)
+
+(* object merging failure *)
+(* let test4 =
+ *   choice_at a (to_b left_or_right)
+ *   (a, (a --> b) left @@ finish)
+ *   (a, (a --> b) left @@ finish) *)
+
+(* let test5 =
+ *   let rec g =
+ *     lazy (choice_at a (to_b left_or_right)
+ *             (a, goto g)
+ *             (a, goto g))
+ *   in
+ *   let _ = Lazy.force g in (\* Fatal error: exception CamlinternalLazy.Undefined *\)
+ *   () *)
+
+(* let test6 =
+ *   let rec g =
+ *     lazy (choice_at a (to_b left_or_right)
+ *             (a, (a --> b) left @@ goto g)
+ *             (a, goto g))
+ *   in
+ *   let _ = Lazy.force g in (\* Fatal error: exception CamlinternalLazy.Undefined *\)
+ *   () *)
+
+(* let test7 =
+ *   let rec g =
+ *     lazy (choice_at a (to_b left_or_right)
+ *             (a, goto g)
+ *             (a, (a --> b) right @@ goto g))
+ *   in
+ *   let _ = Lazy.force g in (\* Fatal error: exception CamlinternalLazy.Undefined *\)
+ *   () *)
+
+(* sending from a non-enabled role (statically detected) *)
+(* let test8 =
+ *   choice_at a (to_b left_or_right)
+ *   (a, (a --> b) left  @@ (c --> b) left  @@ finish)
+ *   (a, (a --> b) right @@ (c --> b) right @@ finish) *)
+
+(* sending from a non-enabled role (dynamically detected) *)
+(* let test8 =
+ *   choice_at a (to_b left_or_right)
+ *   (a, (a --> b) left  @@ (c --> b) msg @@ finish)
+ *   (a, (a --> b) right @@ (c --> b) msg @@ finish) *)
+
+(* let finish = one @@ one @@ one @@ one @@ nil
+ * let d = {label={make_obj=(fun v->object method role_D=v end);
+ *                make_var=(fun v->(`role_D(v):[`role_D of _]))}; (\* explicit annotataion is mandatory *\)
+ *          lens=Succ (Succ (Succ Zero))} *)
+
+let test9 () =
+  let rec g =
+    lazy begin
+        choice_at a (to_b left_or_right)
+          (a, (a --> b) left @@
+              (a --> c) left @@
+              finish3)
+          (a, (a --> b) right @@
+              goto3 g)
+      end
+  in
+  Lazy.force g
+      
+let c =
+  let g = test9 ()
+  in
+  get_ep c g

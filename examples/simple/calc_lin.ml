@@ -25,10 +25,10 @@ let calc () =
   let rec g =
     lazy (choice_at cli (to_srv compute_or_result)
            (cli, (cli --> srv) compute @@
-                 goto g)
+                 goto2 g)
            (cli, (cli --> srv) result @@
                  (srv --> cli) answer @@
-                 finish))
+                 finish2))
   in Lazy.force g
 
 let _0 = Mpst_simple.LinMonad.Fst

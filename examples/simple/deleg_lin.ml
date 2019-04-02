@@ -9,7 +9,7 @@ let cli = {lens=Zero;
 let srv = {lens=Succ Zero;
            label={make_obj=(fun v->object method role_Srv=v end);
                  make_var=(fun v->(`role_Srv(v):[`role_Srv of _]))}}
-let mst = {lens=Succ (Succ Zero);
+let mst = {lens=Zero;
            label={make_obj=(fun v->object method role_Mst=v end);
                  make_var=(fun v->(`role_Mst(v):[`role_Mst of _]))}}
 
@@ -22,23 +22,22 @@ let compute_or_result =
 let to_srv m =
   {obj_merge=(fun l r -> object method role_Srv=m.obj_merge l#role_Srv r#role_Srv end)}
 
-let finish = one @@ one @@ one @@ nil
 
 type op = Add | Sub | Mul | Div
 let calc () =
   let rec g =
     lazy (choice_at cli (to_srv compute_or_result)
            (cli, (cli --> srv) compute @@
-                 goto g)
+                 goto2 g)
            (cli, (cli --> srv) result @@
                  (srv --> cli) answer @@
-                 finish))
+                 finish2))
   in Lazy.force g
 
 let worker () =
   (srv --> mst) msg @@
   (mst --> srv) msg @@
-  finish
+  finish2
 
 let _0 = Mpst_simple.LinMonad.Fst
 let _1 = Mpst_simple.LinMonad.Next Mpst_simple.LinMonad.Fst

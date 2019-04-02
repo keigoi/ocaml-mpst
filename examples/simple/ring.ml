@@ -199,4 +199,25 @@ let c =
   in
   List.iter Thread.join [ta; tb; tc];
   ()
-      
+
+let test10 =
+  let rec bogus = lazy (goto2 bogus) in
+  let g =
+    (a --> b) msg @@
+      Lazy.force bogus
+  in
+  let ea = get_ep a g
+  and eb = get_ep b g
+  in
+  let _ : Thread.t =
+    Thread.create (fun () ->
+        print_endline "thread a";
+        ignore (ea#role_B#msg ())
+      ) ()
+  and () = ignore (Event.sync eb)
+  in
+  ()
+
+  
+                          
+  

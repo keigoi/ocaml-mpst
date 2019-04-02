@@ -43,6 +43,8 @@ let rec unwrap : type t. t wrap -> t = function
      let w = remove_guards [] w in
      unwrap w
 
+let rec unwrap_send : 't. (< .. > as 't) wrap -> 't = unwrap
+     
 type _ seq =
   Cons : 'hd wrap * 'tl seq -> ('hd * 'tl) seq
 | Nil : unit seq
@@ -77,7 +79,7 @@ type ('robj,'rvar,'c,'a,'b,'xs,'ys) role = {label:('robj,'rvar,'c,'c) label; len
 
 
 exception RoleNotEnabled
-
+      
 let rec wrap_merge : type s. s wrap -> s wrap -> s wrap = fun l r ->
   match l, r with
   | WrapSend _, WrapSend _ -> raise RoleNotEnabled
@@ -95,9 +97,13 @@ let rec wrap_merge : type s. s wrap -> s wrap -> s wrap = fun l r ->
              end)
         in w)
   | w1, ((WrapGuard _) as w2) -> wrap_merge w2 w1
-  | _ -> assert false
-                          
-  (* | _, _ -> assert false (\* OCaml typechecker cannot check exhaustiveness in this case *\) *)
+  | WrapClose, WrapRecv _ -> assert false
+  | WrapRecv _, WrapClose -> assert false
+  | WrapSend _, WrapRecv _ -> assert false
+  | WrapRecv _, WrapSend _ -> assert false
+
+let recv_merge : 's. ([> ] as 's) Event.event wrap -> 's Event.event wrap -> 's Event.event wrap =
+  wrap_merge
 
 let rec seq_merge : type t.
     t seq -> t seq -> t seq =
@@ -151,6 +157,9 @@ let b = {label={make_obj=(fun v->object method role_B=v end);
 let c = {label={make_obj=(fun v->object method role_C=v end);
                make_var=(fun v->(`role_C(v):[`role_C of _]))}; (* explicit annotataion is mandatory *)
          lens=Succ (Succ Zero)}
+let d = {label={make_obj=(fun v->object method role_D=v end);
+               make_var=(fun v->(`role_D(v):[`role_D of _]))}; (* explicit annotataion is mandatory *)
+         lens=Succ (Succ (Succ Zero))}
 let msg =
   {make_obj=(fun f -> object method msg=f end);
    make_var=(fun v -> `msg(v))}
@@ -207,31 +216,32 @@ module MakeGlobal(X:LIN) = struct
   let make_send rB lab ch epA =
     let method_ v =
       Event.sync (Event.send ch v);
-      X.mklin (unwrap epA)
+      X.mklin (Lazy.force epA)
     in
     (* <role_rB : < lab : v -> epA > > *)
-    rB.label.make_obj (lab.make_obj method_)
+    WrapSend (rB.label.make_obj (lab.make_obj method_))
 
   let make_recv rA lab ch epB =
     let wrapvar v epB =
       (* [`role_rA of [`lab of v * epB ] ] *)
       rA.label.make_var
-        (lab.make_var (v, X.mklin (unwrap epB)))
+        (lab.make_var (v, X.mklin (Lazy.force epB)))
     in
-    Event.wrap
-      (Event.receive ch)
-      (fun v -> wrapvar v epB)
+    WrapRecv
+      (Event.wrap
+         (Event.receive ch)
+         (fun v -> wrapvar v epB))
 
   let ( --> ) rA rB label g0 =
     let ch = Event.new_channel ()
     in
-    let epB = get rB.lens g0 in
+    let epB = lazy (get_ep rB g0) in
     let ev  = make_recv rA label ch epB in
-    let g1  = put_ep rB g0 (WrapRecv ev)
+    let g1  = put_ep rB g0 ev
     in
-    let epA = get rA.lens g1 in
+    let epA = lazy (get_ep rA g1) in
     let obj = make_send rB label ch epA in
-    let g2  = put_ep rA g1 (WrapSend obj)
+    let g2  = put_ep rA g1 obj
     in g2
 end
 

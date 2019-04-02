@@ -166,7 +166,7 @@ let test9 () =
   in
   Lazy.force g
       
-let c =
+let () =
   let g = test9 ()
   in
   let ea = get_ep a g in
@@ -221,3 +221,69 @@ let test10 =
   
                           
   
+module ChVecExample2 = struct
+  let force = Lazy.force
+
+(*
+How can the two C objects can be merged into one?
+
+choice at A {
+  left() from A to B;
+  msg() from C to D;
+  left() from B to C;
+} or {
+  right() from A to B;
+  msg() from C to D;
+  right() from B to C;
+}
+ *)
+  let try1 () =
+    choice_at a (to_b left_or_right)
+      (a, (a --> b) left @@
+          (c --> d) msg @@
+          (b --> c) left @@ finish4)    
+      (a, (a --> b) right @@
+          (c --> d) msg @@
+          (b --> c) right @@ finish4)    
+
+  let try1 () =
+    let chleftX = Event.new_channel ()
+    and chmsgL = Event.new_channel ()
+    and chleftY = Event.new_channel ()
+    and chrightX = Event.new_channel ()
+    and chmsgR = Event.new_channel ()
+    and chrightY = Event.new_channel ()
+    in
+    let ea_left = lazy (make_send b left chleftX (lazy WrapClose))
+    in
+    let rec eb_left0 = lazy (make_recv a left chleftX eb_left1)
+    and eb_left1 = lazy (make_send c left chleftY (lazy WrapClose))
+    in
+    let rec _ec_left0 = lazy (make_send d msg chmsgL _ec_left1)
+    and _ec_left1 = lazy (make_recv b left chleftY (lazy WrapClose))
+    in
+    let ed_left = lazy (make_recv c msg chmsgL (lazy WrapClose))
+    in
+    
+    let ea_right = lazy (make_send b right chrightX (lazy WrapClose))
+    in
+    let rec eb_right0 = lazy (make_recv a right chrightX eb_right1)
+    and eb_right1 = lazy (make_send c right chrightY (lazy WrapClose))
+    in
+    let rec _ec_right0 = lazy (make_send d msg chmsgR _ec_right1)
+    and _ec_right1 = lazy (make_recv b right chrightY (lazy WrapClose))
+    in
+    let ed_right = lazy (make_recv c msg chmsgR (lazy WrapClose))
+    in
+    let ea = (to_b (left_or_right)).obj_merge
+               (unwrap_send (force ea_left)) (unwrap_send (force ea_right))
+    and eb = recv_merge (force eb_left0) (force eb_right0)
+    and ec = failwith "how can we merge ec_left0 and ec_right0??"
+    and ed = recv_merge (force ed_left) (force ed_right)
+    in
+    (ea, eb, ec, ed)
+
+    
+
+
+end

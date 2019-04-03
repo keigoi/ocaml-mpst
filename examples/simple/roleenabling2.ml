@@ -1,7 +1,8 @@
-(* simple ring protocol *)
+(* sending from a non-choosing role *)
 open Mpst_simple
 
-let ring =
+   
+let prot =
   let rec g =
     lazy begin
         (c --> b) msg @@
@@ -17,9 +18,13 @@ let ring =
   (a --> c) msg @@
   Lazy.force g
 
-let ea = get_ep a ring
-and eb = get_ep b ring
-and ec = get_ep c ring
+let () = print_endline "global defined"
+let ea = get_ep a prot
+let () = print_endline "EPP a done"
+let eb = get_ep b prot
+let () = print_endline "EPP b done"
+let ec = get_ep c prot
+let () = print_endline "EPP c done"
     
 let tA = Thread.create (fun () ->
   print_endline "A start";

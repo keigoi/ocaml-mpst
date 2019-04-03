@@ -22,12 +22,11 @@ let create_placeholder () =
   let channel = Event.new_channel () in
   {channel}
 
-
 let unify p q = q.channel <- p.channel
 
 type _ wrap =
   | WrapSend : ((< .. > as 'obj) option -> 'obj) -> 'obj wrap
-  | WrapRecv : ([>] as 'var) Event.event -> 'var Event.event wrap
+  | WrapRecv : ([>] as 'var) Event.event lazy_t -> 'var Event.event wrap
   | WrapClose : close wrap
   | WrapGuard : 'a wrap lazy_t -> 'a wrap
 
@@ -49,11 +48,17 @@ let rec remove_guards : type t. t wrap lazy_t list -> t wrap lazy_t -> t wrap = 
   
 let rec unwrap : type t. t wrap -> t = function
   | WrapSend(obj) -> obj None
-  | WrapRecv(ev) -> ev
+  | WrapRecv(ev) -> Lazy.force ev
   | WrapClose -> Close
   | WrapGuard w ->
      let w = remove_guards [] w in
      unwrap w
+
+let rec force_wrap : type t. t wrap -> unit = function
+  | WrapSend(obj) -> ignore @@ obj None
+  | WrapRecv(ev) -> ignore @@ Lazy.force ev
+  | WrapClose -> ()
+  | WrapGuard w -> ignore (remove_guards [] w)
 
 let rec unwrap_send : 'a. (< .. > as 'a) wrap -> 'a option -> 'a = function
   | WrapSend(obj) -> obj
@@ -97,7 +102,7 @@ type ('robj,'rvar,'c,'a,'b,'xs,'ys) role = {label:('robj,'rvar,'c,'c) label; len
 let rec wrap_merge : type s. s wrap -> s wrap -> s wrap = fun l r ->
   match l, r with
   | WrapSend l, WrapSend r -> WrapSend (fun obj -> (l (Some (r obj))))
-  | WrapRecv l, WrapRecv r -> WrapRecv (Event.choose [l; r])
+  | WrapRecv l, WrapRecv r -> WrapRecv (lazy (Event.choose [Lazy.force l; Lazy.force r]))
   | WrapClose, WrapClose -> WrapClose
   | WrapGuard w1, w2 ->
      WrapGuard
@@ -125,9 +130,6 @@ let rec seq_merge : type t.
           seq_merge tl_l tl_r)
   | Nil, _ -> Nil
             
-let goto l =
-  lazy (Lazy.force @@ Lazy.force l)
-
 let rec goto2 =fun xs ->
   Cons(WrapGuard(lazy (get Zero (Lazy.force xs))),
   Cons(WrapGuard(lazy (get (Succ Zero) (Lazy.force xs))),
@@ -237,17 +239,6 @@ let choice_at : 'ep 'ep_l 'ep_r 'g0_l 'g0_r 'g1 'g2.
   put r.lens g1 (WrapSend (fun obj ->
                      let oleft, oright = unwrap_send epL, unwrap_send epR in
                      merge.obj_merge (oleft (map_option merge.obj_splitL obj)) (oright (map_option merge.obj_splitR obj))))
-
-
-let rec finish_selftype_merge : type t. t wrap -> t wrap = function
-  | WrapSend(obj) ->
-     let obj = obj None in
-     WrapSend
-       (function
-        | None -> obj
-        | Some _ -> failwith "merge already done")
-  | WrapGuard w -> WrapGuard (lazy (finish_selftype_merge @@ Lazy.force w)) (* FIXME is this ok?? *)
-  | w -> w
   
 module MakeGlobal(X:LIN) = struct
 
@@ -256,7 +247,8 @@ module MakeGlobal(X:LIN) = struct
       let ph, epA = 
         match obj with
         | None ->
-           ph, finish_selftype_merge epA
+           ignore (force_wrap epA);
+           ph, epA
         | Some obj ->
            let ph', epA' = lab.call_obj (rB.label.call_obj obj) in
            let epA' = X.unlin epA' in
@@ -270,17 +262,18 @@ module MakeGlobal(X:LIN) = struct
         rB.label.make_obj (lab.make_obj (method_ obj)))
 
   let make_recv rA lab ph epB =
-    let epB = finish_selftype_merge epB in
     let wrapvar v epB =
       (* [`role_rA of [`lab of v * epB ] ] *)
       rA.label.make_var
-        (lab.make_var (v, X.mklin @@ unwrap epB))
+        (lab.make_var (v, X.mklin @@ epB))
     in
     WrapRecv
-            ((Event.wrap
-               (Event.guard (fun () -> Event.receive ph.channel))
-               (fun v -> wrapvar v epB)))
-            
+      (lazy begin
+      ignore (force_wrap epB);
+      (Event.wrap
+         (Event.guard (fun () -> Event.receive ph.channel (* delay placeholder resolution until actual reception *)))
+         (fun v -> wrapvar v (unwrap epB)))
+      end)
 
   let ( --> ) : 'roleAVar 'labelvar 'epA 'roleBobj 'g1 'g2 'labelobj 'epB 'g0 'v.
     (_,  [>  ] as 'roleAvar, 'labelvar, 'epA, 'roleBobj,             'g1, 'g2) role ->
@@ -302,8 +295,11 @@ end
 
 include MakeGlobal(struct type 'a lin = 'a let mklin x = x let unlin x = x end)
 
-let get_ep r g = unwrap (get r.lens g)
-let put_ep r g ep = put r.lens g ep
+let rec force_all : type t. t seq -> unit = function
+  | Cons(hd, tl) -> force_wrap hd; force_all tl
+  | Nil -> ()
+
+let get_ep r g = force_all g; unwrap (get r.lens g)
 
 let send (ph, cont) v = Event.sync (Event.send ph.channel v); unwrap cont
 let receive ev = Event.sync ev

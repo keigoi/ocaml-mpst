@@ -1,4 +1,4 @@
-(* simple ring protocol *)
+(* sending from a non-choosing role *)
 open Mpst_simple
 
 let ring =

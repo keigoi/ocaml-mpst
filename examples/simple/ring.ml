@@ -41,154 +41,61 @@ let tC = Thread.create (fun () ->
 
 let () = List.iter Thread.join [tA; tB; tC]
 
+(* incompatible branching at C between reception and closing *)
 (* let test =
  *   choice_at a (to_b left_or_right)
- *     (a, (a --> b) left @@ (a --> c) left @@ finish)
- *     (a, (a --> b) right @@ finish) *)
+ *     (a, (a --> b) left @@ (a --> c) left @@ finish3)
+ *     (a, (a --> b) right @@ finish3) *)
 
+(* incompatible branching at C after receiving msg from B (statically detected) *)
 (* let test2 =
  *   choice_at a (to_b left_or_right)
- *     (a, (a --> b) left @@ (b --> c) msg @@ (c --> a) msg @@ finish)
- *     (a, (a --> b) right @@ (b --> c) msg @@ finish) *)
+ *     (a, (a --> b) left @@ (b --> c) msg @@ (c --> a) msg @@ finish3)
+ *     (a, (a --> b) right @@ (b --> c) msg @@ finish3) *)
 
+(* incompatible branching at C after sending msg to A (statically detected) *)
 (* let test3 =
  *   choice_at a (to_b left_or_right)
- *     (a, (a --> b) left  @@ (b --> c) msg @@ (c --> a) msg @@ (c --> b) msg @@ finish)
- *     (a, (a --> b) right @@ (b --> c) msg @@ (c --> a) msg @@ finish) *)
+ *     (a, (a --> b) left  @@ (b --> c) msg @@ (c --> a) msg @@ (c --> b) msg @@ finish3)
+ *     (a, (a --> b) right @@ (b --> c) msg @@ (c --> a) msg @@ finish3) *)
 
 (* receive from multiple roles *)
 (* let rec g = lazy (\* will be a type error *\)
  *   (choice_at a b_or_c
- *    (a, (a --> b) left @@ (b --> c) left @@ goto g)
- *    (a, (a --> c) right @@ (c --> b) right @@ goto g)) *)
+ *    (a, (a --> b) left @@ (b --> c) left @@ goto3 g)
+ *    (a, (a --> c) right @@ (c --> b) right @@ goto3 g)) *)
 
 (* object merging failure *)
 (* let test4 =
  *   choice_at a (to_b left_or_right)
- *   (a, (a --> b) left @@ finish)
- *   (a, (a --> b) left @@ finish) *)
-
-(* let test5 =
- *   let rec g =
- *     lazy (choice_at a (to_b left_or_right)
- *             (a, goto g)
- *             (a, goto g))
- *   in
- *   let _ = Lazy.force g in (\* Fatal error: exception CamlinternalLazy.Undefined *\)
- *   () *)
-
-(* let test6 =
- *   let rec g =
- *     lazy (choice_at a (to_b left_or_right)
- *             (a, (a --> b) left @@ goto g)
- *             (a, goto g))
- *   in
- *   let _ = Lazy.force g in (\* Fatal error: exception CamlinternalLazy.Undefined *\)
- *   () *)
-
-(* let test7 =
- *   let rec g =
- *     lazy (choice_at a (to_b left_or_right)
- *             (a, goto g)
- *             (a, (a --> b) right @@ goto g))
- *   in
- *   let _ = Lazy.force g in (\* Fatal error: exception CamlinternalLazy.Undefined *\)
- *   () *)
+ *   (a, (a --> b) left @@ finish2)
+ *   (a, (a --> b) left @@ finish2) *)
 
 (* sending from a non-enabled role (statically detected) *)
 (* let test8 =
  *   choice_at a (to_b left_or_right)
- *   (a, (a --> b) left  @@ (c --> b) left  @@ finish)
- *   (a, (a --> b) right @@ (c --> b) right @@ finish) *)
-
-(* sending from a non-enabled role (dynamically detected) *)
-(* let test8 =
- *   choice_at a (to_b left_or_right)
- *   (a, (a --> b) left  @@ (c --> b) msg @@ finish)
- *   (a, (a --> b) right @@ (c --> b) msg @@ finish) *)
-
-(* let finish = one @@ one @@ one @@ one @@ nil
- * let d = {label={make_obj=(fun v->object method role_D=v end);
- *                make_var=(fun v->(`role_D(v):[`role_D of _]))}; (\* explicit annotataion is mandatory *\)
- *          lens=Succ (Succ (Succ Zero))} *)
-
-let test9 () =
-  let rec g =
-    lazy begin
-        choice_at a (to_b left_or_right)
-          (a, (a --> b) left @@
-              (a --> c) left @@
-              finish3)
-          (a, (a --> b) right @@
-              goto3 g)
-      end
-  in
-  Lazy.force g
-  
-let () =
-  let g = test9 ()
-  in
-  let ea = get_ep a g in
-  let eb = get_ep b g in
-  let ec = get_ep c g in
-  let ta = Thread.create (fun () ->
-               let ea = send (ea#role_B#right) () in
-               let ea = send (ea#role_B#right) () in
-               let ea = send (ea#role_B#right) () in
-               let ea = send (ea#role_B#right) () in
-               let ea = send (ea#role_B#left) () in
-               let ea = send (ea#role_C#left) () in
-               close ea
-             )()
-  and tb = Thread.create (fun () ->
-               let rec loop eb =
-                 match Event.sync eb with
-                 | `role_A(`right(_,eb)) ->
-                    print_endline "B: right";
-                    loop eb
-                 | `role_A(`left(_,eb)) ->
-                    print_endline "B: left";
-                    close eb
-               in
-               loop eb) ()
-  and tc = Thread.create (fun () ->
-               let `role_A(`left(_,ec)) = Event.sync ec in
-               print_endline "C: closing";
-               close ec) ()
-  in
-  List.iter Thread.join [ta; tb; tc];
-  ()
+ *   (a, (a --> b) left  @@ (c --> b) left  @@ finish3)
+ *   (a, (a --> b) right @@ (c --> b) right @@ finish3) *)
 
 let test10 =
   let rec bogus = lazy (goto2 bogus) in
   let g =
     (a --> b) msg @@
-      Lazy.force bogus
+    Lazy.force bogus
   in
-  let ea = get_ep a g
-  and eb = get_ep b g
-  in
-  let _ : Thread.t =
-    Thread.create (fun () ->
-        print_endline "thread a";
-        begin try
-            ignore (send (ea#role_B#msg) ())
-          with UngardedLoop ->
-            print_endline "ungardedloop occurred as expected"
-        end
-      ) ()
+  let () =
+    try
+      ignore (get_ep a g);
+      failwith "unexpected"
+    with
+      UngardedLoop ->
+      print_endline "exception correctly occurred"
   and () =
-    begin
-      try
-        ignore (Event.sync eb)
-      with
-        UngardedLoop ->
-        print_endline "ungardedloop occurred as expected"
-    end
-    
+    try
+      ignore (get_ep b g);
+      failwith "unexpected"
+    with
+      UngardedLoop ->
+      print_endline "exception correctly occurred"
   in
   ()
-
-  
-                          
-  

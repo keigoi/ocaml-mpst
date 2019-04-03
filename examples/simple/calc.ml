@@ -126,13 +126,13 @@ let calc2 () =
     lazy (choice_at cli (to_srv compute_result_or_current)
        (cli, choice_at cli (to_srv compute_or_result)
              (cli, (cli --> srv) compute @@
-                   goto3 g)
+                   goto2 g)
              (cli, (cli --> srv) result @@
                    (srv --> cli) answer @@
-                   finish3))
+                   finish2))
        (cli, (cli --> srv) current @@
              (srv --> cli) answer @@
-             goto3 g))
+             goto2 g))
   in Lazy.force g
 
 let tSrv2 es =

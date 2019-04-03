@@ -3,18 +3,26 @@ open Mpst_simple
 
 let cli = {lens=Zero;
            label={make_obj=(fun v->object method role_Cli=v end);
+                  call_obj=(fun o->o#role_Cli);
                  make_var=(fun v->(`role_Cli(v):[`role_Cli of _]))}}
 let srv = {lens=Succ Zero;
            label={make_obj=(fun v->object method role_Srv=v end);
+                  call_obj=(fun o->o#role_Srv);
                  make_var=(fun v->(`role_Srv(v):[`role_Srv of _]))}}
 
-let compute = {make_obj=(fun v-> object method compute=v end); make_var=(fun v -> `compute(v))}
-let result = {make_obj=(fun v-> object method result=v end); make_var=(fun v -> `result(v))}
-let answer = {make_obj=(fun v-> object method answer=v end); make_var=(fun v -> `answer(v))}
+let compute = {make_obj=(fun v-> object method compute=v end); call_obj=(fun o->o#compute); make_var=(fun v -> `compute(v))}
+let result = {make_obj=(fun v-> object method result=v end); call_obj=(fun o->o#result); make_var=(fun v -> `result(v))}
+let answer = {make_obj=(fun v-> object method answer=v end); call_obj=(fun o->o#answer); make_var=(fun v -> `answer(v))}
 let compute_or_result =
-     {obj_merge=(fun l r -> object method compute=l#compute method result=r#result end)}
+  {obj_merge=(fun l r -> object method compute=l#compute method result=r#result end);
+   obj_splitL=(fun lr -> (lr :> <compute : _>));
+   obj_splitR=(fun lr -> (lr :> <result : _>));
+  }
 let to_srv m =
-  {obj_merge=(fun l r -> object method role_Srv=m.obj_merge l#role_Srv r#role_Srv end)}
+  {obj_merge=(fun l r -> object method role_Srv=m.obj_merge l#role_Srv r#role_Srv end);
+   obj_splitL=(fun lr -> object method role_Srv=m.obj_splitL lr#role_Srv end);
+   obj_splitR=(fun lr -> object method role_Srv=m.obj_splitR lr#role_Srv end);
+  }
 
 type op = Add | Sub | Mul | Div
 let calc () =
@@ -28,53 +36,53 @@ let calc () =
   in Lazy.force g
 
 (* the above is equivalent to following: *)
-module ChVecExample = struct
-  let force = Lazy.force
-
-  let calc () =
-    let ch0 = Event.new_channel ()
-    and ch1 = Event.new_channel ()
-    and ch2 = Event.new_channel ()
-    in
-    let rec ec0 =
-      lazy (object method role_Srv =
-                object
-                  method compute v =
-                    Event.sync (Event.send ch0 v);
-                    force ec0
-                  method result v =
-                    Event.sync (Event.send ch1 v);
-                    force ec1
-                end
-            end)
-    and ec1 =
-      lazy (Event.wrap (Event.receive ch2)
-              (fun v -> `role_Srv(`answer(v, Close))))
-    in
-    let rec es0 =
-      lazy (Event.choose
-              [(Event.wrap (Event.receive ch0)
-                  (fun v -> `role_Cli(`compute(v, force es0))));
-               (Event.wrap (Event.receive ch1)
-                  (fun v -> `role_Cli(`result(v, force es1))))])
-    and es1 =
-      lazy (object method role_Cli =
-                object method answer v =
-                    Event.sync (Event.send ch2 v);
-                    Close
-                end
-            end)
-    in
-    let ec = force ec0 and es = force es0
-    in
-    Cons(WrapSend(ec), Cons(WrapRecv(es), Nil))
-end
+(* module ChVecExample = struct
+ *   let force = Lazy.force
+ * 
+ *   let calc () =
+ *     let ch0 = Event.new_channel ()
+ *     and ch1 = Event.new_channel ()
+ *     and ch2 = Event.new_channel ()
+ *     in
+ *     let rec ec0 =
+ *       lazy (object method role_Srv =
+ *                 object
+ *                   method compute v =
+ *                     Event.sync (Event.send ch0 v);
+ *                     force ec0
+ *                   method result v =
+ *                     Event.sync (Event.send ch1 v);
+ *                     force ec1
+ *                 end
+ *             end)
+ *     and ec1 =
+ *       lazy (Event.wrap (Event.receive ch2)
+ *               (fun v -> `role_Srv(`answer(v, Close))))
+ *     in
+ *     let rec es0 =
+ *       lazy (Event.choose
+ *               [(Event.wrap (Event.receive ch0)
+ *                   (fun v -> `role_Cli(`compute(v, force es0))));
+ *                (Event.wrap (Event.receive ch1)
+ *                   (fun v -> `role_Cli(`result(v, force es1))))])
+ *     and es1 =
+ *       lazy (object method role_Cli =
+ *                 object method answer v =
+ *                     Event.sync (Event.send ch2 v);
+ *                     Close
+ *                 end
+ *             end)
+ *     in
+ *     let ec = force ec0 and es = force es0
+ *     in
+ *     Cons(WrapSend(ec), Cons(WrapRecv(es), Nil))
+ * end *)
 
 let tCli ec =
-  let ec = ec#role_Srv#compute (Add, 20) in
-  let ec = ec#role_Srv#compute (Sub, 45) in
-  let ec = ec#role_Srv#compute (Mul, 10) in
-  let ec = ec#role_Srv#result () in
+  let ec = send (ec#role_Srv#compute) (Add, 20) in
+  let ec = send (ec#role_Srv#compute) (Sub, 45) in
+  let ec = send (ec#role_Srv#compute) (Mul, 10) in
+  let ec = send (ec#role_Srv#result) () in
   let `role_Srv(`answer(ans, ec)) = Event.sync ec in
   close ec;
   (* outputs "Answer: -250" (= (20 - 45) * 10) *)
@@ -90,7 +98,7 @@ let tSrv es =
         | Mul -> ( * ) | Div -> (/)
       in loop (op acc num) es
     | `result((), es) ->
-      let es = es#role_Cli#answer acc in
+      let es = send (es#role_Cli#answer) acc in
       close es
   in loop 0 es
 
@@ -102,13 +110,16 @@ let () =
   in List.iter Thread.join [Thread.create tCli ec; Thread.create tSrv es]
 
 (* custom label declaration *)
-let current = {make_obj=(fun v-> object method current=v end); make_var=(fun v -> `current(v))}
+let current = {make_obj=(fun v-> object method current=v end); call_obj=(fun o->o#current); make_var=(fun v -> `current(v))}
 
 (* merger *)
 let compute_result_or_current =
   {obj_merge=(fun l r ->
     object method compute=l#compute method result=l#result
-           method current=r#current end)}
+      method current=r#current end);
+   obj_splitL=(fun lr-> (lr :> <compute:_; result:_>));
+   obj_splitR=(fun lr-> (lr :> <current:_>));
+  }
 
 let calc2 () =
   let rec g =
@@ -134,10 +145,10 @@ let tSrv2 es =
         | Mul -> ( * ) | Div -> (/)
       in loop (op acc num) es
     | `result((), es) ->
-      let es = es#role_Cli#answer acc in
+      let es = send (es#role_Cli#answer) acc in
       close es
     | `current((), es) ->
-      let es = es#role_Cli#answer acc in
+      let es = send (es#role_Cli#answer) acc in
       loop acc es
   in loop 0 es
 

@@ -3,18 +3,26 @@ open Mpst_simple
 
 let cli = {lens=Zero;
            label={make_obj=(fun v->object method role_Cli=v end);
+                  call_obj=(fun o->o#role_Cli);
                  make_var=(fun v->(`role_Cli(v):[`role_Cli of _]))}}
 let srv = {lens=Succ Zero;
            label={make_obj=(fun v->object method role_Srv=v end);
+                  call_obj=(fun o->o#role_Srv);
                  make_var=(fun v->(`role_Srv(v):[`role_Srv of _]))}}
 
-let compute = {make_obj=(fun v-> object method compute=v end); make_var=(fun v -> `compute(v))}
-let result = {make_obj=(fun v-> object method result=v end); make_var=(fun v -> `result(v))}
-let answer = {make_obj=(fun v-> object method answer=v end); make_var=(fun v -> `answer(v))}
+let compute = {make_obj=(fun v-> object method compute=v end); call_obj=(fun o->o#compute); make_var=(fun v -> `compute(v))}
+let result = {make_obj=(fun v-> object method result=v end); call_obj=(fun o->o#result); make_var=(fun v -> `result(v))}
+let answer = {make_obj=(fun v-> object method answer=v end); call_obj=(fun o->o#answer); make_var=(fun v -> `answer(v))}
 let compute_or_result =
-     {obj_merge=(fun l r -> object method compute=l#compute method result=r#result end)}
+  {obj_merge=(fun l r -> object method compute=l#compute method result=r#result end);
+   obj_splitL=(fun lr -> (lr :> <compute : _>));
+   obj_splitR=(fun lr -> (lr :> <result : _>));
+  }
 let to_srv m =
-  {obj_merge=(fun l r -> object method role_Srv=m.obj_merge l#role_Srv r#role_Srv end)}
+  {obj_merge=(fun l r -> object method role_Srv=m.obj_merge l#role_Srv r#role_Srv end);
+   obj_splitL=(fun lr -> object method role_Srv=m.obj_splitL lr#role_Srv end);
+   obj_splitR=(fun lr -> object method role_Srv=m.obj_splitR lr#role_Srv end);
+  }
 
 let finish = one @@ one @@ nil
 
@@ -35,10 +43,10 @@ let calc' () =
 
 (* same as before *)
 let tCli ec =
-  let ec = ec#role_Srv#compute (Add, 20) in
-  let ec = ec#role_Srv#compute (Sub, 45) in
-  let ec = ec#role_Srv#compute (Mul, 10) in
-  let ec = ec#role_Srv#result () in
+  let ec = send (ec#role_Srv#compute) (Add, 20) in
+  let ec = send (ec#role_Srv#compute) (Sub, 45) in
+  let ec = send (ec#role_Srv#compute) (Mul, 10) in
+  let ec = send (ec#role_Srv#result) () in
   let `role_Srv(`answer(ans, ec)) = Event.sync ec in
   close ec;
   (* outputs "Answer: -250" (= (20 - 45) * 10) *)
@@ -53,7 +61,7 @@ let srvbody self acc es =
         | Mul -> ( * ) | Div -> (/)
       in self (op acc num) es
     | `result((), es) ->
-      let es = es#role_Cli#answer acc in
+      let es = send (es#role_Cli#answer) acc in
       close es
 
 let tSrv' es =
@@ -75,13 +83,16 @@ let () =
  *)
 
 (* custom label declaration *)
-let current = {make_obj=(fun v-> object method current=v end); make_var=(fun v -> `current(v))}
+let current = {make_obj=(fun v-> object method current=v end); call_obj=(fun o->o#current); make_var=(fun v -> `current(v))}
 
 (* merger *)
 let compute_result_or_current =
   {obj_merge=(fun l r ->
     object method compute=l#compute method result=l#result
-           method current=r#current end)}
+      method current=r#current end);
+   obj_splitL=(fun lr-> (lr :> <compute:_; result:_>));
+   obj_splitR=(fun lr-> (lr :> <current:_>));
+  }
 
 let calc2' () =
   let rec g =
@@ -99,7 +110,7 @@ let tSrv2' es =
     | (`compute(_) | `result(_) as v) ->
        srvbody loop acc es v
     | `current((), es) ->
-      let es = es#role_Cli#answer acc in
+      let es = send (es#role_Cli#answer) acc in
       loop acc es
   in loop 0 es
 
@@ -109,12 +120,12 @@ let () =
   in List.iter Thread.join [Thread.create tCli ec; Thread.create tSrv2' es]
 
 let tCli2 ec =
-  let ec = ec#role_Srv#compute (Add,100) in
-  let ec = ec#role_Srv#current () in
+  let ec = send (ec#role_Srv#compute) (Add,100) in
+  let ec = send (ec#role_Srv#current) () in
   let `role_Srv(`answer(num,ec)) = Event.sync ec in
   assert (num = 100);
-  let ec = ec#role_Srv#compute (Sub,1) in
-  let ec = ec#role_Srv#result () in
+  let ec = send (ec#role_Srv#compute) (Sub,1) in
+  let ec = send (ec#role_Srv#result) () in
   let `role_Srv(`answer(num,ec)) = Event.sync ec in
   assert (num = 99);
   close ec;

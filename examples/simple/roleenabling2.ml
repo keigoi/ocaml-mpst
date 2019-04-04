@@ -18,6 +18,8 @@ let prot =
   (a --> c) msg @@
   Lazy.force g
 
+let () = print_global prot
+
 let () = print_endline "global defined"
 let ea = get_ep a prot
 let () = print_endline "EPP a done"
@@ -28,7 +30,7 @@ let () = print_endline "EPP c done"
     
 let tA = Thread.create (fun () ->
   print_endline "A start";
-   let ea = send (ea#role_C#msg) () in
+  let ea = send (ea#role_C#msg) () in
   let rec loop ea =
     if Random.bool () then begin
       let ea = send (ea#role_B#left) () in

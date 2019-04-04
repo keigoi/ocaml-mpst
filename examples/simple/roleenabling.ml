@@ -1,7 +1,7 @@
 (* sending from a non-choosing role *)
 open Mpst_simple
 
-let ring =
+let roleenabling =
   choice_at a (to_b left_or_right)
     (a, (a --> b) left @@
         (c --> b) msg @@
@@ -10,9 +10,11 @@ let ring =
         (c --> b) msg @@
         (b --> c) right @@ finish3)
 
-let ea = get_ep a ring
-and eb = get_ep b ring
-and ec = get_ep c ring
+let () = print_global roleenabling
+
+let ea = get_ep a roleenabling
+and eb = get_ep b roleenabling
+and ec = get_ep c roleenabling
     
 let tA = Thread.create (fun () ->
   print_endline "A start";

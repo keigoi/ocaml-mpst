@@ -13,6 +13,8 @@ let unfair () =
       end
   in
   Lazy.force g
+
+let () = print_global (unfair ())
   
 let () =
   let g = unfair ()

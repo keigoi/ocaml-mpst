@@ -1,0 +1,5 @@
+(library
+ (public_name ocaml-mpst.easy)
+ (name mpst_easy)
+ (flags ("-g" "-short-paths"))
+ (libraries threads ocaml-mpst.base))

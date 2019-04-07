@@ -1,4 +1,6 @@
 module S = S
+module Ast = Ast
+
 module LensLazy = LensLazy
 module LensStrict = LensStrict
 module Connection = Connection

@@ -12,6 +12,20 @@
   (flags ("-g" "-short-paths"))
   (libraries ocaml-mpst.mult))
 
+(executable
+ (name calc_scatter)
+  (public_name calc_scatter_mpst_mult)
+  (modules calc_scatter)
+  (flags ("-g" "-short-paths"))
+  (libraries ocaml-mpst.mult))
+
+(executable
+ (name master_worker)
+  (public_name master_worker_mpst_mult)
+  (modules master_worker)
+  (flags ("-g" "-short-paths"))
+  (libraries ocaml-mpst.mult))
+
 ; (executable
 ;  (name calc_reuse)
 ;   (public_name calc_reuse_mpst_simple)

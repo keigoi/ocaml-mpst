@@ -1,8 +1,15 @@
 (* simple ring protocol *)
 open Mpst_mult
 
+let ring =
+  run_arr_finish begin
+      choice_at a (to_b left_or_right)
+      (a,(a --> b) left >> (b --> c) left >> (c --> a) msg)
+      (a,(a --> b) right >> (b --> c) right)
+    end finish3
+
 let () = print_endline "start"
-let ring = run_arr ((a --> b) msg >> (b --> c) msg >> (c --> a) msg) finish3
+let ring = run_arr_finish ((a --> b) msg >> (b --> c) msg >> (c --> a) msg) finish3
 let () = print_endline "global combinator finished"
 
 let () = print_global ring

@@ -293,7 +293,7 @@ let ( --> ) : 'roleAVar 'labelvar 'epA 'roleBobj 'g1 'g2 'labelobj 'epB 'g0 'v.
   let epA = get rA.lens g1 in
   let obj = make_send rB label ch (unone epA) in
   let g2  = put rA.lens g1 (EOne obj)
-  in {global=Seq(rA.rolename,rB.rolename,label.name, p0); endpoints=g2}
+  in {global=Seq(Comm,rA.rolename,rB.rolename,label.name, p0); endpoints=g2}
 
 let force_e : type t. t e -> unit = function
   | EOne v -> force_wrap v

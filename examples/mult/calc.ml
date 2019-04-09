@@ -35,7 +35,7 @@ let calc () =
          (cli, (cli --> srv) result >>
                (srv --> cli) answer)))
 
-let calc () = run_arr (calc ()) finish2
+let calc () = run_arr_finish (calc ()) finish2
 let () = print_global (calc ())
 
 let tCli ec =
@@ -93,7 +93,7 @@ let calc2 () =
               (srv --> cli) answer >>
               self))
 
-let calc2 () = run_arr (calc2 ()) finish2
+let calc2 () = run_arr_finish (calc2 ()) finish2
 let () = print_global (calc2 ())
 
 let tSrv2 es =

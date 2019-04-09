@@ -1,6 +1,7 @@
 
+type kind = Comm | Scatter | Gather | SelectOne | OfferOne
 type global =
-  | Seq of string * string * string * global
+  | Seq of kind * string * string * string * global
   | Choice of string * global * global
   | Guard of global lazy_t
   | Goto of string
@@ -39,9 +40,9 @@ let make_protocol_env g =
        end
   and traverse acc (g : global) =
     match g with
-    | Seq(f,t,l,cont) ->
+    | Seq(k,f,t,l,cont) ->
        let g, acc = check_cycle_then_traverse acc cont in
-       Seq(f,t,l,g), acc
+       Seq(k,f,t,l,g), acc
     | Choice(r,cont1,cont2) ->
        let g1, acc = check_cycle_then_traverse acc cont1 in
        let g2, acc = check_cycle_then_traverse acc cont2 in
@@ -72,7 +73,7 @@ let add x xs =
   if List.mem x xs then xs else x::xs 
 
 let rec add_roles acc = function
-  | Seq(f,t,_,cont) ->
+  | Seq(_,f,t,_,cont) ->
      let acc = acc |> add f |> add t in
      add_roles acc cont
   | Choice(r,cont1,cont2) ->
@@ -92,10 +93,19 @@ let pr_global env roles g =
     | Some(var) -> Goto var
     | None -> g
   in
+  let comm k f t =
+    let str f t = "from " ^ f ^ " to " ^ t in
+    match k with
+    | Comm -> str f t
+    | Scatter -> str f (t ^ "[1,K]")
+    | Gather -> str (f ^ "[1,K]") t
+    | SelectOne -> str f (t^"[?]")
+    | OfferOne -> str (f^"[?]") t
+  in
   let rec loop acc tab roles g =
     match g with
-    | Seq(f,t,l,cont) ->
-       let acc = acc ^ mktab tab ^ l ^ "() from " ^ f ^ " to " ^ t ^ ";\n" in
+    | Seq(k,f,t,l,cont) ->
+       let acc = acc ^ mktab tab ^ l ^ "() " ^ comm k f t ^ ";\n" in
        loop acc tab roles (check cont)
     | Choice(r,cont1,cont2) ->
        let str1 = loop "" (tab+1) roles (check cont1) in

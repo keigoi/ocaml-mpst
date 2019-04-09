@@ -298,7 +298,7 @@ module MakeGlobal(X:LIN) = struct
     let epA = get rA.lens g1 in
     let obj = make_send rB label ch epA in
     let g2  = put rA.lens g1 obj
-    in {global=Seq(rA.label.name,rB.label.name,label.name, p0); endpoints=g2}
+    in {global=Seq(Comm,rA.label.name,rB.label.name,label.name, p0); endpoints=g2}
 end
 
 include MakeGlobal(struct type 'a lin = 'a let mklin x = x let unlin x = x end)

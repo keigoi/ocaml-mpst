@@ -24,7 +24,7 @@ let () = print_endline "EPP C finished"
 let tA = Thread.create (fun () ->
   print_endline "A start";
   let ea = send (ea#role_B#msg) () in
-  let `role_C(`msg((), ea)) = receive ea in
+  let `msg((), ea) = receive (ea#role_C) in
   print_endline "A done";
   close ea) ()
 
@@ -36,14 +36,14 @@ let tA = Thread.create (fun () ->
 
 let tB = Thread.create (fun () ->
              print_endline "B start";
-             let `role_A(`msg((), eb)) = Event.sync eb in
+             let `msg((), eb) = Event.sync (eb#role_A) in
              let eb = send (eb#role_C#msg) () in
              print_endline "B done";
              close eb) ()
 
 let tC = Thread.create (fun () ->
              print_endline "C start";
-             let `role_B(`msg((), ec)) = Event.sync ec in
+             let `msg((), ec) = Event.sync (ec#role_B) in
              let ec = send (ec#role_A#msg) () in
              print_endline "C done";
              close ec) ()

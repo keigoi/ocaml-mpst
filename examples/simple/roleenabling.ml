@@ -29,27 +29,27 @@ let tA = Thread.create (fun () ->
 
 let tB = Thread.create (fun () ->
   print_endline "B start";
-  match receive eb with
-  | `role_A(`left((), eb)) ->
+  match Event.sync (eb#role_A) with
+  | `left((), eb) ->
      print_endline "B left";
-     let `role_C(`msg((), eb)) = receive eb in
+     let `msg((), eb) = Event.sync (eb#role_C) in
      let eb = send (eb#role_C#left) () in
      close eb
-  | `role_A(`right((), eb)) ->
+  | `right((), eb) ->
      print_endline "B right";
-     let `role_C(`msg((), eb)) = receive eb in
+     let `msg((), eb) = Event.sync (eb#role_C) in
      let eb = send (eb#role_C#right) () in
      close eb) ()
 
 let tC = Thread.create (fun () ->
   print_endline "C start";
   let ec = send (ec#role_B#msg) () in
-  match receive ec with
-  | `role_B(`left((), ec)) ->
+  match Event.sync (ec#role_B) with
+  | `left((), ec) ->
      print_endline "C left";
      close ec;
      print_endline "C done"
-  | `role_B(`right((), ec)) ->
+  | `right((), ec) ->
      print_endline "C right";
      close ec;
      print_endline "C done") ()

@@ -26,7 +26,7 @@ let unify p q = q.channel <- p.channel
 
 type _ wrap =
   | WrapSend : ((< .. > as 'obj) option -> 'obj) -> 'obj wrap
-  | WrapRecv : ([>] as 'var) Event.event lazy_t -> 'var Event.event wrap
+  | WrapRecv : ((< .. > as 'obj) option -> 'obj) -> 'obj wrap
   | WrapClose : close wrap
   | WrapGuard : 'a wrap lazy_t -> 'a wrap
 
@@ -48,7 +48,7 @@ let rec remove_guards : type t. t wrap lazy_t list -> t wrap lazy_t -> t wrap = 
   
 let rec unwrap : type t. t wrap -> t = function
   | WrapSend(obj) -> obj None
-  | WrapRecv(ev) -> Lazy.force ev
+  | WrapRecv(obj) -> obj None
   | WrapClose -> Close
   | WrapGuard w ->
      let w = remove_guards [] w in
@@ -56,7 +56,7 @@ let rec unwrap : type t. t wrap -> t = function
 
 let rec force_wrap : type t. t wrap -> unit = function
   | WrapSend(obj) -> ignore @@ obj None
-  | WrapRecv(ev) -> ignore @@ Lazy.force ev
+  | WrapRecv(obj) -> ignore @@ obj None
   | WrapClose -> ()
   | WrapGuard w -> ignore (remove_guards [] w)
 
@@ -101,8 +101,8 @@ type ('robj,'rvar,'c,'a,'b,'xs,'ys) role = {label:('robj,'rvar,'c,'c) label; len
 
 let rec wrap_merge : type s. s wrap -> s wrap -> s wrap = fun l r ->
   match l, r with
-  | WrapSend l, WrapSend r -> WrapSend (fun obj -> (l (Some (r obj))))
-  | WrapRecv l, WrapRecv r -> WrapRecv (lazy (Event.choose [Lazy.force l; Lazy.force r]))
+  | WrapSend l, WrapSend r -> WrapSend (fun obj -> l (Some (r obj)))
+  | WrapRecv l, WrapRecv r -> WrapRecv (fun obj -> l (Some (r obj)))
   | WrapClose, WrapClose -> WrapClose
   | WrapGuard w1, w2 ->
      WrapGuard
@@ -118,8 +118,6 @@ let rec wrap_merge : type s. s wrap -> s wrap -> s wrap = fun l r ->
   | w1, ((WrapGuard _) as w2) -> wrap_merge w2 w1
   | WrapSend _, WrapRecv _ -> assert false
   | WrapRecv _, WrapSend _ -> assert false
-  | WrapRecv _, WrapClose -> assert false
-  | WrapClose, WrapRecv _ -> assert false
 
 let rec seq_merge : type t.
     t seq -> t seq -> t seq =
@@ -270,22 +268,25 @@ module MakeGlobal(X:LIN) = struct
         rB.label.make_obj (lab.make_obj (method_ obj)))
 
   let make_recv rA lab ph epB =
-    let wrapvar v epB =
-      (* [`role_rA of [`lab of v * epB ] ] *)
-      rA.label.make_var
-        (lab.make_var (v, X.mklin @@ epB))
+    let method_ obj =
+      let ev =
+        Event.wrap
+          (Event.guard (fun () -> Event.receive ph.channel))
+          (fun v -> lab.make_var (v, X.mklin (unwrap epB)))
+      in
+      match obj with
+      | None ->
+         force_wrap epB;
+         ev
+      | Some obj ->
+         Event.choose [ev; rA.label.call_obj obj]
     in
-    WrapRecv
-      (lazy begin
-      ignore (force_wrap epB);
-      (Event.wrap
-         (Event.guard (fun () -> Event.receive ph.channel (* delay placeholder resolution until actual reception *)))
-         (fun v -> wrapvar v (unwrap epB)))
-      end)
+    WrapRecv (fun obj ->
+        rA.label.make_obj (method_ obj))
 
   let ( --> ) : 'roleAVar 'labelvar 'epA 'roleBobj 'g1 'g2 'labelobj 'epB 'g0 'v.
-    (_,  [>  ] as 'roleAvar, 'labelvar, 'epA, 'roleBobj,             'g1, 'g2) role ->
-    (< .. > as 'roleBobj, _, 'labelobj, 'epB, 'roleAvar Event.event, 'g0, 'g1) role ->
+    (< .. > as 'roleAvar, _, 'labelvar Event.event, 'epA, 'roleBobj, 'g1, 'g2) role ->
+    (< .. > as 'roleBobj, _, 'labelobj,             'epB, 'roleAvar, 'g0, 'g1) role ->
     (< .. > as 'labelobj, [> ] as 'labelvar, 'v placeholder * 'epA wrap X.lin, 'v * 'epB X.lin) label ->
     'g0 prot -> 'g2 prot
     = fun rA rB label {global=p0; endpoints=g0} ->

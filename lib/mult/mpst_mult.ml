@@ -30,7 +30,7 @@ let unify_list ps qs = List.map2 (fun p q -> q.channel <- p.channel) ps qs
 
 type _ wrap =
   | WrapSend : ((< .. > as 'obj) option -> 'obj) -> 'obj wrap
-  | WrapRecv : ([>] as 'var) Event.event lazy_t -> 'var Event.event wrap
+  | WrapRecv : ((< .. > as 'obj) option -> 'obj) -> 'obj wrap
   | WrapClose : close wrap
   | WrapGuard : 'a wrap lazy_t -> 'a wrap
 
@@ -52,7 +52,7 @@ let rec remove_guards : type t. t wrap lazy_t list -> t wrap lazy_t -> t wrap = 
   
 let rec unwrap : type t. t wrap -> t = function
   | WrapSend(obj) -> obj None
-  | WrapRecv(ev) -> Lazy.force ev
+  | WrapRecv(obj) -> obj None
   | WrapClose -> Close
   | WrapGuard w ->
      let w = remove_guards [] w in
@@ -60,7 +60,7 @@ let rec unwrap : type t. t wrap -> t = function
 
 let rec force_wrap : type t. t wrap -> unit = function
   | WrapSend(obj) -> ignore @@ obj None
-  | WrapRecv(ev) -> ignore @@ Lazy.force ev
+  | WrapRecv(obj) -> ignore @@ obj None
   | WrapClose -> ()
   | WrapGuard w -> ignore (remove_guards [] w)
 
@@ -119,7 +119,7 @@ type ('robj,'rvar,'c,'a,'b,'xs,'ys) role = {label:('robj,'rvar,'c,'c) label; len
 let rec wrap_merge : type s. s wrap -> s wrap -> s wrap = fun l r ->
   match l, r with
   | WrapSend l, WrapSend r -> WrapSend (fun obj -> (l (Some (r obj))))
-  | WrapRecv l, WrapRecv r -> WrapRecv (lazy (Event.choose [Lazy.force l; Lazy.force r]))
+  | WrapRecv l, WrapRecv r -> WrapRecv (fun obj -> (l (Some (r obj))))
   | WrapClose, WrapClose -> WrapClose
   | WrapGuard w1, w2 ->
      WrapGuard
@@ -135,8 +135,6 @@ let rec wrap_merge : type s. s wrap -> s wrap -> s wrap = fun l r ->
   | w1, ((WrapGuard _) as w2) -> wrap_merge w2 w1
   | WrapSend _, WrapRecv _ -> assert false
   | WrapRecv _, WrapSend _ -> assert false
-  | WrapRecv _, WrapClose -> assert false
-  | WrapClose, WrapRecv _ -> assert false
 
 let rec e_merge : type t. t e -> t e -> t e = fun l r ->
   match l, r with
@@ -325,22 +323,25 @@ let make_send unify_ wrap unwrap rB lab ph epA =
       rB.label.make_obj (lab.make_obj (method_ obj)))
 
 let make_recv receive_ rA lab ph epB =
-  let wrapvar v epB =
-    (* [`role_rA of [`lab of v * epB ] ] *)
-    rA.label.make_var
-      (lab.make_var (v, epB))
+  let method_ obj =
+    let ev =
+      Event.wrap
+        (Event.guard (fun () -> receive_ ph))
+        (fun v -> lab.make_var (v, (unwrap epB)))
+    in
+      match obj with
+      | None ->
+         force_wrap epB;
+         ev
+      | Some obj ->
+         Event.choose [ev; rA.label.call_obj obj]
   in
-  WrapRecv
-    (lazy begin
-    ignore (force_wrap epB);
-    (Event.wrap
-       (Event.guard (fun () -> receive_ ph (* delay placeholder resolution until actual reception *)))
-       (fun v -> wrapvar v (unwrap epB)))
-    end)
+  WrapRecv (fun obj ->
+      rA.label.make_obj (method_ obj))
 
 let ( --> ) : 'roleAVar 'labelvar 'epA 'roleBobj 'g1 'g2 'labelobj 'epB 'g0 'v.
-  (_,  [>  ] as 'roleAvar, 'labelvar, 'epA wrap, 'roleBobj wrap,             'g1 seq, 'g2 seq) role ->
-  (< .. > as 'roleBobj, _, 'labelobj, 'epB wrap, 'roleAvar Event.event wrap, 'g0 seq, 'g1 seq) role ->
+  (< .. > as 'roleAobj, _, 'labelvar Event.event, 'epA wrap, 'roleBobj wrap, 'g1 seq, 'g2 seq) role ->
+  (< .. > as 'roleBobj, _, 'labelobj,             'epB wrap, 'roleAobj wrap, 'g0 seq, 'g1 seq) role ->
   (< .. > as 'labelobj, [> ] as 'labelvar, 'v placeholder * 'epA wrap, 'v * 'epB) label ->
   ('g2 * 'loop,'g0 * 'loop) arr
   = fun rA rB label ->
@@ -349,7 +350,7 @@ let ( --> ) : 'roleAVar 'labelvar 'epA 'roleBobj 'g1 'g2 'labelobj 'epB 'g0 'v.
   let ph = create_placeholder ()
   in
   let EOne epB = get rB.lens g0 in
-  let ev  = make_recv (fun {channel} -> Event.receive channel)  rA label ph epB in
+  let ev  = make_recv (fun {channel} -> Event.receive channel) rA label ph epB in
   let g1  = put rB.lens g0 (EOne ev)
   in
   let EOne epA = get rA.lens g1 in
@@ -358,91 +359,91 @@ let ( --> ) : 'roleAVar 'labelvar 'epA 'roleBobj 'g1 'g2 'labelobj 'epB 'g0 'v.
   in {global=Seq(Comm,rA.label.name,rB.label.name,label.name, p0); loop=cont.loop; endpoints=g2}
   end
   
-let scatter : 'roleAVar 'labelvar 'epA 'roleBobj 'g1 'g2 'labelobj 'epB 'g0 'v.
-  (_,  [>  ] as 'roleAvar, 'labelvar, 'epA wrap, 'roleBobj wrap,             'g1 seq, 'g2 seq) role ->
-  (< .. > as 'roleBobj, _, 'labelobj, 'epB list, 'roleAvar Event.event list, 'g0 seq, 'g1 seq) role ->
-  (< .. > as 'labelobj, [> ] as 'labelvar, 'v placeholder list * 'epA wrap, 'v * 'epB) label ->
-  ('g2 * 'loop,'g0 * 'loop) arr
-  = fun rA rB label ->
-  Arr begin fun cont ->
-  let {global=p0; endpoints=g0} = cont in
-  let EList epBs = get rB.lens g0 in
-  let chs = List.map (fun _ -> create_placeholder ()) epBs
-  in
-  let evs  = List.map2 (make_recv (fun {channel} -> Event.receive channel) rA label) chs epBs in
-  let g1  = put rB.lens g0 (EList evs)
-  in
-  let EOne epA = get rA.lens g1 in
-  let obj = make_send unify_list id id rB label chs epA in
-  let g2  = put rA.lens g1 (EOne obj)
-  in {global=Seq(Scatter,rA.label.name,rB.label.name,label.name, p0); endpoints=g2; loop=cont.loop}
-  end
+(* let scatter : 'roleAVar 'labelvar 'epA 'roleBobj 'g1 'g2 'labelobj 'epB 'g0 'v.
+ *   (_,  [>  ] as 'roleAvar, 'labelvar, 'epA wrap, 'roleBobj wrap,             'g1 seq, 'g2 seq) role ->
+ *   (< .. > as 'roleBobj, _, 'labelobj, 'epB list, 'roleAvar Event.event list, 'g0 seq, 'g1 seq) role ->
+ *   (< .. > as 'labelobj, [> ] as 'labelvar, 'v placeholder list * 'epA wrap, 'v * 'epB) label ->
+ *   ('g2 * 'loop,'g0 * 'loop) arr
+ *   = fun rA rB label ->
+ *   Arr begin fun cont ->
+ *   let {global=p0; endpoints=g0} = cont in
+ *   let EList epBs = get rB.lens g0 in
+ *   let chs = List.map (fun _ -> create_placeholder ()) epBs
+ *   in
+ *   let evs  = List.map2 (make_recv (fun {channel} -> Event.receive channel) rA label) chs epBs in
+ *   let g1  = put rB.lens g0 (EList evs)
+ *   in
+ *   let EOne epA = get rA.lens g1 in
+ *   let obj = make_send unify_list id id rB label chs epA in
+ *   let g2  = put rA.lens g1 (EOne obj)
+ *   in {global=Seq(Scatter,rA.label.name,rB.label.name,label.name, p0); endpoints=g2; loop=cont.loop}
+ *   end *)
 
 let receive_list = function
   | ch::chs -> Event.wrap (Event.receive ch) (fun v -> v :: List.map (fun ch -> Event.sync (Event.receive ch)) chs)
   | [] -> failwith "no channel"
   
-let gather : 'roleAVar 'labelvar 'epA 'roleBobj 'g1 'g2 'labelobj 'epB 'g0 'v.
-  (_,  [>  ] as 'roleAvar, 'labelvar, 'epA list, 'roleBobj list,             'g1 seq, 'g2 seq) role ->
-  (< .. > as 'roleBobj, _, 'labelobj, 'epB wrap, 'roleAvar Event.event wrap, 'g0 seq, 'g1 seq) role ->
-  (< .. > as 'labelobj, [> ] as 'labelvar, 'v placeholder * 'epA wrap, 'v list * 'epB) label ->
-  ('g2 * 'loop,'g0 * 'loop) arr
-  = fun rA rB label ->
-  Arr begin fun cont ->
-  let {global=p0; endpoints=g0} = cont in
-  let EOne epB = get rB.lens g0 in
-  let rec ev  = lazy (make_recv (fun phs -> let phs = Lazy.force phs in receive_list (List.map (fun ph->ph.channel) phs)) rA label phs epB)
-  and g1  = lazy (put rB.lens g0 (EOne (Lazy.force ev)))
-  and epAs = lazy (get rA.lens (Lazy.force g1)) 
-  and phs = lazy (List.map (fun _ -> create_placeholder ()) (unlist (Lazy.force epAs)))
-  in
-  let g1 = Lazy.force g1 and epAs = Lazy.force epAs and chs = Lazy.force phs in
-  let obj = List.map2 (make_send unify id id rB label) chs (unlist epAs) in
-  let g2  = put rA.lens g1 (EList obj)
-  in {global=Seq(Gather,rA.label.name,rB.label.name,label.name, p0); endpoints=g2; loop=cont.loop}
-  end
+(* let gather : 'roleAVar 'labelvar 'epA 'roleBobj 'g1 'g2 'labelobj 'epB 'g0 'v.
+ *   (_,  [>  ] as 'roleAvar, 'labelvar, 'epA list, 'roleBobj list,             'g1 seq, 'g2 seq) role ->
+ *   (< .. > as 'roleBobj, _, 'labelobj, 'epB wrap, 'roleAvar Event.event wrap, 'g0 seq, 'g1 seq) role ->
+ *   (< .. > as 'labelobj, [> ] as 'labelvar, 'v placeholder * 'epA wrap, 'v list * 'epB) label ->
+ *   ('g2 * 'loop,'g0 * 'loop) arr
+ *   = fun rA rB label ->
+ *   Arr begin fun cont ->
+ *   let {global=p0; endpoints=g0} = cont in
+ *   let EOne epB = get rB.lens g0 in
+ *   let rec ev  = lazy (make_recv (fun phs -> let phs = Lazy.force phs in receive_list (List.map (fun ph->ph.channel) phs)) rA label phs epB)
+ *   and g1  = lazy (put rB.lens g0 (EOne (Lazy.force ev)))
+ *   and epAs = lazy (get rA.lens (Lazy.force g1)) 
+ *   and phs = lazy (List.map (fun _ -> create_placeholder ()) (unlist (Lazy.force epAs)))
+ *   in
+ *   let g1 = Lazy.force g1 and epAs = Lazy.force epAs and chs = Lazy.force phs in
+ *   let obj = List.map2 (make_send unify id id rB label) chs (unlist epAs) in
+ *   let g2  = put rA.lens g1 (EList obj)
+ *   in {global=Seq(Gather,rA.label.name,rB.label.name,label.name, p0); endpoints=g2; loop=cont.loop}
+ *   end *)
 
 type 'a oneof = Oneof of 'a
 
-let select_one : 'roleAVar 'labelvar 'epA 'roleBobj 'g1 'g2 'labelobj 'epB 'g0 'v.
-  (_,  [>  ] as 'roleAvar, 'labelvar, 'epA wrap, 'roleBobj wrap,             'g1 seq, 'g2 seq) role ->
-  (< .. > as 'roleBobj, _, 'labelobj, 'epB list, 'roleAvar Event.event list, 'g0 seq, 'g1 seq) role ->
-  (< .. > as 'labelobj, [> ] as 'labelvar, 'v placeholder list oneof * 'epA wrap, 'v * 'epB) label ->
-  ('g2 * loop,'g0 * loop) arr
-  = fun rA rB label ->
-  Arr begin fun cont ->
-  let {global=p0; endpoints=g0} = cont in
-  let EList epBs = get rB.lens g0 in
-  let chs = List.map (fun _ -> create_placeholder ()) epBs
-  in
-  let evs  = List.map2 (make_recv (fun {channel} -> Event.receive channel) rA label) chs epBs in
-  let g1  = put rB.lens g0 (EList evs)
-  in
-  let EOne epA = get rA.lens g1 in
-  let obj = make_send unify_list (fun (x,y) -> Oneof(x),y) (fun (Oneof(x),y) -> x,y) rB label chs epA in
-  let g2  = put rA.lens g1 (EOne obj)
-  in {global=Seq(SelectOne,rA.label.name,rB.label.name,label.name, p0); endpoints=g2; loop=cont.loop}
-  end
+(* let select_one : 'roleAVar 'labelvar 'epA 'roleBobj 'g1 'g2 'labelobj 'epB 'g0 'v.
+ *   (_,  [>  ] as 'roleAvar, 'labelvar, 'epA wrap, 'roleBobj wrap,             'g1 seq, 'g2 seq) role ->
+ *   (< .. > as 'roleBobj, _, 'labelobj, 'epB list, 'roleAvar Event.event list, 'g0 seq, 'g1 seq) role ->
+ *   (< .. > as 'labelobj, [> ] as 'labelvar, 'v placeholder list oneof * 'epA wrap, 'v * 'epB) label ->
+ *   ('g2 * loop,'g0 * loop) arr
+ *   = fun rA rB label ->
+ *   Arr begin fun cont ->
+ *   let {global=p0; endpoints=g0} = cont in
+ *   let EList epBs = get rB.lens g0 in
+ *   let chs = List.map (fun _ -> create_placeholder ()) epBs
+ *   in
+ *   let evs  = List.map2 (make_recv (fun {channel} -> Event.receive channel) rA label) chs epBs in
+ *   let g1  = put rB.lens g0 (EList evs)
+ *   in
+ *   let EOne epA = get rA.lens g1 in
+ *   let obj = make_send unify_list (fun (x,y) -> Oneof(x),y) (fun (Oneof(x),y) -> x,y) rB label chs epA in
+ *   let g2  = put rA.lens g1 (EOne obj)
+ *   in {global=Seq(SelectOne,rA.label.name,rB.label.name,label.name, p0); endpoints=g2; loop=cont.loop}
+ *   end *)
   
-let offer_one : 'roleAVar 'labelvar 'epA 'roleBobj 'g1 'g2 'labelobj 'epB 'g0 'v.
-  (_,  [>  ] as 'roleAvar, 'labelvar, 'epA list, 'roleBobj list,             'g1 seq, 'g2 seq) role ->
-  (< .. > as 'roleBobj, _, 'labelobj, 'epB wrap, 'roleAvar Event.event wrap, 'g0 seq, 'g1 seq) role ->
-  (< .. > as 'labelobj, [> ] as 'labelvar, 'v placeholder * 'epA wrap, 'v * 'epB) label ->
-  ('g2 * 'loop,'g0 * 'loop) arr
-  = fun rA rB label ->
-  Arr begin fun cont ->
-  let {global=p0; endpoints=g0} = cont in
-  let EOne epB = get rB.lens g0 in
-  let rec ev  = lazy (make_recv (fun phs -> Event.choose @@ List.map (fun ph -> Event.receive ph.channel) (Lazy.force phs)) rA label phs epB)
-  and g1  = lazy (put rB.lens g0 (EOne (Lazy.force ev)))
-  and epAs = lazy (get rA.lens (Lazy.force g1)) 
-  and phs = lazy (List.map (fun _ -> create_placeholder ()) (unlist (Lazy.force epAs)))
-  in
-  let g1 = Lazy.force g1 and epAs = Lazy.force epAs and chs = Lazy.force phs in
-  let obj = List.map2 (make_send unify id id rB label) chs (unlist epAs) in
-  let g2  = put rA.lens g1 (EList obj)
-  in {global=Seq(OfferOne,rA.label.name,rB.label.name,label.name, p0); endpoints=g2; loop=cont.loop}
-  end
+(* let offer_one : 'roleAVar 'labelvar 'epA 'roleBobj 'g1 'g2 'labelobj 'epB 'g0 'v.
+ *   (_,  [>  ] as 'roleAvar, 'labelvar, 'epA list, 'roleBobj list,             'g1 seq, 'g2 seq) role ->
+ *   (< .. > as 'roleBobj, _, 'labelobj, 'epB wrap, 'roleAvar Event.event wrap, 'g0 seq, 'g1 seq) role ->
+ *   (< .. > as 'labelobj, [> ] as 'labelvar, 'v placeholder * 'epA wrap, 'v * 'epB) label ->
+ *   ('g2 * 'loop,'g0 * 'loop) arr
+ *   = fun rA rB label ->
+ *   Arr begin fun cont ->
+ *   let {global=p0; endpoints=g0} = cont in
+ *   let EOne epB = get rB.lens g0 in
+ *   let rec ev  = lazy (make_recv (fun phs -> Event.choose @@ List.map (fun ph -> Event.receive ph.channel) (Lazy.force phs)) rA label phs epB)
+ *   and g1  = lazy (put rB.lens g0 (EOne (Lazy.force ev)))
+ *   and epAs = lazy (get rA.lens (Lazy.force g1)) 
+ *   and phs = lazy (List.map (fun _ -> create_placeholder ()) (unlist (Lazy.force epAs)))
+ *   in
+ *   let g1 = Lazy.force g1 and epAs = Lazy.force epAs and chs = Lazy.force phs in
+ *   let obj = List.map2 (make_send unify id id rB label) chs (unlist epAs) in
+ *   let g2  = put rA.lens g1 (EList obj)
+ *   in {global=Seq(OfferOne,rA.label.name,rB.label.name,label.name, p0); endpoints=g2; loop=cont.loop}
+ *   end *)
 
 let rec force_all : type t. t seq -> unit = function
   | Cons(hd, tl) -> force_e hd; force_all tl

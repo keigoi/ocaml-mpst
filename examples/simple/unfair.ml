@@ -33,17 +33,17 @@ let () =
              )()
   and tb = Thread.create (fun () ->
                let rec loop eb =
-                 match Event.sync eb with
-                 | `role_A(`right(_,eb)) ->
+                 match Event.sync (eb#role_A) with
+                 | `right(_,eb) ->
                     print_endline "B: right";
                     loop eb
-                 | `role_A(`left(_,eb)) ->
+                 | `left(_,eb) ->
                     print_endline "B: left";
                     close eb
                in
                loop eb) ()
   and tc = Thread.create (fun () ->
-               let `role_A(`left(_,ec)) = Event.sync ec in
+               let `left(_,ec) = Event.sync (ec#role_A) in
                print_endline "C: closing";
                close ec) ()
   in

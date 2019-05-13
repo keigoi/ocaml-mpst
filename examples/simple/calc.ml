@@ -87,15 +87,14 @@ let tCli ec =
   let ec = send (ec#role_Srv#compute) (Sub, 45) in
   let ec = send (ec#role_Srv#compute) (Mul, 10) in
   let ec = send (ec#role_Srv#result) () in
-  let `role_Srv(`answer(ans, ec)) = Event.sync ec in
+  let `answer(ans, ec) = Event.sync (ec#role_Srv) in
   close ec;
   (* outputs "Answer: -250" (= (20 - 45) * 10) *)
   Printf.printf "Answer: %d\n" ans
 
 let tSrv es =
   let rec loop acc es =
-    let `role_Cli(label) = Event.sync es in
-    match label with
+    match Event.sync (es#role_Cli) with
     | `compute((sym,num), es) ->
       let op = match sym with
         | Add -> (+)   | Sub -> (-)
@@ -143,8 +142,7 @@ let () = print_global (calc2 ())
 
 let tSrv2 es =
   let rec loop acc es =
-    let `role_Cli(label) = Event.sync es in
-    match label with
+    match Event.sync (es#role_Cli) with
     | `compute((sym,num), es) ->
       let op = match sym with
         | Add -> (+)   | Sub -> (-)

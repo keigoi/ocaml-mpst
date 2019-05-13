@@ -49,7 +49,7 @@ let tCli ec =
   let ec = send (ec#role_Srv#compute) (Sub, 45) in
   let ec = send (ec#role_Srv#compute) (Mul, 10) in
   let ec = send (ec#role_Srv#result) () in
-  let `role_Srv(`answer(ans, ec)) = Event.sync ec in
+  let `answer(ans, ec) = Event.sync (ec#role_Srv) in
   close ec;
   (* outputs "Answer: -250" (= (20 - 45) * 10) *)
   Printf.printf "Answer: %d\n" ans
@@ -68,7 +68,7 @@ let srvbody self acc es =
 
 let tSrv' es =
   let rec loop acc es =
-    let `role_Cli(lab) = Event.sync es in
+    let lab = Event.sync (es#role_Cli) in
     srvbody loop acc es lab
   in loop 0 es
 
@@ -107,7 +107,7 @@ let calc2' () =
 
 let tSrv2' es =
   let rec loop acc es =
-    let `role_Cli(label) = Event.sync es in
+    let label = Event.sync (es#role_Cli) in
     match label with
     | (`compute(_) | `result(_) as v) ->
        srvbody loop acc es v
@@ -124,11 +124,11 @@ let () =
 let tCli2 ec =
   let ec = send (ec#role_Srv#compute) (Add,100) in
   let ec = send (ec#role_Srv#current) () in
-  let `role_Srv(`answer(num,ec)) = Event.sync ec in
+  let `answer(num,ec) = Event.sync (ec#role_Srv) in
   assert (num = 100);
   let ec = send (ec#role_Srv#compute) (Sub,1) in
   let ec = send (ec#role_Srv#result) () in
-  let `role_Srv(`answer(num,ec)) = Event.sync ec in
+  let `answer(num,ec) = Event.sync (ec#role_Srv) in
   assert (num = 99);
   close ec;
   Printf.printf "Answer: %d\n" num

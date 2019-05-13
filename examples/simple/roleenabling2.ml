@@ -46,16 +46,16 @@ let tA = Thread.create (fun () ->
 let tB = Thread.create (fun () ->
   print_endline "B start";
   let rec loop eb =
-  let `role_C(`msg((), eb)) = receive eb in
-  match receive eb with
-  | `role_A(`left((), eb)) ->
+  let `msg((), eb) = receive (eb#role_C) in
+  match Event.sync (eb#role_A) with
+  | `left((), eb) ->
      print_endline "B left";
-     let `role_C(`msg((), eb)) = receive eb in
+     let `msg((), eb) = receive (eb#role_C) in
      let eb = send (eb#role_C#left) () in
      loop eb
-  | `role_A(`right((), eb)) ->
+  | `right((), eb) ->
      print_endline "B right";
-     let `role_C(`msg((), eb)) = receive eb in
+     let `msg((), eb) = Event.sync (eb#role_C) in
      let eb = send (eb#role_C#right) () in
      close eb;
      print_endline "B done"
@@ -64,15 +64,15 @@ let tB = Thread.create (fun () ->
 
 let tC = Thread.create (fun () ->
   print_endline "C start";
-  let `role_A(`msg((), ec)) = receive ec in
+  let `msg((), ec) = Event.sync (ec#role_A) in
   let rec loop ec =
   let ec = send (ec#role_B#msg) () in
   let ec = send (ec#role_B#msg) () in
-  match receive ec with
-  | `role_B(`left((), ec)) ->
+  match Event.sync (ec#role_B) with
+  | `left((), ec) ->
      print_endline "C left";
      loop ec
-  | `role_B(`right((), ec)) ->
+  | `right((), ec) ->
      print_endline "C right";
      close ec;
      print_endline "C done"

@@ -10,8 +10,6 @@ let roleenabling =
         (c --> b) msg @@
         (b --> c) right @@ finish3)
 
-let () = print_global roleenabling
-
 let ea = get_ep a roleenabling
 and eb = get_ep b roleenabling
 and ec = get_ep c roleenabling

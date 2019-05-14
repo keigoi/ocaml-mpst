@@ -18,8 +18,6 @@ let prot =
   (a --> c) msg @@
   Lazy.force g
 
-let () = print_global prot
-
 let () = print_endline "global defined"
 let ea = get_ep a prot
 let () = print_endline "EPP a done"

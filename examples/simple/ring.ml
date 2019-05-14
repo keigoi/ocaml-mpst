@@ -5,8 +5,6 @@ let () = print_endline "start"
 let ring = (a --> b) msg @@ (b --> c) msg @@ (c --> a) msg finish3
 let () = print_endline "global combinator finished"
 
-let () = print_global ring
-
 let ea = get_ep a ring
 let () = print_endline "EPP A finished"
 and eb = get_ep b ring

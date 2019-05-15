@@ -66,23 +66,33 @@ let rec unwrap_send : 'a. (< .. > as 'a) wrap -> 'a option -> 'a = function
   | _ -> assert false
 
 type _ seq =
-  | Cons : 'hd wrap * 'tl seq -> [`cons of 'hd * 'tl] seq
-  | ConsGuard : 't seq lazy_t -> 't seq
+  | Seq : 'hd wrap * 'tl seq -> [`seq of 'hd * 'tl] seq
+  | SeqGuard : 't seq lazy_t -> 't seq
 
-let rec seq_head : type hd tl. [`cons of hd * tl] seq -> hd wrap =
+let rec seq_head : type hd tl. [`seq of hd * tl] seq -> hd wrap =
   function
-  | Cons(hd,_) -> hd
-  | ConsGuard xs -> WrapGuard(lazy (seq_head (Lazy.force xs)))
+  | Seq(hd,_) -> hd
+  | SeqGuard xs -> WrapGuard(lazy (seq_head (Lazy.force xs)))
 
-let rec seq_tail : type hd tl. [`cons of hd * tl] seq -> tl seq = fun xs ->
+let rec seq_tail : type hd tl. [`seq of hd * tl] seq -> tl seq = fun xs ->
   match xs with
-  | Cons(_,tl) -> tl
-  | ConsGuard xs -> ConsGuard(lazy (seq_tail (Lazy.force xs)))
+  | Seq(_,tl) -> tl
+  | SeqGuard xs -> SeqGuard(lazy (seq_tail (Lazy.force xs)))
+        
+let rec remove_guards_seq : type t. t seq lazy_t list -> t seq lazy_t -> t seq =
+  fun acc w ->
+  if find_physeq acc w then
+    raise UnguardedLoop
+  else begin match Lazy.force w with
+       | SeqGuard w' ->
+          remove_guards_seq (w::acc) w'
+       | w -> w
+       end
 
 type (_,_,_,_) lens =
-  | Zero  : ('hd0, 'hd1, [`cons of 'hd0 * 'tl] seq, [`cons of 'hd1 * 'tl] seq) lens
+  | Zero  : ('hd0, 'hd1, [`seq of 'hd0 * 'tl] seq, [`seq of 'hd1 * 'tl] seq) lens
   | Succ : ('a, 'b, 'tl0 seq, 'tl1 seq) lens
-           -> ('a,'b, [`cons of 'hd * 'tl0] seq, [`cons of 'hd * 'tl1] seq) lens
+           -> ('a,'b, [`seq of 'hd * 'tl0] seq, [`seq of 'hd * 'tl1] seq) lens
 
 let rec get : type a b xs ys. (a, b, xs, ys) lens -> xs -> a wrap = fun ln xs ->
   match ln with
@@ -92,8 +102,8 @@ let rec get : type a b xs ys. (a, b, xs, ys) lens -> xs -> a wrap = fun ln xs ->
 let rec put : type a b xs ys. (a,b,xs,ys) lens -> xs -> b wrap -> ys =
   fun ln xs b ->
   match ln with
-  | Zero -> Cons(b, seq_tail xs)
-  | Succ ln' -> Cons(seq_head xs, put ln' (seq_tail xs) b)
+  | Zero -> Seq(b, seq_tail xs)
+  | Succ ln' -> Seq(seq_head xs, put ln' (seq_tail xs) b)
 
 type ('robj,'rvar,'c,'a,'b,'xs,'ys) role = {label:('robj,'rvar,'c,'c) label; lens:('a,'b,'xs,'ys) lens}
 
@@ -116,31 +126,21 @@ let rec wrap_merge : type s. s wrap -> s wrap -> s wrap = fun l r ->
   | w1, ((WrapGuard _) as w2) -> wrap_merge w2 w1
   | WrapSend _, WrapRecv _ -> assert false
   | WrapRecv _, WrapSend _ -> assert false
-        
-let rec remove_guards_seq : type t. t seq lazy_t list -> t seq lazy_t -> t seq =
-  fun acc w ->
-  if find_physeq acc w then
-    raise UnguardedLoop
-  else begin match Lazy.force w with
-       | ConsGuard w' ->
-          remove_guards_seq (w::acc) w'
-       | w -> w
-       end
 
 let rec seq_merge : type t.
     t seq -> t seq -> t seq =
   fun ls rs ->
   match ls, rs with
-  | Cons(hd_l,tl_l), Cons(hd_r, tl_r) ->
-     Cons(wrap_merge hd_l hd_r,
+  | Seq(hd_l,tl_l), Seq(hd_r, tl_r) ->
+     Seq(wrap_merge hd_l hd_r,
           seq_merge tl_l tl_r)
-  | ConsGuard(xs), Cons(hd_r, tl_r) ->
-     Cons(wrap_merge (WrapGuard(lazy (seq_head (Lazy.force xs)))) hd_r,
-          seq_merge (ConsGuard(lazy (seq_tail (Lazy.force xs)))) tl_r)
-  | (Cons(_,_) as xs), (ConsGuard(_) as ys) ->
+  | SeqGuard(xs), Seq(hd_r, tl_r) ->
+     Seq(wrap_merge (WrapGuard(lazy (seq_head (Lazy.force xs)))) hd_r,
+          seq_merge (SeqGuard(lazy (seq_tail (Lazy.force xs)))) tl_r)
+  | (Seq(_,_) as xs), (SeqGuard(_) as ys) ->
      seq_merge ys xs
-  | ConsGuard(w1), w2 ->
-     ConsGuard
+  | SeqGuard(w1), w2 ->
+     SeqGuard
        (let rec w =
           (lazy begin
                try
@@ -288,10 +288,10 @@ module MakeGlobal(X:LIN) = struct
 end
 
 let goto : type t. t seq lazy_t -> t seq = fun xs ->
-  ConsGuard xs
+  SeqGuard xs
 
-let finish : ([`cons of close * 'a] as 'a) seq =
-  let rec loop = lazy (Cons(WrapClose, ConsGuard(loop))) in
+let finish : ([`seq of close * 'a] as 'a) seq =
+  let rec loop = lazy (Seq(WrapClose, SeqGuard(loop))) in
   Lazy.force loop
       
 include MakeGlobal(struct type 'a lin = 'a let mklin x = x let unlin x = x end)

@@ -2,10 +2,8 @@
 open Mpst_simple
 
 let () = print_endline "start"
-let ring = (a --> b) msg @@ (b --> c) msg @@ (c --> a) msg finish3
+let ring = (a --> b) msg @@ (b --> c) msg @@ (c --> a) msg finish
 let () = print_endline "global combinator finished"
-
-let () = print_global ring
 
 let ea = get_ep a ring
 let () = print_endline "EPP A finished"
@@ -80,7 +78,7 @@ let () = List.iter Thread.join [tA; tB; tC]
  *   (a, (a --> b) right @@ (c --> b) right @@ finish3) *)
 
 let test10 =
-  let rec bogus = lazy (goto2 bogus) in
+  let rec bogus = lazy (goto bogus) in
   let g =
     (a --> b) msg @@
     Lazy.force bogus

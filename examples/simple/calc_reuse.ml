@@ -2,19 +2,17 @@
 open Mpst_simple
 
 let cli = {lens=Zero;
-           label={name="Cli";
-                  make_obj=(fun v->object method role_Cli=v end);
+           label={make_obj=(fun v->object method role_Cli=v end);
                   call_obj=(fun o->o#role_Cli);
                  make_var=(fun v->(`role_Cli(v):[`role_Cli of _]))}}
 let srv = {lens=Succ Zero;
-           label={name="Srv";
-                  make_obj=(fun v->object method role_Srv=v end);
+           label={make_obj=(fun v->object method role_Srv=v end);
                   call_obj=(fun o->o#role_Srv);
                  make_var=(fun v->(`role_Srv(v):[`role_Srv of _]))}}
 
-let compute = {name="compute"; make_obj=(fun v-> object method compute=v end); call_obj=(fun o->o#compute); make_var=(fun v -> `compute(v))}
-let result = {name="result"; make_obj=(fun v-> object method result=v end); call_obj=(fun o->o#result); make_var=(fun v -> `result(v))}
-let answer = {name="answer"; make_obj=(fun v-> object method answer=v end); call_obj=(fun o->o#answer); make_var=(fun v -> `answer(v))}
+let compute = {make_obj=(fun v-> object method compute=v end); call_obj=(fun o->o#compute); make_var=(fun v -> `compute(v))}
+let result = {make_obj=(fun v-> object method result=v end); call_obj=(fun o->o#result); make_var=(fun v -> `result(v))}
+let answer = {make_obj=(fun v-> object method answer=v end); call_obj=(fun o->o#answer); make_var=(fun v -> `answer(v))}
 let compute_or_result =
   {obj_merge=(fun l r -> object method compute=l#compute method result=r#result end);
    obj_splitL=(fun lr -> (lr :> <compute : _>));
@@ -26,18 +24,16 @@ let to_srv m =
    obj_splitR=(fun lr -> object method role_Srv=m.obj_splitR lr#role_Srv end);
   }
 
-let finish = one @@ one @@ nil
-
 type op = Add | Sub | Mul | Div
 
 (* open recursion for later reuse *)
 let calcbody self =
     choice_at cli (to_srv compute_or_result)
     (cli, (cli --> srv) compute @@
-          goto2 self)
+          goto self)
     (cli, (cli --> srv) result @@
           (srv --> cli) answer @@
-          finish2)
+          finish)
 
 let calc' () =
   let rec g = lazy (calcbody g)
@@ -85,7 +81,7 @@ let () =
  *)
 
 (* custom label declaration *)
-let current = {name="current"; make_obj=(fun v-> object method current=v end); call_obj=(fun o->o#current); make_var=(fun v -> `current(v))}
+let current = {make_obj=(fun v-> object method current=v end); call_obj=(fun o->o#current); make_var=(fun v -> `current(v))}
 
 (* merger *)
 let compute_result_or_current =
@@ -102,7 +98,7 @@ let calc2' () =
        (cli, calcbody g)
        (cli, (cli --> srv) current @@
              (srv --> cli) answer @@
-             goto2 g))
+             goto g))
   in Lazy.force g
 
 let tSrv2' es =

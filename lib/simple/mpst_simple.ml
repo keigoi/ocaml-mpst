@@ -1,6 +1,5 @@
 type ('la,'lb,'va,'vb) label =
-  {name:string;
-   make_obj: 'va -> 'la;
+  {make_obj: 'va -> 'la;
    call_obj: 'la -> 'va;
    make_var: 'vb -> 'lb}
 
@@ -11,9 +10,6 @@ type ('lr, 'l, 'r) obj_merge =
   }
 
 type close = Close
-
-type 'a prot = {global:Mpst_base.Ast.global; endpoints:'a}
-let print_global {global} = Mpst_base.Ast.print_global global
 
 type 'a placeholder =
   {mutable channel: 'a Event.channel}
@@ -37,7 +33,8 @@ let rec find_physeq : 'a. 'a list -> 'a -> bool = fun xs y ->
   | x::xs -> if x==y then true else find_physeq xs y
   | [] -> false
         
-let rec remove_guards : type t. t wrap lazy_t list -> t wrap lazy_t -> t wrap = fun acc w ->
+let rec remove_guards : type t. t wrap lazy_t list -> t wrap lazy_t -> t wrap =
+  fun acc w ->
   if find_physeq acc w then
     raise UngardedLoop
   else begin match Lazy.force w with
@@ -51,14 +48,15 @@ let rec unwrap : type t. t wrap -> t = function
   | WrapRecv(obj) -> obj None
   | WrapClose -> Close
   | WrapGuard w ->
-     let w = remove_guards [] w in
-     unwrap w
+     let w' = remove_guards [] w in
+     unwrap w'
 
 let rec force_wrap : type t. t wrap -> unit = function
   | WrapSend(obj) -> ignore @@ obj None
   | WrapRecv(obj) -> ignore @@ obj None
   | WrapClose -> ()
-  | WrapGuard w -> ignore (remove_guards [] w)
+  | WrapGuard w ->
+     ignore (remove_guards [] w)
 
 let rec unwrap_send : 'a. (< .. > as 'a) wrap -> 'a option -> 'a = function
   | WrapSend(obj) -> obj
@@ -68,20 +66,23 @@ let rec unwrap_send : 'a. (< .. > as 'a) wrap -> 'a option -> 'a = function
   | _ -> assert false
 
 type _ seq =
-  Cons : 'hd wrap * 'tl seq -> ('hd * 'tl) seq
-| Nil : unit seq
+  | Cons : 'hd wrap * 'tl seq lazy_t -> [`cons of 'hd * 'tl] seq
+  | ConsGuard : 't seq lazy_t -> 't seq
 
-let seq_head : type hd tl. (hd * tl) seq -> hd wrap =
-  fun (Cons(hd,_)) -> hd
+let rec seq_head : type hd tl. [`cons of hd * tl] seq -> hd wrap =
+  function
+  | Cons(hd,_) -> hd
+  | ConsGuard xs -> WrapGuard(lazy (seq_head (Lazy.force xs)))
 
-let seq_tail : type hd tl. (hd * tl) seq -> tl seq = fun xs ->
+let rec seq_tail : type hd tl. [`cons of hd * tl] seq -> tl seq = fun xs ->
   match xs with
-  | Cons(_,tl) -> tl
+  | Cons(_,tl) -> Lazy.force tl
+  | ConsGuard xs -> ConsGuard(lazy (seq_tail (Lazy.force xs)))
 
 type (_,_,_,_) lens =
-  | Zero  : ('hd0, 'hd1, ('hd0 * 'tl) seq, ('hd1 * 'tl) seq) lens
+  | Zero  : ('hd0, 'hd1, [`cons of 'hd0 * 'tl] seq, [`cons of 'hd1 * 'tl] seq) lens
   | Succ : ('a, 'b, 'tl0 seq, 'tl1 seq) lens
-           -> ('a,'b, ('hd * 'tl0) seq, ('hd * 'tl1) seq) lens
+           -> ('a,'b, [`cons of 'hd * 'tl0] seq, [`cons of 'hd * 'tl1] seq) lens
 
 let rec get : type a b xs ys. (a, b, xs, ys) lens -> xs -> a wrap = fun ln xs ->
   match ln with
@@ -91,11 +92,8 @@ let rec get : type a b xs ys. (a, b, xs, ys) lens -> xs -> a wrap = fun ln xs ->
 let rec put : type a b xs ys. (a,b,xs,ys) lens -> xs -> b wrap -> ys =
   fun ln xs b ->
   match ln with
-  | Zero -> Cons(b, seq_tail xs)
-  | Succ ln' ->
-     begin match xs with
-     | Cons(a, xs') -> Cons(a, put ln' xs' b)
-     end
+  | Zero -> Cons(b, lazy (seq_tail xs))
+  | Succ ln' -> Cons(seq_head xs, lazy (put ln' (seq_tail xs) b))
 
 type ('robj,'rvar,'c,'a,'b,'xs,'ys) role = {label:('robj,'rvar,'c,'c) label; lens:('a,'b,'xs,'ys) lens}
 
@@ -125,78 +123,51 @@ let rec seq_merge : type t.
   match ls, rs with
   | Cons(hd_l,tl_l), Cons(hd_r, tl_r) ->
      Cons(wrap_merge hd_l hd_r,
-          seq_merge tl_l tl_r)
-  | Nil, _ -> Nil
+          lazy (seq_merge (Lazy.force tl_l) (Lazy.force tl_r)))
+  | ConsGuard(xs), Cons(hd_r, tl_r) ->
+     Cons(wrap_merge (WrapGuard(lazy (seq_head (Lazy.force xs)))) hd_r,
+          lazy (seq_merge (ConsGuard(lazy (seq_tail (Lazy.force xs)))) (Lazy.force tl_r)))
+  | xs, (ConsGuard(_) as ys) ->
+     seq_merge ys xs
+     
 
-let eps {endpoints} = endpoints
-
-let rec goto2 =fun xs ->
-  {global=Guard((lazy(Lazy.force xs).global));
-   endpoints=
-     Cons(WrapGuard(lazy (get Zero (eps @@ Lazy.force xs))),
-     Cons(WrapGuard(lazy (get (Succ Zero) (eps @@ Lazy.force xs))),
-     Nil))}
-
-let rec goto3 =fun xs ->
-  {global=Guard((lazy(Lazy.force xs).global));
-   endpoints=
-     Cons(WrapGuard(lazy (get Zero (eps @@ Lazy.force xs))),
-     Cons(WrapGuard(lazy (get (Succ Zero) (eps @@ Lazy.force xs))),
-     Cons(WrapGuard(lazy (get (Succ (Succ Zero)) (eps @@ Lazy.force xs))),
-     Nil)))}
-
-let rec goto4 =fun xs ->
-  {global=Guard((lazy(Lazy.force xs).global));
-   endpoints=
-     Cons(WrapGuard(lazy (get Zero (eps @@ Lazy.force xs))),
-     Cons(WrapGuard(lazy (get (Succ Zero) (eps @@ Lazy.force xs))),
-     Cons(WrapGuard(lazy (get (Succ (Succ Zero)) (eps @@ Lazy.force xs))),
-     Cons(WrapGuard(lazy (get (Succ (Succ (Succ Zero))) (eps @@ Lazy.force xs))),
-     Nil))))}
-
-let one xs  = Cons(WrapClose, xs)
-let nil = Nil
-
-  
-let a = {label={name="A";
-                make_obj=(fun v->object method role_A=v end);
+let a = {label={make_obj=(fun v->object method role_A=v end);
                 call_obj=(fun o->o#role_A);
-               make_var=(fun v->(`role_A(v):[`role_A of _]))}; (* explicit annotataion is mandatory *)
+               make_var=(fun v->(`role_A(v):[`role_A of _]))};
          lens=Zero}
-let b = {label={name="B";
-                make_obj=(fun v->object method role_B=v end);
+let b = {label={make_obj=(fun v->object method role_B=v end);
                 call_obj=(fun o->o#role_B);
-               make_var=(fun v->(`role_B(v):[`role_B of _]))}; (* explicit annotataion is mandatory *)
+               make_var=(fun v->(`role_B(v):[`role_B of _]))};
          lens=Succ Zero}
-let c = {label={name="C";
-                make_obj=(fun v->object method role_C=v end);
+let c = {label={make_obj=(fun v->object method role_C=v end);
                 call_obj=(fun o->o#role_C);
-               make_var=(fun v->(`role_C(v):[`role_C of _]))}; (* explicit annotataion is mandatory *)
+               make_var=(fun v->(`role_C(v):[`role_C of _]))};
          lens=Succ (Succ Zero)}
-let d = {label={name="D";
-                make_obj=(fun v->object method role_D=v end);
+let d = {label={make_obj=(fun v->object method role_D=v end);
                 call_obj=(fun o->o#role_D);
-                make_var=(fun v->(`role_D(v):[`role_D of _]))}; (* explicit annotataion is mandatory *)
+                make_var=(fun v->(`role_D(v):[`role_D of _]))};
          lens=Succ (Succ (Succ Zero))}
 let msg =
-  {name="msg";
-   make_obj=(fun f -> object method msg=f end);
+  {make_obj=(fun f -> object method msg=f end);
    call_obj=(fun o -> o#msg);
    make_var=(fun v -> `msg(v))}
 let left =
-  {name="left";
-   make_obj=(fun f -> object method left=f end);
+  {make_obj=(fun f -> object method left=f end);
    call_obj=(fun o -> o#left);
    make_var=(fun v -> `left(v))}
 let right =
-  {name="right";
-   make_obj=(fun f -> object method right=f end);
+  {make_obj=(fun f -> object method right=f end);
    call_obj=(fun o -> o#right);
    make_var=(fun v -> `right(v))}
 let left_or_right =
   {obj_merge=(fun l r -> object method left=l#left method right=r#right end);
    obj_splitL=(fun lr -> (lr :> <left : _>));
    obj_splitR=(fun lr -> (lr :> <right : _>));
+  }
+let right_or_left =
+  {obj_merge=(fun l r -> object method right=l#right method left=r#left end);
+   obj_splitL=(fun lr -> (lr :> <right : _>));
+   obj_splitR=(fun lr -> (lr :> <left : _>));
   }
 let to_b m =
   {obj_merge=(fun l r -> object method role_B=m.obj_merge l#role_B r#role_B end);
@@ -208,15 +179,6 @@ let b_or_c =
    obj_splitL=(fun lr -> (lr :> <role_B : _>));
    obj_splitR=(fun lr -> (lr :> <role_C : _>));
   }
-
-(* let finish =
- *   let rec fini = lazy (Cons(Close, fini)) in
- *   Lazy.from_val (Lazy.force fini) *)
-
-let finish2 = {global=Finish; endpoints=one @@ one @@ nil}
-let finish3 = {global=Finish; endpoints=one @@ one @@ one @@ nil}
-let finish4 = {global=Finish; endpoints=one @@ one @@ one @@ one @@ nil}
-let finish5 = {global=Finish; endpoints=one @@ one @@ one @@ one @@ one @@ nil}
 
 module type LIN = sig
   type 'a lin
@@ -232,11 +194,11 @@ let map_option f = function
 let choice_at : 'ep 'ep_l 'ep_r 'g0_l 'g0_r 'g1 'g2.
   (_, _, _, close, < .. > as 'ep, 'g1 seq, 'g2 seq) role ->
   ('ep, < .. > as 'ep_l, < .. > as 'ep_r) obj_merge ->
-  (_, _, _, 'ep_l, close, 'g0_l seq, 'g1 seq) role * 'g0_l seq prot ->
-  (_, _, _, 'ep_r, close, 'g0_r seq, 'g1 seq) role * 'g0_r seq prot ->
-  'g2 seq prot
-  = fun r merge (r',{global=p0;endpoints=g0left}) (r'',{global=p1;endpoints=g0right}) ->
-  let epL, epR = get r'.lens g0left, get r''.lens g0right (* FIXME *) in
+  (_, _, _, 'ep_l, close, 'g0_l seq, 'g1 seq) role * 'g0_l seq ->
+  (_, _, _, 'ep_r, close, 'g0_r seq, 'g1 seq) role * 'g0_r seq ->
+  'g2 seq
+  = fun r merge (r',g0left) (r'',g0right) ->
+  let epL, epR = get r'.lens g0left, get r''.lens g0right in
   let g1left, g1right =
     put r'.lens g0left WrapClose, put r''.lens g0right WrapClose in
   let g1 = seq_merge g1left g1right in
@@ -244,7 +206,7 @@ let choice_at : 'ep 'ep_l 'ep_r 'g0_l 'g0_r 'g1 'g2.
                      let oleft, oright = unwrap_send epL, unwrap_send epR in
                      merge.obj_merge (oleft (map_option merge.obj_splitL obj)) (oright (map_option merge.obj_splitR obj))))
   in
-  {global=Choice(r.label.name, p0, p1); endpoints=g2}
+  g2
   
 module MakeGlobal(X:LIN) = struct
 
@@ -279,6 +241,7 @@ module MakeGlobal(X:LIN) = struct
          force_wrap epB;
          ev
       | Some obj ->
+         force_wrap epB;
          Event.choose [ev; rA.label.call_obj obj]
     in
     WrapRecv (fun obj ->
@@ -288,8 +251,8 @@ module MakeGlobal(X:LIN) = struct
     (< .. > as 'roleAvar, _, 'labelvar Event.event, 'epA, 'roleBobj, 'g1, 'g2) role ->
     (< .. > as 'roleBobj, _, 'labelobj,             'epB, 'roleAvar, 'g0, 'g1) role ->
     (< .. > as 'labelobj, [> ] as 'labelvar, 'v placeholder * 'epA wrap X.lin, 'v * 'epB X.lin) label ->
-    'g0 prot -> 'g2 prot
-    = fun rA rB label {global=p0; endpoints=g0} ->
+    'g0 -> 'g2
+    = fun rA rB label g0 ->
     let ch = create_placeholder ()
     in
     let epB = get rB.lens g0 in
@@ -299,142 +262,23 @@ module MakeGlobal(X:LIN) = struct
     let epA = get rA.lens g1 in
     let obj = make_send rB label ch epA in
     let g2  = put rA.lens g1 obj
-    in {global=Seq(Comm,rA.label.name,rB.label.name,label.name, p0); endpoints=g2}
+    in g2
 end
 
+let goto : type t. t seq lazy_t -> t seq = fun xs ->
+  ConsGuard xs
+
+let finish : ([`cons of close * 'a] as 'a) seq =
+  let rec loop = lazy (Cons(WrapClose, loop)) in
+  Lazy.force loop
+      
 include MakeGlobal(struct type 'a lin = 'a let mklin x = x let unlin x = x end)
 
-let rec force_all : type t. t seq -> unit = function
-  | Cons(hd, tl) -> force_wrap hd; force_all tl
-  | Nil -> ()
-
-let get_ep r {endpoints=g} = force_all g; unwrap (get r.lens g)
+let get_ep r g =
+  (* force_all g; *)
+  let ep = get r.lens g in
+  unwrap ep
 
 let send (ph, cont) v = Event.sync (Event.send ph.channel v); unwrap cont
 let receive ev = Event.sync ev
 let close Close = ()
-
-let rec remove_guards : type t. t wrap lazy_t list -> t wrap lazy_t -> t wrap = fun acc w ->
-  if find_physeq acc w then
-    raise UngardedLoop
-  else begin match Lazy.force w with
-       | WrapGuard w' ->
-          remove_guards (w'::acc) w'
-       | w -> w
-       end
-
-(* module Lin : sig
- *   val ( --> ) :
- *     (_,  [>  ] as 'roleAvar, 'labelvar, 'epA, 'roleBobj,             'g1, 'g2) role ->
- *     (< .. > as 'roleBobj, _, 'labelobj, 'epB, 'roleAvar event, 'g0, 'g1) role ->
- *     (< .. > as 'labelobj, [> ] as 'labelvar, 'v -> 'epA LinMonad.lin, 'v * 'epB LinMonad.lin) label ->
- *     'g0 -> 'g2
- * 
- *   type 'g global
- * 
- *   val create_shared : (unit -> 'g seq) -> [>] list -> 'g global
- * 
- *   val connect :
- *     'g global ->
- *     (_, _, unit, 's, _, 'g seq, _) role ->
- *     ('pre, 'pre, 's LinMonad.lin) LinMonad.monad
- * 
- *   open LinMonad
- * 
- *   val send :
- *     ((< .. > as 'obj) -> 'v data -> 's lin) ->
- *     'v ->
- *     ('obj lin, empty, 'pre, 'post) lens ->
- *     ('pre, 'post, 's lin) monad
- * 
- *   val deleg_send :
- *     ((< .. > as 'obj) -> 't lin -> 's lin) ->
- *     ('t lin, empty, 'pre, 'mid) lens ->
- *     ('obj lin, empty, 'mid, 'post) lens ->
- *     ('pre, 'post, 's lin) monad
- * 
- *   val receive :
- *     ('var event lin, empty, 'pre, 'post) lens ->
- *     ('pre, 'post, 'var lin) monad
- * 
- *   val close :
- *     (close lin, empty, 'pre, 'post) lens ->
- *     ('pre, 'post, unit data) monad
- * 
- * end
- *   = struct
- *   module L = struct
- *     type 't lin = 't LinMonad.lin
- *     let mklin a = {LinMonad.__lindata=a}
- *   end
- * 
- *   module G = MakeGlobal(L)
- *   include G
- * 
- *   let stream_tee stream =
- *     failwith "TODO"
- * 
- *   type 'g global =
- *     {locals:(Obj.t * 'g seq Stream.t) list}
- * 
- *   let create_shared f rs =
- *     let st0 = Stream.from (fun _ -> Some (f ())) in
- *     match rs with
- *     | [] -> failwith "empty roles"
- *     | r::rs ->
- *        let st0, locals =
- *          List.fold_left
- *            (fun (st,xs) r ->
- *              let s1, s2 = stream_tee st in
- *              s2, (Obj.repr r, s1)::xs)
- *            (st0,[])
- *            rs
- *        in
- *        {locals=(Obj.repr r,st0)::locals}
- * 
- *   let connect {locals} r =
- *     {LinMonad.__run=
- *        fun pre->
- *        let st = List.assoc (Obj.repr (r.label.make_var ())) locals in
- *        Stream.next st |> (fun g ->
- *        (pre, {LinMonad.__lindata=unwrap @@ get r.lens g}))
- *     }
- * 
- *   let send sel v lens =
- *     let open LinMonad in
- *     {__run=
- *        fun pre ->
- *        let {__lindata=obj} = lens_get lens pre in
- *        let s = (sel obj {data=v}).__lindata in
- *        (lens_put lens pre Empty, {__lindata=s})
- *     }
- * 
- *   let deleg_send sel lens1 lens0 =
- *     let open LinMonad in
- *     {__run=
- *        fun pre ->
- *        let t = lens_get lens1 pre in
- *        let mid = lens_put lens1 pre Empty in
- *        let {__lindata=obj} = lens_get lens0 mid in
- *        let s = (sel obj t).__lindata in
- *        (lens_put lens0 mid Empty, {__lindata=s})
- *     }
- * 
- *   let receive lens =
- *     let open LinMonad in
- *     {__run=
- *        fun pre ->
- *        let {__lindata=s} = lens_get lens pre in
- *        let ls = Event.sync s in
- *        (lens_put lens pre Empty, {__lindata=ls})
- *     }
- * 
- *   let close lens =
- *     let open LinMonad in
- *     {__run=
- *        fun pre ->
- *        let {__lindata=s} = lens_get lens pre in
- *        let () = close s in
- *        (lens_put lens pre Empty, {data=()})
- *     }
- * end *)

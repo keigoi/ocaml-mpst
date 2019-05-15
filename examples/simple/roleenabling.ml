@@ -5,12 +5,10 @@ let roleenabling =
   choice_at a (to_b left_or_right)
     (a, (a --> b) left @@
         (c --> b) msg @@
-        (b --> c) left @@ finish3)
+        (b --> c) left @@ finish)
     (a, (a --> b) right @@
         (c --> b) msg @@
-        (b --> c) right @@ finish3)
-
-let () = print_global roleenabling
+        (b --> c) right @@ finish)
 
 let ea = get_ep a roleenabling
 and eb = get_ep b roleenabling

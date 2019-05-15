@@ -9,16 +9,14 @@ let prot =
         choice_at a (to_b left_or_right)
           (a, (a --> b) left @@
               (c --> b) msg @@
-              (b --> c) left @@ goto3 g)
+              (b --> c) left @@ goto g)
           (a, (a --> b) right @@
               (c --> b) msg @@
-              (b --> c) right @@ finish3)
+              (b --> c) right @@ finish)
       end
   in
   (a --> c) msg @@
   Lazy.force g
-
-let () = print_global prot
 
 let () = print_endline "global defined"
 let ea = get_ep a prot

@@ -88,14 +88,14 @@ let test10 =
       ignore (get_ep a g);
       failwith "unexpected"
     with
-      UngardedLoop ->
+      UnguardedLoop ->
       print_endline "exception correctly occurred"
   and () =
     try
       ignore (get_ep b g);
       failwith "unexpected"
     with
-      UngardedLoop ->
+      UnguardedLoop ->
       print_endline "exception correctly occurred"
   in
   ()

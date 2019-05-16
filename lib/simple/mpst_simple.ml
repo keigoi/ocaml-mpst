@@ -11,9 +11,11 @@ type ('lr, 'l, 'r) obj_merge =
 
 type close = Close
 
-type 'a guarded = {guarded:'a guarded lazy_t list; bare: 'a option}
+type 'a guarded =
+  | Guarded of 'a guarded lazy_t list
+  | Bare of 'a
 
-let bare x = {guarded=[]; bare=Some x}
+let bare x = Bare x
 
 exception UnguardedLoop
 
@@ -22,71 +24,78 @@ let rec find_physeq : 'a. 'a list -> 'a -> bool = fun xs y ->
   | x::xs -> if x==y then true else find_physeq xs y
   | [] -> false
 
-let rec remove_guards_one : type t. (t -> t -> t) -> t guarded lazy_t list -> t guarded -> t =
-  fun mergefun hist g ->
-  let {guarded; bare} = g in
-  let solved =
-    List.fold_left (fun acc g' ->
-        try
-          if find_physeq hist g' then
-            acc
-          else
-            remove_guards_one mergefun (g'::hist) (Lazy.force g') :: acc
-        with
-          UnguardedLoop -> acc) [] guarded
-  in
-  match solved, bare with
-  | [], None -> raise UnguardedLoop
-  | xs, Some x -> List.fold_left mergefun x xs
-  | x::xs, None ->
-     List.fold_left mergefun x xs
-  
-type _ wrap_ =
-  | WrapSend : ((< .. > as 'obj) option -> 'obj) -> 'obj wrap_
-  | WrapRecv : ((< .. > as 'obj) option -> 'obj) -> 'obj wrap_
-  | WrapClose : close wrap_
+let rec remove_guards_one
+        : type t. (t -> t -> t) -> t guarded lazy_t list -> t guarded -> t
+  = fun mergefun hist g ->
+  match g with
+  | Bare x -> x
+  | Guarded gs ->
+     let solved =
+       List.fold_left (fun acc g' ->
+           try
+             if find_physeq hist g' then begin
+               acc (* found a loop. drop it *)
+             end else
+               remove_guards_one mergefun (g'::hist) (Lazy.force g') :: acc
+           with
+             UnguardedLoop -> acc) [] gs
+     in
+     match solved with
+     | [] ->
+        raise UnguardedLoop
+     | x::xs ->
+        List.fold_left mergefun x xs
 
-type 'a wrap = 'a wrap_ guarded
-
-let rec wrap_merge_ : type s. s wrap_ -> s wrap_ -> s wrap_ = fun l r ->
+let guarded_merge : type t. (t -> t -> t) -> t guarded -> t guarded -> t guarded =
+  fun mergefun l r ->
   match l, r with
-  | WrapSend l, WrapSend r -> WrapSend (fun obj -> l (Some (r obj)))
-  | WrapRecv l, WrapRecv r -> WrapRecv (fun obj -> l (Some (r obj)))
-  | WrapClose, WrapClose -> WrapClose
-  | WrapSend _, WrapRecv _ -> assert false 
-  | WrapRecv _, WrapSend _ -> assert false 
+  | Bare ll, Bare rr ->
+     Bare (mergefun ll rr)
+  | Guarded g1, Guarded g2 ->
+     Guarded (g1 @ g2)
+  | ((Bare _) as b, Guarded g) | (Guarded g, ((Bare _) as b)) ->
+     Guarded ([lazy b] @ g)
   
-let rec unwrap_ : type t. t wrap_ -> t = function
-  | WrapSend(obj) -> obj None
-  | WrapRecv(obj) -> obj None
-  | WrapClose -> Close
+type _ prot_ =
+  | ProtSend : ((< .. > as 'obj) option -> 'obj) -> 'obj prot_
+  | ProtRecv : ((< .. > as 'obj) option -> 'obj) -> 'obj prot_
+  | ProtClose : close prot_
 
-let rec unwrap : type t. t wrap -> t = fun g ->
-  unwrap_ (remove_guards_one wrap_merge_ [] g)
-  
-let unwrap_send_ : 'a. (< .. > as 'a) wrap_ -> 'a option -> 'a = function
-  | WrapSend(obj) -> obj
-  | _ -> assert false
+type 'a prot = 'a prot_ guarded
 
-let unwrap_send : 'a. (< .. > as 'a) wrap -> 'a option -> 'a = fun g ->
-  unwrap_send_ (remove_guards_one wrap_merge_ [] g)
+let prot_merge_ : type s. s prot_ -> s prot_ -> s prot_ = fun l r ->
+  match l, r with
+  | ProtSend l, ProtSend r -> ProtSend (fun obj -> l (Some (r obj)))
+  | ProtRecv l, ProtRecv r -> ProtRecv (fun obj -> l (Some (r obj)))
+  | ProtClose, ProtClose -> ProtClose
+  | ProtSend _, ProtRecv _ -> assert false 
+  | ProtRecv _, ProtSend _ -> assert false 
 
-let wrap_merge : type t. t wrap -> t wrap -> t wrap =
-  fun l r ->
-  match l.bare, r.bare with
-  | Some ll, Some rr ->
-     {guarded=l.guarded@r.guarded; bare=Some(wrap_merge_ ll rr)}
-  | (None, x) | (x, None) -> 
-     {guarded=l.guarded@r.guarded; bare=x}
+let prot_merge l r = guarded_merge prot_merge_ l r
+
+let rec unprot_ : type t. t prot_ -> t = function
+  | ProtSend(obj) -> obj None
+  | ProtRecv(obj) -> obj None
+  | ProtClose -> Close
+
+let rec unprot : type t. t prot -> t = fun g ->
+  unprot_ (remove_guards_one prot_merge_ [] g)
+
+let unprot_send_ : 'a. (< .. > as 'a) prot_ -> 'a option -> 'a = function
+  | ProtSend(obj) -> obj
+  | ProtRecv(_) -> assert false
+
+let unprot_send : 'a. (< .. > as 'a) prot -> 'a option -> 'a = fun g ->
+  unprot_send_ (remove_guards_one prot_merge_ [] g)
 
 type _ seq =
-  | Seq : 'hd wrap * 'tl seq -> [`seq of 'hd * 'tl] seq
+  | Seq : 'hd prot * 'tl seq -> [`seq of 'hd * 'tl] seq
   | SeqGuard : 't seq lazy_t -> 't seq
 
-let rec seq_head : type hd tl. [`seq of hd * tl] seq -> hd wrap =
+let rec seq_head : type hd tl. [`seq of hd * tl] seq -> hd prot =
   function
   | Seq(hd,_) -> hd
-  | SeqGuard xs -> {guarded=[lazy (seq_head (Lazy.force xs))]; bare=None}
+  | SeqGuard xs -> Guarded [lazy (seq_head (Lazy.force xs))]
 
 let rec seq_tail : type hd tl. [`seq of hd * tl] seq -> tl seq = fun xs ->
   match xs with
@@ -108,12 +117,12 @@ type (_,_,_,_) lens =
   | Succ : ('a, 'b, 'tl0 seq, 'tl1 seq) lens
            -> ('a,'b, [`seq of 'hd * 'tl0] seq, [`seq of 'hd * 'tl1] seq) lens
 
-let rec get : type a b xs ys. (a, b, xs, ys) lens -> xs -> a wrap = fun ln xs ->
+let rec get : type a b xs ys. (a, b, xs, ys) lens -> xs -> a prot = fun ln xs ->
   match ln with
   | Zero -> seq_head xs
   | Succ ln' -> get ln' (seq_tail xs)
               
-let rec put : type a b xs ys. (a,b,xs,ys) lens -> xs -> b wrap -> ys =
+let rec put : type a b xs ys. (a,b,xs,ys) lens -> xs -> b prot -> ys =
   fun ln xs b ->
   match ln with
   | Zero -> Seq(b, seq_tail xs)
@@ -126,10 +135,10 @@ let rec seq_merge : type t.
   fun ls rs ->
   match ls, rs with
   | Seq(hd_l,tl_l), Seq(hd_r, tl_r) ->
-     Seq(wrap_merge hd_l hd_r,
+     Seq(prot_merge hd_l hd_r,
           seq_merge tl_l tl_r)
   | SeqGuard(xs), Seq(hd_r, tl_r) ->
-     Seq(wrap_merge {guarded=[lazy (seq_head (Lazy.force xs))]; bare=None} hd_r,
+     Seq(prot_merge (Guarded [lazy (seq_head (Lazy.force xs))]) hd_r,
           seq_merge (SeqGuard(lazy (seq_tail (Lazy.force xs)))) tl_r)
   | (Seq(_,_) as xs), (SeqGuard(_) as ys) ->
      seq_merge ys xs
@@ -144,8 +153,6 @@ let rec seq_merge : type t.
                  UnguardedLoop -> w2
              end)
         in w)
-     
-     
 
 let a = {label={make_obj=(fun v->object method role_A=v end);
                 call_obj=(fun o->o#role_A);
@@ -220,11 +227,16 @@ let choice_at : 'ep 'ep_l 'ep_r 'g0_l 'g0_r 'g1 'g2.
   = fun r merge (r',g0left) (r'',g0right) ->
   let epL, epR = get r'.lens g0left, get r''.lens g0right in
   let g1left, g1right =
-    put r'.lens g0left (bare WrapClose), put r''.lens g0right (bare WrapClose) in
+    put r'.lens g0left (bare ProtClose), put r''.lens g0right (bare ProtClose) in
   let g1 = seq_merge g1left g1right in
-  let g2 = put r.lens g1 (bare @@ WrapSend (fun obj ->
-                     let oleft, oright = unwrap_send epL, unwrap_send epR in
-                     merge.obj_merge (oleft (map_option merge.obj_splitL obj)) (oright (map_option merge.obj_splitR obj))))
+  let ep =
+    bare @@ ProtSend (fun obj ->
+                let oleft, oright = unprot_send epL, unprot_send epR in
+                let oleft = oleft (map_option merge.obj_splitL obj)
+                and oright = oright (map_option merge.obj_splitR obj) in
+                merge.obj_merge oleft oright)
+  in
+  let g2 = put r.lens g1 ep
   in
   g2
 
@@ -244,18 +256,18 @@ module MakeGlobal(X:LIN) = struct
       let ph, epA = 
         match obj with
         | None ->
-           (* ignore (unwrap epA); *)
+           (* ignore (unprot epA); *)
            ph, epA
         | Some obj ->
            let ph', epA' = lab.call_obj (rB.label.call_obj obj) in
            let epA' = X.unlin epA' in
            unify ph ph';
-           ph, wrap_merge epA epA'
+           ph, prot_merge epA epA'
       in
       ph, X.mklin epA
     in
     (* <role_rB : < lab : v -> epA > > *)
-    bare @@ WrapSend (fun obj ->
+    bare @@ ProtSend (fun obj ->
         rB.label.make_obj (lab.make_obj (method_ obj)))
 
   let make_recv rA lab ph epB =
@@ -263,7 +275,7 @@ module MakeGlobal(X:LIN) = struct
       let ev cont =
         Event.wrap
           (Event.guard (fun () -> Event.receive ph.channel))
-          (fun v -> lab.make_var (v, X.mklin (unwrap cont(*FIXME*))))
+          (fun v -> lab.make_var (v, X.mklin (unprot cont(*FIXME*))))
       in
       match obj with
       | None ->
@@ -271,13 +283,13 @@ module MakeGlobal(X:LIN) = struct
       | Some obj ->
          Event.choose [ev epB; rA.label.call_obj obj]
     in
-    bare @@ WrapRecv (fun obj ->
+    bare @@ ProtRecv (fun obj ->
         rA.label.make_obj (method_ obj))
 
   let ( --> ) : 'roleAVar 'labelvar 'epA 'roleBobj 'g1 'g2 'labelobj 'epB 'g0 'v.
     (< .. > as 'roleAvar, _, 'labelvar Event.event, 'epA, 'roleBobj, 'g1, 'g2) role ->
     (< .. > as 'roleBobj, _, 'labelobj,             'epB, 'roleAvar, 'g0, 'g1) role ->
-    (< .. > as 'labelobj, [> ] as 'labelvar, 'v placeholder * 'epA wrap X.lin, 'v * 'epB X.lin) label ->
+    (< .. > as 'labelobj, [> ] as 'labelvar, 'v placeholder * 'epA prot X.lin, 'v * 'epB X.lin) label ->
     'g0 -> 'g2
     = fun rA rB label g0 ->
     let ch = create_placeholder ()
@@ -296,7 +308,7 @@ let goto : type t. t seq lazy_t -> t seq = fun xs ->
   SeqGuard xs
 
 let finish : ([`seq of close * 'a] as 'a) seq =
-  let rec loop = lazy (Seq(bare @@ WrapClose, SeqGuard(loop))) in
+  let rec loop = lazy (Seq(bare @@ ProtClose, SeqGuard(loop))) in
   Lazy.force loop
       
 include MakeGlobal(struct type 'a lin = 'a let mklin x = x let unlin x = x end)
@@ -304,8 +316,8 @@ include MakeGlobal(struct type 'a lin = 'a let mklin x = x let unlin x = x end)
 let get_ep r g =
   (* force_all g; *)
   let ep = get r.lens g in
-  unwrap ep
+  unprot ep
 
-let send (ph, cont) v = Event.sync (Event.send ph.channel v); unwrap cont
+let send (ph, cont) v = Event.sync (Event.send ph.channel v); unprot cont
 let receive ev = Event.sync ev
 let close Close = ()

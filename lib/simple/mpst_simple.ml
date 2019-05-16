@@ -187,31 +187,25 @@ let choice_at : 'ep 'ep_l 'ep_r 'g0_l 'g0_r 'g1 'g2.
   in
   g2
 
-type 'a placeholder =
-  {mutable channel: 'a Event.channel}
-
-let create_placeholder () =
-  let channel = Event.new_channel () in
-  {channel}
-
-let unify p q = q.channel <- p.channel
-  
+type ('a,'b) out = {channel : 'a Event.channel ref; cont: 'b prot}
+let unify a b = a := !b
+                 
 module MakeGlobal(X:LIN) = struct
 
-  let make_send rB lab (ph: _ placeholder) epA =
+  let make_send rB lab (ph: _ Event.channel ref) epA =
     let method_ obj =
       let ph, epA = 
         match obj with
         | None ->
            ph, epA
         | Some obj ->
-           let ph', epA' = lab.call_obj (rB.label.call_obj obj) in
-           let epA' = X.unlin epA' in
+           let out' = X.unlin (lab.call_obj (rB.label.call_obj obj)) in
+           let ph', epA' = out'.channel, out'.cont in
            unify ph ph';
            let epA = prot_merge epA epA' in
            ph, epA
       in
-      ph, X.mklin epA
+      X.mklin {channel=ph; cont=epA}
     in
     (* <role_rB : < lab : v -> epA > > *)
     val_ @@ ProtSend (fun obj ->
@@ -221,7 +215,7 @@ module MakeGlobal(X:LIN) = struct
     let method_ obj =
       let ev cont =
         Event.wrap
-          (Event.guard (fun () -> Event.receive ph.channel))
+          (Event.guard (fun () -> Event.receive !ph))
           (fun v -> lab.make_var (v, X.mklin (unprot cont)(*FIXME*)))
       in
       match obj with
@@ -236,10 +230,10 @@ module MakeGlobal(X:LIN) = struct
   let ( --> ) : 'roleAVar 'labelvar 'epA 'roleBobj 'g1 'g2 'labelobj 'epB 'g0 'v.
     (< .. > as 'roleAvar, _, 'labelvar Event.event, 'epA, 'roleBobj, 'g1, 'g2) role ->
     (< .. > as 'roleBobj, _, 'labelobj,             'epB, 'roleAvar, 'g0, 'g1) role ->
-    (< .. > as 'labelobj, [> ] as 'labelvar, 'v placeholder * 'epA prot X.lin, 'v * 'epB X.lin) label ->
+    (< .. > as 'labelobj, [> ] as 'labelvar, ('v, 'epA) out X.lin, 'v * 'epB X.lin) label ->
     'g0 -> 'g2
     = fun rA rB label g0 ->
-    let ch = create_placeholder ()
+    let ch = ref (Event.new_channel ())
     in
     let epB = get rB.lens g0 in
     let ev  = make_recv rA label ch epB in
@@ -264,7 +258,7 @@ let get_ep r g =
   let ep = get r.lens g in
   unprot ep
 
-let send (ph, cont) v = Event.sync (Event.send ph.channel v); unprot cont
+let send {channel;cont} v = Event.sync (Event.send !channel v); unprot cont
 let receive ev = Event.sync ev
 let close Close = ()
 

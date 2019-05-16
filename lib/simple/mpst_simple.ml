@@ -194,7 +194,7 @@ module MakeGlobal(X:LIN) = struct
 
   let make_send rB lab (ph: _ Event.channel ref) epA =
     let method_ obj =
-      let out = 
+      let ph, epA = 
         match obj with
         | None ->
            ph, epA

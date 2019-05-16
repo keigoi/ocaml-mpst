@@ -5,4 +5,4 @@
  (ocamlopt_flags -O3)
 ;  (ocamlopt_flags -Oclassic)
  (flags ("-g" "-short-paths"))
- (libraries mpst_shmem mpst_implicit mpst_explicit lwt.unix core_bench))
+ (libraries mpst_simple mpst_implicit mpst_explicit lwt.unix core_bench))

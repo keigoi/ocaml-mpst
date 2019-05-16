@@ -29,7 +29,7 @@ let unfair () =
       end
   in
   Lazy.force g
-  
+
 let () =
   let g = unfair ()
   in

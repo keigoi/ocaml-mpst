@@ -13,9 +13,9 @@ type close = Close
 
 type 'a guarded =
   | Guarded of 'a guarded lazy_t list
-  | Bare of 'a
+  | Val of 'a
 
-let bare x = Bare x
+let val_ x = Val x
 
 exception UnguardedLoop
 
@@ -28,7 +28,7 @@ let rec remove_guards_one
         : type t. (t -> t -> t) -> t guarded lazy_t list -> t guarded -> t
   = fun mergefun hist g ->
   match g with
-  | Bare x -> x
+  | Val x -> x
   | Guarded gs ->
      let solved =
        List.fold_left (fun acc g' ->
@@ -49,11 +49,11 @@ let rec remove_guards_one
 let guarded_merge : type t. (t -> t -> t) -> t guarded -> t guarded -> t guarded =
   fun mergefun l r ->
   match l, r with
-  | Bare ll, Bare rr ->
-     Bare (mergefun ll rr)
+  | Val ll, Val rr ->
+     Val (mergefun ll rr)
   | Guarded g1, Guarded g2 ->
      Guarded (g1 @ g2)
-  | ((Bare _) as b, Guarded g) | (Guarded g, ((Bare _) as b)) ->
+  | ((Val _) as b, Guarded g) | (Guarded g, ((Val _) as b)) ->
      Guarded ([lazy b] @ g)
   
 type _ prot_ =
@@ -154,17 +154,131 @@ let rec seq_merge : type t.
              end)
         in w)
 
+module type LIN = sig
+  type 'a lin
+  val mklin : 'a -> 'a lin
+  val unlin : 'a lin -> 'a
+end
+
+
+let map_option f = function
+  | Some x -> Some (f x)
+  | None -> None
+
+let choice_at : 'ep 'ep_l 'ep_r 'g0_l 'g0_r 'g1 'g2.
+  (_, _, _, close, < .. > as 'ep, 'g1 seq, 'g2 seq) role ->
+  ('ep, < .. > as 'ep_l, < .. > as 'ep_r) obj_merge ->
+  (_, _, _, 'ep_l, close, 'g0_l seq, 'g1 seq) role * 'g0_l seq ->
+  (_, _, _, 'ep_r, close, 'g0_r seq, 'g1 seq) role * 'g0_r seq ->
+  'g2 seq
+  = fun r merge (r',g0left) (r'',g0right) ->
+  let epL, epR = get r'.lens g0left, get r''.lens g0right in
+  let g1left, g1right =
+    put r'.lens g0left (val_ ProtClose), put r''.lens g0right (val_ ProtClose) in
+  let g1 = seq_merge g1left g1right in
+  let ep =
+    val_ @@ ProtSend (fun obj ->
+                let oleft, oright = unprot_send epL, unprot_send epR in
+                let oleft = oleft (map_option merge.obj_splitL obj)
+                and oright = oright (map_option merge.obj_splitR obj) in
+                merge.obj_merge oleft oright)
+  in
+  let g2 = put r.lens g1 ep
+  in
+  g2
+
+type 'a placeholder =
+  {mutable channel: 'a Event.channel}
+
+let create_placeholder () =
+  let channel = Event.new_channel () in
+  {channel}
+
+let unify p q = q.channel <- p.channel
+  
+module MakeGlobal(X:LIN) = struct
+
+  let make_send rB lab (ph: _ placeholder) epA =
+    let method_ obj =
+      let ph, epA = 
+        match obj with
+        | None ->
+           ph, epA
+        | Some obj ->
+           let ph', epA' = lab.call_obj (rB.label.call_obj obj) in
+           let epA' = X.unlin epA' in
+           unify ph ph';
+           let epA = prot_merge epA epA' in
+           ph, epA
+      in
+      ph, X.mklin epA
+    in
+    (* <role_rB : < lab : v -> epA > > *)
+    val_ @@ ProtSend (fun obj ->
+        rB.label.make_obj (lab.make_obj (method_ obj)))
+
+  let make_recv rA lab ph epB =
+    let method_ obj =
+      let ev cont =
+        Event.wrap
+          (Event.guard (fun () -> Event.receive ph.channel))
+          (fun v -> lab.make_var (v, X.mklin (unprot cont)(*FIXME*)))
+      in
+      match obj with
+      | None ->
+         ev epB
+      | Some obj ->
+         Event.choose [ev epB; rA.label.call_obj obj]
+    in
+    val_ @@ ProtRecv (fun obj ->
+        rA.label.make_obj (method_ obj))
+
+  let ( --> ) : 'roleAVar 'labelvar 'epA 'roleBobj 'g1 'g2 'labelobj 'epB 'g0 'v.
+    (< .. > as 'roleAvar, _, 'labelvar Event.event, 'epA, 'roleBobj, 'g1, 'g2) role ->
+    (< .. > as 'roleBobj, _, 'labelobj,             'epB, 'roleAvar, 'g0, 'g1) role ->
+    (< .. > as 'labelobj, [> ] as 'labelvar, 'v placeholder * 'epA prot X.lin, 'v * 'epB X.lin) label ->
+    'g0 -> 'g2
+    = fun rA rB label g0 ->
+    let ch = create_placeholder ()
+    in
+    let epB = get rB.lens g0 in
+    let ev  = make_recv rA label ch epB in
+    let g1  = put rB.lens g0 ev
+    in
+    let epA = get rA.lens g1 in
+    let obj = make_send rB label ch epA in
+    let g2  = put rA.lens g1 obj
+    in g2
+end
+
+let goto : type t. t seq lazy_t -> t seq = fun xs ->
+  SeqGuard xs
+
+let finish : ([`seq of close * 'a] as 'a) seq =
+  let rec loop = lazy (Seq(val_ @@ ProtClose, SeqGuard(loop))) in
+  Lazy.force loop
+      
+include MakeGlobal(struct type 'a lin = 'a let mklin x = x let unlin x = x end)
+
+let get_ep r g =
+  let ep = get r.lens g in
+  unprot ep
+
+let send (ph, cont) v = Event.sync (Event.send ph.channel v); unprot cont
+let receive ev = Event.sync ev
+let close Close = ()
+
 let a = {label={make_obj=(fun v->object method role_A=v end);
                 call_obj=(fun o->o#role_A);
-               make_var=(fun v->(`role_A(v):[`role_A of _]))};
+                make_var=(fun v->(`role_A(v):[`role_A of _]))};
          lens=Zero}
 let b = {label={make_obj=(fun v->object method role_B=v end);
                 call_obj=(fun o->o#role_B);
-               make_var=(fun v->(`role_B(v):[`role_B of _]))};
+                make_var=(fun v->(`role_B(v):[`role_B of _]))};
          lens=Succ Zero}
 let c = {label={make_obj=(fun v->object method role_C=v end);
                 call_obj=(fun o->o#role_C);
-               make_var=(fun v->(`role_C(v):[`role_C of _]))};
+                make_var=(fun v->(`role_C(v):[`role_C of _]))};
          lens=Succ (Succ Zero)}
 let d = {label={make_obj=(fun v->object method role_D=v end);
                 call_obj=(fun o->o#role_D);
@@ -207,117 +321,3 @@ let b_or_c =
    obj_splitR=(fun lr -> (lr :> <role_C : _>));
   }
 
-module type LIN = sig
-  type 'a lin
-  val mklin : 'a -> 'a lin
-  val unlin : 'a lin -> 'a
-end
-
-
-let map_option f = function
-  | Some x -> Some (f x)
-  | None -> None
-
-let choice_at : 'ep 'ep_l 'ep_r 'g0_l 'g0_r 'g1 'g2.
-  (_, _, _, close, < .. > as 'ep, 'g1 seq, 'g2 seq) role ->
-  ('ep, < .. > as 'ep_l, < .. > as 'ep_r) obj_merge ->
-  (_, _, _, 'ep_l, close, 'g0_l seq, 'g1 seq) role * 'g0_l seq ->
-  (_, _, _, 'ep_r, close, 'g0_r seq, 'g1 seq) role * 'g0_r seq ->
-  'g2 seq
-  = fun r merge (r',g0left) (r'',g0right) ->
-  let epL, epR = get r'.lens g0left, get r''.lens g0right in
-  let g1left, g1right =
-    put r'.lens g0left (bare ProtClose), put r''.lens g0right (bare ProtClose) in
-  let g1 = seq_merge g1left g1right in
-  let ep =
-    bare @@ ProtSend (fun obj ->
-                let oleft, oright = unprot_send epL, unprot_send epR in
-                let oleft = oleft (map_option merge.obj_splitL obj)
-                and oright = oright (map_option merge.obj_splitR obj) in
-                merge.obj_merge oleft oright)
-  in
-  let g2 = put r.lens g1 ep
-  in
-  g2
-
-type 'a placeholder =
-  {mutable channel: 'a Event.channel}
-
-let create_placeholder () =
-  let channel = Event.new_channel () in
-  {channel}
-
-let unify p q = q.channel <- p.channel
-  
-module MakeGlobal(X:LIN) = struct
-
-  let make_send rB lab (ph: _ placeholder) epA =
-    let method_ obj =
-      let ph, epA = 
-        match obj with
-        | None ->
-           (* ignore (unprot epA); *)
-           ph, epA
-        | Some obj ->
-           let ph', epA' = lab.call_obj (rB.label.call_obj obj) in
-           let epA' = X.unlin epA' in
-           unify ph ph';
-           ph, prot_merge epA epA'
-      in
-      ph, X.mklin epA
-    in
-    (* <role_rB : < lab : v -> epA > > *)
-    bare @@ ProtSend (fun obj ->
-        rB.label.make_obj (lab.make_obj (method_ obj)))
-
-  let make_recv rA lab ph epB =
-    let method_ obj =
-      let ev cont =
-        Event.wrap
-          (Event.guard (fun () -> Event.receive ph.channel))
-          (fun v -> lab.make_var (v, X.mklin (unprot cont(*FIXME*))))
-      in
-      match obj with
-      | None ->
-         ev epB
-      | Some obj ->
-         Event.choose [ev epB; rA.label.call_obj obj]
-    in
-    bare @@ ProtRecv (fun obj ->
-        rA.label.make_obj (method_ obj))
-
-  let ( --> ) : 'roleAVar 'labelvar 'epA 'roleBobj 'g1 'g2 'labelobj 'epB 'g0 'v.
-    (< .. > as 'roleAvar, _, 'labelvar Event.event, 'epA, 'roleBobj, 'g1, 'g2) role ->
-    (< .. > as 'roleBobj, _, 'labelobj,             'epB, 'roleAvar, 'g0, 'g1) role ->
-    (< .. > as 'labelobj, [> ] as 'labelvar, 'v placeholder * 'epA prot X.lin, 'v * 'epB X.lin) label ->
-    'g0 -> 'g2
-    = fun rA rB label g0 ->
-    let ch = create_placeholder ()
-    in
-    let epB = get rB.lens g0 in
-    let ev  = make_recv rA label ch epB in
-    let g1  = put rB.lens g0 ev
-    in
-    let epA = get rA.lens g1 in
-    let obj = make_send rB label ch epA in
-    let g2  = put rA.lens g1 obj
-    in g2
-end
-
-let goto : type t. t seq lazy_t -> t seq = fun xs ->
-  SeqGuard xs
-
-let finish : ([`seq of close * 'a] as 'a) seq =
-  let rec loop = lazy (Seq(bare @@ ProtClose, SeqGuard(loop))) in
-  Lazy.force loop
-      
-include MakeGlobal(struct type 'a lin = 'a let mklin x = x let unlin x = x end)
-
-let get_ep r g =
-  (* force_all g; *)
-  let ep = get r.lens g in
-  unprot ep
-
-let send (ph, cont) v = Event.sync (Event.send ph.channel v); unprot cont
-let receive ev = Event.sync ev
-let close Close = ()

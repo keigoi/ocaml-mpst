@@ -56,3 +56,10 @@
   (flags ("-g" "-short-paths"))
   (libraries ocaml-mpst.simple))
 
+(executable
+ (name loops)
+  (public_name loops_mpst_simple)
+  (modules loops)
+  (flags ("-g" "-short-paths"))
+  (libraries ocaml-mpst.simple))
+

@@ -1,14 +1,14 @@
-(executable
- (name ex1)
-  (public_name ex1_implicit2)
-  (modules ex1)
-  (flags ("-g" "-short-paths"))
-  (libraries mpst_implicit lwt.unix))
-
-(executable
- (name ex2)
-  (public_name ex2_implicit2)
-  (modules ex2)
-  (flags ("-g" "-short-paths"))
-  (libraries mpst_implicit lwt.unix))
-
+; (executable
+;  (name ex1)
+;   (public_name ex1_implicit2)
+;   (modules ex1)
+;   (flags ("-g" "-short-paths"))
+;   (libraries mpst_implicit lwt.unix))
+; 
+; (executable
+;  (name ex2)
+;   (public_name ex2_implicit2)
+;   (modules ex2)
+;   (flags ("-g" "-short-paths"))
+;   (libraries mpst_implicit lwt.unix))
+; 

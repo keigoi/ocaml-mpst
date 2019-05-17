@@ -1,4 +1,4 @@
-(library
- (name mpst_http)
- (flags ("-g" "-short-paths"))
- (libraries mpst_explicit conduit-lwt-unix cohttp-lwt-unix uri sexplib))
+; (library
+;  (name mpst_http)
+;  (flags ("-g" "-short-paths"))
+;  (libraries mpst_explicit conduit-lwt-unix cohttp-lwt-unix uri sexplib))

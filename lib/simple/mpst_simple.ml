@@ -26,7 +26,7 @@ module MakeGlobal(X:LIN) = struct
          X.mklin {channel=ph; cont=epA}
     in
     (* <role_rB : < lab : v -> epA > > *)
-    val_ @@ ProtSend (fun obj kt ->
+    val_ @@ (fun obj kt ->
         rB.label.make_obj (lab.make_obj (method_ obj kt)))
 
   let make_recv rA lab ph epB =
@@ -43,7 +43,7 @@ module MakeGlobal(X:LIN) = struct
          let obj = obj kt in
          Event.choose [ev epB; rA.label.call_obj obj]
     in
-    val_ @@ ProtRecv (fun obj kt ->
+    val_ @@ (fun obj kt ->
         rA.label.make_obj (method_ obj kt))
 
   let ( --> ) : 'roleAVar 'labelvar 'epA 'roleBobj 'g1 'g2 'labelobj 'epB 'g0 'v.
@@ -72,4 +72,4 @@ let get_ep r g =
 
 let send {channel;cont} v = Event.sync (Event.send !channel v); unprot () cont
 let receive ev = Event.sync ev
-let close Close = ()
+let close _ = ()

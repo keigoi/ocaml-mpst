@@ -14,7 +14,7 @@ type ('lr, 'l, 'r) obj_merge =
    obj_splitR: 'lr -> 'r;
   }
 
-type close = Close
+(* type close = Close *)
 
 module Guarded = struct           
   type 'a guarded =
@@ -71,38 +71,25 @@ open Guarded
 
 module Seq(X:PARAM) = struct
   type param = X.t
-             
-  type _ prot_ =
-    | ProtSend : ((param -> (< .. > as 'obj)) option -> param -> 'obj) -> 'obj prot_
-    | ProtRecv : ((param -> (< .. > as 'obj)) option -> param -> 'obj) -> 'obj prot_
-    | ProtClose : close prot_
+
+  type 'p prot_ =
+    (param -> 'p) option -> param -> 'p
 
   let prot_merge_ : type s. s prot_ -> s prot_ -> s prot_ = fun l r ->
-    match l, r with
-    | ProtSend l, ProtSend r -> ProtSend (fun obj -> l (Some (r obj)))
-    | ProtRecv l, ProtRecv r -> ProtRecv (fun obj -> l (Some (r obj)))
-    | ProtClose, ProtClose -> ProtClose
-    | ProtSend _, ProtRecv _ -> assert false 
-    | ProtRecv _, ProtSend _ -> assert false
+    fun obj -> l (Some (r obj))
 
   type 'a prot = 'a prot_ guarded
 
   let prot_merge l r = guarded_merge prot_merge_ l r
 
-  let rec unprot_ : type t. param -> t prot_ -> t = fun p -> function
-    | ProtSend(obj) -> obj None p
-    | ProtRecv(obj) -> obj None p
-    | ProtClose -> Close
+  let rec unprot_ : type t. param -> t prot_ -> t = fun kt obj ->
+    obj None kt
 
-  let unprot : type t. param -> t prot -> t = fun kt g ->
+  let unprot : param -> 't prot -> 't = fun kt g ->
     unprot_ kt (remove_guards_one prot_merge_ [] g)
 
-  let unprot_send_ : 'a. (< .. > as 'a) prot_ -> (param -> 'a) option -> param -> 'a = function
-    | ProtSend(obj) -> obj
-    | ProtRecv(_) -> assert false
-
   let unprot_send : 'a prot -> (param -> 'a) option -> param -> 'a = fun g ->
-    unprot_send_ (remove_guards_one prot_merge_ [] g) 
+    remove_guards_one prot_merge_ [] g
                    
   type _ seq =
     | Seq : 'hd prot * 'tl seq -> [`seq of 'hd * 'tl] seq
@@ -170,8 +157,11 @@ module Seq(X:PARAM) = struct
   let goto : type t. t seq lazy_t -> t seq = fun xs ->
     SeqGuard xs
 
+  type close = <close : unit >
+  let protclose _ _ = object method close = () end
+
   let finish : ([`seq of close * 'a] as 'a) seq =
-    let rec loop = lazy (Seq(val_ @@ ProtClose, SeqGuard(loop))) in
+    let rec loop = lazy (Seq(val_ @@ protclose, SeqGuard(loop))) in
     Lazy.force loop
 
   type ('robj,'rvar,'c,'a,'b,'xs,'ys) role =
@@ -187,10 +177,10 @@ module Seq(X:PARAM) = struct
     = fun r merge (r',g0left) (r'',g0right) ->
     let epL, epR = get r'.lens g0left, get r''.lens g0right in
     let g1left, g1right =
-      put r'.lens g0left (val_ ProtClose), put r''.lens g0right (val_ ProtClose) in
+      put r'.lens g0left (val_ protclose), put r''.lens g0right (val_ protclose) in
     let g1 = seq_merge g1left g1right in
     let ep =
-      val_ @@ ProtSend (fun obj kt ->
+      val_ @@ (fun obj kt ->
                   let oleft, oright = unprot_send epL, unprot_send epR in
                   let oleft = oleft (map_option (fun obj kt -> merge.obj_splitL (obj kt)) obj) kt
                   and oright = oright (map_option (fun obj kt -> merge.obj_splitR (obj kt)) obj) kt in

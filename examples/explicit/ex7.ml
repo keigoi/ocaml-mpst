@@ -1,25 +1,11 @@
 (* explicit connections *)
-open Mpst_explicit.Session
-open Mpst_explicit.Global
-open Mpst_explicit.Parties
-open Mpst_explicit.Util.Labels
+open Mpst_explicit
+open Marshal_example
+
 let (>>=) = Lwt.(>>=)
 
-let slot : (('ks slots, close) prot * unit) slots lazy_t =
-  lv@@Cons(lv@@Prot Close, lv Nil)
-  
-let one (s : ((('ks slots, close) prot * 'ps) as 'pss) slots lazy_t)
-  : (('ks slots, close) prot * 'pss) slots lazy_t =
-  lv@@Cons(lv@@Prot Close, s)
-  
-let finish_ = one @@ one @@ slot
-
-let emp = Cons(lv Unit,lv Nil)
-
-let one_ s = Cons(lv Unit,lv s)
-        
-let get_sess_ r c = Sess(one_ @@ one_ @@ emp, unprot @@ lens_get_ r.lens c)
-        
+let g = (a --> b) {channel=failwith "" ;wraplabel=msg} finish
+              
 module M = Marshal_example
 
 let mk_g (m : ('k1,'k2) standard) =

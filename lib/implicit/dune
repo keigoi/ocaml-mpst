@@ -1,4 +1,4 @@
 (library
  (name mpst_implicit)
  (flags ("-g" "-short-paths"))
- (libraries mpst_common threads))
+ (libraries mpst_common mpst_base threads))

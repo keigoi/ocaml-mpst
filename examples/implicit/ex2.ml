@@ -1,14 +1,6 @@
 (* multicasts *)
+open Mpst_implicit
 open Mpst_implicit.IPC
-open Session
-open Global
-open Util
-   
-let a : ([`A],_,_,_,_) role = {role=`A; lens=Fst}
-let b : ([`B],_,_,_,_) role = {role=`B; lens=Next Fst}
-let c : ([`C],_,_,_,_) role = {role=`C; lens=Next (Next Fst)}
-
-let finish = many_at b 10 (one @@ one @@ one @@ nil)
 
 let (>>=) = Lwt.(>>=)
 

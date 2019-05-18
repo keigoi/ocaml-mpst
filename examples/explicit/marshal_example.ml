@@ -1,7 +1,12 @@
-open Mpst_explicit.Session
-open Mpst_explicit.Global
-open Mpst_explicit.Util.Labels
+open Mpst_explicit
+module NoLin = struct
+  type 'a lin = 'a
+  let mklin x = x
+  let unlin x = x
+end
 
+include MakeGlobal(NoLin)(LwtEvent)
+   
 let (>>=) = Lwt.(>>=)
 let cnt =
   let r = ref 1 in
@@ -64,18 +69,18 @@ let read c f =
 
 type 'v m = Msg of 'v | Left of 'v | Right of 'v | Deleg of 'v
 
-class marshal : [dstream,dstream] standard =
-  object
-    method ch_msg: 'v. (_,_,'v) channel =
-      {sender=(fun t v -> write t (Msg(v)));
-       receiver=(fun t -> read t (function Msg(v) -> Some v | _ -> None))}
-    method ch_left: 'v. (_,_,'v) channel =
-      {sender=(fun t v -> write t (Left(v)));
-       receiver=(fun t -> read t (function Left(v) -> Some v | _ -> None))}
-    method ch_right: 'v. (_,_,'v) channel =
-      {sender=(fun t v -> write t (Right(v)));
-       receiver=(fun t -> read t (function Right(v) -> Some v | _ -> None))}
-    method ch_deleg: 'v. (_,_,'v) channel =
-      {sender=(fun t v -> write t (Deleg(v)));
-       receiver=(fun t -> read t (function Deleg(v) -> Some v | _ -> None))}
-  end
+(* class marshal : [dstream,dstream] standard =
+ *   object
+ *     method ch_msg: 'v. (_,_,'v) channel =
+ *       {sender=(fun t v -> write t (Msg(v)));
+ *        receiver=(fun t -> read t (function Msg(v) -> Some v | _ -> None))}
+ *     method ch_left: 'v. (_,_,'v) channel =
+ *       {sender=(fun t v -> write t (Left(v)));
+ *        receiver=(fun t -> read t (function Left(v) -> Some v | _ -> None))}
+ *     method ch_right: 'v. (_,_,'v) channel =
+ *       {sender=(fun t v -> write t (Right(v)));
+ *        receiver=(fun t -> read t (function Right(v) -> Some v | _ -> None))}
+ *     method ch_deleg: 'v. (_,_,'v) channel =
+ *       {sender=(fun t v -> write t (Deleg(v)));
+ *        receiver=(fun t -> read t (function Deleg(v) -> Some v | _ -> None))}
+ *   end *)

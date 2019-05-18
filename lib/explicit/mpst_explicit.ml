@@ -1,98 +1,97 @@
 include Mpst_common
 open Guarded
 
+type ('k, 'v, 'c) out =
+  {outchan: 'k -> 'v -> unit;
+   cont: 'k -> 'c prot}
+  
+module MakeGlobal(X:LIN)(E:EVENT) = struct
 
-module Make(X:sig type conn end) = struct
-  type conn = X.conn
-  module ConnTable : sig
-    type t
-    val create : unit -> t
-    val getone : t -> 'k -> conn
-    val putone : t -> 'k -> conn -> t
-    val getmany : t -> 'k -> conn list
-    val putmany : t -> 'k -> conn list -> t
-  end = struct
-    type t = (Obj.t * conn list) list
-    let create () = []
-    let putmany t key ks = (Obj.repr key,ks)::t
-    let getmany t key = List.assoc (Obj.repr key) t
-    let putone t key k = (Obj.repr key,[k])::t
-    let getone t key =
-      match List.assoc (Obj.repr key) t with
-      | [] -> raise Not_found
-      | [x] -> x
-      | _ -> failwith "ConnTable: multiplicity mismatch"
-  end
+  type ('ka,'kb,'v) channel =
+     {sender: 'ka -> 'v -> unit;
+      receiver: 'kb -> 'v E.event}
 
-  module Sess = struct
-    type t = ConnTable.t
-  end
-  include Seq(Sess)
-
-  type 'v channel =
-    {sender: conn -> 'v -> unit;
-     receiver: conn -> 'v Event.event}
-
-  type ('v, 'k) out =
-    {outchan: 'v -> unit;
-     cont: 'k prot}
-      
-  module MakeGlobal(X:LIN) = struct
-
-    type ('la,'lb,'ca,'cb,'v1,'v2) slabel =
-      {wraplabel:('la,'lb, ('v1, 'ca) out X.lin, 'v2 * 'cb) label;
-       channel: 'v1 channel}
+  type ('la,'lb,'ca,'cb,'ka,'kb,'v) slabel =
+    {wraplabel: ('la,'lb, ('ka, 'v, 'ca) out X.lin, 'v * 'cb) label;
+     channel: ('ka,'kb,'v) channel}
     
-    let make_send rB lab epA =
-      let method_ obj kt =
-        match obj with
-        | None ->
-           X.mklin
-             {outchan=(fun v -> lab.channel.sender (ConnTable.getone kt rB.lens) v);
-              cont=epA}
-        | Some obj ->
-           let obj = obj kt in
-           let {cont=epA'; outchan} =
-             X.unlin (lab.wraplabel.call_obj (rB.label.call_obj obj))
-           in
-           X.mklin
-             {outchan;
-              cont=prot_merge epA epA'}
-      in
-      val_ @@ (fun obj kt ->
-                  rB.label.make_obj (lab.wraplabel.make_obj (method_ obj kt)))
+  let merge_send label m1 m2 =
+    let m1 = X.unlin (label.obj.call_obj m1) in
+    let m2 = X.unlin (label.obj.call_obj m2) in
+    let cont k = prot_merge (m1.cont k) (m2.cont k) in
+    label.obj.make_obj (X.mklin {outchan=m1.outchan; cont})
+    
+  let make_send rB slab epA =
+    let mergefun = merge_send slab.wraplabel in
+    let outobj kt =
+      slab.wraplabel.obj.make_obj
+        (X.mklin
+           {outchan=slab.channel.sender;
+            cont=(fun _ -> prot_apply epA kt)})
+    in
+    val_ @@ make_mergeable_fun mergefun rB.label outobj
 
-    let make_recv rA lab epB =
-      let method_ obj kt =
-        let ev cont =
-          Event.wrap
-            (Event.guard (fun () ->
-                 lab.channel.receiver (ConnTable.getone kt rA.lens)))
-            (fun v -> X.mklin (lab.wraplabel.make_var (v, unprot kt cont)))
-        in
-        match obj with
-        | None ->
-           ev epB
-        | Some obj ->
-           let obj = obj kt in
-           Event.choose [ev epB; rA.label.call_obj obj]
-      in
-      val_ @@ (fun obj kt ->
-                  rA.label.make_obj (method_ obj kt))
+  let make_recv rA lab epB =
+    let ev kt k =
+      E.wrap
+        (E.guard (fun () -> lab.channel.receiver k))
+        (fun v -> X.mklin (lab.wraplabel.var (v, unprot epB kt)))
+    in
+    val_ @@
+      make_mergeable_fun (fun x y k -> E.choose [x k;y k]) rA.label ev
 
-    let ( --> ) : 'roleAVar 'labelvar 'epA 'roleBobj 'g1 'g2 'labelobj 'epB 'g0 'v.
-                  (< .. > as 'roleAvar, _, 'labelvar X.lin Event.event, 'epA, 'roleBobj, 'g1, 'g2) role ->
-                  (< .. > as 'roleBobj, _, 'labelobj,             'epB, 'roleAvar, 'g0, 'g1) role ->
-                  (< .. > as 'labelobj, [> ] as 'labelvar, 'epA, 'epB, 'v, 'v) slabel ->
-                  'g0 -> 'g2
-      = fun rA rB label g0 ->
-      let epB = get rB.lens g0 in
-      let ev  = make_recv rA label epB in
-      let g1  = put rB.lens g0 ev
-      in
-      let epA = get rA.lens g1 in
-      let obj = make_send rB label epA in
-      let g2  = put rA.lens g1 obj
-      in g2
-  end
+  let ( --> ) : 'roleAVar 'labelvar 'epA 'roleBobj 'g1 'g2 'labelobj 'epB 'g0 'v 'ka 'kb 'ksa 'ksb.
+                (< .. > as 'roleAvar, 'kb -> 'labelvar X.lin E.event, 'ksa -> 'epA, 'ksa -> 'roleBobj, 'g1, 'g2) role ->
+                (< .. > as 'roleBobj, 'labelobj,                   'ksb -> 'epB, 'ksb -> 'roleAvar, 'g0, 'g1) role ->
+                (< .. > as 'labelobj, [> ] as 'labelvar, 'epA, 'epB, 'ka, 'kb, 'v) slabel ->
+                'g0 -> 'g2
+    = fun rA rB label g0 ->
+    let epB = get rB.lens g0 in
+    let ev  = make_recv rA label epB in
+    let g1  = put rB.lens g0 ev
+    in
+    let epA = get rA.lens g1 in
+    let obj = make_send rB label epA in
+    let g2  = put rA.lens g1 obj
+    in g2
+
+  let val__ v = Val (fun o -> assert (o=None); v)
+
+  let make_connect rB rA2 slab epA =
+    let mergefun = merge_send slab.wraplabel in
+    let outobj kt =
+      slab.wraplabel.obj.make_obj
+        (X.mklin
+           {outchan=slab.channel.sender;
+            cont=(fun k -> prot_apply epA (put rA2.lens kt (val__ k)))})
+    in
+    val_ @@ make_mergeable_fun mergefun rB.label outobj
+
+  let make_accept rA rB2 lab epB =
+    let ev kt k =
+      E.wrap
+        (E.guard (fun () -> lab.channel.receiver k))
+        (fun v -> X.mklin (lab.wraplabel.var (v, unprot epB (put rB2.lens kt (val__ k)))))
+    in
+    val_ @@
+      make_mergeable_fun (fun x y k -> E.choose [x k;y k]) rA.label ev
+
+  let ( -!-> ) : 'roleAVar 'labelvar 'epA 'roleBobj 'g1 'g2 'labelobj 'epB 'g0 'v 'ka 'kb 'ksa1 'ksa2 'ksb1 'ksb2.
+                 (< .. > as 'roleAvar, 'kb -> 'labelvar X.lin E.event, 'ksa2 -> 'epA, 'ksa1 -> 'roleBobj, 'g1, 'g2) role *
+                 (_, _, unit, 'ka, 'ksa1, 'ksa2) role
+                 ->
+                 (< .. > as 'roleBobj, 'labelobj, 'ksb2 -> 'epB, 'ksb1 -> 'roleAvar, 'g0, 'g1) role *
+                 (_, _, unit, 'kb, 'ksb1, 'ksb2) role
+                 ->
+                (< .. > as 'labelobj, [> ] as 'labelvar, 'epA, 'epB, 'ka, 'kb, 'v) slabel ->
+                'g0 -> 'g2
+    = fun (rA,rA') (rB,rB') label g0 ->
+    let epB = get rB.lens g0 in
+    let ev  = make_accept rA rB' label epB in
+    let g1  = put rB.lens g0 ev
+    in
+    let epA = get rA.lens g1 in
+    let obj = make_connect rB rA' label epA in
+    let g2  = put rA.lens g1 obj
+    in g2
 end

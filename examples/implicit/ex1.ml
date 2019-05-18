@@ -1,21 +1,14 @@
+open Mpst_implicit
 open Mpst_implicit.IPC
-open Session
-open Global
-open Util
 
-let a = {role=`A; lens=Fst}
-let b = {role=`B; lens=Next Fst}
-let c = {role=`C; lens=Next (Next Fst)}
 let lv = Lazy.from_val
-
-let finish = one @@ one @@ one @@ nil
 
 let (>>=) = Lwt.(>>=)
           
 (* A global protocol between A, B, and C *)
 let create_g () =
     (c --> a) msg @@
-    choice_at a left_or_right
+    choice_at a (to_b left_or_right)
       (a, (a --> b) left @@
           (b --> c) right @@
           (b --> a) msg @@
@@ -29,20 +22,20 @@ let create_g () =
 (* participant A *)
 let t1 s : unit Lwt.t =
   let open Lwt in
-  receive `C s >>= fun (`msg(x, s)) -> begin
+  s#role_C >>= fun (`msg(x, s)) -> begin
       if x = 0 then begin
-          let s = send `B (fun x->x#left) () s in
-          receive `B s >>= fun (`msg(str,s)) ->
+          let s = s#role_B#left () in
+          s#role_B >>= fun (`msg(str,s)) ->
           Printf.printf "A) B says: %s\n" str;
           close s;
           return ()
         end else begin
           print_endline "t1 right0";
-          let s = send `B (fun x->x#right) () s in
+          let s = s#role_B#right in
           print_endline "t1 right01";
-          receive `B s >>= fun (`msg(x,s)) ->
+          s#role_B >>= fun (`msg(x,s)) ->
           print_endline "t1 right1";
-          receive `C s >>= fun (`msg(str,s)) ->
+          s#role_C >>= fun (`msg(str,s)) ->
           print_endline "t1 right2";
           Printf.printf "A) B says: %d, C says: %s\n" x str;
           close s;
@@ -54,18 +47,18 @@ let t1 s : unit Lwt.t =
 
 (* participant B *)
 let t2 s : unit Lwt.t =
-  receive `A s >>= begin
+  s#role_A >>= begin
       function
       | `left(_,s) ->
          print_endline "t2 left ";
-         let s = send `C (fun x->x#right) () s in
-         let s = send `A (fun x->x#msg) "Hooray!" s in
+         let s = s#role_C#right () in
+         let s = s#role_A#msg "Hooray!" in
          close s;
          Lwt.return ()
       | `right(_,s) ->
          print_endline "t2 right ";
-         let s = send `A (fun x->x#msg) 1234 s in
-         let s = send `C (fun x->x#left) () s in
+         let s = s#role_A#msg 1234 in
+         let s = s#role_C#left () in
          close s;
          Lwt.return ()
     end >>= fun () ->
@@ -82,11 +75,11 @@ let t3 s : unit Lwt.t =
   let num =
     if Random.bool () then 0 else 1
   in
-  let s = send `A (fun x->x#msg) num s in
-  receive `B s >>= begin
+  let s = s#role_A#msg num in
+  s#role_B >>= begin
       function
       | `left(_,s) -> begin
-          let s = send `B (fun x->x#msg) "Hello, A!" s in
+          let s = s#role_B#msg "Hello, A!" in
           close s;
           return ()
         end
@@ -98,12 +91,13 @@ let t3 s : unit Lwt.t =
     end >>= fun () ->
   print_endline "C finished.";
   return ()
-  
-let () =
-  let g = create_g () in
-  let g = pipes [`A;`B;`C] g in
-  let pa, pb, pc = get_sess a g, get_sess b g, get_sess c g in
-  Mpst_base.fork (fun () -> Lwt_main.run (t2 pb));
-  Mpst_base.fork (fun () -> Lwt_main.run (t3 pc));
-  Lwt_main.run (t1 pa)
+
+(* open Mpst_base.Connection
+ * let () =
+ *   let g = create_g () in
+ *   let g = pipes [`A;`B;`C] g in
+ *   let pa, pb, pc = get_sess a g, get_sess b g, get_sess c g in
+ *   Mpst_base.fork (fun () -> Lwt_main.run (t2 pb));
+ *   Mpst_base.fork (fun () -> Lwt_main.run (t3 pc));
+ *   Lwt_main.run (t1 pa) *)
 

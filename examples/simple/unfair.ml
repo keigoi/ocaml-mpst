@@ -1,21 +1,5 @@
 (* un-fairness *)
 open Mpst_simple
-let a = {label={make_obj=(fun v->object method role_A=v end);
-                call_obj=(fun o->o#role_A);
-               make_var=(fun v->(`role_A(v):[`role_A of _]))}; (* explicit annotataion is mandatory *)
-         lens=Zero}
-let b = {label={make_obj=(fun v->object method role_B=v end);
-                call_obj=(fun o->o#role_B);
-               make_var=(fun v->(`role_B(v):[`role_B of _]))}; (* explicit annotataion is mandatory *)
-         lens=Succ Zero}
-let c = {label={make_obj=(fun v->object method role_C=v end);
-                call_obj=(fun o->o#role_C);
-               make_var=(fun v->(`role_C(v):[`role_C of _]))}; (* explicit annotataion is mandatory *)
-         lens=Succ (Succ (Succ Zero))}
-let d = {label={make_obj=(fun v->object method role_D=v end);
-                call_obj=(fun o->o#role_D);
-               make_var=(fun v->(`role_D(v):[`role_D of _]))}; (* explicit annotataion is mandatory *)
-         lens=Succ (Succ Zero)}
 
 let unfair () =
   let rec g =

@@ -1,6 +1,27 @@
 open Base
 
 module Make(X:S.RAW) = struct
+  type conn = X.conn
+  
+  module ConnTable : sig
+    type t
+    val create : unit -> t
+    val getone : t -> 'k -> conn
+    val putone : t -> 'k -> conn -> t
+    val getmany : t -> 'k -> conn list
+    val putmany : t -> 'k -> conn list -> t
+  end = struct
+    type t = (Obj.t * conn list) list
+    let create () = []
+    let putmany t key ks = (Obj.repr key,ks)::t
+    let getmany t key = List.assoc (Obj.repr key) t
+    let putone t key k = (Obj.repr key,[k])::t
+    let getone t key =
+      match List.assoc (Obj.repr key) t with
+      | [] -> raise Not_found
+      | [x] -> x
+      | _ -> failwith "ConnTable: multiplicity mismatch"
+  end
 
   let mpst_pipes roles =
     let rec loop myrole children =

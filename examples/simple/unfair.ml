@@ -2,17 +2,16 @@
 open Mpst_simple
 
 let unfair () =
-  let rec g =
-    lazy begin
+  let g =
+    fix (fun t ->
         choice_at a (to_b right_or_left)
           (a, (a --> b) right @@
-              goto g)
+              t)
           (a, (a --> b) left @@
               (a --> c) left @@
-              finish)
-      end
+              finish))
   in
-  Lazy.force g
+  g
 
 let () =
   let g = unfair ()

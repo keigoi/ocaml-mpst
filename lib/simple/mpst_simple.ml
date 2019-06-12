@@ -12,8 +12,7 @@ let cont (Chan(_,d)) = d
 let unify a b = a := !b
 
 let finish : ([`cons of close * 'a] as 'a) seq =
-  let rec loop = lazy (Seq(Mergeable.no_merge Close, SeqGuard(loop))) in
-  Lazy.force loop
+  SeqAll(Mergeable.no_merge Close)
 
 let choice_at : 'k 'ep 'ep_l 'ep_r 'g0_l 'g0_r 'g1 'g2.
                   (_, _, close, (< .. > as 'ep), 'g1 seq, 'g2 seq) role ->
@@ -42,20 +41,22 @@ let choice_at : 'k 'ep 'ep_l 'ep_r 'g0_l 'g0_r 'g1 'g2.
 
 module MakeGlobal(X:LIN) = struct
 
-  let merge_send label m1 m2 =
-    let m1 = X.unlin (label.obj.call_obj m1) in
-    let m2 = X.unlin (label.obj.call_obj m2) in
-    unify (chan m1) (chan m2);
-    let cont = Mergeable.merge (cont m1) (cont m2) in
-    label.obj.make_obj (X.mklin (Chan(chan m1, cont)))
-
-  let merge_recv ev1 ev2 =
-      Event.choose [ev1; ev2]
-
   let make_send rB lab (ph: _ Event.channel ref) epA =
-    let mergefun = merge_send lab in
-    let outobj = lab.obj.make_obj (X.mklin (Chan(ph,epA))) in
-    Mergeable.obj mergefun rB.label outobj
+    let m1 = Chan(ph,epA) in
+    let outobj = lab.obj.make_obj (X.mklin m1) in
+    Mergeable.Val_ (fun obj ->
+        match obj with
+        | None ->
+           ignore (Mergeable.force epA);
+           rB.label.make_obj outobj
+        | Some obj2 ->
+           let m2 = X.unlin (lab.obj.call_obj (rB.label.call_obj obj2)) in
+           unify (chan m1) (chan m2);
+           let k = Mergeable.merge (cont m1) (cont m2) in
+           ignore (Mergeable.force k);
+           rB.label.make_obj
+             (lab.obj.make_obj
+                (X.mklin (Chan(chan m1, k)))))
 
   let make_recv rA lab ph epB =
     let ev =
@@ -63,7 +64,14 @@ module MakeGlobal(X:LIN) = struct
           (Event.guard (fun () -> Event.receive !ph))
           (fun v -> lab.var (v, X.mklin (Mergeable.out_ epB)))
     in
-    Mergeable.obj merge_recv rA.label ev
+    Mergeable.Val_ (fun obj ->
+        ignore (Mergeable.force epB);
+        match obj with
+        | None ->
+           rA.label.make_obj ev
+        | Some obj2 ->
+           let ev2 = rA.label.call_obj obj2 in
+           rA.label.make_obj (Event.choose [ev; ev2]))
 
   let ( --> ) : 'roleAVar 'labelvar 'epA 'roleBobj 'g1 'g2 'labelobj 'epB 'g0 'v.
     (< .. > as 'roleAvar, 'labelvar Event.event, 'epA, 'roleBobj, 'g1, 'g2) role ->

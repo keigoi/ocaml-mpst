@@ -80,32 +80,39 @@ let () = List.iter Thread.join [tA; tB; tC]
  *   (a, (a --> b) left  @@ (c --> b) left  @@ finish3)
  *   (a, (a --> b) right @@ (c --> b) right @@ finish3) *)
 
-let test9 =
-  let g =
-    let rec loop = 
-      lazy
-        begin
-          choice_at a (to_b left_or_right)
-            (a, (a --> b) left @@ goto loop)
-            (a, (a --> b) right @@
-                (a --> c) msg @@ finish)
-        end
-    in
-    Lazy.force loop
-  in
-  let ec = get_ep c g in
-  let `msg((),ec) = receive (ec#role_A) in
-  close ec
+(* let test =
+ *   try
+ *     let g =
+ *       (a --> c) msg @@
+ *         fix (fun t -> (a --> b) msg @@ t)
+ *     in
+ *     ignore (get_ep c g);
+ *     failwith "impossible (1)"
+ *   with
+ *     UnguardedLoopSeq ->
+ *     print_endline "expected" *)
+       
+(* let test9 =
+ *   let g =
+ *     fix (fun u ->
+ *         (a --> b) right @@
+ *         fix (fun t ->
+ *                 choice_at a (to_b left_or_right)
+ *                   (a, (a --> b) left @@ t)
+ *                   (a, u)))
+ *   in
+ *   ignore (get_ep b g) *)
 
   
 let test10 =
-  let rec bogus = lazy (goto bogus) in
+  let rec bogus = fix (fun t -> fix (fun u -> t)) in
   let g =
     (a --> b) msg @@
-    Lazy.force bogus
+    bogus
   in
   let () =
     try
+      ignore (get_ep b g);
       ignore (get_ep a g);
       failwith "unexpected (1)"
     with

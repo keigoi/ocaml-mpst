@@ -47,7 +47,7 @@ let tCli_monad () =
   let%lin #_0 = send (fun x->x#role_Srv#compute) (Sub, 45) _0 in
   let%lin #_0 = send (fun x->x#role_Srv#compute) (Mul, 10) _0 in
   let%lin #_0 = send (fun x->x#role_Srv#result) () _0 in
-  let%lin `role_Srv(`answer(ans, #_0)) = receive _0 in
+  let%lin `answer(ans, #_0) = receive (fun x->x#role_Srv) _0 in
   close _0 >>= fun () ->
   (* outputs "Answer: -250" (= (20 - 45) * 10) *)
   Printf.printf "Answer: %d\n" ans;
@@ -55,8 +55,8 @@ let tCli_monad () =
 
 let tSrv_monad () =
   let rec loop acc =
-    match%lin receive _0 with
-    | `role_Cli(`compute({data=(sym,num)}, #_0)) ->
+    match%lin receive (fun x->x#role_Cli) _0 with
+    | `compute({data=(sym,num)}, #_0) ->
       let op = match sym with
         | Add -> (+)   | Sub -> (-)
         | Mul -> ( * ) | Div -> (/)

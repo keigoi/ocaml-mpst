@@ -55,6 +55,10 @@ module Mergeable
     | (Guarded_ g, ((Val_ _) as b)) ->
        Guarded_ ([lazy b] @ g)
 
+  let merge_all : 'a. 'a t list -> 'a t = function
+    | [] -> failwith "merge_all: empty"
+    | x::xs -> List.fold_left merge x xs
+
   let rec apply : 'a 'b. ('a -> 'b) t -> 'a -> 'b t = fun g v ->
     match g with
     | Guarded_(gs) ->
@@ -88,14 +92,20 @@ module Mergeable
        | x::xs ->
           List.fold_left merge0 x xs
 
-  let force : 'a. 'a t -> 'a t = fun t_ ->
-    match t_ with
-    | (Val_ _)
-    | (Guarded_ [])
+  (* 
+   * force: try to resolve choices which involve recursion variables.
+   * this is called during get_ep (i.e. after finishing global combinators)
+   *)
+  let force : 'a. 'a t -> 'a t = fun t ->
+    match t with
+    | (Val_ _) ->
+       t (* already evaluated *)
     | (Guarded_ [_]) ->
-       t_
+       t (* do not touch -- this is a recursion variable *)
     | (Guarded_ (_::_)) ->
-       Val_ (check_and_force [] t_)
+       Val_ (check_and_force [] t) (* a choice which involves recursion variable -- try to resolve it *)
+    | (Guarded_ []) ->
+       t
 
   let out__ : 'a. 'a t -> 'a option -> 'a = fun t ->
     check_and_force [] t
@@ -119,8 +129,8 @@ module Mergeable
        | None -> v
        | Some v2 -> merge v v2)
 
-  let guarded : 'a. 'a t lazy_t -> 'a t  = fun v ->
-    Guarded_ [v]
+  let guarded : 'a. 'a t lazy_t list -> 'a t  = fun v ->
+    Guarded_ v
 
   let obj_
       : 'o 'v. (< .. > as 'o, 'v) method_ ->  ('v option -> 'v) -> 'o t =
@@ -159,7 +169,7 @@ end
 type _ seq =
   | Seq : 'hd Mergeable.t * 'tl seq -> [`cons of 'hd * 'tl] seq
   | SeqAll : 'a Mergeable.t -> ([`cons of 'a * 'tl] as 'tl) seq
-  | SeqGuard : 't seq lazy_t -> 't seq
+  | SeqGuard : 't seq lazy_t list -> 't seq
   | SeqError : 't seq
 
 exception UnguardedLoopSeq
@@ -168,23 +178,54 @@ let rec seq_head : type hd tl. [`cons of hd * tl] seq -> hd Mergeable.t =
   function
   | Seq(hd,_) -> hd
   | SeqAll(a) -> a
-  | SeqGuard xs -> Mergeable.guarded (lazy (seq_head (Lazy.force xs)))
+  | SeqGuard xss ->
+     let gs =
+       List.map
+         (fun xs -> Mergeable.guarded [lazy (seq_head (Lazy.force xs))])
+         xss
+     in
+     List.fold_left Mergeable.merge (List.hd gs) (List.tl gs)
   | SeqError -> raise UnguardedLoopSeq
 
 let rec seq_tail : type hd tl. [`cons of hd * tl] seq -> tl seq = fun xs ->
   match xs with
   | Seq(_,tl) -> tl
   | (SeqAll _) as s -> s
-  | SeqGuard xs -> SeqGuard(lazy (seq_tail (Lazy.force xs)))
+  | SeqGuard xss -> SeqGuard(List.map (fun xs -> lazy (seq_tail (Lazy.force xs))) xss)
   | SeqError -> raise UnguardedLoopSeq
+
+let rec seq_merge : type t. t seq -> t seq -> t seq =
+  fun ls rs ->
+  match ls, rs with
+  | Seq(hd_l,tl_l), Seq(hd_r, tl_r) ->
+     Seq(Mergeable.merge hd_l hd_r, seq_merge tl_l tl_r)
+  | SeqGuard(xss), Seq(hd_r, tl_r) ->
+     let hd_l =
+       Mergeable.guarded (List.map (fun xs -> lazy (seq_head (Lazy.force xs))) xss)
+     in
+     let tl_l = SeqGuard(List.map (fun xs -> lazy (seq_tail (Lazy.force xs))) xss) in
+     Seq(Mergeable.merge hd_l hd_r, seq_merge tl_l tl_r)
+  | Seq(hd_l, tl_l), SeqGuard(yss) ->
+     let hd_r =
+       Mergeable.guarded (List.map (fun ys -> lazy (seq_head (Lazy.force ys))) yss)
+     in
+     let tl_r = SeqGuard(List.map (fun ys -> lazy (seq_tail (Lazy.force ys))) yss) in
+     Seq(Mergeable.merge hd_l hd_r, seq_merge tl_l tl_r)
+  | _, SeqAll(a) -> SeqAll(a)
+  | SeqAll(a), _ -> SeqAll(a)
+  | SeqGuard(w1), SeqGuard(w2) -> SeqGuard(w1 @ w2)
+  | SeqError,_  -> raise UnguardedLoopSeq
+  | _, SeqError -> raise UnguardedLoopSeq
 
 let rec remove_guards_seq : type t. t seq lazy_t list -> t seq lazy_t -> t seq =
   fun acc w ->
   if find_physeq acc w then begin
       raise UnguardedLoopSeq
-    end else begin match Lazy.force w with
-       | SeqGuard w' ->
-          remove_guards_seq (w::acc) w'
+    end else begin
+      match Lazy.force w with
+      | SeqGuard w' ->
+         let ws = List.map (remove_guards_seq (w::acc)) w' in
+         List.fold_left seq_merge (List.hd ws) (List.tl ws)
        | w -> w
        end
 
@@ -204,65 +245,46 @@ let rec put : type a b xs ys. (a,b,xs,ys) lens -> xs -> b Mergeable.t -> ys =
   | Zero -> Seq(b, seq_tail xs)
   | Succ ln' -> Seq(seq_head xs, put ln' (seq_tail xs) b)
 
-let rec seq_merge : type t. t seq -> t seq -> t seq =
-  fun ls rs ->
-  match ls, rs with
-  | Seq(hd_l,tl_l), Seq(hd_r, tl_r) ->
-     Seq(Mergeable.merge hd_l hd_r, seq_merge tl_l tl_r)
-  | SeqGuard(xs), Seq(hd_r, tl_r) ->
-     let hd_l = Mergeable.guarded (lazy (seq_head (Lazy.force xs))) in
-     let tl_l = SeqGuard(lazy (seq_tail (Lazy.force xs))) in
-     Seq(Mergeable.merge hd_l hd_r, seq_merge tl_l tl_r)
-  | Seq(hd_l, tl_l), SeqGuard(ys) ->
-     let hd_r = Mergeable.guarded (lazy (seq_head (Lazy.force ys))) in
-     let tl_r = SeqGuard(lazy (seq_tail (Lazy.force ys))) in
-     Seq(Mergeable.merge hd_l hd_r, seq_merge tl_l tl_r)
-  | _, SeqAll(a) -> SeqAll(a)
-  | SeqAll(a), _ -> SeqAll(a)
-  | SeqGuard(w1), w2 ->
-     SeqGuard
-       (let rec w =
-          (lazy begin
-               print_endline"seqguard_merge";
-               try
-                 let w1 = remove_guards_seq [w] w1 in
-                 seq_merge w1 w2
-               with
-                 UnguardedLoopSeq -> w2
-             end)
-        in w)
-  | SeqError, _
-  | _, SeqError -> failwith "merge_seq: TODO"
-
 let goto : type t. t seq lazy_t -> t seq = fun xs ->
-  SeqGuard xs
+  SeqGuard [xs]
 
+(*
+ * remove_guards_seq_full:
+ * try to expand recursion variables which occurs right under the
+ * fixpoint combinator.
+ * called during global combinators (-->, choice_at, fix, ..) are called 
+ *)
 let rec remove_guards_seq_full : type t. t seq -> t seq = function
-  | SeqGuard w ->
-     print_endline"seqguard";
-     remove_guards_seq_full (remove_guards_seq [] w)
   | Seq(hd,tl) ->
-     print_endline"seq";
      let tl =
        try
          remove_guards_seq_full tl
        with
          UnguardedLoopSeq ->
-           SeqError
+         SeqError
      in
      Seq(hd, tl)
+  | SeqGuard [w] ->
+     (* recursion variable -- try to expand it *)
+     remove_guards_seq_full (remove_guards_seq [] w)
+  | SeqGuard ((_::_) as ws) ->
+     (* choice involves recursion variable -- do not try to evaluate.
+      * Mergeable.force will resolve it later (get_ep)
+      *)
+     SeqGuard ws
   | SeqAll(_) as xs -> xs
+  | SeqGuard [] -> SeqGuard [] (* ??? *)
   | SeqError -> SeqError
   
 let fix : type t. (t seq -> t seq) -> t seq = fun f ->
   let rec body =
     lazy begin
-        f (SeqGuard body)
+        f (SeqGuard [body])
       end
   in
   (* Lazy.force body *)
   match Lazy.force body with
-  | SeqGuard xs when xs==body -> raise UnguardedLoopSeq
+  | SeqGuard [xs] when xs==body -> raise UnguardedLoopSeq
   | xs -> remove_guards_seq_full xs
 
 type ('robj,'c,'a,'b,'xs,'ys) role =

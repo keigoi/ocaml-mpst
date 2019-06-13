@@ -35,14 +35,13 @@ type op = Add | Sub | Mul | Div
 let calcbody self =
     choice_at cli (to_srv compute_or_result)
     (cli, (cli --> srv) compute @@
-          goto self)
+          self)
     (cli, (cli --> srv) result @@
           (srv --> cli) answer @@
           finish)
 
 let calc' () =
-  let rec g = lazy (calcbody g)
-  in Lazy.force g
+  fix (fun t -> calcbody t)
 
 (* same as before *)
 let tCli ec =
@@ -101,13 +100,12 @@ let compute_result_or_current =
   }
 
 let calc2' () =
-  let rec g =
-    lazy (choice_at cli (to_srv compute_result_or_current)
-       (cli, calcbody g)
+  fix (fun t ->
+    choice_at cli (to_srv compute_result_or_current)
+       (cli, calcbody t)
        (cli, (cli --> srv) current @@
              (srv --> cli) answer @@
-             goto g))
-  in Lazy.force g
+             t))
 
 let tSrv2' es =
   let rec loop acc es =

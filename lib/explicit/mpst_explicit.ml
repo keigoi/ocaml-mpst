@@ -44,13 +44,13 @@ module MakeGlobal(X:LIN)(E:EVENT) = struct
                 (< .. > as 'labelobj, [> ] as 'labelvar, 'epA, 'epB, 'ka, 'kb, 'v) slabel ->
                 'g0 -> 'g2
     = fun rA rB label g0 ->
-    let epB = get rB.lens g0 in
+    let epB = Seq.get rB.lens g0 in
     let ev  = make_recv rA label epB in
-    let g1  = put rB.lens g0 ev
+    let g1  = Seq.put rB.lens g0 ev
     in
-    let epA = get rA.lens g1 in
+    let epA = Seq.get rA.lens g1 in
     let obj = make_send rB label epA in
-    let g2  = put rA.lens g1 obj
+    let g2  = Seq.put rA.lens g1 obj
     in g2
 
   let val__ v = Mergeable.bare_ (fun o -> assert (o=None); v)
@@ -61,7 +61,7 @@ module MakeGlobal(X:LIN)(E:EVENT) = struct
       slab.wraplabel.obj.make_obj
         (X.mklin
            {outchan=slab.channel.sender;
-            cont=(fun k -> Mergeable.apply epA (put rA2.lens kt (val__ k)))})
+            cont=(fun k -> Mergeable.apply epA (Seq.put rA2.lens kt (val__ k)))})
     in
     Mergeable.objfun mergefun rB.label outobj
 
@@ -69,7 +69,7 @@ module MakeGlobal(X:LIN)(E:EVENT) = struct
     let ev kt k =
       E.wrap
         (E.guard (fun () -> lab.channel.receiver k))
-        (fun v -> X.mklin (lab.wraplabel.var (v, Mergeable.out_ epB (put rB2.lens kt (val__ k)))))
+        (fun v -> X.mklin (lab.wraplabel.var (v, Mergeable.out_ epB (Seq.put rB2.lens kt (val__ k)))))
     in
     Mergeable.objfun (fun x y k -> E.choose [x k;y k]) rA.label ev
 
@@ -83,12 +83,12 @@ module MakeGlobal(X:LIN)(E:EVENT) = struct
                 (< .. > as 'labelobj, [> ] as 'labelvar, 'epA, 'epB, 'ka, 'kb, 'v) slabel ->
                 'g0 -> 'g2
     = fun (rA,rA') (rB,rB') label g0 ->
-    let epB = get rB.lens g0 in
+    let epB = Seq.get rB.lens g0 in
     let ev  = make_accept rA rB' label epB in
-    let g1  = put rB.lens g0 ev
+    let g1  = Seq.put rB.lens g0 ev
     in
-    let epA = get rA.lens g1 in
+    let epA = Seq.get rA.lens g1 in
     let obj = make_connect rB rA' label epA in
-    let g2  = put rA.lens g1 obj
+    let g2  = Seq.put rA.lens g1 obj
     in g2
 end

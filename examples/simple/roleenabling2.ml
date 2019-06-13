@@ -3,20 +3,16 @@ open Mpst_simple
 
    
 let prot =
-  let rec g =
-    lazy begin
+  (a --> c) msg @@
+  fix (fun t ->
         (c --> b) msg @@
         choice_at a (to_b left_or_right)
           (a, (a --> b) left @@
               (c --> b) msg @@
-              (b --> c) left @@ goto g)
+              (b --> c) left @@ t)
           (a, (a --> b) right @@
               (c --> b) msg @@
-              (b --> c) right @@ finish)
-      end
-  in
-  (a --> c) msg @@
-  Lazy.force g
+              (b --> c) right @@ finish))
 
 let () = print_endline "global defined"
 let ea = get_ep a prot

@@ -25,16 +25,12 @@ let middle_or_right =
   }
 
 let loop1 () =
-  let rec g =
-    lazy begin
+  fix (fun t ->
         choice_at a (to_b left_middle_or_right)
           (a, choice_at a (to_b left_or_middle)
-              (a, (a --> b) left @@ goto g)
-              (a, (a --> b) middle @@ goto g))
-          (a, (a --> b) right @@ (a --> c) msg @@ finish)
-      end
-  in
-  Lazy.force g
+              (a, (a --> b) left @@ t)
+              (a, (a --> b) middle @@ t))
+          (a, (a --> b) right @@ (a --> c) msg @@ finish))
 
 let tA ea finally =
   let rec loop () =
@@ -75,16 +71,12 @@ let () =
   print_endline "loop1 done"
 
 let loop2 () =
-  let rec g =
-    lazy begin
+  fix (fun t ->
         choice_at a (to_b left_or_middle_right)
-          (a, (a --> b) left @@ goto g)
+          (a, (a --> b) left @@ t)
           (a, choice_at a (to_b middle_or_right)
-              (a, (a --> b) middle @@ goto g)
-              (a, (a --> b) right @@ (a --> c) msg @@ goto g))
-      end
-  in
-  Lazy.force g
+              (a, (a --> b) middle @@ t)
+              (a, (a --> b) right @@ (a --> c) msg @@ t)))
 
 let () =
   let () = print_endline "loop2" in

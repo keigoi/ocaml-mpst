@@ -80,50 +80,36 @@ let () = List.iter Thread.join [tA; tB; tC]
  *   (a, (a --> b) left  @@ (c --> b) left  @@ finish3)
  *   (a, (a --> b) right @@ (c --> b) right @@ finish3) *)
 
-(* let test =
- *   try
- *     let g =
- *       (a --> c) msg @@
- *         fix (fun t -> (a --> b) msg @@ t)
- *     in
- *     ignore (get_ep c g);
- *     failwith "impossible (1)"
- *   with
- *     UnguardedLoopSeq ->
- *     print_endline "expected" *)
+let test =
+    let g =
+      fix (fun t ->
+        (a --> c) msg @@
+          (a --> b) msg @@
+            (a --> b) msg @@ t)
+    in
+    ignore (get_ep c g)
        
-(* let test9 =
- *   let g =
- *     fix (fun u ->
- *         (a --> b) right @@
- *         fix (fun t ->
- *                 choice_at a (to_b left_or_right)
- *                   (a, (a --> b) left @@ t)
- *                   (a, u)))
- *   in
- *   ignore (get_ep b g) *)
+let test9 =
+  let g =
+    fix (fun u ->
+        (a --> b) right @@
+        (a --> c) right @@
+        fix (fun t ->
+                choice_at a (to_b left_or_right)
+                  (a, (a --> b) left @@ (a --> c) msg @@ t)
+                  (a, u)))
+  in
+  ignore (get_ep c g)
 
   
 let test10 =
-  let rec bogus = fix (fun t -> fix (fun u -> t)) in
-  let g =
-    (a --> b) msg @@
-    bogus
-  in
-  let () =
     try
-      ignore (get_ep b g);
-      ignore (get_ep a g);
-      failwith "unexpected (1)"
+      let rec bogus = fix (fun t -> fix (fun u -> t)) in
+      let _g =
+        (a --> b) msg @@
+          bogus
+      in
+      ()
     with
-      Mergeable.UnguardedLoop ->
+      CamlinternalLazy.Undefined | Mergeable.UnguardedLoop ->
       print_endline "exception correctly occurred"
-  and () =
-    try
-      ignore (get_ep b g);
-      failwith "unexpected (2)"
-    with
-      Mergeable.UnguardedLoop ->
-      print_endline "exception correctly occurred"
-  in
-  ()

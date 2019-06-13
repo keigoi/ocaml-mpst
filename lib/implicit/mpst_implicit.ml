@@ -15,23 +15,23 @@ module Make(X:Mpst_base.S.RAW)(E:EVENT) = struct
 
   let protclose _ _ = Close
 
-  let finish : ([`cons of (ConnTable.t -> close) * 'a] as 'a) seq =
-    SeqAll(Mergeable.no_merge (fun _ -> Close))
+  let finish : ([`cons of (ConnTable.t -> close) * 'a] as 'a) Seq.t =
+    SeqRepeat(Mergeable.no_merge (fun _ -> Close))
 
   let choice_at : 'k 'ep 'ep_l 'ep_r 'g0_l 'g0_r 'g1 'g2.
-                  (_, _, unit, ConnTable.t -> (< .. > as 'ep), 'g1 seq, 'g2 seq) role ->
+                  (_, _, unit, ConnTable.t -> (< .. > as 'ep), 'g1 Seq.t, 'g2 Seq.t) role ->
                   ('ep, < .. > as 'ep_l, < .. > as 'ep_r) obj_merge ->
-                  (_, _, ConnTable.t -> 'ep_l, unit, 'g0_l seq, 'g1 seq) role * 'g0_l seq ->
-                  (_, _, ConnTable.t -> 'ep_r, unit, 'g0_r seq, 'g1 seq) role * 'g0_r seq ->
-                  'g2 seq
+                  (_, _, ConnTable.t -> 'ep_l, unit, 'g0_l Seq.t, 'g1 Seq.t) role * 'g0_l Seq.t ->
+                  (_, _, ConnTable.t -> 'ep_r, unit, 'g0_r Seq.t, 'g1 Seq.t) role * 'g0_r Seq.t ->
+                  'g2 Seq.t
     = fun r merge (r',g0left) (r'',g0right) ->
     let epL, epR =
-      get r'.lens g0left,
-      get r''.lens g0right in
+      Seq.get r'.lens g0left,
+      Seq.get r''.lens g0right in
     let g1left, g1right =
-      put r'.lens g0left (Mergeable.no_merge ()),
-      put r''.lens g0right (Mergeable.no_merge ()) in
-    let g1 = seq_merge g1left g1right in
+      Seq.put r'.lens g0left (Mergeable.no_merge ()),
+      Seq.put r''.lens g0right (Mergeable.no_merge ()) in
+    let g1 = Seq.seq_merge g1left g1right in
     let ep =
       Mergeable.bare_ @@ (fun obj kt ->
         let oleft, oright = Mergeable.out epL, Mergeable.out epR in
@@ -39,7 +39,7 @@ module Make(X:Mpst_base.S.RAW)(E:EVENT) = struct
         and oright = oright (map_option (fun objf kt -> merge.obj_splitR (objf kt)) obj) in
         merge.obj_merge (oleft kt) (oright kt))
     in
-    let g2 = put r.lens g1 ep
+    let g2 = Seq.put r.lens g1 ep
     in
     g2
 
@@ -80,13 +80,13 @@ module Make(X:Mpst_base.S.RAW)(E:EVENT) = struct
                   (< .. > as 'labelobj, [> ] as 'labelvar, 'epA, 'epB, 'v, 'v) slabel ->
                   'g0 -> 'g2
       = fun rA rB label g0 ->
-      let epB = get rB.lens g0 in
+      let epB = Seq.get rB.lens g0 in
       let ev  = make_recv rA label epB in
-      let g1  = put rB.lens g0 ev
+      let g1  = Seq.put rB.lens g0 ev
       in
-      let epA = get rA.lens g1 in
+      let epA = Seq.get rA.lens g1 in
       let obj = make_send rB label epA in
-      let g2  = put rA.lens g1 obj
+      let g2  = Seq.put rA.lens g1 obj
       in g2
   end
 

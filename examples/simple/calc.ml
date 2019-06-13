@@ -30,14 +30,13 @@ let to_srv m =
 
 type op = Add | Sub | Mul | Div
 let calc () =
-  let rec g =
-    lazy (choice_at cli (to_srv compute_or_result)
+  fix (fun t ->
+    choice_at cli (to_srv compute_or_result)
            (cli, (cli --> srv) compute @@
-                 goto g)
+                 t)
            (cli, (cli --> srv) result @@
                  (srv --> cli) answer @@
                  finish))
-  in Lazy.force g
 
 (* the above is equivalent to following: *)
 (* module ChVecExample = struct
@@ -127,18 +126,17 @@ let compute_result_or_current =
   }
 
 let calc2 () =
-  let rec g =
-    lazy (choice_at cli (to_srv compute_result_or_current)
+  fix (fun t ->
+    choice_at cli (to_srv compute_result_or_current)
        (cli, choice_at cli (to_srv compute_or_result)
              (cli, (cli --> srv) compute @@
-                   goto g)
+                   t)
              (cli, (cli --> srv) result @@
                    (srv --> cli) answer @@
                    finish))
        (cli, (cli --> srv) current @@
              (srv --> cli) answer @@
-             goto g))
-  in Lazy.force g
+             t))
 
 let tSrv2 es =
   let rec loop acc es =

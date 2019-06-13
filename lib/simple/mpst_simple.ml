@@ -1,13 +1,10 @@
 include Mpst_common
 
-module M = struct
-  type t = unit
-end
 type _ out =
-  Chan : 'a Event.channel ref * 'b Mergeable.t -> ('a * 'b) out
+  Out : 'u Event.channel ref * 't Mergeable.t -> ('u * 't) out
 
-let chan (Chan(c,_)) = c
-let cont (Chan(_,d)) = d
+let chan (Out(c,_)) = c
+let cont (Out(_,d)) = d
 
 let unify a b = a := !b
 
@@ -41,22 +38,26 @@ let choice_at : 'k 'ep 'ep_l 'ep_r 'g0_l 'g0_r 'g1 'g2.
 
 module MakeGlobal(X:LIN) = struct
 
+  let hook_out out =
+    Mergeable.resolve_merge (cont (X.unlin out))
+  
+  let merge_out = fun out1 out2 ->
+    let (Out(s1,c1), Out(s2,c2)) = X.unlin out1, X.unlin out2 in
+    unify s1 s2;
+    let c12 = Mergeable.merge c1 c2 in
+    X.mklin (Out(s1, c12))
+
   let make_send rB lab (ph: _ Event.channel ref) epA =
-    let m1 = Chan(ph,epA) in
-    let outobj = lab.obj.make_obj (X.mklin m1) in
-    Mergeable.Val (fun obj ->
-        match obj with
-        | None ->
-           ignore (Mergeable.resolve_merge epA);
-           rB.label.make_obj outobj
-        | Some obj2 ->
-           let m2 = X.unlin (lab.obj.call_obj (rB.label.call_obj obj2)) in
-           unify (chan m1) (chan m2);
-           let k = Mergeable.merge (cont m1) (cont m2) in
-           ignore (Mergeable.resolve_merge k);
-           rB.label.make_obj
-             (lab.obj.make_obj
-                (X.mklin (Chan(chan m1, k)))))
+    Mergeable.obj rB.label
+      (Mergeable.obj lab.obj
+         (Mergeable.make_with_hook
+            hook_out
+            merge_out
+            (X.mklin (Out(ph,epA)))))
+
+  let hook_in _ = ()
+
+  let merge_in ev1 ev2 = Event.choose [ev1; ev2]
 
   let make_recv rA lab ph epB =
     let ev =
@@ -64,14 +65,11 @@ module MakeGlobal(X:LIN) = struct
           (Event.guard (fun () -> Event.receive !ph))
           (fun v -> lab.var (v, X.mklin (Mergeable.out_ epB)))
     in
-    Mergeable.Val (fun obj ->
-        ignore (Mergeable.resolve_merge epB);
-        match obj with
-        | None ->
-           rA.label.make_obj ev
-        | Some obj2 ->
-           let ev2 = rA.label.call_obj obj2 in
-           rA.label.make_obj (Event.choose [ev; ev2]))
+    Mergeable.obj rA.label
+      (Mergeable.make_with_hook
+         (fun _ -> Mergeable.resolve_merge epB)
+         merge_in
+         ev)
 
   let ( --> ) : 'roleAVar 'labelvar 'epA 'roleBobj 'g1 'g2 'labelobj 'epB 'g0 'v.
     (< .. > as 'roleAvar, 'labelvar Event.event, 'epA, 'roleBobj, 'g1, 'g2) role ->
@@ -93,6 +91,6 @@ end
 
 include MakeGlobal(struct type 'a lin = 'a let mklin x = x let unlin x = x end)
 
-let send (Chan(channel,cont)) v = Event.sync (Event.send !channel v); Mergeable.out_ cont
+let send (Out(channel,cont)) v = Event.sync (Event.send !channel v); Mergeable.out_ cont
 let receive ev = Event.sync ev
 let close _ = ()

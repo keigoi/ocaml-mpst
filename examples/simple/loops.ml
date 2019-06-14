@@ -26,11 +26,18 @@ let middle_or_right =
 
 let loop1 () =
   fix (fun t ->
+      print_endline "fix body start";
+      let c = 
         choice_at a (to_b left_middle_or_right)
           (a, choice_at a (to_b left_or_middle)
               (a, (a --> b) left @@ t)
               (a, (a --> b) middle @@ t))
-          (a, (a --> b) right @@ (a --> c) msg @@ finish))
+          (a, (a --> b) right @@ (a --> c) msg @@ finish)
+      in
+      print_endline "fix body end";
+      c
+    )
+
 
 let tA ea finally =
   let rec loop () =
@@ -55,9 +62,13 @@ let tB eb finally =
 let () =
   let () = print_endline "loop1" in
   let g = loop1 () in
+  let () = print_endline "global combinator generated" in
   let ea = get_ep a g in
+  print_endline "epp a done";
   let eb = get_ep b g in
+  print_endline "epp b done";
   let ec = get_ep c g in
+  print_endline "epp c done";
   ignore (Thread.create (fun () ->
               tA ea (fun ea -> close ea)
             ) ());

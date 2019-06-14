@@ -104,7 +104,7 @@ let test9 =
   
 let test10 =
     try
-      let rec bogus = fix (fun t -> fix (fun u -> t)) in
+      let bogus = fix (fun t -> fix (fun u -> t)) in
       let _g =
         (a --> b) msg @@
           bogus
@@ -113,3 +113,16 @@ let test10 =
     with
       CamlinternalLazy.Undefined | Mergeable.UnguardedLoop ->
       print_endline "exception correctly occurred"
+
+let test11 =
+  let _g0 =
+    fix (fun t -> (a --> b) msg @@ t)
+  in
+  let _g =
+    choice_at a (to_b left_or_right)
+      (a, (a --> b) left @@
+            fix (fun t -> (a --> b) msg @@ t))
+      (a, (a --> b) right @@
+          (a --> c) msg @@ finish)
+  in
+  ()

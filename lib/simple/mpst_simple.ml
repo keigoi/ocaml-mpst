@@ -9,7 +9,7 @@ let cont (Out(_,d)) = d
 let unify a b = a := !b
 
 let finish : ([`cons of close * 'a] as 'a) Seq.t =
-  S(SeqRepeat(Mergeable.no_merge Close))
+  SeqRepeat(Mergeable.no_merge Close)
 
 let choice_at : 'k 'ep 'ep_l 'ep_r 'g0_l 'g0_r 'g1 'g2.
                   (_, _, close, (< .. > as 'ep), 'g1 Seq.t, 'g2 Seq.t) role ->

@@ -16,7 +16,7 @@ module Make(X:Mpst_base.S.RAW)(E:EVENT) = struct
   let protclose _ _ = Close
 
   let finish : ([`cons of (ConnTable.t -> close) * 'a] as 'a) Seq.t =
-    S(SeqRepeat(Mergeable.no_merge (fun _ -> Close)))
+    SeqRepeat(Mergeable.no_merge (fun _ -> Close))
 
   let choice_at : 'k 'ep 'ep_l 'ep_r 'g0_l 'g0_r 'g1 'g2.
                   (_, _, unit, ConnTable.t -> (< .. > as 'ep), 'g1 Seq.t, 'g2 Seq.t) role ->

@@ -191,13 +191,12 @@ end
  *)
 module Seq = struct
   type _ t =
-    | S : 'a u -> 'a t
-    | SDelayMerge : 'a u list -> 'a t
-    | SBottom : 'x t
-  and _ u =
-    | SeqCons : 'hd Mergeable.t * 'tl t -> [`cons of 'hd * 'tl] u
-    | SeqVar : 'x t lazy_t -> 'x u
-    | SeqRepeat : 'a Mergeable.t -> ([`cons of 'a * 'tl] as 'tl) u
+    | SeqCons : 'hd Mergeable.t * 'tl t -> [`cons of 'hd * 'tl] t
+    | SeqRepeat : 'a Mergeable.t -> ([`cons of 'a * 'tl] as 'tl) t
+    | SeqDelayMerge : 'a seqvar list -> 'a t
+    | SeqVar : 'a seqvar -> 'a t
+    | SeqBottom : 'x t
+  and 'a seqvar = 'a t lazy_t
 
   type (_,_,_,_) lens =
     | Zero  : ('hd0, 'hd1, [`cons of 'hd0 * 'tl] t, [`cons of 'hd1 * 'tl] t) lens
@@ -208,29 +207,23 @@ module Seq = struct
           
   let rec seq_head : type hd tl. [`cons of hd * tl] t -> hd Mergeable.t =
     function
-    | S u -> seqbody_head u
-    | SDelayMerge ds -> Mergeable.merge_all (List.map seqbody_head ds)
-    | SBottom -> raise UnguardedLoopSeq
-  and seqbody_head : type hd tl. [`cons of hd * tl] u -> hd Mergeable.t =
-    function
     | SeqCons(hd,_) -> hd
     | SeqRepeat(a) -> a
-    | SeqVar d -> Mergeable.M (Var (lazy (seq_head (Lazy.force d))))
+    | SeqVar d -> seqvar_head d
+    | SeqDelayMerge ds -> Mergeable.merge_all (List.map seqvar_head ds)
+    | SeqBottom -> raise UnguardedLoopSeq
+  and seqvar_head : type hd tl. [`cons of hd * tl] t lazy_t -> hd Mergeable.t = fun d ->
+    Mergeable.M (Var (lazy (seq_head (Lazy.force d))))    
 
   let rec seq_tail : type hd tl. [`cons of hd * tl] t -> tl t =
     function
-    | S u -> seqbody_tail u
-    | SDelayMerge ds -> SDelayMerge(List.flatten (List.map decomp (List.map seqbody_tail ds)))
-    | SBottom -> raise UnguardedLoopSeq
-  and seqbody_tail : type hd tl. [`cons of hd * tl] u -> tl t =
-    function
     | SeqCons(_,tl) -> tl
-    | (SeqRepeat _) as s -> S s
-    | SeqVar d -> S(SeqVar(lazy (seq_tail (Lazy.force d))))
-  and decomp : type x. x t -> x u list = function
-    | S u -> [u]
-    | SDelayMerge ds -> ds
-    | SBottom -> raise UnguardedLoopSeq
+    | (SeqRepeat _) as s -> s
+    | SeqVar d -> SeqVar (seqvar_tail d)
+    | SeqDelayMerge ds -> SeqDelayMerge(List.map seqvar_tail ds)
+    | SeqBottom -> raise UnguardedLoopSeq
+  and seqvar_tail : type hd tl. [`cons of hd * tl] t lazy_t -> tl t lazy_t = fun d ->
+    lazy (seq_tail (Lazy.force d))
 
   let rec get : type a b xs ys. (a, b, xs, ys) lens -> xs -> a Mergeable.t = fun ln xs ->
     match ln with
@@ -240,36 +233,36 @@ module Seq = struct
   let rec put : type a b xs ys. (a,b,xs,ys) lens -> xs -> b Mergeable.t -> ys =
     fun ln xs b ->
     match ln with
-    | Zero -> S(SeqCons(b, seq_tail xs))
-    | Succ ln' -> S(SeqCons(seq_head xs, put ln' (seq_tail xs) b))
+    | Zero -> SeqCons(b, seq_tail xs)
+    | Succ ln' -> SeqCons(seq_head xs, put ln' (seq_tail xs) b)
 
   let rec seq_merge : type x. x t -> x t -> x t = fun l r ->
     match l,r with
-    | S(SeqCons(_,_)), _ ->
+    | SeqCons(_,_), _ ->
        let hd = Mergeable.merge (seq_head l) (seq_head r) in
        let tl = seq_merge (seq_tail l) (seq_tail r) in
-       S(SeqCons(hd, tl))
-    | _, S(SeqCons(_,_)) ->
+       SeqCons(hd, tl)
+    | _, SeqCons(_,_) ->
        seq_merge r l
     (* delayed constructors left as-is *)
-    | S((SeqVar _) as u1), S((SeqVar _) as u2) -> SDelayMerge [u1; u2]
-    | SDelayMerge(us), S((SeqVar _) as u) -> SDelayMerge(u::us)
-    | S((SeqVar _) as u), SDelayMerge(us) -> SDelayMerge(u::us)
-    | SDelayMerge(us1), SDelayMerge(us2) -> SDelayMerge(us1 @ us2)
+    | SeqVar u1, SeqVar u2 -> SeqDelayMerge [u1; u2]
+    | SeqDelayMerge(us), SeqVar u -> SeqDelayMerge(u::us)
+    | SeqVar u, SeqDelayMerge(us) -> SeqDelayMerge(u::us)
+    | SeqDelayMerge(us1), SeqDelayMerge(us2) -> SeqDelayMerge(us1 @ us2)
     (* repeat *)
-    | S(SeqRepeat(a)), _ -> S(SeqRepeat(a))
-    | _, S(SeqRepeat(a)) -> S(SeqRepeat(a))
+    | SeqRepeat(_), _ -> l
+    | _, SeqRepeat(_) -> r
     (* bottom *)
-    | SBottom,_  -> raise UnguardedLoopSeq
-    | _, SBottom -> raise UnguardedLoopSeq
+    | SeqBottom,_  -> raise UnguardedLoopSeq
+    | _, SeqBottom -> raise UnguardedLoopSeq
 
-  let rec resolve_delayed_ : type x. x t lazy_t list -> x t lazy_t -> x t =
+  let rec resolve_seqvar : type x. x t lazy_t list -> x t lazy_t -> x t =
     fun hist w ->
     if find_physeq hist w then begin
         raise UnguardedLoopSeq
       end else begin
         match Lazy.force w with
-        | S (SeqVar w') -> resolve_delayed_ (w::hist) w'
+        | SeqVar w' -> resolve_seqvar (w::hist) w'
         | s -> s
       end
 
@@ -284,30 +277,30 @@ module Seq = struct
   let rec partial_force : type x. x t lazy_t list -> x t -> x t =
     fun hist ->
     function
-    | S(SeqVar d) ->
+    | SeqVar d ->
        (* recursion variable -- try to expand it *)
-       partial_force [] (resolve_delayed_ [] d)
-    | S(SeqCons(hd,tl)) ->
+       partial_force [] (resolve_seqvar [] d)
+    | SeqCons(hd,tl) ->
        let tl =
          try
            partial_force [] tl (* FIXME use (map seq_tail hist) ? *)
          with
-           UnguardedLoopSeq -> SBottom
+           UnguardedLoopSeq -> SeqBottom
        in
-       S(SeqCons(hd, tl))
-    | S(SeqRepeat(_)) as xs -> xs
-    | SDelayMerge ds ->
+       SeqCons(hd, tl)
+    | SeqRepeat(_) as xs -> xs
+    | SeqDelayMerge ds ->
        (* A choice with recursion variables -- do not try to resolve.
         * Mergeable.resolve_merge will resolve it later during get_ep
         *)
-       SDelayMerge ds
-    | SBottom -> SBottom
+       SeqDelayMerge ds
+    | SeqBottom -> SeqBottom
 end
   
 let fix : type t. (t Seq.t -> t Seq.t) -> t Seq.t = fun f ->
   let rec body =
     lazy begin
-        f (S(SeqVar body))
+        f (SeqVar body)
       end
   in
   (* A "fail-fast" approach to detect unguarded loops.

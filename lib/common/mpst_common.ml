@@ -42,21 +42,22 @@ type ('la,'va) method_ =
 module Mergeable
   = struct
   type 'a t =
+    | V of 'a u | DelayMerge of 'a u list
+  and 'a u =
     | Val of ('a option -> 'a)
-    | DelayVar of 'a t lazy_t
-    | DelayMerge of 'a t lazy_t list
+    | Var of 'a t lazy_t
 
   exception UnguardedLoop
 
   let make mrg v =
-    Val (function
+    V (Val (function
         | None -> v
-        | Some v2 -> mrg v v2)
+        | Some v2 -> mrg v v2))
 
   let make_with_hook hook mrg v1 =
-    Val (function
+    V (Val (function
         | None -> (hook v1 : unit); v1
-        | Some v2 -> let v12 = mrg v1 v2 in hook v12; v12)
+        | Some v2 -> let v12 = mrg v1 v2 in hook v12; v12))
 
   type 'a merge__ = 'a option -> 'a
 
@@ -66,48 +67,47 @@ module Mergeable
   let merge : 'a. 'a t -> 'a t -> 'a t =
     fun l r ->
     match l, r with
-    | Val ll, Val rr ->
-       Val (merge0 ll rr)
-    | (Val _) as v, DelayVar d | DelayVar d, (Val _ as v) ->
-       DelayMerge [Lazy.from_val v; d]
-    | ((Val _) as v, DelayMerge ds) | (DelayMerge ds, ((Val _) as v)) ->
-       DelayMerge (Lazy.from_val v :: ds)
-    | DelayVar d1, DelayVar d2 ->
-       DelayMerge [d1; d2]
-    | DelayVar d, DelayMerge ds | DelayMerge ds, DelayVar d  ->
-       DelayMerge (d:: ds)
+    | V (Val ll), V (Val rr) ->
+       V (Val (merge0 ll rr))
+    | V v1, V v2 ->
+       DelayMerge [v1; v2]
+    | V v, DelayMerge ds | DelayMerge ds, V v ->
+       DelayMerge (v :: ds)
     | DelayMerge d1, DelayMerge d2 ->
        DelayMerge (d1 @ d2)
 
   let merge_all = function
     | [] -> failwith "merge_all: empty"
     | m::ms -> List.fold_left merge m ms
-    
+             
   let no_merge : 'a. 'a -> 'a t  = fun v ->
-    Val (fun _ -> v)
+    V (Val (fun _ -> v))
     
   let bare_ : 'a. ('a option -> 'a) -> 'a t  = fun v ->
-    Val v
+    V (Val v)
 
   let rec out__ : type x. x t lazy_t list -> x t -> x option -> x =
     fun hist t ->
     let resolve d =
-        if find_physeq hist d then
-          raise UnguardedLoop
-        else
-          out__ (d::hist) (Lazy.force d)
+      if find_physeq hist d then
+        raise UnguardedLoop
+      else
+        out__ (d::hist) (Lazy.force d)
     in
     match t with
-    | (Val x) -> x
-    | DelayVar d ->
+    | V (Val x) -> x
+    | V (Var d) ->
        resolve d
     | DelayMerge ds ->
        let solved =
          List.fold_left (fun acc d ->
-             try
-               resolve d :: acc
-             with
-               UnguardedLoop -> acc)
+             match d with
+             | Val v -> v :: acc
+             | Var d ->
+                try
+                  resolve d :: acc
+                with
+                  UnguardedLoop -> acc)
            [] ds
        in
        match solved with
@@ -129,9 +129,9 @@ module Mergeable
    *)
   let resolve_merge : 'a. 'a t -> unit = fun t ->
     match t with
-    | Val _ ->
+    | V (Val _) ->
        () (* already evaluated *)
-    | DelayVar d ->
+    | V (Var _) ->
        () (* do not touch -- this is a recursion variable *)
     | DelayMerge _ ->
        (* try to resolve it -- a choice involving recursion variable(s) *)
@@ -147,18 +147,24 @@ module Mergeable
    *          | Some othr -> f (Some (fun _ -> othr)) v (\* XXX *\)
    *          | None -> f None v) *)
 
+  let rec obj_raw = fun meth f ->
+    function
+    | None ->
+       meth.make_obj (f None)
+    | Some o ->
+       meth.make_obj (f (Some (meth.call_obj o)))
+                           
   let rec obj : 'v. (< .. > as 'o, 'v) method_ -> 'v t -> 'o t = fun meth v ->
     match v with
-    | Val f ->
-       Val (function
-           | None ->
-              meth.make_obj (f None)
-           | Some o ->
-              meth.make_obj (f (Some (meth.call_obj o))))
-    | DelayVar d ->
-        DelayVar (lazy (obj meth (Lazy.force d)))
+    | V (Val f) ->
+       V (Val (obj_raw meth f))
+    | V (Var d) ->
+       V (Var (lazy (obj meth (Lazy.force d))))
     | DelayMerge ds ->
-        DelayMerge (List.map (fun d -> lazy (obj meth (Lazy.force d))) ds)
+       DelayMerge (List.map
+                     (function
+                      | Val f -> Val (obj_raw meth f)
+                      | Var d -> Var (lazy (obj meth (Lazy.force d)))) ds)
 
   let objfun
       : 'o 'v 'p. ('v -> 'v -> 'v) -> (< .. > as 'o, 'v) method_ -> ('p -> 'v) -> ('p -> 'o) t =
@@ -196,9 +202,9 @@ module Seq = struct
     | Seq(hd,_) -> hd
     | SeqRepeat(a) -> a
     | SeqDelayVar d ->
-       Mergeable.DelayVar (lazy (seq_head (Lazy.force d)))
+       Mergeable.V (Var (lazy (seq_head (Lazy.force d))))
     | SeqDelayMerge ds ->
-       let ds = List.map (fun d -> Mergeable.DelayVar (lazy (seq_head (Lazy.force d)))) ds
+       let ds = List.map (fun d -> Mergeable.V (Var (lazy (seq_head (Lazy.force d))))) ds
        in
        Mergeable.merge_all ds
     | SeqBottom -> raise UnguardedLoopSeq
@@ -228,7 +234,7 @@ module Seq = struct
        Seq(Mergeable.merge hd_l hd_r, seq_merge tl_l tl_r)
     | SeqDelayMerge(ds), Seq(hd_r, tl_r) ->
        let hd_l =
-         let ms = List.map (fun s -> Mergeable.DelayVar (lazy (seq_head (Lazy.force s)))) ds in
+         let ms = List.map (fun s -> Mergeable.V (Var (lazy (seq_head (Lazy.force s))))) ds in (* HERE delay is mandatory *)
          Mergeable.merge_all ms
        in
        let tl_l = SeqDelayMerge(List.map (fun s -> lazy (seq_tail (Lazy.force s))) ds) in

@@ -111,7 +111,7 @@ let test10 =
       in
       ()
     with
-      CamlinternalLazy.Undefined | Mergeable.UnguardedLoop ->
+      CamlinternalLazy.Undefined ->
       print_endline "exception correctly occurred"
 
 let test11 =

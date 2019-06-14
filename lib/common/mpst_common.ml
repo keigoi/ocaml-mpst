@@ -42,7 +42,6 @@ module Mergeable :
 sig
   (** mergeable endpoint *)
   type 'a t
-  exception UnguardedLoop
   (** makes a mergeable from a merge function and a value *)
   val make : ('a -> 'a -> 'a) -> 'a -> 'a t
   val make_recvar : 'a t lazy_t -> 'a t
@@ -77,8 +76,6 @@ end
   and 'a u =
     | Val of ('a option -> 'a)
     | RecVar of 'a t lazy_t
-
-  exception UnguardedLoop
 
   let make mrg v =
     M (Val (function
@@ -119,13 +116,15 @@ end
     | [] -> failwith "merge_all: empty"
     | m::ms -> List.fold_left merge m ms
 
-  let rec out_checked : type x. x t lazy_t list -> x t -> x option -> x =
+  exception UnguardedLoop
+
+  let rec out_checked_ : type x. x t lazy_t list -> x t -> x option -> x =
     fun hist t ->
     let resolve d =
       if find_physeq hist d then
         raise UnguardedLoop
       else
-        out_checked (d::hist) (Lazy.force d)
+        out_checked_ (d::hist) (Lazy.force d)
     in
     match t with
     | M (Val x) -> x
@@ -140,20 +139,22 @@ end
                 try
                   resolve d :: acc
                 with
-                  UnguardedLoop -> acc)
+                  UnguardedLoop ->
+                  print_endline "";
+                  acc)
            [] ds
        in
        match solved with
        | [] ->
-          raise UnguardedLoop
+          raise UnguardedLoop (* FIXME: correct?? *)
        | x::xs ->
           List.fold_left merge0 x xs
 
   let out : 'a. 'a t -> 'a = fun g ->
-    out_checked [] g None
+    out_checked_ [] g None
 
   let unwrap : 'a. 'a t -> 'a option -> 'a = fun g ->
-    out_checked [] g
+    out_checked_ [] g
 
   let resolve_merge : 'a. 'a t -> unit = fun t ->
     match t with
@@ -163,7 +164,7 @@ end
        () (* do not touch -- this is a recursion variable *)
     | MDelayMerge _ ->
        (* try to resolve it -- a choice involving recursion variable(s) *)
-       let _ = out_checked [] t in ()
+       let _ = out_checked_ [] t in ()
 
   let rec applybody : 'a 'b. ('a -> 'b) u -> 'a -> 'b u = fun f v ->
     match f with

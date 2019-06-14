@@ -9,7 +9,7 @@ let cont (Out(_,d)) = d
 let unify a b = a := !b
 
 let finish : ([`cons of close * 'a] as 'a) Seq.t =
-  SeqRepeat(Mergeable.no_merge Close)
+  SeqRepeat(Mergeable.make_no_merge Close)
 
 let choice_at : 'k 'ep 'ep_l 'ep_r 'g0_l 'g0_r 'g1 'g2.
                   (_, _, close, (< .. > as 'ep), 'g1 Seq.t, 'g2 Seq.t) role ->
@@ -22,12 +22,12 @@ let choice_at : 'k 'ep 'ep_l 'ep_r 'g0_l 'g0_r 'g1 'g2.
     Seq.get r'.lens g0left,
     Seq.get r''.lens g0right in
   let g1left, g1right =
-    Seq.put r'.lens g0left (Mergeable.no_merge Close),
-    Seq.put r''.lens g0right (Mergeable.no_merge Close) in
+    Seq.put r'.lens g0left (Mergeable.make_no_merge Close),
+    Seq.put r''.lens g0right (Mergeable.make_no_merge Close) in
   let g1 = Seq.seq_merge g1left g1right in
   let ep =
-    Mergeable.bare_ @@ (fun obj ->
-      let oleft, oright = Mergeable.out epL, Mergeable.out epR in
+    Mergeable.make_bare @@ (fun obj ->
+      let oleft, oright = Mergeable.unwrap epL, Mergeable.unwrap epR in
       let oleft = oleft (map_option (fun objf -> merge.obj_splitL objf) obj)
       and oright = oright (map_option (fun objf -> merge.obj_splitR objf) obj) in
       merge.obj_merge oleft oright)
@@ -39,6 +39,7 @@ let choice_at : 'k 'ep 'ep_l 'ep_r 'g0_l 'g0_r 'g1 'g2.
 module MakeGlobal(X:LIN) = struct
 
   let hook_out out =
+    (* this is mandatory for fail-fast *)
     Mergeable.resolve_merge (cont (X.unlin out))
   
   let merge_out = fun out1 out2 ->
@@ -55,15 +56,13 @@ module MakeGlobal(X:LIN) = struct
             merge_out
             (X.mklin (Out(ph,epA)))))
 
-  let hook_in _ = ()
-
   let merge_in ev1 ev2 = Event.choose [ev1; ev2]
 
   let make_recv rA lab ph epB =
     let ev =
         Event.wrap
           (Event.guard (fun () -> Event.receive !ph))
-          (fun v -> lab.var (v, X.mklin (Mergeable.out_ epB)))
+          (fun v -> lab.var (v, X.mklin (Mergeable.out epB)))
     in
     Mergeable.obj rA.label
       (Mergeable.make_with_hook
@@ -91,6 +90,6 @@ end
 
 include MakeGlobal(struct type 'a lin = 'a let mklin x = x let unlin x = x end)
 
-let send (Out(channel,cont)) v = Event.sync (Event.send !channel v); Mergeable.out_ cont
+let send (Out(channel,cont)) v = Event.sync (Event.send !channel v); Mergeable.out cont
 let receive ev = Event.sync ev
 let close _ = ()

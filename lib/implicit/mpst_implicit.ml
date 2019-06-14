@@ -16,7 +16,7 @@ module Make(X:Mpst_base.S.RAW)(E:EVENT) = struct
   let protclose _ _ = Close
 
   let finish : ([`cons of (ConnTable.t -> close) * 'a] as 'a) Seq.t =
-    SeqRepeat(Mergeable.no_merge (fun _ -> Close))
+    SeqRepeat(Mergeable.make_no_merge (fun _ -> Close))
 
   let choice_at : 'k 'ep 'ep_l 'ep_r 'g0_l 'g0_r 'g1 'g2.
                   (_, _, unit, ConnTable.t -> (< .. > as 'ep), 'g1 Seq.t, 'g2 Seq.t) role ->
@@ -29,12 +29,12 @@ module Make(X:Mpst_base.S.RAW)(E:EVENT) = struct
       Seq.get r'.lens g0left,
       Seq.get r''.lens g0right in
     let g1left, g1right =
-      Seq.put r'.lens g0left (Mergeable.no_merge ()),
-      Seq.put r''.lens g0right (Mergeable.no_merge ()) in
+      Seq.put r'.lens g0left (Mergeable.make_no_merge ()),
+      Seq.put r''.lens g0right (Mergeable.make_no_merge ()) in
     let g1 = Seq.seq_merge g1left g1right in
     let ep =
-      Mergeable.bare_ @@ (fun obj kt ->
-        let oleft, oright = Mergeable.out epL, Mergeable.out epR in
+      Mergeable.make_bare @@ (fun obj kt ->
+        let oleft, oright = Mergeable.unwrap epL, Mergeable.unwrap epR in
         let oleft = oleft (map_option (fun objf kt -> merge.obj_splitL (objf kt)) obj)
         and oright = oright (map_option (fun objf kt -> merge.obj_splitR (objf kt)) obj) in
         merge.obj_merge (oleft kt) (oright kt))
@@ -70,7 +70,7 @@ module Make(X:Mpst_base.S.RAW)(E:EVENT) = struct
         E.wrap
           (E.guard (fun () ->
                lab.channel.receiver (ConnTable.getone kt rA.lens)))
-          (fun v -> X.mklin (lab.wraplabel.var (v, Mergeable.out_ epB kt)))
+          (fun v -> X.mklin (lab.wraplabel.var (v, Mergeable.out epB kt)))
       in
       Mergeable.objfun (fun x y -> E.choose [x;y]) rA.label ev
 

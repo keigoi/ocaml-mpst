@@ -115,14 +115,16 @@ let test10 =
       print_endline "exception correctly occurred"
 
 let test11 =
-  let _g0 =
-    fix (fun t -> (a --> b) msg @@ t)
-  in
-  let _g =
-    choice_at a (to_b left_or_right)
-      (a, (a --> b) left @@
+  try
+    let _g =
+      choice_at a (to_b left_or_right)
+        (a, (a --> b) left @@
             fix (fun t -> (a --> b) msg @@ t))
-      (a, (a --> b) right @@
-          (a --> c) msg @@ finish)
-  in
-  ()
+        (a, (a --> b) right @@
+            (a --> c) msg @@ finish)
+    in
+    failwith "unexpected (test11)"
+  with
+    Mpst_common.Seq.UnguardedLoopSeq ->
+    print_endline "eqception correctly occured"
+           

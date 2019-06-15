@@ -1,4 +1,16 @@
 open Mpst_simple
+let a = {label={make_obj=(fun v->object method role_A=v end);
+                call_obj=(fun o->o#role_A)};
+         lens=Succ Zero}
+let b = {label={make_obj=(fun v->object method role_B=v end);
+                call_obj=(fun o->o#role_B)};
+         lens=Succ (Succ Zero)}
+let c = {label={make_obj=(fun v->object method role_C=v end);
+                call_obj=(fun o->o#role_C)};
+         lens=Zero}
+let d = {label={make_obj=(fun v->object method role_D=v end);
+                call_obj=(fun o->o#role_D)};
+         lens=Succ (Succ (Succ Zero))}
 
 let left_middle_or_right =
   {obj_merge=(fun l r -> object method left=l#left method middle=l#middle method right=r#right end);
@@ -26,17 +38,11 @@ let middle_or_right =
 
 let loop1 () =
   fix (fun t ->
-      print_endline "fix body start";
-      let c = 
         choice_at a (to_b left_middle_or_right)
           (a, choice_at a (to_b left_or_middle)
               (a, (a --> b) left @@ t)
               (a, (a --> b) middle @@ t))
-          (a, (a --> b) right @@ (a --> c) msg @@ finish)
-      in
-      print_endline "fix body end";
-      c
-    )
+          (a, (a --> b) right @@ (a --> c) msg @@ finish))
 
 
 let tA ea finally =
@@ -76,7 +82,7 @@ let () =
               tB eb (fun eb -> close eb)
             ) ());
   begin
-    match Event.sync (ec#role_A) with
+    match receive (ec#role_A) with
     | `msg(_,ec) -> close ec
   end;
   print_endline "loop1 done"
@@ -92,9 +98,13 @@ let loop2 () =
 let () =
   let () = print_endline "loop2" in
   let g = loop2 () in
+  print_endline "loop2 global done";
   let ea = get_ep a g in
+  print_endline "epp a done";
   let eb = get_ep b g in
+  print_endline "epp b done";
   let ec = get_ep c g in
+  print_endline "epp c done";
   ignore (Thread.create (fun () ->
               let rec loop ea =
                 tA ea (fun ea -> loop ea)
@@ -110,12 +120,12 @@ let () =
   begin
     let rec loop cnt ec =
       if cnt > 0 then begin
-          match Event.sync (ec#role_A) with
+          match receive (ec#role_A) with
           | `msg(_,ec) -> loop (cnt-1) ec
         end
       else
         print_endline "interrupt"
     in
-    ignore (loop 3 ec)
+    ignore (loop 5 ec)
   end;
   print_endline "loop2 done"

@@ -20,8 +20,8 @@ type ('la,'va) method_ =
 
 (**
  * A mergeable is a session endpoint which can be merged with another endpoint in future.
- * It is a function of type ('a option -> 'a) which returns (1) the merged endpoint when
- * another endpoint (Some ep) is passed, or (2) the endpoint itself when the argument is None.
+ * It is a function of type `('a option -> 'a)` which returns (1) the merged endpoint when
+ * another endpoint `(Some ep)` is passed, or (2) the endpoint itself when the argument is `None`.
  * 
  * Mergeables enable endpoints to be merged based on the object structure.
  * In ocaml-mpst, endpoints are nested objects (and events).
@@ -30,13 +30,17 @@ type ('la,'va) method_ =
  * A mergeble is a bundle of an endpoint and its merging strategy, providing a way 
  * to merge two endpoints of the same type into one.
  *
- * Mergeables themselves can be merged with other mergeables.
- * Specifically, `Mergeable.merge_delayed` will return a "delayed" mergeable which is 
- * used to merge recursive endpoints.
+ * Mergeables themselves can be merged with other mergeables using `Mergeable.merge`.
+ *
+ * Mergeables can be "delayed" by using `Mergeable.make_recvar`. Delayed mergeables are used
+ * to encode recursive endpoints. Merging delayed mergeable will also generate a delayed 
+ * mergeable.
  * A delayed mergeable are forced when `resolve_merge` is called.
  *
  * In ocaml-mpst, `resolve_merge` is called during "get_ep" phase to ensure that the all
  * mergings are resolved before actual communication will take place.
+ *
+ * Mergeable can be created with hooks. 
  *)
 module Mergeable :
 sig
@@ -44,20 +48,26 @@ sig
   type 'a t
   (** makes a mergeable from a merge function and a value *)
   val make : ('a -> 'a -> 'a) -> 'a -> 'a t
-  val make_recvar : 'a t lazy_t -> 'a t
   val make_bare : ('a option -> 'a) -> 'a t
+  (** makes a delayed mergeable *) 
+  val make_recvar : 'a t lazy_t -> 'a t
+  (** makes a mergeable with a hook. The hook is called once the body is called. *)
   val make_with_hook : ('a -> unit) -> ('a -> 'a -> 'a) -> 'a -> 'a t
+  (** makes a constant mergeable which does not merge anything, keeping the constant intact.
+   *  This is used for making a closed endpoint. *)
   val make_no_merge : 'a -> 'a t
+  (** merges two mergeables *)
   val merge : 'a t -> 'a t -> 'a t
+  (** merges list of mergeables in order *)
   val merge_all : 'a t list -> 'a t
   (** extract a value from a mergeable *)
   val out : 'a t -> 'a
   (** unwrap *)
   val unwrap : 'a t -> 'a option -> 'a
   (**
-   * resolve_merge: try to resolve choices which involve recursion variables.
+   * resolve_merge: try to resolve all delayed choices and recursion variables.
    * calls to this function from (-->) combinator is delayed until get_ep phase
-   * (i.e. after evaluating global combinators)
+   * (i.e. after evaluating global combinators) by using hooks.
    *)
   val resolve_merge : 'a t -> unit
 
@@ -72,49 +82,37 @@ end
   = struct
   type 'a t =
     | M of 'a u
-    | MDelayMerge of 'a u list
+    | MLazy of 'a u list * 'a cache
   and 'a u =
     | Val of ('a option -> 'a)
-    | RecVar of 'a t lazy_t
+    | RecVar of 'a t lazy_t * 'a cache
+  and 'a cache = ('a option -> 'a) lazy_t
+
+  let val_ f =
+    Val (function
+        | None -> f None
+        | Some v -> f (Some v))
 
   let make mrg v =
-    M (Val (function
-        | None -> v
-        | Some v2 -> mrg v v2))
+    M (val_ (function
+           | None -> v
+           | Some v2 -> mrg v v2))
 
   let make_with_hook hook mrg v1 =
-    M (Val (function
-        | None -> (hook v1 : unit); v1
-        | Some v2 -> let v12 = mrg v1 v2 in hook v12; v12))
+    M (val_ (function
+           | None -> (hook v1 : unit); v1
+           | Some v2 -> let v12 = mrg v1 v2 in hook v12; v12))
     
   let make_bare : 'a. ('a option -> 'a) -> 'a t  = fun v ->
-    M (Val v)
-             
-  let make_no_merge : 'a. 'a -> 'a t  = fun v ->
-    M (Val (fun _ -> v))
-
-  let make_recvar d = M (RecVar d)
+    M (val_ v)
     
+  let make_no_merge : 'a. 'a -> 'a t  = fun v ->
+    M (val_ (fun _ -> v))
+                    
   type 'a merge__ = 'a option -> 'a
 
   let merge0 : type x. x merge__ -> x merge__ -> x merge__ = fun l r ->
     fun obj -> l (Some (r obj))
-
-  let merge : 'a. 'a t -> 'a t -> 'a t =
-    fun l r ->
-    match l, r with
-    | M (Val ll), M (Val rr) ->
-       M (Val (merge0 ll rr))
-    | M v1, M v2 ->
-       MDelayMerge [v1; v2]
-    | M v, MDelayMerge ds | MDelayMerge ds, M v ->
-       MDelayMerge (v :: ds)
-    | MDelayMerge d1, MDelayMerge d2 ->
-       MDelayMerge (d1 @ d2)
-
-  let merge_all = function
-    | [] -> failwith "merge_all: empty"
-    | m::ms -> List.fold_left merge m ms
 
   exception UnguardedLoop
 
@@ -128,27 +126,35 @@ end
     in
     match t with
     | M (Val x) -> x
-    | M (RecVar d) ->
-       resolve d
-    | MDelayMerge ds ->
-       let solved =
-         List.fold_left (fun acc d ->
-             match d with
-             | Val v -> v :: acc
-             | RecVar d ->
-                try
-                  resolve d :: acc
-                with
-                  UnguardedLoop ->
-                  print_endline "";
-                  acc)
-           [] ds
-       in
-       match solved with
-       | [] ->
-          raise UnguardedLoop (* FIXME: correct?? *)
-       | x::xs ->
-          List.fold_left merge0 x xs
+    | M (RecVar (t, d)) ->
+       if Lazy.is_val d then begin
+           Lazy.force d
+         end else begin
+           resolve t
+         end
+    | MLazy (ds, d) ->
+       if Lazy.is_val d then begin
+           Lazy.force d
+         end else begin
+           let solved =
+             List.fold_left (fun acc d ->
+                 match d with
+                 | Val v -> v :: acc
+                 | RecVar (t, _) ->
+                    try
+                      resolve t :: acc
+                    with
+                      UnguardedLoop ->
+                      print_endline "WARNING: an unbalanced loop detected";
+                      acc)
+               [] ds
+           in
+           match solved with
+           | [] ->
+              raise UnguardedLoop (* FIXME: correct?? *)
+           | x::xs ->
+              List.fold_left merge0 x xs
+         end
 
   let out : 'a. 'a t -> 'a = fun g ->
     out_checked_ [] g None
@@ -156,30 +162,56 @@ end
   let unwrap : 'a. 'a t -> 'a option -> 'a = fun g ->
     out_checked_ [] g
 
-  let resolve_merge : 'a. 'a t -> unit = fun t ->
+  let merge_lazy_ : 'a. 'a u list -> 'a t = fun us ->
+    let rec d = MLazy (us, lazy (unwrap d))
+    in d
+
+  let make_recvar_ t =
+    let rec d = (RecVar (t, lazy (unwrap (M d))))
+    in d
+
+  let make_recvar t =
+    M (make_recvar_ t)
+
+  let merge : 'a. 'a t -> 'a t -> 'a t =
+    fun l r ->
+    match l, r with
+    | M (Val ll), M (Val rr) ->
+       M (val_ (merge0 ll rr))
+    | M v1, M v2 ->
+       merge_lazy_ [v1; v2]
+    | M v, MLazy (ds,_) | MLazy (ds,_), M v ->
+       merge_lazy_ (v :: ds)
+    | MLazy (d1, _), MLazy (d2, _) ->
+       merge_lazy_ (d1 @ d2)
+
+  let merge_all = function
+    | [] -> failwith "merge_all: empty"
+    | m::ms -> List.fold_left merge m ms
+
+  let rec resolve_merge : 'a. 'a t -> unit = fun t ->
     match t with
     | M (Val _) ->
-       () (* already evaluated *)
-    | M (RecVar _) ->
-       () (* do not touch -- this is a recursion variable *)
-    | MDelayMerge _ ->
-       (* try to resolve it -- a choice involving recursion variable(s) *)
-       let _ = out_checked_ [] t in ()
+       (* already evaluated *)
+       ()
+    | M (RecVar (_, d)) | MLazy (_, d) ->
+       (* try to resolve it -- a recursion variable or delayed merge *)
+       let _ = Lazy.force d in ()
 
   let rec applybody : 'a 'b. ('a -> 'b) u -> 'a -> 'b u = fun f v ->
     match f with
-    | RecVar d ->
-       RecVar (lazy (apply (Lazy.force d) v))
+    | RecVar (t, d) ->
+       make_recvar_ (lazy (apply (Lazy.force t) v))
     | Val f ->
-       Val (fun othr ->
+       val_ (fun othr ->
            match othr with
            | Some othr -> f (Some (fun _ -> othr)) v (* XXX *)
            | None -> f None v)
       
   and apply : 'a 'b. ('a -> 'b) t -> 'a -> 'b t = fun f v ->
     match f with
-    | MDelayMerge(ds) ->
-       MDelayMerge(List.map (fun d -> applybody d v) ds)
+    | MLazy(ds, _) ->
+       merge_lazy_ (List.map (fun d -> applybody d v) ds)
     | M f -> M (applybody f v)
 
   let rec obj_raw = fun meth f ->
@@ -188,18 +220,19 @@ end
        meth.make_obj (f None)
     | Some o ->
        meth.make_obj (f (Some (meth.call_obj o)))
-                           
+      
   let rec obj : 'v. (< .. > as 'o, 'v) method_ -> 'v t -> 'o t = fun meth v ->
     match v with
     | M (Val f) ->
-       M (Val (obj_raw meth f))
-    | M (RecVar d) ->
-       M (RecVar (lazy (obj meth (Lazy.force d))))
-    | MDelayMerge ds ->
-       MDelayMerge (List.map
-                     (function
-                      | Val f -> Val (obj_raw meth f)
-                      | RecVar d -> RecVar (lazy (obj meth (Lazy.force d)))) ds)
+       M (val_ (obj_raw meth f))
+    | M (RecVar (t, _)) ->
+       M (make_recvar_ (lazy (obj meth (Lazy.force t))))
+    | MLazy (ds,_) ->
+       merge_lazy_
+         (List.map
+            (function
+             | Val f -> val_ (obj_raw meth f)
+             | RecVar (t, _) -> make_recvar_ (lazy (obj meth (Lazy.force t)))) ds)
 
   let objfun
       : 'o 'v 'p. ('v -> 'v -> 'v) -> (< .. > as 'o, 'v) method_ -> ('p -> 'v) -> ('p -> 'o) t =
@@ -257,6 +290,7 @@ sig
    * endpoint sequence.
    *)
   val partial_force : 'x t lazy_t list -> 'x t -> 'x t
+
 end = struct
   type _ t =
     | SeqCons : 'hd Mergeable.t * 'tl t -> [`cons of 'hd * 'tl] t
@@ -303,11 +337,11 @@ end = struct
 
   let rec seq_merge : type x. x t -> x t -> x t = fun l r ->
     match l,r with
-    | _, SeqCons(_,_) -> seq_merge r l
     | SeqCons(_,_), _ ->
        let hd = Mergeable.merge (seq_head l) (seq_head r) in
        let tl = seq_merge (seq_tail l) (seq_tail r) in
        SeqCons(hd, tl)
+    | _, SeqCons(_,_) -> seq_merge r l
     (* delayed constructors are left as-is *)
     | SeqRecVars(us1), SeqRecVars(us2) -> SeqRecVars(us1 @ us2)
     (* repeat *)
@@ -378,19 +412,6 @@ let get_ep : ('x0, 'x1, 'ep, 'x2, 'seq, 'x3) role -> 'seq -> 'ep = fun r g ->
   let ep = Seq.get r.lens g in
   Mergeable.out ep
 
-let a = {label={make_obj=(fun v->object method role_A=v end);
-                call_obj=(fun o->o#role_A)};
-         lens=Zero}
-let b = {label={make_obj=(fun v->object method role_B=v end);
-                call_obj=(fun o->o#role_B)};
-         lens=Succ Zero}
-let c = {label={make_obj=(fun v->object method role_C=v end);
-                call_obj=(fun o->o#role_C)};
-         lens=Succ (Succ Zero)}
-let d = {label={make_obj=(fun v->object method role_D=v end);
-                call_obj=(fun o->o#role_D)};
-         lens=Succ (Succ (Succ Zero))}
-
 module type LIN = sig
   type 'a lin
   val mklin : 'a -> 'a lin
@@ -413,6 +434,19 @@ end
 type ('la,'lb,'va,'vb) label =
   {obj: ('la, 'va) method_;
    var: 'vb -> 'lb}
+
+let a = {label={make_obj=(fun v->object method role_A=v end);
+                call_obj=(fun o->o#role_A)};
+         lens=Zero}
+let b = {label={make_obj=(fun v->object method role_B=v end);
+                call_obj=(fun o->o#role_B)};
+         lens=Succ Zero}
+let c = {label={make_obj=(fun v->object method role_C=v end);
+                call_obj=(fun o->o#role_C)};
+         lens=Succ (Succ Zero)}
+let d = {label={make_obj=(fun v->object method role_D=v end);
+                call_obj=(fun o->o#role_D)};
+         lens=Succ (Succ (Succ Zero))}
 
 let msg =
   {obj={make_obj=(fun f -> object method msg=f end);

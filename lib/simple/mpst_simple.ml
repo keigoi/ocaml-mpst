@@ -90,6 +90,9 @@ end
 
 include MakeGlobal(struct type 'a lin = 'a let mklin x = x let unlin x = x end)
 
-let send (Out(channel,cont)) v = Event.sync (Event.send !channel v); Mergeable.out cont
-let receive ev = Event.sync ev
+let send (Out(channel,cont)) v =
+  Event.sync (Event.send !channel v);
+  Mergeable.out cont
+let receive ev =
+  Event.sync ev
 let close _ = ()

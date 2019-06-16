@@ -25,7 +25,7 @@ let choice_at : 'k 'ep 'ep_l 'ep_r 'g0_l 'g0_r 'g1 'g2.
     Seq.put r'.lens g0left (Mergeable.make_no_merge Close),
     Seq.put r''.lens g0right (Mergeable.make_no_merge Close) in
   let g1 = Seq.seq_merge g1left g1right in
-  let ep = Mergeable.obj_disjoint merge epL epR
+  let ep = Mergeable.disjoint_merge merge epL epR
   in
   let g2 = Seq.put r.lens g1 ep
   in
@@ -40,8 +40,8 @@ module MakeGlobal(X:LIN) = struct
     X.mklin (Out(s1, c12))
 
   let make_send rB lab (ph: _ Event.channel ref) epA =
-    Mergeable.obj rB.label
-      (Mergeable.obj lab.obj
+    Mergeable.wrap_obj rB.label
+      (Mergeable.wrap_obj lab.obj
          (Mergeable.make_with_hook
             (lazy (Mergeable.resolve_merge epA))
             merge_out
@@ -53,9 +53,9 @@ module MakeGlobal(X:LIN) = struct
     let ev =
         Event.wrap
           (Event.guard (fun () -> Event.receive !ph))
-          (fun v -> lab.var (v, X.mklin (Mergeable.out epB)))
+          (fun v -> lab.var (v, X.mklin (fst (Mergeable.out epB))))
     in
-    Mergeable.obj rA.label
+    Mergeable.wrap_obj rA.label
       (Mergeable.make_with_hook
          (lazy (Mergeable.resolve_merge epB))
          merge_in
@@ -83,7 +83,7 @@ include MakeGlobal(struct type 'a lin = 'a let mklin x = x let unlin x = x end)
 
 let send (Out(channel,cont)) v =
   Event.sync (Event.send !channel v);
-  Mergeable.out cont
+  fst (Mergeable.out cont)
 let receive ev =
   Event.sync ev
 let close _ = ()

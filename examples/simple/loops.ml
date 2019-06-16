@@ -1,17 +1,4 @@
 open Mpst_simple
-let a = {label={make_obj=(fun v->object method role_A=v end);
-                call_obj=(fun o->o#role_A)};
-         lens=Succ Zero}
-let b = {label={make_obj=(fun v->object method role_B=v end);
-                call_obj=(fun o->o#role_B)};
-         lens=Succ (Succ Zero)}
-let c = {label={make_obj=(fun v->object method role_C=v end);
-                call_obj=(fun o->o#role_C)};
-         lens=Zero}
-let d = {label={make_obj=(fun v->object method role_D=v end);
-                call_obj=(fun o->o#role_D)};
-         lens=Succ (Succ (Succ Zero))}
-
 let left_middle_or_right =
   {obj_merge=(fun l r -> object method left=l#left method middle=l#middle method right=r#right end);
    obj_splitL=(fun lr -> (lr :> <left : _; middle: _>));
@@ -36,6 +23,16 @@ let middle_or_right =
    obj_splitR=(fun lr -> (lr :> <right : _>));
   }
 
+let loop0 =
+  print_endline"loop0";
+  let g = fix (fun t -> (a --> b) msg @@ t) in
+  print_endline"loop0 epp a";
+  let _ = get_ep a g in
+  print_endline"loop0 epp b";
+  let _ = get_ep b g in
+  print_endline"loop0 done";
+  ()
+
 let loop1 () =
   fix (fun t ->
         choice_at a (to_b left_middle_or_right)
@@ -59,9 +56,9 @@ let tA ea finally =
 let tB eb finally =
   let rec loop eb =
     match Event.sync (eb#role_A) with
-    | `left(_,eb) -> print_endline"left"; loop eb
-    | `middle(_,eb) -> print_endline"middle"; loop eb
-    | `right(_,eb) -> print_endline"right"; finally eb
+    | `left(_,eb) -> (* print_endline"left";  *)loop eb
+    | `middle(_,eb) -> (* print_endline"middle";  *)loop eb
+    | `right(_,eb) -> (* print_endline"right";  *)finally eb
   in
   loop eb
   
@@ -129,3 +126,74 @@ let () =
     ignore (loop 5 ec)
   end;
   print_endline "loop2 done"
+
+let test1 =
+    let g =
+      fix (fun t ->
+        (a --> c) msg @@
+          (a --> b) msg @@
+            (a --> b) msg @@ t)
+    in
+    print_endline"test1";
+    ignore (get_ep c g);
+    print_endline"test1 done"
+  
+let test2 =
+  print_endline "test2";
+  let g = 
+    fix (fun t ->
+      (a --> b) left @@
+      choice_at a (to_b left_or_right)
+        (a, t)
+        (a, (a --> b) right @@ finish))
+  in
+  print_endline "test2 epp-a";
+  ignore (get_ep a g);
+  print_endline "test2 epp-a done";
+  ignore (get_ep b g);
+  print_endline "test2 done";
+  ()
+  
+let test3 =
+  print_endline "test3";
+  let g = 
+    fix (fun t ->
+      (a --> b) right @@
+      fix (fun u ->    
+          choice_at a (to_b left_or_right)
+          (a, (a --> b) left @@ u)
+          (a, t)))
+  in
+  ignore (get_ep a g);
+  print_endline "test3 epp-a done";
+  ignore (get_ep b g);
+  print_endline "test3 done";
+  ()
+  
+let test4 =
+  print_endline "test4";
+  try
+    let bogus = fix (fun t -> fix (fun u -> t)) in
+    let _g =
+      (a --> b) msg @@
+        bogus
+    in
+    ()
+  with
+    CamlinternalLazy.Undefined ->
+    print_endline "exception correctly occurred"
+
+let test5 =
+  print_endline "test5";
+  try
+    let _g =
+      choice_at a (to_b left_or_right)
+        (a, (a --> b) left @@
+            fix (fun t -> (a --> b) msg @@ t))
+        (a, (a --> b) right @@
+            (a --> c) msg @@ finish)
+    in
+    failwith "unexpected (test5)"
+  with
+    Mpst_common.Seq.UnguardedLoopSeq ->
+    print_endline "exception correctly occured"

@@ -314,7 +314,7 @@ sig
   (** lens put function *)
   val put : ('a, 'b, 'xs, 'ys) lens -> 'xs -> 'b Mergeable.t -> 'ys
 
-  (** merging of two sequences for choice  *)
+  (** merging of two sequences in a choice  *)
   val seq_merge : 'x t -> 'x t -> 'x t
 
   (**
@@ -323,7 +323,7 @@ sig
    * fixpoint combinator. This enables a "fail-fast" policy to handle unguarded recursions --
    * it would raise an exception if there is an unguarded occurrence of a recursion variable.
    * This fuction is called during the initial construction phase of an 
-   * endpoint sequence.
+   * endpoint sequence (fix).
    *)
   val partial_force : 'x t lazy_t list -> 'x t -> 'x t
 

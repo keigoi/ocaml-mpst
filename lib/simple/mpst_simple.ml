@@ -11,7 +11,7 @@ let unify a b = a := !b
 let finish : ([`cons of close * 'a] as 'a) Seq.t =
   SeqRepeat(Mergeable.make_no_merge Close)
 
-let choice_at : 'k 'ep 'ep_l 'ep_r 'g0_l 'g0_r 'g1 'g2.
+let choice_at : 'ep 'ep_l 'ep_r 'g0_l 'g0_r 'g1 'g2.
                   (_, _, close, (< .. > as 'ep), 'g1 Seq.t, 'g2 Seq.t) role ->
                 ('ep, < .. > as 'ep_l, < .. > as 'ep_r) obj_merge ->
                 (_, _, 'ep_l, close, 'g0_l Seq.t, 'g1 Seq.t) role * 'g0_l Seq.t ->
@@ -61,9 +61,9 @@ module MakeGlobal(X:LIN) = struct
          merge_in
          ev)
 
-  let ( --> ) : 'roleAVar 'labelvar 'epA 'roleBobj 'g1 'g2 'labelobj 'epB 'g0 'v.
-    (< .. > as 'roleAvar, 'labelvar Event.event, 'epA, 'roleBobj, 'g1, 'g2) role ->
-    (< .. > as 'roleBobj, 'labelobj,             'epB, 'roleAvar, 'g0, 'g1) role ->
+  let ( --> ) : 'roleAobj 'labelvar 'epA 'roleBobj 'g1 'g2 'labelobj 'epB 'g0 'v.
+    (< .. > as 'roleAobj, 'labelvar Event.event, 'epA, 'roleBobj, 'g1, 'g2) role ->
+    (< .. > as 'roleBobj, 'labelobj,             'epB, 'roleAobj, 'g0, 'g1) role ->
     (< .. > as 'labelobj, [> ] as 'labelvar, ('v * 'epA) out X.lin, 'v * 'epB X.lin) label ->
     'g0 -> 'g2
     = fun rA rB label g0 ->

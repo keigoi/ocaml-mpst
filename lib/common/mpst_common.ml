@@ -74,16 +74,17 @@ sig
   (** disjoint merging *)
   val disjoint_merge : ('lr,'l,'r) obj_merge -> 'l t -> 'r t -> 'lr t
 
-  (* val objfun :
-   *   ('v -> 'v -> 'v) ->
-   *   (< .. > as 'a, 'v) method_ -> ('p -> 'v) -> ('p -> 'a) t
-   * val apply : ('a -> 'b) t -> 'a -> 'b t *)
+  val objfun :
+    ('v -> 'v -> 'v) ->
+    (< .. > as 'a, 'v) method_ -> ('p -> 'v) -> ('p -> 'a) t
+  val apply : ('a -> 'b) t -> 'a -> 'b t
 end
   = struct
   (**
    * Mergeable will delay all mergings involving recursion variables inside
    * "cache" type. At the same time, all recursion variables are guarded by
-   * one of the following constructors.
+   * one of the following constructors if it is guarded by (-->) or choice_at
+   * in global expression.
    * When a cache is forced, it checks recurring occurence of a variable inside
    * merging and remove them. Since all recursion variables are guarded, and are 
    * fully evaluated before actual merging happens, 
@@ -244,7 +245,7 @@ end
     | Val (b,h) ->
        Val (obj_body meth b,h)
     | Disj (_,_,_,_) ->
-       failwith "obj_raw" (* *)
+       failwith "wrap_obj_singl: Disj" (* XXX *)
     | RecVar (t, _) ->
        make_recvar_single (lazy (wrap_obj meth (Lazy.force t)))
 
@@ -257,32 +258,28 @@ end
        (* prerr_endline "WARNING: internal choice involves recursion variable"; *)
        merge_disj_ mrg l r
 
-  (* let rec applybody : 'a 'b. ('a -> 'b) u -> 'a -> 'b u = fun f v ->
-   *   match f with
-   *   | RecVar (t, d) ->
-   *      make_recvar_ (lazy (apply (Lazy.force t) v))
-   *   | Val f ->
-   *      val_ (fun othr ->
-   *          match othr with
-   *          | Some othr -> f (Some (fun _ -> othr)) v (\* XXX *\)
-   *          | None -> f None v) *)
+  let rec apply_single : 'a 'b. ('a -> 'b) single -> 'a -> 'b single = fun f v ->
+    match f with
+    | RecVar (t, d) ->
+       make_recvar_single (lazy (apply (Lazy.force t) v))
+    | Val (b,h) ->
+       Val ({value=b.value v; merge=(fun l r -> b.merge (fun _ -> l) (fun _ -> r) v)}, h)
+    | Disj (_,_,_,_) ->
+       failwith "apply_single: Disj" (* XXX *)
       
-  (* and apply : 'a 'b. ('a -> 'b) t -> 'a -> 'b t = fun f v ->
-   *   match f with
-   *   | MLazy(ds, _) ->
-   *      merge_lazy_ (List.map (fun d -> applybody d v) ds)
-   *   | M f -> M (applybody f v) *)
+  and apply : 'a 'b. ('a -> 'b) t -> 'a -> 'b t = fun f v ->
+    match f with
+    | Merge(ds, _) ->
+       merge_lazy_ (List.map (fun d -> apply_single d v) ds)
+    | Single f -> Single (apply_single f v)
 
-  (* let objfun
-   *     : 'o 'v 'p. ('v -> 'v -> 'v) -> (< .. > as 'o, 'v) method_ -> ('p -> 'v) -> ('p -> 'o) t =
-   *   fun merge meth val_ ->
-   *   make_bare (fun obj p ->
-   *       match obj with
-   *       | None ->
-   *          meth.make_obj (val_ p)
-   *       | Some obj ->
-   *          let val2 = meth.call_obj (obj p) in
-   *          meth.make_obj (merge (val_ p) val2)) *)
+  let objfun
+      : 'o 'v 'p. ('v -> 'v -> 'v) -> (< .. > as 'o, 'v) method_ -> ('p -> 'v) -> ('p -> 'o) t =
+    fun merge meth f  ->
+    Single (Val ({value=(fun x -> meth.make_obj (f x));
+                  merge=(fun l r x ->
+                    meth.make_obj (merge (meth.call_obj (l x)) ((meth.call_obj (r x)))))},
+                 Lazy.from_val ()))
 end
 
 (**

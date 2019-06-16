@@ -32,13 +32,13 @@ module Make(X:Mpst_base.S.RAW)(E:EVENT) = struct
       Seq.put r'.lens g0left (Mergeable.make_no_merge ()),
       Seq.put r''.lens g0right (Mergeable.make_no_merge ()) in
     let g1 = Seq.seq_merge g1left g1right in
-    let ep =
-      Mergeable.make_bare @@ (fun obj kt ->
-        let oleft, oright = Mergeable.unwrap epL, Mergeable.unwrap epR in
-        let oleft = oleft (map_option (fun objf kt -> merge.obj_splitL (objf kt)) obj)
-        and oright = oright (map_option (fun objf kt -> merge.obj_splitR (objf kt)) obj) in
-        merge.obj_merge (oleft kt) (oright kt))
+    let mrgfun =
+      {obj_merge=(fun l r -> (fun kt -> merge.obj_merge (l kt) (r kt)));
+       obj_splitL=(fun lr -> (fun kt -> merge.obj_splitL (lr kt)));
+       obj_splitR=(fun lr -> (fun kt -> merge.obj_splitR (lr kt)));
+      }
     in
+    let ep = Mergeable.disjoint_merge mrgfun epL epR in
     let g2 = Seq.put r.lens g1 ep
     in
     g2

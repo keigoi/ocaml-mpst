@@ -60,7 +60,7 @@ sig
   (** merges list of mergeables into one *)
   val merge_all : 'a t list -> 'a t
   (** extract a value from a mergeable *)
-  val out : 'a t -> 'a * hook
+  val out : 'a t -> 'a
   (**
    * resolve_merge: resolve all delayed merges.
    * calls to this function from (-->) combinator is delayed until get_ep phase
@@ -80,6 +80,15 @@ sig
    * val apply : ('a -> 'b) t -> 'a -> 'b t *)
 end
   = struct
+  (**
+   * Mergeable will delay all mergings involving recursion variables inside
+   * "cache" type. At the same time, all recursion variables are guarded by
+   * one of the following constructors.
+   * When a cache is forced, it checks recurring occurence of a variable inside
+   * merging and remove them. Since all recursion variables are guarded, and are 
+   * fully evaluated before actual merging happens, 
+   * no "CamlinternalLazy.Undefined" exception will occur during merging.
+   *)
   type 'a t =
     | Single of 'a single
     | Merge  of 'a single list * 'a cache
@@ -119,8 +128,7 @@ end
   let rec out_ : type x. x t lazy_t list -> x t -> x body * hook =
     fun hist t ->
     match t with
-    | Single u -> print_endline"out-single";out_single hist u
-    | Merge (_, d) when Lazy.is_val d -> (Lazy.force d, Lazy.from_val ())
+    | Single u -> out_single hist u
     | Merge (ds, _) ->
        (* remove unguarded recursions *)
        let solved : (x body * hook) list =
@@ -152,43 +160,32 @@ end
       | Val (v,hook) ->
          (v,hook)
       | RecVar (t, d) ->
-         if Lazy.is_val d then begin
-             (Lazy.force d, Lazy.from_val ())
-           end else begin
-             if find_physeq hist t then
-               raise UnguardedLoop
-             else
-               let b, _ = out_ (t::hist) (Lazy.force t) in
-               b, Lazy.from_val () (* dispose the hook -- recvar is already evaluated *)
-           end
+         if find_physeq hist t then begin
+           raise UnguardedLoop
+         end else
+           let b, _ = out_ (t::hist) (Lazy.force t) in
+           b, Lazy.from_val () (* dispose the hook -- recvar is already evaluated *)
       | Disj (l,r,mrg,d) ->
-         if Lazy.is_val d then begin
-             (Lazy.force d, Lazy.from_val ())
-           end else begin
-             let l, hl = out_ [] l in
-             let r, hr = out_ [] r in
-             disj_merge_body mrg (l,hl) (r,hr)
-           end
+         let l, hl = out_ [] l in
+         let r, hr = out_ [] r in
+         disj_merge_body mrg (l,hl) (r,hr)
 
-  let out : 'a. 'a t -> 'a * hook = fun g ->
-    let v,h = out_ [] g in v.value, h
-
-  let ext d =
+  let ext_ d =
     let v,h = out_ [] d in
     Lazy.force h;
     v
 
   let merge_lazy_ : 'a. 'a single list -> 'a t = fun us ->
-    let rec d = Merge (us, lazy (ext d))
+    let rec d = Merge (us, lazy (ext_ d))
     in d
 
   let merge_disj_ : 'lr 'l 'r. ('lr,'l,'r) obj_merge -> 'l t -> 'r t -> 'lr t =
     fun mrg l r ->
-    let rec d = Single (Disj (l,r,mrg, lazy (ext d)))
+    let rec d = Single (Disj (l,r,mrg, lazy (ext_ d)))
     in d
 
   let make_recvar_single t =
-    let rec d = RecVar (t, lazy (ext (Single d)))
+    let rec d = RecVar (t, lazy (ext_ (Single d)))
     in d
 
   let make_recvar t =
@@ -213,16 +210,20 @@ end
     | [] -> failwith "merge_all: empty"
     | m::ms -> List.fold_left merge m ms
 
-  let rec resolve_merge : 'a. 'a t -> unit = fun t ->
+  let out : 'a. 'a t -> 'a = fun t ->
     match t with
-    | Single (Val (_,h)) ->
-       Lazy.force h
+    | Single (Val (b,h)) ->
+       Lazy.force h;
+       b.value
     | Single (RecVar (_,d)) ->
-       ignore (Lazy.force d)
+       (Lazy.force d).value
     | Single (Disj (_,_,_,d)) ->
-       ignore (Lazy.force d)
+       (Lazy.force d).value
     | Merge (_,d) ->
-       ignore (Lazy.force d)
+       (Lazy.force d).value
+
+  let resolve_merge : 'a. 'a t -> unit = fun t ->
+    ignore (out t)
 
   let rec obj_body : 'v. (< .. > as 'o, 'v) method_ -> 'v body -> 'o body = fun meth v ->
     {value=meth.make_obj v.value;
@@ -407,7 +408,7 @@ end = struct
        partial_force [] (resolve_seqvar_ [] d)
     | SeqRecVars ds ->
        (* A choice between recursion variables -- do not try to resolve. 
-        * (FIXME: when does this happen actually)
+        * (will happen at after c of fix (fun t -> choice (a->b)t (a->b)t))
         * Mergeable.resolve_merge will resolve it later during get_ep
         *)
        SeqRecVars ds
@@ -435,7 +436,7 @@ let fix : type t. (t Seq.t -> t Seq.t) -> t Seq.t = fun f ->
       end
   in
   (* A "fail-fast" approach to detect unguarded loops.
-   * Seq.partial_force tres to fully evaluate unguarded recursion variables 
+   * Seq.partial_force tries to fully evaluate unguarded recursion variables 
    * in the body.
    *)
   Seq.partial_force [body] (Lazy.force body)
@@ -448,9 +449,7 @@ type close = Close
 
 let get_ep : ('x0, 'x1, 'ep, 'x2, 'seq, 'x3) role -> 'seq -> 'ep = fun r g ->
   let ep = Seq.get r.lens g in
-  let b,h = Mergeable.out ep in
-  Lazy.force h;
-  b
+  Mergeable.out ep
 
 module type LIN = sig
   type 'a lin

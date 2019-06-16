@@ -53,7 +53,7 @@ module MakeGlobal(X:LIN) = struct
     let ev =
         Event.wrap
           (Event.guard (fun () -> Event.receive !ph))
-          (fun v -> lab.var (v, X.mklin (fst (Mergeable.out epB))))
+          (fun v -> lab.var (v, X.mklin (Mergeable.out epB)))
     in
     Mergeable.wrap_obj rA.label
       (Mergeable.make_with_hook
@@ -83,7 +83,7 @@ include MakeGlobal(struct type 'a lin = 'a let mklin x = x let unlin x = x end)
 
 let send (Out(channel,cont)) v =
   Event.sync (Event.send !channel v);
-  fst (Mergeable.out cont)
+  Mergeable.out cont
 let receive ev =
   Event.sync ev
 let close _ = ()

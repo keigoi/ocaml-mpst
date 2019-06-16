@@ -42,81 +42,76 @@ type ('la,'va) method_ =
  *
  * Mergeable can be created with hooks. 
  *)
-module Mergeable :
-sig
-  (** mergeable endpoint *)
-  type 'a t
-  (** makes a mergeable from a merge function and a value *)
-  val make : ('a -> 'a -> 'a) -> 'a -> 'a t
-  val make_bare : ('a option -> 'a) -> 'a t
-  (** makes a delayed mergeable *) 
-  val make_recvar : 'a t lazy_t -> 'a t
-  (** makes a mergeable with a hook. The hook is called once the body is called. *)
-  val make_with_hook : ('a -> unit) -> ('a -> 'a -> 'a) -> 'a -> 'a t
-  (** makes a constant mergeable which does not merge anything, keeping the constant intact.
-   *  This is used for making a closed endpoint. *)
-  val make_no_merge : 'a -> 'a t
-  (** merges two mergeables *)
-  val merge : 'a t -> 'a t -> 'a t
-  (** merges list of mergeables in order *)
-  val merge_all : 'a t list -> 'a t
-  (** extract a value from a mergeable *)
-  val out : 'a t -> 'a
-  (** unwrap *)
-  val unwrap : 'a t -> 'a option -> 'a
-  (**
-   * resolve_merge: try to resolve all delayed choices and recursion variables.
-   * calls to this function from (-->) combinator is delayed until get_ep phase
-   * (i.e. after evaluating global combinators) by using hooks.
-   *)
-  val resolve_merge : 'a t -> unit
-
-  (** wrap mergeable in an object *)
-  val obj : (< .. > as 'o, 'v) method_ -> 'v t -> 'o t
-
-  val objfun :
-    ('v -> 'v -> 'v) ->
-    (< .. > as 'a, 'v) method_ -> ('p -> 'v) -> ('p -> 'a) t
-  val apply : ('a -> 'b) t -> 'a -> 'b t
-end
+module Mergeable(*  :
+ * sig
+ *   (\** mergeable endpoint *\)
+ *   type 'a t
+ *   (\** makes a mergeable from a merge function and a value *\)
+ *   val make : ('a -> 'a -> 'a) -> 'a -> 'a t
+ *   val make_bare : ('a option -> 'a) -> 'a t
+ *   (\** makes a delayed mergeable *\) 
+ *   val make_recvar : 'a t lazy_t -> 'a t
+ *   (\** makes a mergeable with a hook. The hook is called once the body is called. *\)
+ *   val make_with_hook : ('a -> unit) -> ('a -> 'a -> 'a) -> 'a -> 'a t
+ *   (\** makes a constant mergeable which does not merge anything, keeping the constant intact.
+ *    *  This is used for making a closed endpoint. *\)
+ *   val make_no_merge : 'a -> 'a t
+ *   (\** merges two mergeables *\)
+ *   val merge : 'a t -> 'a t -> 'a t
+ *   (\** merges list of mergeables in order *\)
+ *   val merge_all : 'a t list -> 'a t
+ *   (\** extract a value from a mergeable *\)
+ *   val out : 'a t -> 'a
+ *   (\** unwrap *\)
+ *   val unwrap : 'a t -> 'a option -> 'a
+ *   (\**
+ *    * resolve_merge: try to resolve all delayed choices and recursion variables.
+ *    * calls to this function from (-->) combinator is delayed until get_ep phase
+ *    * (i.e. after evaluating global combinators) by using hooks.
+ *    *\)
+ *   val resolve_merge : 'a t -> unit
+ * 
+ *   (\** wrap mergeable in an object *\)
+ *   val obj : (< .. > as 'o, 'v) method_ -> 'v t -> 'o t
+ * 
+ *   val objfun :
+ *     ('v -> 'v -> 'v) ->
+ *     (< .. > as 'a, 'v) method_ -> ('p -> 'v) -> ('p -> 'a) t
+ *   val apply : ('a -> 'b) t -> 'a -> 'b t *)
+(* end *)
   = struct
   type 'a t =
     | M of 'a u
-    | MLazy of 'a u list * 'a cache
+    | MLazy of 'a u list * 'a body lazy_t
   and 'a u =
-    | Val of ('a option -> 'a)
-    | RecVar of 'a t lazy_t * 'a cache
-  and 'a cache = ('a option -> 'a) lazy_t
+    | Val of 'a body
+    | RecVar of 'a t lazy_t * 'a body lazy_t
+  and 'a body =
+    {merge: 'a -> 'a -> 'a;
+     value: 'a;
+     hook: unit lazy_t}
 
-  let val_ f =
-    Val (function
-        | None -> f None
-        | Some v -> f (Some v))
+  let val_ m v =
+    Val {merge=m; value=v; hook=Lazy.from_val ()}
+
+  let val_hook hook m v =
+    Val {merge=m; value=v; hook}
 
   let make mrg v =
-    M (val_ (function
-           | None -> v
-           | Some v2 -> mrg v v2))
+    M (val_ mrg v)
 
-  let make_with_hook hook mrg v1 =
-    M (val_ (function
-           | None -> (hook v1 : unit); v1
-           | Some v2 -> let v12 = mrg v1 v2 in hook v12; v12))
+  let make_with_hook hook mrg v =
+    M (Val {merge=mrg;hook;value=v})
     
-  let make_bare : 'a. ('a option -> 'a) -> 'a t  = fun v ->
-    M (val_ v)
+  (* let make_bare : 'a. ('a option -> 'a) -> 'a t  = fun v ->
+   *   M (val_ v) *)
     
   let make_no_merge : 'a. 'a -> 'a t  = fun v ->
-    M (val_ (fun _ -> v))
+    M (val_ (fun x _ -> x) v)
                     
-  type 'a merge__ = 'a option -> 'a
-
-  let merge0 : type x. x merge__ -> x merge__ -> x merge__ = fun l r ->
-    fun obj -> l (Some (r obj))
-
   exception UnguardedLoop
 
-  let rec out_checked_ : type x. x t lazy_t list -> x t -> x option -> x =
+  let rec out_checked_ : type x. x t lazy_t list -> x t -> x body =
     fun hist t ->
     let resolve d =
       if find_physeq hist d then
@@ -125,12 +120,14 @@ end
         out_checked_ (d::hist) (Lazy.force d)
     in
     match t with
-    | M (Val x) -> x
+    | M (Val v) -> v
     | M (RecVar (t, d)) ->
        if Lazy.is_val d then begin
            Lazy.force d
          end else begin
-           resolve t
+           (* resolve t *)
+           let b = resolve t in
+           {b with hook=Lazy.from_val ()}
          end
     | MLazy (ds, d) ->
        if Lazy.is_val d then begin
@@ -142,7 +139,8 @@ end
                  | Val v -> v :: acc
                  | RecVar (t, _) ->
                     try
-                      resolve t :: acc
+                      let b = resolve t in
+                      {b with hook=Lazy.from_val ()} :: acc
                     with
                       UnguardedLoop ->
                       print_endline "WARNING: an unbalanced loop detected";
@@ -153,21 +151,28 @@ end
            | [] ->
               raise UnguardedLoop (* FIXME: correct?? *)
            | x::xs ->
-              List.fold_left merge0 x xs
+              {value=List.fold_left x.merge x.value (List.map (fun x->x.value) xs);
+               merge=x.merge;
+               hook=(lazy (Lazy.force x.hook; List.iter (fun x -> Lazy.force x.hook) xs))}
          end
 
-  let out : 'a. 'a t -> 'a = fun g ->
-    out_checked_ [] g None
-
-  let unwrap : 'a. 'a t -> 'a option -> 'a = fun g ->
+  let out_body : 'a. 'a t -> 'a body = fun g ->
     out_checked_ [] g
 
+  let out : 'a. 'a t -> 'a = fun g ->
+    (out_checked_ [] g).value
+
+  let unwrap : 'a. 'a t -> 'a option -> 'a = fun g ->
+    function
+    | None -> (out_checked_ [] g).value
+    | Some v2 -> let v = out_checked_ [] g in v.merge v.value v2
+
   let merge_lazy_ : 'a. 'a u list -> 'a t = fun us ->
-    let rec d = MLazy (us, lazy (unwrap d))
+    let rec d = MLazy (us, lazy (out_checked_ [] d))
     in d
 
   let make_recvar_ t =
-    let rec d = (RecVar (t, lazy (unwrap (M d))))
+    let rec d = (RecVar (t, lazy (out_checked_ [] (M d))))
     in d
 
   let make_recvar t =
@@ -177,7 +182,7 @@ end
     fun l r ->
     match l, r with
     | M (Val ll), M (Val rr) ->
-       M (val_ (merge0 ll rr))
+       M (val_hook (lazy (Lazy.force ll.hook; Lazy.force (rr.hook))) ll.merge (ll.merge ll.value rr.value)) 
     | M v1, M v2 ->
        merge_lazy_ [v1; v2]
     | M v, MLazy (ds,_) | MLazy (ds,_), M v ->
@@ -191,59 +196,76 @@ end
 
   let rec resolve_merge : 'a. 'a t -> unit = fun t ->
     match t with
-    | M (Val _) ->
+    | M (Val b) ->
        (* already evaluated *)
-       ()
-    | M (RecVar (_, d)) | MLazy (_, d) ->
+       Lazy.force b.hook
+    | M (RecVar (_, d)) ->
+       let v = Lazy.force d in Lazy.force v.hook
+    | MLazy (_, d) ->
        (* try to resolve it -- a recursion variable or delayed merge *)
-       let _ = Lazy.force d in ()
+       let v = Lazy.force d in
+       Lazy.force v.hook
 
-  let rec applybody : 'a 'b. ('a -> 'b) u -> 'a -> 'b u = fun f v ->
-    match f with
-    | RecVar (t, d) ->
-       make_recvar_ (lazy (apply (Lazy.force t) v))
-    | Val f ->
-       val_ (fun othr ->
-           match othr with
-           | Some othr -> f (Some (fun _ -> othr)) v (* XXX *)
-           | None -> f None v)
+  (* let rec applybody : 'a 'b. ('a -> 'b) u -> 'a -> 'b u = fun f v ->
+   *   match f with
+   *   | RecVar (t, d) ->
+   *      make_recvar_ (lazy (apply (Lazy.force t) v))
+   *   | Val f ->
+   *      val_ (fun othr ->
+   *          match othr with
+   *          | Some othr -> f (Some (fun _ -> othr)) v (\* XXX *\)
+   *          | None -> f None v) *)
       
-  and apply : 'a 'b. ('a -> 'b) t -> 'a -> 'b t = fun f v ->
-    match f with
-    | MLazy(ds, _) ->
-       merge_lazy_ (List.map (fun d -> applybody d v) ds)
-    | M f -> M (applybody f v)
+  (* and apply : 'a 'b. ('a -> 'b) t -> 'a -> 'b t = fun f v ->
+   *   match f with
+   *   | MLazy(ds, _) ->
+   *      merge_lazy_ (List.map (fun d -> applybody d v) ds)
+   *   | M f -> M (applybody f v) *)
 
-  let rec obj_raw = fun meth f ->
-    function
-    | None ->
-       meth.make_obj (f None)
-    | Some o ->
-       meth.make_obj (f (Some (meth.call_obj o)))
-      
-  let rec obj : 'v. (< .. > as 'o, 'v) method_ -> 'v t -> 'o t = fun meth v ->
+  let rec obj_body : 'v. (< .. > as 'o, 'v) method_ -> 'v body -> 'o body = fun meth v ->
+    {value=meth.make_obj v.value;
+     merge=(fun l r ->
+       let ll = meth.call_obj l
+       and rr = meth.call_obj r
+       in
+       meth.make_obj (v.merge ll rr));
+     hook=v.hook}
+    
+  let rec obj_raw : 'v. (< .. > as 'o, 'v) method_ -> 'v u -> 'o u = fun meth v ->
     match v with
-    | M (Val f) ->
-       M (val_ (obj_raw meth f))
-    | M (RecVar (t, _)) ->
-       M (make_recvar_ (lazy (obj meth (Lazy.force t))))
+    | Val b ->
+       Val (obj_body meth b)
+    | RecVar (t, _) ->
+       make_recvar_ (lazy (obj meth (Lazy.force t)))
+  and obj : 'v. (< .. > as 'o, 'v) method_ -> 'v t -> 'o t = fun meth v ->
+    match v with
+    | M u -> M (obj_raw meth u)
     | MLazy (ds,_) ->
        merge_lazy_
-         (List.map
-            (function
-             | Val f -> val_ (obj_raw meth f)
-             | RecVar (t, _) -> make_recvar_ (lazy (obj meth (Lazy.force t)))) ds)
+         (List.map (obj_raw meth) ds)
 
-  let objfun
-      : 'o 'v 'p. ('v -> 'v -> 'v) -> (< .. > as 'o, 'v) method_ -> ('p -> 'v) -> ('p -> 'o) t =
-    fun merge meth val_ ->
-    make_bare (fun obj p ->
-        match obj with
-        | None ->
-           meth.make_obj (val_ p)
-        | Some obj ->
-           let val2 = meth.call_obj (obj p) in
-           meth.make_obj (merge (val_ p) val2))
+  let obj_disjoint : ('lr,'l,'r) obj_merge -> 'l t -> 'r t -> 'lr t = fun mrg l r ->
+    (* fixme *)
+    let ll = out_checked_ [] l
+    and rr = out_checked_ [] r
+    in
+    let merge lr1 lr2 =
+      mrg.obj_merge
+        (ll.merge (mrg.obj_splitL lr1) (mrg.obj_splitL lr2))
+        (rr.merge (mrg.obj_splitR lr1) (mrg.obj_splitR lr2))
+    in
+    M (Val {value=mrg.obj_merge ll.value rr.value; merge; hook=(lazy (Lazy.force ll.hook; Lazy.force rr.hook))})
+
+  (* let objfun
+   *     : 'o 'v 'p. ('v -> 'v -> 'v) -> (< .. > as 'o, 'v) method_ -> ('p -> 'v) -> ('p -> 'o) t =
+   *   fun merge meth val_ ->
+   *   make_bare (fun obj p ->
+   *       match obj with
+   *       | None ->
+   *          meth.make_obj (val_ p)
+   *       | Some obj ->
+   *          let val2 = meth.call_obj (obj p) in
+   *          meth.make_obj (merge (val_ p) val2)) *)
 end
 
 (**
@@ -410,7 +432,9 @@ type close = Close
 
 let get_ep : ('x0, 'x1, 'ep, 'x2, 'seq, 'x3) role -> 'seq -> 'ep = fun r g ->
   let ep = Seq.get r.lens g in
-  Mergeable.out ep
+  let m = Mergeable.out_body ep in
+  Lazy.force m.hook;
+  m.value
 
 module type LIN = sig
   type 'a lin

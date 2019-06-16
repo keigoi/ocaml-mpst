@@ -25,12 +25,7 @@ let choice_at : 'k 'ep 'ep_l 'ep_r 'g0_l 'g0_r 'g1 'g2.
     Seq.put r'.lens g0left (Mergeable.make_no_merge Close),
     Seq.put r''.lens g0right (Mergeable.make_no_merge Close) in
   let g1 = Seq.seq_merge g1left g1right in
-  let ep =
-    Mergeable.make_bare @@ (fun obj ->
-      let oleft, oright = Mergeable.unwrap epL, Mergeable.unwrap epR in
-      let oleft = oleft (map_option (fun objf -> merge.obj_splitL objf) obj)
-      and oright = oright (map_option (fun objf -> merge.obj_splitR objf) obj) in
-      merge.obj_merge oleft oright)
+  let ep = Mergeable.obj_disjoint merge epL epR
   in
   let g2 = Seq.put r.lens g1 ep
   in
@@ -38,10 +33,6 @@ let choice_at : 'k 'ep 'ep_l 'ep_r 'g0_l 'g0_r 'g1 'g2.
 
 module MakeGlobal(X:LIN) = struct
 
-  let hook_out out =
-    (* this is mandatory for fail-fast *)
-    Mergeable.resolve_merge (cont (X.unlin out))
-  
   let merge_out = fun out1 out2 ->
     let (Out(s1,c1), Out(s2,c2)) = X.unlin out1, X.unlin out2 in
     unify s1 s2;
@@ -52,7 +43,7 @@ module MakeGlobal(X:LIN) = struct
     Mergeable.obj rB.label
       (Mergeable.obj lab.obj
          (Mergeable.make_with_hook
-            hook_out
+            (lazy (Mergeable.resolve_merge epA))
             merge_out
             (X.mklin (Out(ph,epA)))))
 
@@ -66,7 +57,7 @@ module MakeGlobal(X:LIN) = struct
     in
     Mergeable.obj rA.label
       (Mergeable.make_with_hook
-         (fun _ -> Mergeable.resolve_merge epB)
+         (lazy (Mergeable.resolve_merge epB))
          merge_in
          ev)
 

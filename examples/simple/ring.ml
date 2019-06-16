@@ -80,14 +80,16 @@ let () = List.iter Thread.join [tA; tB; tC]
  *   (a, (a --> b) left  @@ (c --> b) left  @@ finish3)
  *   (a, (a --> b) right @@ (c --> b) right @@ finish3) *)
 
-let test =
+let test88 =
     let g =
       fix (fun t ->
         (a --> c) msg @@
           (a --> b) msg @@
             (a --> b) msg @@ t)
     in
-    ignore (get_ep c g)
+    print_endline"test88";
+    ignore (get_ep c g);
+    print_endline"test88 done"
        
 let test9 =
   let g =
@@ -99,8 +101,9 @@ let test9 =
                   (a, (a --> b) left @@ (a --> c) msg @@ t)
                   (a, u)))
   in
-  ignore (get_ep c g)
-
+  print_endline"test9";
+  ignore (get_ep c g);
+  print_endline"test9 done"
   
 let test10 =
     try

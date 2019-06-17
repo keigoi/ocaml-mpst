@@ -14,7 +14,7 @@ type ('lr, 'l, 'r) obj_merge =
   }
 
 type ('la,'va) method_ =
-  {make_obj: 'va -> 'la;
+  {make_obj: (unit -> 'va) -> 'la;
    call_obj: 'la -> 'va}
 
 (**
@@ -226,13 +226,14 @@ end
   let resolve_merge : 'a. 'a t -> unit = fun t ->
     ignore (out t)
 
-  let rec obj_body : 'v. (< .. > as 'o, 'v) method_ -> 'v body -> 'o body = fun meth v ->
-    {value=meth.make_obj v.value;
+  let wrap_obj_body : 'v. (< .. > as 'o, 'v) method_ -> 'v body -> 'o body = fun meth v ->
+    {value=meth.make_obj (fun () -> v.value);
      merge=(fun l r ->
        let ll = meth.call_obj l
        and rr = meth.call_obj r
        in
-       meth.make_obj (v.merge ll rr))}
+       let lr = v.merge ll rr in
+       meth.make_obj (fun () -> lr))}
 
   let rec wrap_obj : 'v. (< .. > as 'o, 'v) method_ -> 'v t -> 'o t = fun meth v ->
     match v with
@@ -243,7 +244,7 @@ end
   and wrap_obj_single : 'v. (< .. > as 'o, 'v) method_ -> 'v single -> 'o single = fun meth v ->
     match v with
     | Val (b,h) ->
-       Val (obj_body meth b,h)
+       Val (wrap_obj_body meth b,h)
     | Disj (_,_,_,_) ->
        failwith "wrap_obj_singl: Disj" (* XXX *)
     | RecVar (t, _) ->
@@ -276,9 +277,10 @@ end
   let objfun
       : 'o 'v 'p. ('v -> 'v -> 'v) -> (< .. > as 'o, 'v) method_ -> ('p -> 'v) -> ('p -> 'o) t =
     fun merge meth f  ->
-    Single (Val ({value=(fun x -> meth.make_obj (f x));
+    Single (Val ({value=(fun x -> let y = f x in meth.make_obj (fun () -> y));
                   merge=(fun l r x ->
-                    meth.make_obj (merge (meth.call_obj (l x)) ((meth.call_obj (r x)))))},
+                    let lr = (merge (meth.call_obj (l x)) ((meth.call_obj (r x)))) in
+                    meth.make_obj (fun () -> lr))},
                  Lazy.from_val ()))
 end
 
@@ -471,33 +473,33 @@ type ('la,'lb,'va,'vb) label =
   {obj: ('la, 'va) method_;
    var: 'vb -> 'lb}
 
-let a = {label={make_obj=(fun v->object method role_A=v end);
+let a = {label={make_obj=(fun v->object method role_A=v () end);
                 call_obj=(fun o->o#role_A)};
          lens=Zero}
-let b = {label={make_obj=(fun v->object method role_B=v end);
+let b = {label={make_obj=(fun v->object method role_B=v () end);
                 call_obj=(fun o->o#role_B)};
          lens=Succ Zero}
-let c = {label={make_obj=(fun v->object method role_C=v end);
+let c = {label={make_obj=(fun v->object method role_C=v () end);
                 call_obj=(fun o->o#role_C)};
          lens=Succ (Succ Zero)}
-let d = {label={make_obj=(fun v->object method role_D=v end);
+let d = {label={make_obj=(fun v->object method role_D=v () end);
                 call_obj=(fun o->o#role_D)};
          lens=Succ (Succ (Succ Zero))}
 
 let msg =
-  {obj={make_obj=(fun f -> object method msg=f end);
+  {obj={make_obj=(fun f -> object method msg=f () end);
         call_obj=(fun o -> o#msg)};
    var=(fun v -> `msg(v))}
 let left =
-  {obj={make_obj=(fun f -> object method left=f end);
+  {obj={make_obj=(fun f -> object method left=f () end);
         call_obj=(fun o -> o#left)};
    var=(fun v -> `left(v))}
 let right =
-  {obj={make_obj=(fun f -> object method right=f end);
+  {obj={make_obj=(fun f -> object method right=f () end);
         call_obj=(fun o -> o#right)};
    var=(fun v -> `right(v))}
 let middle =
-  {obj={make_obj=(fun f -> object method middle=f end);
+  {obj={make_obj=(fun f -> object method middle=f () end);
         call_obj=(fun o -> o#middle)};
    var=(fun v -> `middle(v))}
   

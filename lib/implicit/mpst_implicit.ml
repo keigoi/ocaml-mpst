@@ -53,15 +53,19 @@ module Make(X:Mpst_base.S.RAW)(E:EVENT) = struct
       let m1 = X.unlin (label.obj.call_obj m1) in
       let m2 = X.unlin (label.obj.call_obj m2) in
       let cont = Mergeable.merge m1.cont m2.cont in
-      label.obj.make_obj (X.mklin {outchan=m1.outchan; cont})
+      let ep = X.mklin {outchan=m1.outchan; cont} in
+      label.obj.make_obj (fun () -> ep)
 
     let make_send rB slab epA =
       let mergefun = merge_send slab.wraplabel in
       let outobj kt =
-        slab.wraplabel.obj.make_obj
-          (X.mklin
-             {outchan=(fun v -> slab.channel.sender (ConnTable.getone kt rB.lens) v);
-              cont=Mergeable.apply epA kt})
+        let ep =
+          X.mklin
+            {outchan=(fun v -> slab.channel.sender (ConnTable.getone kt rB.lens) v);
+             cont=Mergeable.apply epA kt}
+        in
+        slab.wraplabel.obj.make_obj (fun () -> ep)
+          
       in
       Mergeable.objfun mergefun rB.label outobj
 

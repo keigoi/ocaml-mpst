@@ -2,19 +2,19 @@
 open Mpst_simple
 
 let cli = {lens=Zero;
-           label={make_obj=(fun v->object method role_Cli=v () end);
+           label={make_obj=(fun v->object method role_Cli=v end);
                   call_obj=(fun o->o#role_Cli)}}
 let srv = {lens=Succ Zero;
-           label={make_obj=(fun v->object method role_Srv=v () end);
+           label={make_obj=(fun v->object method role_Srv=v end);
                   call_obj=(fun o->o#role_Srv)}}
 
-let compute = {obj={make_obj=(fun v-> object method compute=v () end);
+let compute = {obj={make_obj=(fun v-> object method compute=v end);
                     call_obj=(fun o->o#compute)};
                var=(fun v -> `compute(v))}
-let result = {obj={make_obj=(fun v-> object method result=v () end);
+let result = {obj={make_obj=(fun v-> object method result=v end);
                    call_obj=(fun o->o#result)};
               var=(fun v -> `result(v))}
-let answer = {obj={make_obj=(fun v-> object method answer=v () end);
+let answer = {obj={make_obj=(fun v-> object method answer=v end);
                    call_obj=(fun o->o#answer)};
               var=(fun v -> `answer(v))}
 let compute_or_result =
@@ -112,7 +112,7 @@ let () =
 
 (* custom label declaration *)
 let current =
-  {obj={make_obj=(fun v-> object method current=v ()end);
+  {obj={make_obj=(fun v-> object method current=v end);
         call_obj=(fun o->o#current)};
    var=(fun v -> `current(v))}
 

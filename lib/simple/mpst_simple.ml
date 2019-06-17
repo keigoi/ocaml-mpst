@@ -10,7 +10,7 @@ let cont (Out(_,_,d)) = d
 let unify a b = a := !b
 
 let finish : ([`cons of close * 'a] as 'a) Seq.t =
-  SeqRepeat(Mergeable.make_no_merge (fun () -> Close))
+  SeqRepeat(Mergeable.make_no_merge (fun _ -> Close))
 
 let choice_at : 'ep 'ep_l 'ep_r 'g0_l 'g0_r 'g1 'g2.
                   (_, _, close, (< .. > as 'ep), 'g1 Seq.t, 'g2 Seq.t) role ->
@@ -23,8 +23,8 @@ let choice_at : 'ep 'ep_l 'ep_r 'g0_l 'g0_r 'g1 'g2.
     Seq.get r'.lens g0left,
     Seq.get r''.lens g0right in
   let g1left, g1right =
-    Seq.put r'.lens g0left (Mergeable.make_no_merge (fun () -> Close)),
-    Seq.put r''.lens g0right (Mergeable.make_no_merge (fun () -> Close)) in
+    Seq.put r'.lens g0left (Mergeable.make_no_merge (fun _ -> Close)),
+    Seq.put r''.lens g0right (Mergeable.make_no_merge (fun _ -> Close)) in
   let g1 = Seq.seq_merge g1left g1right in
   let ep = Mergeable.disjoint_merge merge epL epR
   in
@@ -43,9 +43,8 @@ module MakeGlobal(X:LIN) = struct
     X.mklin (Out(o12, s1, c12))
 
   let make_send rB lab (ph: _ Event.channel ref) epA =
-    let epA' () =
-      let o = LinFlag.create () in
-      X.mklin (Out(o,ph,epA))
+    let epA' once =
+      X.mklin (Out(once,ph,epA))
     in
     Mergeable.wrap_obj rB.label
       (Mergeable.wrap_obj lab.obj
@@ -57,8 +56,7 @@ module MakeGlobal(X:LIN) = struct
   let merge_in ev1 ev2 = Event.choose [ev1; ev2]
 
   let make_recv rA lab ph epB =
-    let ev () =
-      let once = LinFlag.create () in
+    let ev once =
       Event.wrap
         (Event.guard (fun () -> LinFlag.use once; Event.receive !ph))
         (fun v -> lab.var (v, X.mklin (Mergeable.out epB)))

@@ -29,8 +29,8 @@ module Make(X:Mpst_base.S.RAW)(E:EVENT) = struct
       Seq.get r'.lens g0left,
       Seq.get r''.lens g0right in
     let g1left, g1right =
-      Seq.put r'.lens g0left (Mergeable.make_no_merge (fun () -> ())),
-      Seq.put r''.lens g0right (Mergeable.make_no_merge (fun () -> ())) in
+      Seq.put r'.lens g0left (Mergeable.make_no_merge (fun _ -> ())),
+      Seq.put r''.lens g0right (Mergeable.make_no_merge (fun _ -> ())) in
     let g1 = Seq.seq_merge g1left g1right in
     let mrgfun =
       {obj_merge=(fun l r -> (fun kt -> merge.obj_merge (l kt) (r kt)));
@@ -54,7 +54,7 @@ module Make(X:Mpst_base.S.RAW)(E:EVENT) = struct
       let m2 = X.unlin (label.obj.call_obj m2) in
       let cont = Mergeable.merge m1.cont m2.cont in
       let ep = X.mklin {outchan=m1.outchan; cont} in
-      label.obj.make_obj (fun () -> ep)
+      label.obj.make_obj ep
 
     let make_send rB slab epA =
       let mergefun = merge_send slab.wraplabel in
@@ -64,7 +64,7 @@ module Make(X:Mpst_base.S.RAW)(E:EVENT) = struct
             {outchan=(fun v -> slab.channel.sender (ConnTable.getone kt rB.lens) v);
              cont=Mergeable.apply epA kt}
         in
-        slab.wraplabel.obj.make_obj (fun () -> ep)
+        slab.wraplabel.obj.make_obj ep
           
       in
       Mergeable.objfun mergefun rB.label outobj

@@ -16,7 +16,7 @@ module Make(X:Mpst_base.S.RAW)(E:EVENT) = struct
   let protclose _ _ = Close
 
   let finish : ([`cons of (ConnTable.t -> close) * 'a] as 'a) Seq.t =
-    SeqRepeat(Mergeable.make_no_merge (fun _ -> Close))
+    SeqRepeat(Mergeable.make_no_merge (fun _ _ -> Close))
 
   let choice_at : 'k 'ep 'ep_l 'ep_r 'g0_l 'g0_r 'g1 'g2.
                   (_, _, unit, ConnTable.t -> (< .. > as 'ep), 'g1 Seq.t, 'g2 Seq.t) role ->
@@ -29,8 +29,8 @@ module Make(X:Mpst_base.S.RAW)(E:EVENT) = struct
       Seq.get r'.lens g0left,
       Seq.get r''.lens g0right in
     let g1left, g1right =
-      Seq.put r'.lens g0left (Mergeable.make_no_merge ()),
-      Seq.put r''.lens g0right (Mergeable.make_no_merge ()) in
+      Seq.put r'.lens g0left (Mergeable.make_no_merge (fun () -> ())),
+      Seq.put r''.lens g0right (Mergeable.make_no_merge (fun () -> ())) in
     let g1 = Seq.seq_merge g1left g1right in
     let mrgfun =
       {obj_merge=(fun l r -> (fun kt -> merge.obj_merge (l kt) (r kt)));

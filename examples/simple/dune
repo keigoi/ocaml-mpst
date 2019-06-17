@@ -47,6 +47,13 @@
   (flags ("-g" "-short-paths"))
   (libraries ocaml-mpst.simple))
 
+(executable
+ (name dynlin_test)
+  (public_name dynlin_test)
+  (modules dynlin_test)
+  (flags ("-g" "-short-paths"))
+  (libraries ocaml-mpst.simple))
+
 ;(executable
 ; (name calc_lin)
 ;  (public_name calc_lin_mpst_simple)

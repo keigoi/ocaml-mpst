@@ -1,3 +1,11 @@
+module LinFlag : sig
+  type t
+  val create     : unit -> t
+  val use        : t -> unit
+  val try_use    : t -> bool
+  exception InvalidEndpoint
+end = LinFlag
+
 let map_option f = function
   | Some x -> Some (f x)
   | None -> None
@@ -54,7 +62,7 @@ sig
   val make_with_hook : hook -> ('a -> 'a -> 'a) -> (unit -> 'a) -> 'a t
   (** makes a constant mergeable which does not merge anything, keeping the constant intact.
    *  This is used for making a closed endpoint. *)
-  val make_no_merge : 'a -> 'a t
+  val make_no_merge : (unit -> 'a) -> 'a t
   (** merges two mergeables *)
   val merge : 'a t -> 'a t -> 'a t
   (** merges list of mergeables into one *)
@@ -109,8 +117,8 @@ end
   let make_with_hook hook mrg v =
     Single (Val ({merge=mrg;value=v}, hook))
     
-  let make_no_merge : 'a. 'a -> 'a t  = fun v ->
-    Single (Val ({merge=(fun x _ -> x);value=(fun () -> v)}, Lazy.from_val ()))
+  let make_no_merge : 'a. (unit -> 'a) -> 'a t  = fun v ->
+    Single (Val ({merge=(fun x _ -> x);value=v}, Lazy.from_val ()))
     
   exception UnguardedLoop
 
@@ -122,9 +130,9 @@ end
            (bl.merge (mrg.obj_splitL lr1) (mrg.obj_splitL lr2))
            (br.merge (mrg.obj_splitR lr1) (mrg.obj_splitR lr2))
        in
-       let value = mrg.obj_merge (bl.value ()) (br.value ())
+       let value () = mrg.obj_merge (bl.value ()) (br.value ()) (* FIXME *)
        in
-       {value=(fun ()->value); merge},lazy (Lazy.force hl; Lazy.force hr)
+       {value; merge},lazy (Lazy.force hl; Lazy.force hr)
 
   let rec out_ : type x. x t lazy_t list -> x t -> x body * hook =
     fun hist t ->
@@ -153,8 +161,8 @@ end
                 List.iter (fun (_,h) -> Lazy.force h) xs
               end
           in
-          let v = List.fold_left b.merge (b.value ()) (List.map (fun (b1,_)->b1.value ()) xs) in
-          {value=(fun () -> v); merge=b.merge}, hook
+          let value () = List.fold_left b.merge (b.value ()) (List.map (fun (b1,_)->b1.value ()) xs) in
+          {value; merge=b.merge}, hook
   and out_single : type x. x t lazy_t list -> x single -> x body * hook =
     fun hist ->
       function
@@ -197,9 +205,8 @@ end
     match l, r with
     | Single (Val (ll,hl)), Single (Val (rr,hr)) ->
        let hook = lazy (Lazy.force hl; Lazy.force hr) in
-       let llrr = ll.merge (ll.value ()) (rr.value ()) in
        Single (Val ({merge=ll.merge;
-                     value=(fun () -> llrr)},
+                     value=(fun () -> ll.merge (ll.value ()) (rr.value ()))},
                     hook))
     | Single v1, Single v2 ->
        merge_lazy_ [v1; v2]
@@ -228,9 +235,11 @@ end
     ignore (out t)
 
   let wrap_obj_body (* : 'v. (< .. > as 'o, 'v) method_ -> 'v body -> 'o body *) = fun meth b ->
-    let v = b.value () in
-    let obj = meth.make_obj (fun () -> v) in
-    {value=(fun () -> obj);
+    {value=(fun () ->
+       let once = LinFlag.create () in
+       meth.make_obj (fun () ->
+           LinFlag.use once;
+           b.value ()));
      merge=(fun l r ->
        let ll = meth.call_obj l
        and rr = meth.call_obj r
@@ -267,8 +276,7 @@ end
     | RecVar (t, d) ->
        make_recvar_single (lazy (apply (Lazy.force t) v))
     | Val (b,h) ->
-       let v' = b.value () v in
-       Val ({value=(fun () -> v'); merge=(fun l r -> b.merge (fun _ -> l) (fun _ -> r) v)}, h)
+       Val ({value=(fun () -> b.value () v); merge=(fun l r -> b.merge (fun _ -> l) (fun _ -> r) v)}, h)
     | Disj (_,_,_,_) ->
        failwith "apply_single: Disj" (* XXX *)
       
@@ -281,8 +289,8 @@ end
   let objfun
       : 'o 'v 'p. ('v -> 'v -> 'v) -> (< .. > as 'o, 'v) method_ -> ('p -> 'v) -> ('p -> 'o) t =
     fun merge meth f  ->
-    let f' = (fun x -> let y = f x in meth.make_obj (fun () -> y)) in
-    Single (Val ({value=(fun () -> f');
+    let f' () = (fun x -> let y = f x in meth.make_obj (fun () -> y)) in
+    Single (Val ({value=f';
                   merge=(fun l r x ->
                     let lr = (merge (meth.call_obj (l x)) ((meth.call_obj (r x)))) in
                     meth.make_obj (fun () -> lr))},

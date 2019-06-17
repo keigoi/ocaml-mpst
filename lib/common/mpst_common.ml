@@ -125,14 +125,17 @@ end
   let disj_merge_body
       : 'lr 'l 'r. ('lr,'l,'r) obj_merge -> 'l body * hook -> 'r body * hook -> 'lr body * hook =
     fun mrg (bl,hl) (br,hr) ->
-       let merge lr1 lr2 =
-         mrg.obj_merge
-           (bl.merge (mrg.obj_splitL lr1) (mrg.obj_splitL lr2))
-           (br.merge (mrg.obj_splitR lr1) (mrg.obj_splitR lr2))
-       in
-       let value () = mrg.obj_merge (bl.value ()) (br.value ()) (* FIXME *)
-       in
-       {value; merge},lazy (Lazy.force hl; Lazy.force hr)
+    let merge lr1 lr2 =
+       (* FIXME is this correct? *)
+      mrg.obj_merge
+        (bl.merge (mrg.obj_splitL lr1) (mrg.obj_splitL lr2))
+        (br.merge (mrg.obj_splitR lr1) (mrg.obj_splitR lr2))
+    in
+    let value () =
+      (* FIXME control linearity -- if one is used, invalidate other side  *)
+      mrg.obj_merge (bl.value ()) (br.value ())
+    in
+    {value; merge},lazy (Lazy.force hl; Lazy.force hr)
 
   let rec out_ : type x. x t lazy_t list -> x t -> x body * hook =
     fun hist t ->
@@ -234,7 +237,7 @@ end
   let resolve_merge : 'a. 'a t -> unit = fun t ->
     ignore (out t)
 
-  let wrap_obj_body (* : 'v. (< .. > as 'o, 'v) method_ -> 'v body -> 'o body *) = fun meth b ->
+  let wrap_obj_body : 'v. (< .. > as 'o, 'v) method_ -> 'v body -> 'o body = fun meth b ->
     {value=(fun () ->
        let once = LinFlag.create () in
        meth.make_obj (fun () ->
@@ -244,8 +247,10 @@ end
        let ll = meth.call_obj l
        and rr = meth.call_obj r
        in
-       let lr = b.merge ll rr in
-       meth.make_obj (fun () -> lr))}
+       let once = LinFlag.create () in
+       meth.make_obj (fun () ->
+           LinFlag.use once;
+           b.merge ll rr))}
 
   let rec wrap_obj : 'v. (< .. > as 'o, 'v) method_ -> 'v t -> 'o t = fun meth v ->
     match v with

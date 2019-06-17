@@ -47,11 +47,11 @@ sig
   type 'a t
   type hook = unit lazy_t
   (** makes a mergeable from a merge function and a value *)
-  val make : ('a -> 'a -> 'a) -> 'a -> 'a t
+  val make : ('a -> 'a -> 'a) -> (unit -> 'a) -> 'a t
   (** makes a delayed mergeable (i.e. recursion variable) *) 
   val make_recvar : 'a t lazy_t -> 'a t
   (** makes a mergeable with a hook. The hook is called once the body is called. *)
-  val make_with_hook : hook -> ('a -> 'a -> 'a) -> 'a -> 'a t
+  val make_with_hook : hook -> ('a -> 'a -> 'a) -> (unit -> 'a) -> 'a t
   (** makes a constant mergeable which does not merge anything, keeping the constant intact.
    *  This is used for making a closed endpoint. *)
   val make_no_merge : 'a -> 'a t
@@ -99,7 +99,7 @@ end
     | Disj   : 'l t * 'r t * ('lr,'l,'r) obj_merge * 'lr cache -> 'lr single
   and 'a body =
     {merge: 'a -> 'a -> 'a;
-     value: 'a}
+     value: unit -> 'a}
   and 'a cache = 'a body lazy_t
   and hook = unit lazy_t
 
@@ -110,7 +110,7 @@ end
     Single (Val ({merge=mrg;value=v}, hook))
     
   let make_no_merge : 'a. 'a -> 'a t  = fun v ->
-    Single (Val ({merge=(fun x _ -> x);value=v}, Lazy.from_val ()))
+    Single (Val ({merge=(fun x _ -> x);value=(fun () -> v)}, Lazy.from_val ()))
     
   exception UnguardedLoop
 
@@ -122,9 +122,9 @@ end
            (bl.merge (mrg.obj_splitL lr1) (mrg.obj_splitL lr2))
            (br.merge (mrg.obj_splitR lr1) (mrg.obj_splitR lr2))
        in
-       let value = mrg.obj_merge bl.value br.value
+       let value = mrg.obj_merge (bl.value ()) (br.value ())
        in
-       {value; merge},lazy (Lazy.force hl; Lazy.force hr)
+       {value=(fun ()->value); merge},lazy (Lazy.force hl; Lazy.force hr)
 
   let rec out_ : type x. x t lazy_t list -> x t -> x body * hook =
     fun hist t ->
@@ -146,15 +146,15 @@ end
        match solved with
        | [] ->
           raise UnguardedLoop
-       | (v,h)::xs ->
+       | (b,h)::xs ->
           let hook =
             lazy begin
                 Lazy.force h;
                 List.iter (fun (_,h) -> Lazy.force h) xs
               end
           in
-          {value=List.fold_left v.merge v.value (List.map (fun (x,_)->x.value) xs);
-           merge=v.merge}, hook
+          let v = List.fold_left b.merge (b.value ()) (List.map (fun (b1,_)->b1.value ()) xs) in
+          {value=(fun () -> v); merge=b.merge}, hook
   and out_single : type x. x t lazy_t list -> x single -> x body * hook =
     fun hist ->
       function
@@ -197,8 +197,9 @@ end
     match l, r with
     | Single (Val (ll,hl)), Single (Val (rr,hr)) ->
        let hook = lazy (Lazy.force hl; Lazy.force hr) in
+       let llrr = ll.merge (ll.value ()) (rr.value ()) in
        Single (Val ({merge=ll.merge;
-                     value=ll.merge ll.value rr.value},
+                     value=(fun () -> llrr)},
                     hook))
     | Single v1, Single v2 ->
        merge_lazy_ [v1; v2]
@@ -215,24 +216,26 @@ end
     match t with
     | Single (Val (b,h)) ->
        Lazy.force h;
-       b.value
+       b.value ()
     | Single (RecVar (_,d)) ->
-       (Lazy.force d).value
+       (Lazy.force d).value ()
     | Single (Disj (_,_,_,d)) ->
-       (Lazy.force d).value
+       (Lazy.force d).value ()
     | Merge (_,d) ->
-       (Lazy.force d).value
+       (Lazy.force d).value ()
 
   let resolve_merge : 'a. 'a t -> unit = fun t ->
     ignore (out t)
 
-  let wrap_obj_body : 'v. (< .. > as 'o, 'v) method_ -> 'v body -> 'o body = fun meth v ->
-    {value=meth.make_obj (fun () -> v.value);
+  let wrap_obj_body (* : 'v. (< .. > as 'o, 'v) method_ -> 'v body -> 'o body *) = fun meth b ->
+    let v = b.value () in
+    let obj = meth.make_obj (fun () -> v) in
+    {value=(fun () -> obj);
      merge=(fun l r ->
        let ll = meth.call_obj l
        and rr = meth.call_obj r
        in
-       let lr = v.merge ll rr in
+       let lr = b.merge ll rr in
        meth.make_obj (fun () -> lr))}
 
   let rec wrap_obj : 'v. (< .. > as 'o, 'v) method_ -> 'v t -> 'o t = fun meth v ->
@@ -264,7 +267,8 @@ end
     | RecVar (t, d) ->
        make_recvar_single (lazy (apply (Lazy.force t) v))
     | Val (b,h) ->
-       Val ({value=b.value v; merge=(fun l r -> b.merge (fun _ -> l) (fun _ -> r) v)}, h)
+       let v' = b.value () v in
+       Val ({value=(fun () -> v'); merge=(fun l r -> b.merge (fun _ -> l) (fun _ -> r) v)}, h)
     | Disj (_,_,_,_) ->
        failwith "apply_single: Disj" (* XXX *)
       
@@ -277,7 +281,8 @@ end
   let objfun
       : 'o 'v 'p. ('v -> 'v -> 'v) -> (< .. > as 'o, 'v) method_ -> ('p -> 'v) -> ('p -> 'o) t =
     fun merge meth f  ->
-    Single (Val ({value=(fun x -> let y = f x in meth.make_obj (fun () -> y));
+    let f' = (fun x -> let y = f x in meth.make_obj (fun () -> y)) in
+    Single (Val ({value=(fun () -> f');
                   merge=(fun l r x ->
                     let lr = (merge (meth.call_obj (l x)) ((meth.call_obj (r x)))) in
                     meth.make_obj (fun () -> lr))},

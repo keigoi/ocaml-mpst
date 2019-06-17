@@ -40,12 +40,13 @@ module MakeGlobal(X:LIN) = struct
     X.mklin (Out(s1, c12))
 
   let make_send rB lab (ph: _ Event.channel ref) epA =
+    let epA' = X.mklin (Out(ph,epA)) in
     Mergeable.wrap_obj rB.label
       (Mergeable.wrap_obj lab.obj
          (Mergeable.make_with_hook
             (lazy (Mergeable.resolve_merge epA))
             merge_out
-            (X.mklin (Out(ph,epA)))))
+            (fun () -> epA')))
 
   let merge_in ev1 ev2 = Event.choose [ev1; ev2]
 
@@ -55,11 +56,12 @@ module MakeGlobal(X:LIN) = struct
           (Event.guard (fun () -> Event.receive !ph))
           (fun v -> lab.var (v, X.mklin (Mergeable.out epB)))
     in
+    let ev' = fun () -> ev in
     Mergeable.wrap_obj rA.label
       (Mergeable.make_with_hook
          (lazy (Mergeable.resolve_merge epB))
          merge_in
-         ev)
+         ev')
 
   let ( --> ) : 'roleAobj 'labelvar 'epA 'roleBobj 'g1 'g2 'labelobj 'epB 'g0 'v.
     (< .. > as 'roleAobj, 'labelvar Event.event, 'epA, 'roleBobj, 'g1, 'g2) role ->

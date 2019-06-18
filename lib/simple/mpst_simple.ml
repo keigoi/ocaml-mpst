@@ -109,6 +109,60 @@ module MakeGlobal(X:LIN) = struct
         let g2  = Seq.put rA.lens g1 obj
         in g2)
 
+  (* let make_recv_mult rA lab ph epB =
+   *   let ev once =
+   *     Event.wrap
+   *       (Event.guard (fun () -> LinFlag.use once; Event.receive !ph))
+   *       (fun v -> lab.var (v, X.mklin (Mergeable.out epB)))
+   *   in
+   *   Mergeable.wrap_obj rA.label
+   *     (Mergeable.make_with_hook
+   *        (lazy (Mergeable.resolve_merge epB))
+   *        merge_in
+   *        ev)
+   * 
+   * let ( --> ) : 'roleAobj 'labelvar 'epA 'roleBobj 'g1 'g2 'labelobj 'epB 'g0 'v.
+   *   (< .. > as 'roleAobj, 'labelvar Event.event, 'epA, 'roleBobj, 'g1 Seq.t, 'g2 Seq.t) role ->
+   *   (< .. > as 'roleBobj, 'labelobj,             'epB, 'roleAobj, 'g0 Seq.t, 'g1 Seq.t) role ->
+   *   (< .. > as 'labelobj, [> ] as 'labelvar, ('v * 'epA) out X.lin, 'v * 'epB X.lin) label ->
+   *   'g0 seq -> 'g2 seq
+   *   = fun rA rB label (Seq g0) ->
+   *   Seq (fun env ->
+   *       let g0 = g0 env in
+   *       let ch = ref (Event.new_channel ())
+   *       in
+   *       let epB = Seq.get rB.lens g0 in
+   *       let ev  = make_recv rA label ch epB in
+   *       let g1  = Seq.put rB.lens g0 ev
+   *       in
+   *       let epA = Seq.get rA.lens g1 in
+   *       let obj = make_send rB label ch epA in
+   *       let g2  = Seq.put rA.lens g1 obj
+   *       in g2)
+   * 
+   * let rec toint : type a b c d. (a,b,c,d) Seq.lens -> int = function
+   *   | Zero -> 0
+   *   | Succ l -> toint l + 1
+   * 
+   * let scatter : 'roleAobj 'labelvar 'epA 'roleBobj 'g1 'g2 'labelobj 'epB 'g0 'v.
+   *   (< .. > as 'roleAobj, 'labelvar Event.event, 'epA, 'roleBobj, 'g1 Seq.t, 'g2 Seq.t) role ->
+   *   (< .. > as 'roleBobj, 'labelobj,             'epB list, 'roleAobj list, 'g0 Seq.t, 'g1 Seq.t) role ->
+   *   (< .. > as 'labelobj, [> ] as 'labelvar, ('v * 'epA) out X.lin, 'v * 'epB X.lin) label ->
+   *   'g0 seq -> 'g2 seq
+   *   = fun rA rB label (Seq g0) ->
+   *   Seq (fun env ->
+   *       let g0 = g0 env in
+   *       let rBidx = toint rB.lens in
+   *       let cnt = List.nth env rBidx(\*FIXME*\) in
+   *       let chs = List.init cnt (fun _ -> ref (Event.new_channel ())) in
+   *       let epB = Seq.get rB.lens g0 in
+   *       let ev  = make_recv_mult rA label chs epB in
+   *       let g1  = Seq.put rB.lens g0 ev
+   *       in
+   *       let epA = Seq.get rA.lens g1 in
+   *       let obj = make_sendmany rB label chs epA in
+   *       let g2  = Seq.put rA.lens g1 obj
+   *       in g2) *)
 end
 
 include MakeGlobal(struct type 'a lin = 'a let mklin x = x let unlin x = x end)

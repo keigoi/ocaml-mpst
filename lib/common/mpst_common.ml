@@ -110,7 +110,7 @@ module Mergeable
     | Disj   : 'l t * 'r t * ('lr,'l,'r) obj_merge * 'lr cache -> 'lr single
   and 'a body =
     {merge: 'a -> 'a -> 'a;
-     value: int -> 'a ep list}
+     value: 'a ep list}
   and 'a cache = 'a body lazy_t
   and hook = unit lazy_t
 
@@ -120,9 +120,9 @@ module Mergeable
   let make_with_hook hook mrg v =
     Single (Val ({merge=mrg;value=v}, hook))
     
-  let make_no_merge : 'a. 'a -> 'a t  = fun v ->
+  let make_no_merge : 'a. 'a list -> 'a t  = fun vs ->
     Single (Val ({merge=(fun x _ -> x);
-                  value=(fun i -> List.init i (fun _ _ -> v))},
+                  value=List.map (fun v _ -> v) vs},
                  Lazy.from_val ()))
     
   exception UnguardedLoop
@@ -135,9 +135,9 @@ module Mergeable
         (bl.merge (mrg.obj_splitL lr1) (mrg.obj_splitL lr2))
         (br.merge (mrg.obj_splitR lr1) (mrg.obj_splitR lr2))
     in
-    let value i =
+    let value =
       (* we can only choose one of them -- distribute the linearity flag among merged objects *)
-      List.map2 (fun l r -> fun f -> mrg.obj_merge (l f) (r f))  (bl.value i) (br.value i)
+      List.map2 (fun l r -> fun f -> mrg.obj_merge (l f) (r f))  bl.value br.value
     in
     {value; merge},lazy (Lazy.force hl; Lazy.force hr)
 
@@ -171,11 +171,11 @@ module Mergeable
                 List.iter (fun (_,h) -> Lazy.force h) xs
               end
           in
-          let value i =
+          let value =
             List.fold_left
               (mapmerge b.merge)
-              (b.value i)
-              (List.map (fun (b1,_)-> b1.value i) xs)
+              b.value
+              (List.map (fun (b1,_)-> b1.value) xs)
           in
           {value; merge=b.merge}, hook
   and out_single : type x. x t lazy_t list -> x single -> x body * hook =
@@ -221,7 +221,7 @@ module Mergeable
     | Single (Val (ll,hl)), Single (Val (rr,hr)) ->
        let hook = lazy (Lazy.force hl; Lazy.force hr) in
        Single (Val ({merge=ll.merge;
-                     value=(fun i -> mapmerge ll.merge (ll.value i) (rr.value i))},
+                     value=mapmerge ll.merge ll.value rr.value},
                     hook))
     | Single v1, Single v2 ->
        merge_lazy_ [v1; v2]
@@ -239,20 +239,19 @@ module Mergeable
     match t with
     | Single (Val (b,h)) ->
        Lazy.force h;
-       lin (b.value i)
+       lin b.value
     | Single (RecVar (_,d)) ->
-       lin ((Lazy.force d).value i)
+       lin (Lazy.force d).value
     | Single (Disj (_,_,_,d)) ->
-       lin ((Lazy.force d).value i)
+       lin (Lazy.force d).value
     | Merge (_,d) ->
-       lin ((Lazy.force d).value i)
+       lin (Lazy.force d).value
 
   let resolve_merge : 'a. 'a t -> int -> unit = fun t i ->
     ignore (out t i)
 
   let wrap_obj_body : 'v. (< .. > as 'o, 'v) method_ -> 'v body -> 'o body = fun meth b ->
-    {value=(fun i ->
-       List.map (fun v f -> meth.make_obj (v f)) (b.value i));
+    {value=List.map (fun v f -> meth.make_obj (v f)) b.value;
      merge=(fun l r ->
        let ll = meth.call_obj l
        and rr = meth.call_obj r

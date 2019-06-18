@@ -3,6 +3,7 @@ open Mpst_simple
 
 let unfair () =
   let g =
+    unseq @@
     fix (fun t ->
         choice_at a (to_b right_or_left)
           (a, (a --> b) right @@

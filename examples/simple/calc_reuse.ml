@@ -73,7 +73,7 @@ let tSrv' es =
   in loop 0 es
 
 let () =
-  let g = calc' () in
+  let g = unseq @@ calc' () in
   let ec = get_ep cli g
   and es = get_ep srv g
   in
@@ -119,7 +119,7 @@ let tSrv2' es =
   in loop 0 es
 
 let () =
-  let g = calc2' () in
+  let g = unseq @@ calc2' () in
   let ec = get_ep cli g and es = get_ep srv g
   in List.iter Thread.join [Thread.create tCli ec; Thread.create tSrv2' es]
 
@@ -136,6 +136,6 @@ let tCli2 ec =
   Printf.printf "Answer: %d\n" num
 
 let () =
-  let g = calc2' () in
+  let g = unseq @@ calc2' () in
   let ec = get_ep cli g and es = get_ep srv g
   in List.iter Thread.join [Thread.create tCli2 ec; Thread.create tSrv2' es]

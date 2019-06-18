@@ -3,9 +3,10 @@ open Mpst_simple
 
 let () = print_endline "start"
 let ring =
-  (a --> b) msg @@
-  (b --> c) msg @@
-  (c --> a) msg finish
+  unseq @@
+    (a --> b) msg @@
+      (b --> c) msg @@
+        (c --> a) msg finish
 let () = print_endline "global combinator finished"
 
 let ea = get_ep a ring

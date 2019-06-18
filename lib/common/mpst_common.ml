@@ -25,8 +25,14 @@ type ('la,'va) method_ =
   {make_obj: 'va -> 'la;
    call_obj: 'la -> 'va}
 
+(* type one = One__
+ * type many = Many__
+ * type (_,_) ep =
+ *   | EpOne : (LinFlag.t -> 'a) -> ('a,one) ep
+ *   | EpMany : (LinFlag.t -> 'a) list -> ('a,many) ep *)
+
 type 'a ep = LinFlag.t -> 'a
-  
+
 (**
  * A mergeable is a session endpoint which can be merged with another endpoint in future.
  * A mergeble is a bundle of an endpoint and its merging strategy, providing a way 
@@ -322,7 +328,7 @@ sig
     (** cons *)
     | SeqCons : 'hd Mergeable.t * 'tl t -> [ `cons of 'hd * 'tl ] t
     (** repetition -- for closed endpoints *)
-    | SeqRepeat : 'a Mergeable.t -> ([ `cons of 'a * 'b ] as 'b) t
+    | SeqRepeat : int * (int -> 'a Mergeable.t) -> ([ `cons of 'a * 'b ] as 'b) t
     (** recursion variable(s) *)
     | SeqRecVars : 'a seqvar list -> 'a t
     (** unguarded loop; we have it in the last part of a recursion *)
@@ -360,7 +366,7 @@ sig
 end = struct
   type _ t =
     | SeqCons : 'hd Mergeable.t * 'tl t -> [`cons of 'hd * 'tl] t
-    | SeqRepeat : 'a Mergeable.t -> ([`cons of 'a * 'tl] as 'tl) t
+    | SeqRepeat : int * (int -> 'a Mergeable.t) -> ([`cons of 'a * 'tl] as 'tl) t
     | SeqRecVars : 'a seqvar list -> 'a t
     | SeqBottom : 'x t
   and 'a seqvar = 'a t lazy_t
@@ -376,7 +382,7 @@ end = struct
     function
     | SeqCons(hd,_) -> hd
     | SeqRecVars ds -> Mergeable.merge_all (List.map seqvar_head ds)
-    | SeqRepeat(a) -> a
+    | SeqRepeat(i,f) -> f i
     | SeqBottom -> raise UnguardedLoopSeq
   and seqvar_head : type hd tl. [`cons of hd * tl] t lazy_t -> hd Mergeable.t = fun d ->
     Mergeable.make_recvar (lazy (seq_head (Lazy.force d)))
@@ -385,7 +391,7 @@ end = struct
     function
     | SeqCons(_,tl) -> tl
     | SeqRecVars ds -> SeqRecVars(List.map seqvar_tail ds)
-    | (SeqRepeat _) as s -> s
+    | (SeqRepeat (i,f)) -> SeqRepeat(i+1,f)
     | SeqBottom -> raise UnguardedLoopSeq
   and seqvar_tail : type hd tl. [`cons of hd * tl] t lazy_t -> tl t lazy_t = fun d ->
     lazy (seq_tail (Lazy.force d))
@@ -479,10 +485,15 @@ type ('robj,'c,'a,'b,'xs,'ys) role =
 type close = Close
 
 let unseq g = unseq_ g []
+let unseq_param g = unseq_ g
 
 let get_ep : ('x0, 'x1, 'ep, 'x2, 't Seq.t, 'x3) role -> 't Seq.t -> 'ep = fun r g ->
   let ep = Seq.get r.lens g in
   List.hd (Mergeable.out ep)
+
+let get_ep_list : ('x0, 'x1, 'ep, 'x2, 't Seq.t, 'x3) role -> 't Seq.t -> 'ep list = fun r g ->
+  let ep = Seq.get r.lens g in
+  Mergeable.out ep
 
 module type LIN = sig
   type 'a lin

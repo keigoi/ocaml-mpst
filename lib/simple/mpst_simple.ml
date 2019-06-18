@@ -1,7 +1,8 @@
 include Mpst_common
-
+type 'a one = One__
 type _ out =
-  Out : LinFlag.t * int * 'u Event.channel list ref * 't Mergeable.t -> ('u * 't) out
+  | Out : LinFlag.t * int * 'u Event.channel list ref * 't Mergeable.t -> ('u one * 't) out
+  | OutMany : LinFlag.t * int * 'u Event.channel list ref * 't Mergeable.t -> ('u list * 't) out
 
 let once (Out(o,_,_,_)) = o
 let chan (Out(_,_,c,_)) = c
@@ -9,8 +10,15 @@ let cont (Out(_,_,_,d)) = d
 
 let unify a b = a := !b
 
+let rec toint : type a b c d. (a,b,c,d) Seq.lens -> int = function
+  | Zero -> 0
+  | Succ l -> toint l + 1
+
 let finish : ([`cons of close * 'a] as 'a) seq =
-  Seq (fun _ -> SeqRepeat(Mergeable.make_no_merge [Close])) (* FIXME *)
+  Seq (fun env ->
+      SeqRepeat(0, (fun i ->
+            let num = if i < List.length env then List.nth env i else 1 in
+            Mergeable.make_no_merge (List.init num (fun _ -> Close)))))
 
 let choice_at : 'ep 'ep_l 'ep_r 'g0_l 'g0_r 'g1 'g2.
                   (_, _, unit, (< .. > as 'ep), 'g1 Seq.t, 'g2 Seq.t) role ->
@@ -52,6 +60,12 @@ module MakeGlobal(X:LIN) = struct
     | [] -> failwith "no channel"
 
   let make_recv ~receive num rA lab (phss: _ Event.channel list ref list) epB =
+    if num<=0 then begin
+        failwith "make_recv: scatter/gather error: number of senders is <= 0"
+      end;
+    if List.length phss = 0 then begin
+        failwith "make_recv: scatter/gather error: number of receivers is <= 0"
+      end;
     assert (List.length !(List.hd phss) = num);
     let ev =
       List.init num
@@ -63,111 +77,130 @@ module MakeGlobal(X:LIN) = struct
                  receive chs))
             (fun v -> lab.var (v, X.mklin (List.nth (Mergeable.out epB) k))))
     in
+    let hook =
+      lazy begin
+          let eps = Mergeable.out epB in
+          if num <> List.length eps then
+            failwith "make_recv: endpoint count inconsistency; use unseq_param for scatter/gather"
+        end
+    in
     Mergeable.wrap_obj rA.label
       (Mergeable.make_with_hook
-         (lazy (Mergeable.resolve_merge epB))
+         hook
          merge_in
          ev)
 
-  let merge_out = fun out1 out2 ->
-    let (Out(o1,i1,s1,c1), Out(o2,i2,s2,c2)) = X.unlin out1, X.unlin out2 in
-    assert (i1=i2);
-    LinFlag.use o1; LinFlag.use o2;
-    unify s1 s2;
-    let o12 = LinFlag.create () in
-    let c12 = Mergeable.merge c1 c2 in
-    X.mklin (Out(o12, i1, s1, c12))
+  let merge_out : type u t. (u * t) out X.lin -> (u * t) out X.lin -> (u * t) out X.lin =
+    fun out1 out2 ->
+    let merge_  (o1,i1,s1,c1) (o2,i2,s2,c2) =
+      assert (i1=i2);
+      LinFlag.use o1; LinFlag.use o2;
+      unify s1 s2;
+      let o12 = LinFlag.create () in
+      let c12 = Mergeable.merge c1 c2 in
+      (o12, i1, s1, c12)
+    in
+    match X.unlin out1, X.unlin out2 with
+    | Out(a1,b1,c1,d1), Out(a2,b2,c2,d2) ->
+       let a3,b3,c3,d3 = merge_ (a1,b1,c1,d1) (a2,b2,c2,d2) in
+       X.mklin @@ Out(a3,b3,c3,d3)
+    | OutMany(a1,b1,c1,d1), OutMany(a2,b2,c2,d2) ->
+       let a3,b3,c3,d3 = merge_ (a1,b1,c1,d1) (a2,b2,c2,d2) in
+       X.mklin @@ OutMany(a3,b3,c3,d3)
 
-  let make_send num rB lab (phss: _ Event.channel list ref list) epA =
+
+  let send_one (a,b,c,d) = Out (a,b,c,d)
+  let send_many (a,b,c,d) = OutMany (a,b,c,d)
+
+  let make_send ~send num rB lab (phss: _ Event.channel list ref list) epA =
+    if num<=0 then begin
+        failwith "make_send: scatter/gather error: number of receivers is <= 0"
+      end;
+    if List.length phss = 0 then begin
+        failwith "make_send: scatter/gather error: number of senders is <= 0"
+      end;
     assert (List.length phss = num);
     let epA' =
       List.init num
         (fun k -> fun once ->
-          X.mklin (Out(once,k,List.nth phss k,epA)))
+          X.mklin (send (once,k,List.nth phss k,epA)))
+    in
+    let hook =
+      lazy begin
+          let eps = Mergeable.out epA in
+          if num <> List.length eps then
+            failwith "make_send: endpoint count inconsistency; use unseq_param for scatter/gather"
+        end
     in
     Mergeable.wrap_obj rB.label
       (Mergeable.wrap_obj lab.obj
          (Mergeable.make_with_hook
-            (lazy (Mergeable.resolve_merge epA))
+            hook
             merge_out
             epA'))
+
+  let a2b anum bnum ~send ~receive = fun rA rB label g0 ->
+    let ch =
+      List.init anum (fun _ ->
+          ref @@ List.init bnum (fun _ -> Event.new_channel ()))
+    in
+    let epB = Seq.get rB.lens g0 in
+    let ev  = make_recv ~receive bnum rA label ch epB in
+    let g1  = Seq.put rB.lens g0 ev
+    in
+    let epA = Seq.get rA.lens g1 in
+    let obj = make_send ~send anum rB label ch epA in
+    let g2  = Seq.put rA.lens g1 obj
+    in g2
 
   let ( --> ) : 'roleAobj 'labelvar 'epA 'roleBobj 'g1 'g2 'labelobj 'epB 'g0 'v.
     (< .. > as 'roleAobj, 'labelvar Event.event, 'epA, 'roleBobj, 'g1 Seq.t, 'g2 Seq.t) role ->
     (< .. > as 'roleBobj, 'labelobj,             'epB, 'roleAobj, 'g0 Seq.t, 'g1 Seq.t) role ->
-    (< .. > as 'labelobj, [> ] as 'labelvar, ('v * 'epA) out X.lin, 'v * 'epB X.lin) label ->
+    (< .. > as 'labelobj, [> ] as 'labelvar, ('v one * 'epA) out X.lin, 'v * 'epB X.lin) label ->
+    'g0 seq -> 'g2 seq
+    = fun rA rB label (Seq g0) ->
+    Seq (fun env -> a2b 1 1 ~send:send_one ~receive:receive_one rA rB label (g0 env))
+
+  let scatter : 'roleAobj 'labelvar 'epA 'roleBobj 'g1 'g2 'labelobj 'epB 'g0 'v.
+    (< .. > as 'roleAobj, 'labelvar Event.event, 'epA, 'roleBobj, 'g1 Seq.t, 'g2 Seq.t) role ->
+    (< .. > as 'roleBobj, 'labelobj,             'epB, 'roleAobj, 'g0 Seq.t, 'g1 Seq.t) role ->
+    (< .. > as 'labelobj, [> ] as 'labelvar, ('v list * 'epA) out X.lin, 'v * 'epB X.lin) label ->
     'g0 seq -> 'g2 seq
     = fun rA rB label (Seq g0) ->
     Seq (fun env ->
-        let g0 = g0 env in
-        let ch = [ref [Event.new_channel ()]]
-        in
-        let epB = Seq.get rB.lens g0 in
-        let ev  = make_recv ~receive:receive_one 1 rA label ch epB in
-        let g1  = Seq.put rB.lens g0 ev
-        in
-        let epA = Seq.get rA.lens g1 in
-        let obj = make_send 1 rB label ch epA in
-        let g2  = Seq.put rA.lens g1 obj
-        in g2)
+        if List.length env <= toint rB.lens then begin
+            failwith "use unseq_param [...] for scatter/gather"
+          end;
+        let bnum = List.nth env (toint rB.lens) in
+        a2b 1 bnum ~send:send_many ~receive:receive_one rA rB label (g0 env))
 
-  let gen_channels sn rn =
-    List.init sn (fun si ->
-        List.init rn (fun ri ->
-            (Event.new_channel ())))
-
-  let rec toint : type a b c d. (a,b,c,d) Seq.lens -> int = function
-    | Zero -> 0
-    | Succ l -> toint l + 1
-
-  (* let scatter : 'roleAobj 'labelvar 'epA 'roleBobj 'g1 'g2 'labelobj 'epB 'g0 'v.
-   *   (< .. > as 'roleAobj, 'labelvar Event.event, 'epA, 'roleBobj, 'g1 Seq.t, 'g2 Seq.t) role ->
-   *   (< .. > as 'roleBobj, 'labelobj, 'epB, 'roleAobj, 'g0 Seq.t, 'g1 Seq.t) role ->
-   *   (< .. > as 'labelobj, [> ] as 'labelvar, ('v * 'epA) out X.lin, 'v * 'epB X.lin) label ->
-   *   'g0 seq -> 'g2 seq
-   *   = fun rA rB label (Seq g0) ->
-   *   Seq (fun env ->
-   *       let rn = List.nth env (toint rB.lens) in
-   *       let g0 = g0 env in
-   *       let ch = [ref (List.init rn (fun _ -> Event.new_channel ()))]
-   *       in
-   *       let epB = Seq.get rB.lens g0 in
-   *       let ev  = make_recv ~receive:receive_one rn rA label ch epB in
-   *       let g1  = Seq.put rB.lens g0 ev
-   *       in
-   *       let epA = Seq.get rA.lens g1 in
-   *       let obj = make_send 1 rB label ch epA in
-   *       let g2  = Seq.put rA.lens g1 obj
-   *       in g2) *)
+  let gather : 'roleAobj 'labelvar 'epA 'roleBobj 'g1 'g2 'labelobj 'epB 'g0 'v.
+    (< .. > as 'roleAobj, 'labelvar Event.event, 'epA, 'roleBobj, 'g1 Seq.t, 'g2 Seq.t) role ->
+    (< .. > as 'roleBobj, 'labelobj,             'epB, 'roleAobj, 'g0 Seq.t, 'g1 Seq.t) role ->
+    (< .. > as 'labelobj, [> ] as 'labelvar, ('v one * 'epA) out X.lin, 'v list * 'epB X.lin) label ->
+    'g0 seq -> 'g2 seq
+    = fun rA rB label (Seq g0) ->
+    Seq (fun env ->
+        if List.length env <= toint rB.lens then begin
+            failwith "use unseq_param [...] for scatter/gather"
+          end;
+        let anum = List.nth env (toint rA.lens) in
+        a2b anum 1 ~send:send_one ~receive:receive_list rA rB label (g0 env))
 end
 
 include MakeGlobal(struct type 'a lin = 'a let mklin x = x let unlin x = x end)
 
 let send (Out(once,k,channel,cont)) v =
+  assert (List.length !channel = 1);
   LinFlag.use once;
-  Event.sync (Event.send (List.nth !channel k) v);
+  Event.sync (Event.send (List.hd !channel) v);
   List.nth (Mergeable.out cont) k
+
+let sendmany (OutMany(once,k,channels,cont)) vf =
+  LinFlag.use once;
+  List.iteri (fun i ch -> Event.sync (Event.send ch (vf i))) !channels;
+  List.nth (Mergeable.out cont) k
+
 let receive ev =
   Event.sync ev
 let close _ = ()
-
-(*
-ideal structure for scatter-gather
-(a ->> b) msg @@ finish
-
-let ab = 
-  let wait, push = Lwt.task ()
-  let ea f =
-    let chs = wait () in
-    object
-      method role_B =
-        object method msg =
-          Out(f,chs,cont)
-        end
-    end
-  let eb fs =
-     let chs = push (List.map (fun _ -> Event.new_channel ()) fs) in
-     push 
-     object method role_A =
-
-*)

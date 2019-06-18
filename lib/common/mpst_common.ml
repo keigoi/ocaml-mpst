@@ -234,7 +234,7 @@ module Mergeable
     | [] -> failwith "merge_all: empty"
     | m::ms -> List.fold_left merge m ms
 
-  let out : 'a. 'a t -> int -> 'a list = fun t i ->
+  let out : 'a. 'a t -> 'a list = fun t ->
     let lin fs = List.map (fun f -> f @@ LinFlag.create ()) fs in
     match t with
     | Single (Val (b,h)) ->
@@ -247,8 +247,8 @@ module Mergeable
     | Merge (_,d) ->
        lin (Lazy.force d).value
 
-  let resolve_merge : 'a. 'a t -> int -> unit = fun t i ->
-    ignore (out t i)
+  let resolve_merge : 'a. 'a t -> unit = fun t ->
+    ignore (out t)
 
   let wrap_obj_body : 'v. (< .. > as 'o, 'v) method_ -> 'v body -> 'o body = fun meth b ->
     {value=List.map (fun v f -> meth.make_obj (v f)) b.value;
@@ -482,7 +482,7 @@ let unseq g = unseq_ g []
 
 let get_ep : ('x0, 'x1, 'ep, 'x2, 't Seq.t, 'x3) role -> 't Seq.t -> 'ep = fun r g ->
   let ep = Seq.get r.lens g in
-  List.hd (Mergeable.out ep 1)
+  List.hd (Mergeable.out ep)
 
 module type LIN = sig
   type 'a lin

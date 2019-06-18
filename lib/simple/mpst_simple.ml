@@ -1,13 +1,11 @@
 include Mpst_common
 
 type _ out =
-  Out : LinFlag.t * 'u Event.channel ref * int * int * 't Mergeable.t -> ('u * 't) out
-type _ outmany =
-  OutMany : LinFlag.t * 'u Event.channel ref list * 't Mergeable.t -> ('u * 't) outmany
+  Out : LinFlag.t * int * 'u Event.channel list ref * 't Mergeable.t -> ('u * 't) out
 
-let once (Out(o,_,_,_,_)) = o
-let chan (Out(_,c,_,_,_)) = c
-let cont (Out(_,_,_,_,d)) = d
+let once (Out(o,_,_,_)) = o
+let chan (Out(_,_,c,_)) = c
+let cont (Out(_,_,_,d)) = d
 
 let unify a b = a := !b
 
@@ -40,53 +38,59 @@ module MakeGlobal(X:LIN) = struct
 
   let merge_in ev1 ev2 = Event.choose [ev1; ev2]
 
-  let make_recv num rA lab ph epB =
-    let ev num =
+  let receive_one = function
+    | [ch] -> Event.receive ch
+    | _ -> assert false
+
+  (* XXX a dumb implementation of receiving from multiple channels  *)
+  let receive_list = function
+    | ch::chs ->
+       Event.wrap
+         (Event.receive ch)
+         (fun v ->
+           v :: List.map (fun ch -> Event.sync (Event.receive ch)) chs)
+    | [] -> failwith "no channel"
+
+  let make_recv ~receive num rA lab (phss: _ Event.channel list ref list) epB =
+    assert (List.length !(List.hd phss) = num);
+    let ev =
       List.init num
-        (fun k once ->
+        (fun k -> fun once ->
           Event.wrap
-            (Event.guard (fun () -> LinFlag.use once; Event.receive !ph))
-            (fun v -> lab.var (v, X.mklin (List.nth (Mergeable.out epB num) k))))
+            (Event.guard (fun () ->
+                 LinFlag.use once;
+                 let chs = List.map (fun phs -> List.nth !phs k) phss in
+                 receive chs))
+            (fun v -> lab.var (v, X.mklin (List.nth (Mergeable.out epB) k))))
     in
     Mergeable.wrap_obj rA.label
       (Mergeable.make_with_hook
-         (lazy (Mergeable.resolve_merge epB num))
+         (lazy (Mergeable.resolve_merge epB))
          merge_in
-         (ev num))
+         ev)
 
   let merge_out = fun out1 out2 ->
-    let (Out(o1,s1,i1,n1,c1), Out(o2,s2,i2,n2,c2)) = X.unlin out1, X.unlin out2 in
+    let (Out(o1,i1,s1,c1), Out(o2,i2,s2,c2)) = X.unlin out1, X.unlin out2 in
     assert (i1=i2);
-    assert (n1=n2);
     LinFlag.use o1; LinFlag.use o2;
     unify s1 s2;
     let o12 = LinFlag.create () in
     let c12 = Mergeable.merge c1 c2 in
-    X.mklin (Out(o12, s1, i1, n1, c12))
+    X.mklin (Out(o12, i1, s1, c12))
 
-  let make_send num rB lab (ph: _ Event.channel ref) epA =
-    let epA' num =
+  let make_send num rB lab (phss: _ Event.channel list ref list) epA =
+    assert (List.length phss = num);
+    let epA' =
       List.init num
-        (fun i once ->
-          X.mklin (Out(once,ph,i,num,epA)))
+        (fun k -> fun once ->
+          X.mklin (Out(once,k,List.nth phss k,epA)))
     in
     Mergeable.wrap_obj rB.label
       (Mergeable.wrap_obj lab.obj
          (Mergeable.make_with_hook
-            (lazy (Mergeable.resolve_merge epA num))
+            (lazy (Mergeable.resolve_merge epA))
             merge_out
-            (epA' num)))
-
-  (* let gen_channels sh rh =
-   *   Thread.create (fun () ->
-   *       let sn,srh = Event.sync (Event.receive sh) in
-   *       let rn,rrh = Event.sync (Event.receive rh) in
-   *       let chs = List.init sn (fun si ->
-   *           List.init rn (fun ri ->
-   *               ref (Event.new_channel ())))
-   *       in
-   *       Event.sync (Event.send srh chs);
-   *       Event.sync (Event.send rrh @@ Mpst_base.transpose chs) *)
+            epA'))
 
   let ( --> ) : 'roleAobj 'labelvar 'epA 'roleBobj 'g1 'g2 'labelobj 'epB 'g0 'v.
     (< .. > as 'roleAobj, 'labelvar Event.event, 'epA, 'roleBobj, 'g1 Seq.t, 'g2 Seq.t) role ->
@@ -96,10 +100,10 @@ module MakeGlobal(X:LIN) = struct
     = fun rA rB label (Seq g0) ->
     Seq (fun env ->
         let g0 = g0 env in
-        let ch = ref (Event.new_channel ())
+        let ch = [ref [Event.new_channel ()]]
         in
         let epB = Seq.get rB.lens g0 in
-        let ev  = make_recv 1 rA label ch epB in
+        let ev  = make_recv ~receive:receive_one 1 rA label ch epB in
         let g1  = Seq.put rB.lens g0 ev
         in
         let epA = Seq.get rA.lens g1 in
@@ -107,68 +111,42 @@ module MakeGlobal(X:LIN) = struct
         let g2  = Seq.put rA.lens g1 obj
         in g2)
 
-  (* let make_recv_mult rA lab ph epB =
-   *   let ev once =
-   *     Event.wrap
-   *       (Event.guard (fun () -> LinFlag.use once; Event.receive !ph))
-   *       (fun v -> lab.var (v, X.mklin (Mergeable.out epB)))
-   *   in
-   *   Mergeable.wrap_obj rA.label
-   *     (Mergeable.make_with_hook
-   *        (lazy (Mergeable.resolve_merge epB))
-   *        merge_in
-   *        ev)
-   * 
-   * let ( --> ) : 'roleAobj 'labelvar 'epA 'roleBobj 'g1 'g2 'labelobj 'epB 'g0 'v.
+  let gen_channels sn rn =
+    List.init sn (fun si ->
+        List.init rn (fun ri ->
+            (Event.new_channel ())))
+
+  let rec toint : type a b c d. (a,b,c,d) Seq.lens -> int = function
+    | Zero -> 0
+    | Succ l -> toint l + 1
+
+  (* let scatter : 'roleAobj 'labelvar 'epA 'roleBobj 'g1 'g2 'labelobj 'epB 'g0 'v.
    *   (< .. > as 'roleAobj, 'labelvar Event.event, 'epA, 'roleBobj, 'g1 Seq.t, 'g2 Seq.t) role ->
-   *   (< .. > as 'roleBobj, 'labelobj,             'epB, 'roleAobj, 'g0 Seq.t, 'g1 Seq.t) role ->
+   *   (< .. > as 'roleBobj, 'labelobj, 'epB, 'roleAobj, 'g0 Seq.t, 'g1 Seq.t) role ->
    *   (< .. > as 'labelobj, [> ] as 'labelvar, ('v * 'epA) out X.lin, 'v * 'epB X.lin) label ->
    *   'g0 seq -> 'g2 seq
    *   = fun rA rB label (Seq g0) ->
    *   Seq (fun env ->
+   *       let rn = List.nth env (toint rB.lens) in
    *       let g0 = g0 env in
-   *       let ch = ref (Event.new_channel ())
+   *       let ch = [ref (List.init rn (fun _ -> Event.new_channel ()))]
    *       in
    *       let epB = Seq.get rB.lens g0 in
-   *       let ev  = make_recv rA label ch epB in
+   *       let ev  = make_recv ~receive:receive_one rn rA label ch epB in
    *       let g1  = Seq.put rB.lens g0 ev
    *       in
    *       let epA = Seq.get rA.lens g1 in
-   *       let obj = make_send rB label ch epA in
-   *       let g2  = Seq.put rA.lens g1 obj
-   *       in g2)
-   * 
-   * let rec toint : type a b c d. (a,b,c,d) Seq.lens -> int = function
-   *   | Zero -> 0
-   *   | Succ l -> toint l + 1
-   * 
-   * let scatter : 'roleAobj 'labelvar 'epA 'roleBobj 'g1 'g2 'labelobj 'epB 'g0 'v.
-   *   (< .. > as 'roleAobj, 'labelvar Event.event, 'epA, 'roleBobj, 'g1 Seq.t, 'g2 Seq.t) role ->
-   *   (< .. > as 'roleBobj, 'labelobj,             'epB list, 'roleAobj list, 'g0 Seq.t, 'g1 Seq.t) role ->
-   *   (< .. > as 'labelobj, [> ] as 'labelvar, ('v * 'epA) out X.lin, 'v * 'epB X.lin) label ->
-   *   'g0 seq -> 'g2 seq
-   *   = fun rA rB label (Seq g0) ->
-   *   Seq (fun env ->
-   *       let g0 = g0 env in
-   *       let rBidx = toint rB.lens in
-   *       let cnt = List.nth env rBidx(\*FIXME*\) in
-   *       let chs = List.init cnt (fun _ -> ref (Event.new_channel ())) in
-   *       let epB = Seq.get rB.lens g0 in
-   *       let ev  = make_recv_mult rA label chs epB in
-   *       let g1  = Seq.put rB.lens g0 ev
-   *       in
-   *       let epA = Seq.get rA.lens g1 in
-   *       let obj = make_sendmany rB label chs epA in
+   *       let obj = make_send 1 rB label ch epA in
    *       let g2  = Seq.put rA.lens g1 obj
    *       in g2) *)
 end
 
 include MakeGlobal(struct type 'a lin = 'a let mklin x = x let unlin x = x end)
 
-let send (Out(once,channel,i,n,cont)) v =
+let send (Out(once,k,channel,cont)) v =
   LinFlag.use once;
-  Event.sync (Event.send !channel v);
-  List.nth (Mergeable.out cont n) i
+  Event.sync (Event.send (List.nth !channel k) v);
+  List.nth (Mergeable.out cont) k
 let receive ev =
   Event.sync ev
 let close _ = ()

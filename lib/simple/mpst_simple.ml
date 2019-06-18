@@ -1,5 +1,6 @@
 include Mpst_common
 type 'a one = One__
+type 'a inp = 'a Event.event
 type _ out =
   | Out : LinFlag.t * int * 'u Event.channel list ref * 't Mergeable.t -> ('u one * 't) out
   | OutMany : LinFlag.t * int * 'u Event.channel list ref * 't Mergeable.t -> ('u list * 't) out
@@ -148,16 +149,16 @@ module MakeGlobal(X:LIN) = struct
     in g2
 
   let ( --> ) : 'roleAobj 'labelvar 'epA 'roleBobj 'g1 'g2 'labelobj 'epB 'g0 'v.
-    (< .. > as 'roleAobj, 'labelvar Event.event, 'epA, 'roleBobj, 'g1 Seq.t, 'g2 Seq.t) role ->
-    (< .. > as 'roleBobj, 'labelobj,             'epB, 'roleAobj, 'g0 Seq.t, 'g1 Seq.t) role ->
+    (< .. > as 'roleAobj, 'labelvar inp, 'epA, 'roleBobj, 'g1 Seq.t, 'g2 Seq.t) role ->
+    (< .. > as 'roleBobj, 'labelobj,     'epB, 'roleAobj, 'g0 Seq.t, 'g1 Seq.t) role ->
     (< .. > as 'labelobj, [> ] as 'labelvar, ('v one * 'epA) out X.lin, 'v * 'epB X.lin) label ->
     'g0 seq -> 'g2 seq
     = fun rA rB label (Seq g0) ->
     Seq (fun env -> a2b 1 1 ~send:send_one ~receive:receive_one rA rB label (g0 env))
 
   let scatter : 'roleAobj 'labelvar 'epA 'roleBobj 'g1 'g2 'labelobj 'epB 'g0 'v.
-    (< .. > as 'roleAobj, 'labelvar Event.event, 'epA, 'roleBobj, 'g1 Seq.t, 'g2 Seq.t) role ->
-    (< .. > as 'roleBobj, 'labelobj,             'epB, 'roleAobj, 'g0 Seq.t, 'g1 Seq.t) role ->
+    (< .. > as 'roleAobj, 'labelvar inp, 'epA, 'roleBobj, 'g1 Seq.t, 'g2 Seq.t) role ->
+    (< .. > as 'roleBobj, 'labelobj,     'epB, 'roleAobj, 'g0 Seq.t, 'g1 Seq.t) role ->
     (< .. > as 'labelobj, [> ] as 'labelvar, ('v list * 'epA) out X.lin, 'v * 'epB X.lin) label ->
     'g0 seq -> 'g2 seq
     = fun rA rB label (Seq g0) ->
@@ -169,8 +170,8 @@ module MakeGlobal(X:LIN) = struct
         a2b 1 bnum ~send:send_many ~receive:receive_one rA rB label (g0 env))
 
   let gather : 'roleAobj 'labelvar 'epA 'roleBobj 'g1 'g2 'labelobj 'epB 'g0 'v.
-    (< .. > as 'roleAobj, 'labelvar Event.event, 'epA, 'roleBobj, 'g1 Seq.t, 'g2 Seq.t) role ->
-    (< .. > as 'roleBobj, 'labelobj,             'epB, 'roleAobj, 'g0 Seq.t, 'g1 Seq.t) role ->
+    (< .. > as 'roleAobj, 'labelvar inp, 'epA, 'roleBobj, 'g1 Seq.t, 'g2 Seq.t) role ->
+    (< .. > as 'roleBobj, 'labelobj,     'epB, 'roleAobj, 'g0 Seq.t, 'g1 Seq.t) role ->
     (< .. > as 'labelobj, [> ] as 'labelvar, ('v one * 'epA) out X.lin, 'v list * 'epB X.lin) label ->
     'g0 seq -> 'g2 seq
     = fun rA rB label (Seq g0) ->

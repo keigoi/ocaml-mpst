@@ -105,7 +105,7 @@ let tSrv es =
   in loop 0 es
 
 let () =
-  let g = calc () in
+  let g = unseq @@ calc () in
   let ec = get_ep cli g in
   let es = get_ep srv g in
   List.iter Thread.join [Thread.create tCli ec; Thread.create tSrv es]
@@ -155,7 +155,7 @@ let tSrv2 es =
   in loop 0 es
 
 let () =
-  let calc2 = calc2 () in
+  let calc2 = unseq @@ calc2 () in
   let ec = get_ep cli calc2 and es = get_ep srv calc2 in
   ignore @@ Thread.create tSrv2 es;
   tCli ec

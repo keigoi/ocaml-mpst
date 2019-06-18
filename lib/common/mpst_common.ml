@@ -445,17 +445,21 @@ end = struct
     | SeqBottom -> SeqBottom
 end
 
-let fix : type t. (t Seq.t -> t Seq.t) -> t Seq.t = fun f ->
-  let rec body =
-    lazy begin
-        f (SeqRecVars [body])
-      end
-  in
-  (* A "fail-fast" approach to detect unguarded loops.
-   * Seq.partial_force tries to fully evaluate unguarded recursion variables 
-   * in the body.
-   *)
-  Seq.partial_force [body] (Lazy.force body)
+type env = int list
+type 't seq = Seq of (env -> 't Seq.t)
+let unseq_ = function
+    Seq f -> f
+
+let fix : type t. (t seq -> t seq) -> t seq = fun f ->
+  Seq (fun e ->
+      let rec body =
+        lazy (unseq_ (f (Seq (fun _ -> SeqRecVars [body]))) e)
+      in
+      (* A "fail-fast" approach to detect unguarded loops.
+       * Seq.partial_force tries to fully evaluate unguarded recursion variables 
+       * in the body.
+       *)
+      Seq.partial_force [body] (Lazy.force body))
 
 type ('robj,'c,'a,'b,'xs,'ys) role =
   {label:('robj,'c) method_;
@@ -463,7 +467,9 @@ type ('robj,'c,'a,'b,'xs,'ys) role =
 
 type close = Close
 
-let get_ep : ('x0, 'x1, 'ep, 'x2, 'seq, 'x3) role -> 'seq -> 'ep = fun r g ->
+let unseq g = unseq_ g []
+
+let get_ep : ('x0, 'x1, 'ep, 'x2, 't Seq.t, 'x3) role -> 't Seq.t -> 'ep = fun r g ->
   let ep = Seq.get r.lens g in
   Mergeable.out ep
 

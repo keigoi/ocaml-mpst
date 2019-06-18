@@ -25,7 +25,7 @@ let middle_or_right =
 
 let loop0 =
   print_endline"loop0";
-  let g = fix (fun t -> (a --> b) msg @@ t) in
+  let g = unseq @@ fix (fun t -> (a --> b) msg @@ t) in
   print_endline"loop0 epp a";
   let _ = get_ep a g in
   print_endline"loop0 epp b";
@@ -64,7 +64,7 @@ let tB eb finally =
   
 let () =
   let () = print_endline "loop1" in
-  let g = loop1 () in
+  let g = unseq @@ loop1 () in
   let () = print_endline "global combinator generated" in
   let ea = get_ep a g in
   print_endline "epp a done";
@@ -94,7 +94,7 @@ let loop2 () =
 
 let () =
   let () = print_endline "loop2" in
-  let g = loop2 () in
+  let g = unseq @@ loop2 () in
   print_endline "loop2 global done";
   let ea = get_ep a g in
   print_endline "epp a done";
@@ -129,7 +129,8 @@ let () =
 
 let test1 =
     let g =
-      fix (fun t ->
+      unseq @@
+        fix (fun t ->
         (a --> c) msg @@
           (a --> b) msg @@
             (a --> b) msg @@ t)
@@ -141,7 +142,7 @@ let test1 =
 let test2 =
   print_endline "test2";
   let g = 
-    fix (fun t ->
+    unseq @@ fix (fun t ->
       (a --> b) left @@
       choice_at a (to_b left_or_right)
         (a, t)
@@ -157,7 +158,7 @@ let test2 =
 let test3 =
   print_endline "test3";
   let g = 
-    fix (fun t ->
+    unseq @@ fix (fun t ->
       (a --> b) right @@
       fix (fun u ->    
           choice_at a (to_b left_or_right)
@@ -187,6 +188,7 @@ let test5 =
   print_endline "test5";
   try
     let _g =
+      unseq @@
       choice_at a (to_b left_or_right)
         (a, (a --> b) left @@
             fix (fun t -> (a --> b) msg @@ t))

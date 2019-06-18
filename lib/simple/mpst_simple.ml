@@ -9,28 +9,30 @@ let cont (Out(_,_,d)) = d
 
 let unify a b = a := !b
 
-let finish : ([`cons of close * 'a] as 'a) Seq.t =
-  SeqRepeat(Mergeable.make_no_merge (fun _ -> Close))
+let finish : ([`cons of close * 'a] as 'a) seq =
+  Seq (fun _ -> SeqRepeat(Mergeable.make_no_merge (fun _ -> Close)))
 
 let choice_at : 'ep 'ep_l 'ep_r 'g0_l 'g0_r 'g1 'g2.
                   (_, _, close, (< .. > as 'ep), 'g1 Seq.t, 'g2 Seq.t) role ->
                 ('ep, < .. > as 'ep_l, < .. > as 'ep_r) obj_merge ->
-                (_, _, 'ep_l, close, 'g0_l Seq.t, 'g1 Seq.t) role * 'g0_l Seq.t ->
-                (_, _, 'ep_r, close, 'g0_r Seq.t, 'g1 Seq.t) role * 'g0_r Seq.t ->
-                'g2 Seq.t
-  = fun r merge (r',g0left) (r'',g0right) ->
-  let epL, epR =
-    Seq.get r'.lens g0left,
-    Seq.get r''.lens g0right in
-  let g1left, g1right =
-    Seq.put r'.lens g0left (Mergeable.make_no_merge (fun _ -> Close)),
-    Seq.put r''.lens g0right (Mergeable.make_no_merge (fun _ -> Close)) in
-  let g1 = Seq.seq_merge g1left g1right in
-  let ep = Mergeable.disjoint_merge merge epL epR
-  in
-  let g2 = Seq.put r.lens g1 ep
-  in
-  g2
+                (_, _, 'ep_l, close, 'g0_l Seq.t, 'g1 Seq.t) role * 'g0_l seq ->
+                (_, _, 'ep_r, close, 'g0_r Seq.t, 'g1 Seq.t) role * 'g0_r seq ->
+                'g2 seq
+  = fun r merge (r',Seq g0left) (r'',Seq g0right) ->
+  Seq (fun env ->
+      let g0left, g0right = g0left env, g0right env in
+      let epL, epR =
+        Seq.get r'.lens g0left,
+        Seq.get r''.lens g0right in
+      let g1left, g1right =
+        Seq.put r'.lens g0left (Mergeable.make_no_merge (fun _ -> Close)),
+        Seq.put r''.lens g0right (Mergeable.make_no_merge (fun _ -> Close)) in
+      let g1 = Seq.seq_merge g1left g1right in
+      let ep = Mergeable.disjoint_merge merge epL epR
+      in
+      let g2 = Seq.put r.lens g1 ep
+      in
+      g2)
 
 module MakeGlobal(X:LIN) = struct
 
@@ -68,21 +70,23 @@ module MakeGlobal(X:LIN) = struct
          ev)
 
   let ( --> ) : 'roleAobj 'labelvar 'epA 'roleBobj 'g1 'g2 'labelobj 'epB 'g0 'v.
-    (< .. > as 'roleAobj, 'labelvar Event.event, 'epA, 'roleBobj, 'g1, 'g2) role ->
-    (< .. > as 'roleBobj, 'labelobj,             'epB, 'roleAobj, 'g0, 'g1) role ->
+    (< .. > as 'roleAobj, 'labelvar Event.event, 'epA, 'roleBobj, 'g1 Seq.t, 'g2 Seq.t) role ->
+    (< .. > as 'roleBobj, 'labelobj,             'epB, 'roleAobj, 'g0 Seq.t, 'g1 Seq.t) role ->
     (< .. > as 'labelobj, [> ] as 'labelvar, ('v * 'epA) out X.lin, 'v * 'epB X.lin) label ->
-    'g0 -> 'g2
-    = fun rA rB label g0 ->
-    let ch = ref (Event.new_channel ())
-    in
-    let epB = Seq.get rB.lens g0 in
-    let ev  = make_recv rA label ch epB in
-    let g1  = Seq.put rB.lens g0 ev
-    in
-    let epA = Seq.get rA.lens g1 in
-    let obj = make_send rB label ch epA in
-    let g2  = Seq.put rA.lens g1 obj
-    in g2
+    'g0 seq -> 'g2 seq
+    = fun rA rB label (Seq g0) ->
+    Seq (fun env ->
+        let g0 = g0 env in
+        let ch = ref (Event.new_channel ())
+        in
+        let epB = Seq.get rB.lens g0 in
+        let ev  = make_recv rA label ch epB in
+        let g1  = Seq.put rB.lens g0 ev
+        in
+        let epA = Seq.get rA.lens g1 in
+        let obj = make_send rB label ch epA in
+        let g2  = Seq.put rA.lens g1 obj
+        in g2)
 end
 
 include MakeGlobal(struct type 'a lin = 'a let mklin x = x let unlin x = x end)

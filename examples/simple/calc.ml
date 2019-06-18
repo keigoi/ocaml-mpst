@@ -1,12 +1,12 @@
 
 open Mpst_simple
 
-let cli = {lens=Zero;
-           label={make_obj=(fun v->object method role_Cli=v end);
-                  call_obj=(fun o->o#role_Cli)}}
-let srv = {lens=Succ Zero;
-           label={make_obj=(fun v->object method role_Srv=v end);
-                  call_obj=(fun o->o#role_Srv)}}
+let cli = {role_index=Zero;
+           role_label={make_obj=(fun v->object method role_Cli=v end);
+                       call_obj=(fun o->o#role_Cli)}}
+let srv = {role_index=Succ Zero;
+           role_label={make_obj=(fun v->object method role_Srv=v end);
+                       call_obj=(fun o->o#role_Srv)}}
 
 let compute = {obj={make_obj=(fun v-> object method compute=v end);
                     call_obj=(fun o->o#compute)};

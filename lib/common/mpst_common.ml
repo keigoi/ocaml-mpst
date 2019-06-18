@@ -479,20 +479,33 @@ let fix : type t. (t seq -> t seq) -> t seq = fun f ->
       Seq.partial_force [body] (Lazy.force body))
 
 type ('robj,'c,'a,'b,'xs,'ys) role =
-  {label:('robj,'c) method_;
-   lens:('a,'b,'xs,'ys) Seq.lens}
+  {role_label:('robj,'c) method_;
+   role_index:('a,'b,'xs,'ys) Seq.lens}
 
 type close = Close
+
+let finish : ([`cons of close * 'a] as 'a) seq =
+  Seq (fun env ->
+      SeqRepeat(0, (fun i ->
+            let num =
+              if i < List.length env then
+                List.nth env i
+              else 1
+            in
+            Mergeable.make_no_merge (List.init num (fun _ -> Close)))))
 
 let unseq g = unseq_ g []
 let unseq_param g = unseq_ g
 
 let get_ep : ('x0, 'x1, 'ep, 'x2, 't Seq.t, 'x3) role -> 't Seq.t -> 'ep = fun r g ->
-  let ep = Seq.get r.lens g in
-  List.hd (Mergeable.out ep)
+  let ep = Seq.get r.role_index g in
+  match Mergeable.out ep with
+  | [e] -> e
+  | [] -> assert false
+  | _ -> failwith "get_ep: there are more than one endpoints. use get_ep_list."
 
 let get_ep_list : ('x0, 'x1, 'ep, 'x2, 't Seq.t, 'x3) role -> 't Seq.t -> 'ep list = fun r g ->
-  let ep = Seq.get r.lens g in
+  let ep = Seq.get r.role_index g in
   Mergeable.out ep
 
 module type LIN = sig
@@ -518,18 +531,18 @@ type ('la,'lb,'va,'vb) label =
   {obj: ('la, 'va) method_;
    var: 'vb -> 'lb}
 
-let a = {label={make_obj=(fun v->object method role_A=v end);
-                call_obj=(fun o->o#role_A)};
-         lens=Zero}
-let b = {label={make_obj=(fun v->object method role_B=v end);
-                call_obj=(fun o->o#role_B)};
-         lens=Succ Zero}
-let c = {label={make_obj=(fun v->object method role_C=v end);
-                call_obj=(fun o->o#role_C)};
-         lens=Succ (Succ Zero)}
-let d = {label={make_obj=(fun v->object method role_D=v end);
-                call_obj=(fun o->o#role_D)};
-         lens=Succ (Succ (Succ Zero))}
+let a = {role_label={make_obj=(fun v->object method role_A=v end);
+                     call_obj=(fun o->o#role_A)};
+         role_index=Zero}
+let b = {role_label={make_obj=(fun v->object method role_B=v end);
+                     call_obj=(fun o->o#role_B)};
+         role_index=Succ Zero}
+let c = {role_label={make_obj=(fun v->object method role_C=v end);
+                     call_obj=(fun o->o#role_C)};
+         role_index=Succ (Succ Zero)}
+let d = {role_label={make_obj=(fun v->object method role_D=v end);
+                     call_obj=(fun o->o#role_D)};
+         role_index=Succ (Succ (Succ Zero))}
 
 let msg =
   {obj={make_obj=(fun f -> object method msg=f end);

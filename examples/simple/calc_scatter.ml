@@ -1,12 +1,12 @@
 open Mpst_simple
 type op = Add | Sub | Mul | Div
 
-let cli = {lens=Zero;
-           label={make_obj=(fun v->object method role_Cli=v end);
-                  call_obj=(fun o->o#role_Cli)}}
-let wrk = {lens=Succ Zero;
-           label={make_obj=(fun v->object method role_Wrk=v end);
-                  call_obj=(fun o->o#role_Wrk)}}
+let cli = {role_index=Zero;
+           role_label={make_obj=(fun v->object method role_Cli=v end);
+                       call_obj=(fun o->o#role_Cli)}}
+let wrk = {role_index=Succ Zero;
+           role_label={make_obj=(fun v->object method role_Wrk=v end);
+                       call_obj=(fun o->o#role_Wrk)}}
 
 let compute = {obj={make_obj=(fun v-> object method compute=v end); call_obj=(fun o->o#compute)}; var=(fun v -> `compute(v))}
 let result = {obj={make_obj=(fun v-> object method result=v end); call_obj=(fun o->o#result)}; var=(fun v -> `result(v))}

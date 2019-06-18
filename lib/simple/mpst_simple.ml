@@ -14,12 +14,6 @@ let rec toint : type a b c d. (a,b,c,d) Seq.lens -> int = function
   | Zero -> 0
   | Succ l -> toint l + 1
 
-let finish : ([`cons of close * 'a] as 'a) seq =
-  Seq (fun env ->
-      SeqRepeat(0, (fun i ->
-            let num = if i < List.length env then List.nth env i else 1 in
-            Mergeable.make_no_merge (List.init num (fun _ -> Close)))))
-
 let choice_at : 'ep 'ep_l 'ep_r 'g0_l 'g0_r 'g1 'g2.
                   (_, _, unit, (< .. > as 'ep), 'g1 Seq.t, 'g2 Seq.t) role ->
                 ('ep, < .. > as 'ep_l, < .. > as 'ep_r) obj_merge ->
@@ -30,15 +24,15 @@ let choice_at : 'ep 'ep_l 'ep_r 'g0_l 'g0_r 'g1 'g2.
   Seq (fun env ->
       let g0left, g0right = g0left env, g0right env in
       let epL, epR =
-        Seq.get r'.lens g0left,
-        Seq.get r''.lens g0right in
+        Seq.get r'.role_index g0left,
+        Seq.get r''.role_index g0right in
       let g1left, g1right =
-        Seq.put r'.lens g0left (Mergeable.make_no_merge [()]),
-        Seq.put r''.lens g0right (Mergeable.make_no_merge [()]) in
+        Seq.put r'.role_index g0left (Mergeable.make_no_merge [()]),
+        Seq.put r''.role_index g0right (Mergeable.make_no_merge [()]) in
       let g1 = Seq.seq_merge g1left g1right in
       let ep = Mergeable.disjoint_merge merge epL epR
       in
-      let g2 = Seq.put r.lens g1 ep
+      let g2 = Seq.put r.role_index g1 ep
       in
       g2)
 
@@ -84,7 +78,7 @@ module MakeGlobal(X:LIN) = struct
             failwith "make_recv: endpoint count inconsistency; use unseq_param for scatter/gather"
         end
     in
-    Mergeable.wrap_obj rA.label
+    Mergeable.wrap_obj rA.role_label
       (Mergeable.make_with_hook
          hook
          merge_in
@@ -132,7 +126,7 @@ module MakeGlobal(X:LIN) = struct
             failwith "make_send: endpoint count inconsistency; use unseq_param for scatter/gather"
         end
     in
-    Mergeable.wrap_obj rB.label
+    Mergeable.wrap_obj rB.role_label
       (Mergeable.wrap_obj lab.obj
          (Mergeable.make_with_hook
             hook
@@ -144,13 +138,13 @@ module MakeGlobal(X:LIN) = struct
       List.init anum (fun _ ->
           ref @@ List.init bnum (fun _ -> Event.new_channel ()))
     in
-    let epB = Seq.get rB.lens g0 in
+    let epB = Seq.get rB.role_index g0 in
     let ev  = make_recv ~receive bnum rA label ch epB in
-    let g1  = Seq.put rB.lens g0 ev
+    let g1  = Seq.put rB.role_index g0 ev
     in
-    let epA = Seq.get rA.lens g1 in
+    let epA = Seq.get rA.role_index g1 in
     let obj = make_send ~send anum rB label ch epA in
-    let g2  = Seq.put rA.lens g1 obj
+    let g2  = Seq.put rA.role_index g1 obj
     in g2
 
   let ( --> ) : 'roleAobj 'labelvar 'epA 'roleBobj 'g1 'g2 'labelobj 'epB 'g0 'v.
@@ -168,10 +162,10 @@ module MakeGlobal(X:LIN) = struct
     'g0 seq -> 'g2 seq
     = fun rA rB label (Seq g0) ->
     Seq (fun env ->
-        if List.length env <= toint rB.lens then begin
+        if List.length env <= toint rB.role_index then begin
             failwith "use unseq_param [...] for scatter/gather"
           end;
-        let bnum = List.nth env (toint rB.lens) in
+        let bnum = List.nth env (toint rB.role_index) in
         a2b 1 bnum ~send:send_many ~receive:receive_one rA rB label (g0 env))
 
   let gather : 'roleAobj 'labelvar 'epA 'roleBobj 'g1 'g2 'labelobj 'epB 'g0 'v.
@@ -181,10 +175,10 @@ module MakeGlobal(X:LIN) = struct
     'g0 seq -> 'g2 seq
     = fun rA rB label (Seq g0) ->
     Seq (fun env ->
-        if List.length env <= toint rB.lens then begin
+        if List.length env <= toint rB.role_index then begin
             failwith "use unseq_param [...] for scatter/gather"
           end;
-        let anum = List.nth env (toint rA.lens) in
+        let anum = List.nth env (toint rA.role_index) in
         a2b anum 1 ~send:send_one ~receive:receive_list rA rB label (g0 env))
 end
 
@@ -203,4 +197,5 @@ let sendmany (OutMany(once,k,channels,cont)) vf =
 
 let receive ev =
   Event.sync ev
+
 let close _ = ()

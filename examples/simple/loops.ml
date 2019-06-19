@@ -1,32 +1,8 @@
 open Mpst
 
-let left_middle_or_right =
-  {obj_merge=(fun l r -> object method left=l#left method middle=l#middle method right=r#right end);
-   obj_splitL=(fun lr -> (lr :> <left : _; middle: _>));
-   obj_splitR=(fun lr -> (lr :> <right : _>));
-  }
-
-let left_or_middle =
-  {obj_merge=(fun l r -> object method left=l#left method middle=r#middle end);
-   obj_splitL=(fun lr -> (lr :> <left : _>));
-   obj_splitR=(fun lr -> (lr :> <middle : _>));
-  }
-
-let left_or_middle_right =
-  {obj_merge=(fun l r -> object method left=l#left method middle=r#middle method right=r#right end);
-   obj_splitL=(fun lr -> (lr :> <left : _>));
-   obj_splitR=(fun lr -> (lr :> <middle: _; right : _>));
-  }
-
-let middle_or_right =
-  {obj_merge=(fun l r -> object method middle=l#middle method right=r#right end);
-   obj_splitL=(fun lr -> (lr :> <middle : _>));
-   obj_splitR=(fun lr -> (lr :> <right : _>));
-  }
-
 let loop0 =
   print_endline"loop0";
-  let g = unseq @@ fix (fun t -> (a --> b) msg @@ t) in
+  let g = gen @@ fix (fun t -> (a --> b) msg @@ t) in
   print_endline"loop0 epp a";
   let _ = get_ep a g in
   print_endline"loop0 epp b";
@@ -65,7 +41,7 @@ let tB eb finally =
   
 let () =
   let () = print_endline "loop1" in
-  let g = unseq @@ loop1 () in
+  let g = gen @@ loop1 () in
   let () = print_endline "global combinator generated" in
   let ea = get_ep a g in
   print_endline "epp a done";
@@ -95,7 +71,7 @@ let loop2 () =
 
 let () =
   let () = print_endline "loop2" in
-  let g = unseq @@ loop2 () in
+  let g = gen @@ loop2 () in
   print_endline "loop2 global done";
   let ea = get_ep a g in
   print_endline "epp a done";
@@ -130,7 +106,7 @@ let () =
 
 let test1 =
     let g =
-      unseq @@
+      gen @@
         fix (fun t ->
         (a --> c) msg @@
           (a --> b) msg @@
@@ -143,7 +119,7 @@ let test1 =
 let test2 =
   print_endline "test2";
   let g = 
-    unseq @@ fix (fun t ->
+    gen @@ fix (fun t ->
       (a --> b) left @@
       choice_at a (to_b left_or_right)
         (a, t)
@@ -159,7 +135,7 @@ let test2 =
 let test3 =
   print_endline "test3";
   let g = 
-    unseq @@ fix (fun t ->
+    gen @@ fix (fun t ->
       (a --> b) right @@
       fix (fun u ->    
           choice_at a (to_b left_or_right)
@@ -189,7 +165,7 @@ let test5 =
   print_endline "test5";
   try
     let _g =
-      unseq @@
+      gen @@
       choice_at a (to_b left_or_right)
         (a, (a --> b) left @@
             fix (fun t -> (a --> b) msg @@ t))

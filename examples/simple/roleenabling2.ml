@@ -3,7 +3,7 @@ open Mpst
 
    
 let prot =
-  unseq @@
+  gen @@
   (a --> c) msg @@
   fix (fun t ->
         (c --> b) msg @@

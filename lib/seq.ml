@@ -1,3 +1,5 @@
+type 'a mergeable = 'a Mergeable.t
+
 type _ t =
   | SeqCons : 'hd Mergeable.t * 'tl t -> [`cons of 'hd * 'tl] t
   | SeqRepeat : int * (int -> 'a Mergeable.t) -> ([`cons of 'a * 'tl] as 'tl) t

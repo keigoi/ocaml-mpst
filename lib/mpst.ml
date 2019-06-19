@@ -1,9 +1,10 @@
 module Base = Base
+module S = S
 
 module LinFlag : S.LIN_FLAG = LinFlag
+module Seq : S.SEQ with type 'a mergeable = 'a Mergeable.t = Seq
 module Mergeable : S.MERGEABLE = Mergeable
-module Seq : S.SEQ = Seq
-                    
+
 module Local = Local
 module Global = Global
 module Util = Util

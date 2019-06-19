@@ -55,12 +55,14 @@ end
  *)
 module type SEQ =
 sig
+  type 'a mergeable
+
   (** sequence type *)
   type _ t = (* can we hide these constructors? *)
     (** cons *)
-    | SeqCons : 'hd Mergeable.t * 'tl t -> [ `cons of 'hd * 'tl ] t
+    | SeqCons : 'hd mergeable * 'tl t -> [ `cons of 'hd * 'tl ] t
     (** repetition -- for closed endpoints *)
-    | SeqRepeat : int * (int -> 'a Mergeable.t) -> ([ `cons of 'a * 'b ] as 'b) t
+    | SeqRepeat : int * (int -> 'a mergeable) -> ([ `cons of 'a * 'b ] as 'b) t
     (** recursion variable(s) *)
     | SeqRecVars : 'a seqvar list -> 'a t
     (** unguarded loop; we have it in the last part of a recursion *)
@@ -78,9 +80,9 @@ sig
   exception UnguardedLoopSeq
 
   (** lens get function *)
-  val get : ('a, 'b, 'xs, 'ys) lens -> 'xs -> 'a Mergeable.t
+  val get : ('a, 'b, 'xs, 'ys) lens -> 'xs -> 'a mergeable
   (** lens put function *)
-  val put : ('a, 'b, 'xs, 'ys) lens -> 'xs -> 'b Mergeable.t -> 'ys
+  val put : ('a, 'b, 'xs, 'ys) lens -> 'xs -> 'b mergeable -> 'ys
 
   (** merging of two sequences in a choice  *)
   val seq_merge : 'x t -> 'x t -> 'x t

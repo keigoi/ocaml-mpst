@@ -2,7 +2,7 @@
 open Mpst
 
 let roleenabling =
-  unseq @@
+  gen @@
   choice_at a (to_b left_or_right)
     (a, (a --> b) left @@
         (c --> b) msg @@

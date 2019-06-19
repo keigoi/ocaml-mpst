@@ -13,7 +13,7 @@ let mustfail name f =
     
        
 let () =
-  let shot = unseq @@ (a --> b) msg @@ finish in
+  let shot = gen @@ (a --> b) msg @@ finish in
   let ea = get_ep a shot in
   let eb = get_ep b shot in
   let t = Thread.create (fun () ->
@@ -27,7 +27,7 @@ let () =
 let () =
   print_endline "test2 preparing";
   let bra =
-    unseq @@
+    gen @@
       choice_at a (to_b left_or_right)
       (a, (a --> b) left @@ finish)
       (a, (a --> b) right @@ finish)

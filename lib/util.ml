@@ -51,3 +51,27 @@ let b_or_c =
    obj_splitL=(fun lr -> (lr :> <role_B : _>));
    obj_splitR=(fun lr -> (lr :> <role_C : _>));
   }
+
+let left_middle_or_right =
+  {obj_merge=(fun l r -> object method left=l#left method middle=l#middle method right=r#right end);
+   obj_splitL=(fun lr -> (lr :> <left : _; middle: _>));
+   obj_splitR=(fun lr -> (lr :> <right : _>));
+  }
+
+let left_or_middle =
+  {obj_merge=(fun l r -> object method left=l#left method middle=r#middle end);
+   obj_splitL=(fun lr -> (lr :> <left : _>));
+   obj_splitR=(fun lr -> (lr :> <middle : _>));
+  }
+
+let left_or_middle_right =
+  {obj_merge=(fun l r -> object method left=l#left method middle=r#middle method right=r#right end);
+   obj_splitL=(fun lr -> (lr :> <left : _>));
+   obj_splitR=(fun lr -> (lr :> <middle: _; right : _>));
+  }
+
+let middle_or_right =
+  {obj_merge=(fun l r -> object method middle=l#middle method right=r#right end);
+   obj_splitL=(fun lr -> (lr :> <middle : _>));
+   obj_splitR=(fun lr -> (lr :> <right : _>));
+  }

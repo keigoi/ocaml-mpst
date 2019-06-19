@@ -3,7 +3,7 @@ open Mpst
 
 let () = print_endline "start"
 let ring =
-  unseq @@
+  gen @@
     (a --> b) msg @@
       (b --> c) msg @@
         (c --> a) msg finish

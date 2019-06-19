@@ -5,19 +5,32 @@
   (flags ("-g" "-short-paths"))
   (libraries ocaml-mpst))
 
+(library
+ (name calc_util)
+  (modules calc_util)
+  (flags ("-g" "-short-paths"))
+  (libraries ocaml-mpst))
+
 (executable
  (name calc)
   (public_name calc_mpst_simple)
   (modules calc)
   (flags ("-g" "-short-paths"))
-  (libraries ocaml-mpst))
+  (libraries ocaml-mpst calc_util))
 
 (executable
  (name calc_reuse)
   (public_name calc_reuse_mpst_simple)
   (modules calc_reuse)
   (flags ("-g" "-short-paths"))
-  (libraries ocaml-mpst))
+  (libraries ocaml-mpst calc_util))
+
+(executable
+ (name calc_scatter)
+  (public_name calc_scatter)
+  (modules calc_scatter)
+  (flags ("-g" "-short-paths"))
+  (libraries ocaml-mpst calc_util))
 
 (executable
  (name unfair)
@@ -51,13 +64,6 @@
  (name dynlin_test)
   (public_name dynlin_test)
   (modules dynlin_test)
-  (flags ("-g" "-short-paths"))
-  (libraries ocaml-mpst))
-
-(executable
- (name calc_scatter)
-  (public_name calc_scatter)
-  (modules calc_scatter)
   (flags ("-g" "-short-paths"))
   (libraries ocaml-mpst))
 

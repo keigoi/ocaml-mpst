@@ -31,8 +31,8 @@ let finish : ([`cons of close * 'a] as 'a) t =
             in
             Mergeable.make_no_merge (List.init num (fun _ -> Close)))))
 
-let unseq g = unseq_ g []
-let unseq_param g = unseq_ g
+let gen g = unseq_ g []
+let gen_with_param p g = unseq_ g p
 
 let get_ep : ('x0, 'x1, 'ep, 'x2, 't Seq.t, 'x3) role -> 't Seq.t -> 'ep = fun r g ->
   let ep = Seq.get r.role_index g in

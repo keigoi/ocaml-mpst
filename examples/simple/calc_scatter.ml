@@ -1,4 +1,4 @@
-open Mpst_simple
+open Mpst
 type op = Add | Sub | Mul | Div
 
 let cli = {role_index=Zero;

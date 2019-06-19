@@ -1,5 +1,5 @@
 (* un-fairness *)
-open Mpst_simple
+open Mpst
 
 let unfair () =
   let g =

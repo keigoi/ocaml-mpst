@@ -1,5 +1,5 @@
 (* code reuse through polymorphic variants *)
-open Mpst_simple
+open Mpst
 
 let cli = {role_index=Zero;
            role_label={make_obj=(fun v->object method role_Cli=v end);

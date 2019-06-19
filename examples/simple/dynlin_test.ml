@@ -1,5 +1,5 @@
 (* dynamic linearity (affinity) checking *)
-open Mpst_simple
+open Mpst
 
 let () = print_endline "dynamic linearity checking"
 
@@ -8,7 +8,7 @@ let mustfail name f =
     f ();
     failwith (name^":no exception (unexpected)")
   with
-    Mpst_common.LinFlag.InvalidEndpoint ->
+    Mpst.LinFlag.InvalidEndpoint ->
     print_endline (name^":exception correctly occurred")
     
        

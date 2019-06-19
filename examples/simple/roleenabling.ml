@@ -1,5 +1,5 @@
 (* sending from a non-choosing role *)
-open Mpst_simple
+open Mpst
 
 let roleenabling =
   unseq @@

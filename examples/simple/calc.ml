@@ -1,5 +1,6 @@
-
-open Mpst_simple
+open Mpst.Base
+open Mpst.Local
+open Mpst.Global
 
 let cli = {role_index=Zero;
            role_label={make_obj=(fun v->object method role_Cli=v end);
@@ -37,49 +38,6 @@ let calc () =
            (cli, (cli --> srv) result @@
                  (srv --> cli) answer @@
                  finish))
-
-(* the above is equivalent to following: *)
-(* module ChVecExample = struct
- *   let force = Lazy.force
- * 
- *   let calc () =
- *     let ch0 = Event.new_channel ()
- *     and ch1 = Event.new_channel ()
- *     and ch2 = Event.new_channel ()
- *     in
- *     let rec ec0 =
- *       lazy (object method role_Srv =
- *                 object
- *                   method compute v =
- *                     Event.sync (Event.send ch0 v);
- *                     force ec0
- *                   method result v =
- *                     Event.sync (Event.send ch1 v);
- *                     force ec1
- *                 end
- *             end)
- *     and ec1 =
- *       lazy (Event.wrap (Event.receive ch2)
- *               (fun v -> `role_Srv(`answer(v, Close))))
- *     in
- *     let rec es0 =
- *       lazy (Event.choose
- *               [(Event.wrap (Event.receive ch0)
- *                   (fun v -> `role_Cli(`compute(v, force es0))));
- *                (Event.wrap (Event.receive ch1)
- *                   (fun v -> `role_Cli(`result(v, force es1))))])
- *     and es1 =
- *       lazy (object method role_Cli =
- *                 object method answer v =
- *                     Event.sync (Event.send ch2 v);
- *                     Close
- *                 end
- *             end)
- *     in
- *     let ec = force ec0 and es = force es0
- *     in
- *     Cons(WrapSend(ec), Cons(WrapRecv(es), Nil))
- * end *)
 
 let tCli ec =
   let ec = send (ec#role_Srv#compute) (Add, 20) in

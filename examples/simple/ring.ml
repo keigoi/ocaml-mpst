@@ -1,5 +1,5 @@
 (* simple ring protocol *)
-open Mpst_simple
+open Mpst
 
 let () = print_endline "start"
 let ring =

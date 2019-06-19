@@ -1,4 +1,5 @@
-open Mpst_simple
+open Mpst
+
 let left_middle_or_right =
   {obj_merge=(fun l r -> object method left=l#left method middle=l#middle method right=r#right end);
    obj_splitL=(fun lr -> (lr :> <left : _; middle: _>));
@@ -197,5 +198,5 @@ let test5 =
     in
     failwith "unexpected (test5)"
   with
-    Mpst_common.Seq.UnguardedLoopSeq ->
+    Mpst.Seq.UnguardedLoopSeq ->
     print_endline "exception correctly occured"

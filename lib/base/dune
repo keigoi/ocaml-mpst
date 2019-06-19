@@ -1,5 +1,0 @@
-(library
- (name mpst_base)
- (public_name ocaml-mpst.base)
- (flags ("-g" "-short-paths"))
- (libraries core lwt unix lwt.unix))

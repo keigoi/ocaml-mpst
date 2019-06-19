@@ -1,8 +1,10 @@
-(executable
- (name iteration)
- (modules iteration)
- (public_name benchmark_msgsize)
- (ocamlopt_flags -O3)
+; (executable
+;  (name iteration)
+;  (modules iteration)
+;  (public_name benchmark_msgsize)
+;  (ocamlopt_flags -O3)
+;  (flags ("-g" "-short-paths"))
+;  (libraries mpst_simple mpst_implicit mpst_explicit lwt.unix core_bench)
+;  )
+; 
 ;  (ocamlopt_flags -Oclassic)
- (flags ("-g" "-short-paths"))
- (libraries mpst_simple mpst_implicit mpst_explicit lwt.unix core_bench))

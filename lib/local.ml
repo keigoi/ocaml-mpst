@@ -7,9 +7,8 @@ let unify a b = a := !b
 type _ out =
   | Out : LinFlag.t * 'u Event.channel list ref * 't mrg -> ('u one * 't) out
   | OutMany : LinFlag.t * 'u Event.channel list ref * 't mrg -> ('u list * 't) out
-  | OutRemote : LinFlag.t * ('u -> unit)  * 't mrg -> ('u one * 't) out
-  | OutRemoteMany : LinFlag.t * ('u -> unit) list  * 't mrg -> ('u list * 't) out
-(* | OutManyRemote : LinFlag.t * int * 'u Event.channel list ref * 't Mergeable.t -> ('u list * 't) out *)
+  (* | OutRemote : LinFlag.t * ('u -> unit)  * 't mrg -> ('u one * 't) out
+   * | OutRemoteMany : LinFlag.t * ('u -> unit) list  * 't mrg -> ('u list * 't) out *)
 
 let send : type t u. (u one * t) out -> u -> t  = fun out v ->
   match out with
@@ -18,10 +17,10 @@ let send : type t u. (u one * t) out -> u -> t  = fun out v ->
      LinFlag.use once;
      Event.sync (Event.send (List.hd !channel) v);
      List.nth (Mergeable.out cont) k
-  | OutRemote(once,f,(k,cont)) ->
-     LinFlag.use once;
-     f v;
-     List.nth (Mergeable.out cont) k
+  (* | OutRemote(once,f,(k,cont)) ->
+   *    LinFlag.use once;
+   *    f v;
+   *    List.nth (Mergeable.out cont) k *)
 
 let sendmany (OutMany(once,channels,(k,cont))) vf =
   LinFlag.use once;
@@ -43,11 +42,11 @@ let merge_out : type u t. (u * t) out -> (u * t) out -> (u * t) out =
     let c12 = Mergeable.merge c1 c2 in
     (o12, s1, (i1, c12))
   in
-  let mergeremote (o1,f1,(i1,c1)) (o2,_,(i2,c2)) =
-    LinFlag.use o1; LinFlag.use o2;
-    assert (i1=i2);
-    (LinFlag.create (), f1, (i1, Mergeable.merge c1 c2))
-  in
+  (* let mergeremote (o1,f1,(i1,c1)) (o2,_,(i2,c2)) =
+   *   LinFlag.use o1; LinFlag.use o2;
+   *   assert (i1=i2);
+   *   (LinFlag.create (), f1, (i1, Mergeable.merge c1 c2))
+   * in *)
   match out1, out2 with
   | Out(a1,b1,c1), Out(a2,b2,c2) ->
      let a3,b3,c3 = mergelocal (a1,b1,c1) (a2,b2,c2) in
@@ -55,11 +54,11 @@ let merge_out : type u t. (u * t) out -> (u * t) out -> (u * t) out =
   | OutMany(a1,b1,c1), OutMany(a2,b2,c2) ->
      let a3,b3,c3 = mergelocal (a1,b1,c1) (a2,b2,c2) in
      OutMany(a3,b3,c3)
-  | OutRemote(a1,b1,c1), OutRemote(a2,b2,c2) ->
-     let a3,b3,c3 = mergeremote (a1,b1,c1) (a2,b2,c2) in
-     OutRemote(a3,b3,c3)
-  | _, _ ->
-     assert false
+  (* | OutRemote(a1,b1,c1), OutRemote(a2,b2,c2) ->
+   *    let a3,b3,c3 = mergeremote (a1,b1,c1) (a2,b2,c2) in
+   *    OutRemote(a3,b3,c3)
+   * | _, _ ->
+   *    assert false *)
 
 let merge_in ev1 ev2 =
   Event.choose [ev1; ev2]

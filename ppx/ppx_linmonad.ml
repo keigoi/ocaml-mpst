@@ -1,7 +1,7 @@
-open Ast_405
-open Ast_405.Asttypes
-open Ast_405.Parsetree
-open Ast_405.Ast_helper
+open Migrate_parsetree.Ast_405
+open Migrate_parsetree.Ast_405.Asttypes
+open Migrate_parsetree.Ast_405.Parsetree
+open Migrate_parsetree.Ast_405.Ast_helper
 open Ast_convenience_405
 
 let newname =

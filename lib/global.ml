@@ -71,7 +71,7 @@ module MakeGlobal(X:LIN) = struct
           (* force the following endpoints *)
           let eps = Mergeable.out epB in
           if num_receivers <> List.length eps then
-            failwith "make_recv: endpoint count inconsistency; use unseq_param for scatter/gather"
+            failwith "make_recv: endpoint count inconsistency"
         end
     in
     Mergeable.wrap_obj rA.role_label
@@ -101,7 +101,7 @@ module MakeGlobal(X:LIN) = struct
       lazy begin
           let eps = Mergeable.out epA in
           if num_senders <> List.length eps then
-            failwith "make_send: endpoint count inconsistency; use unseq_param for scatter/gather"
+            failwith "make_send: endpoint count inconsistency"
         end
     in
     Mergeable.wrap_obj rB.role_label
@@ -133,11 +133,11 @@ module MakeGlobal(X:LIN) = struct
          updateipc kts rA.role_index rB.role_index bkind;
          List.map (fun chs -> BareOutIPC(mktag label.var, chs)) chss
       | akind, EpIPCProcess kts ->
-         failwith ""
-         (* assert (List.length kts = bnum);
-          * let chss = List.map (fun kt -> Table.get_or_create kt rA.role_index anum) kts in
-          * updateipc kts rB.role_index rA.role_index akind;
-          * List.map (fun chs -> BareOutIPC(mktag label.var, List.map swap_dpipe chs)) chss *)
+         assert (List.length kts = bnum);
+         let chss = List.map (fun kt -> Table.get_or_create kt rA.role_index anum) kts in
+         let chss = transpose chss in
+         updateipc kts rB.role_index rA.role_index akind;
+         List.map (fun chs -> BareOutIPC(mktag label.var, List.map swap_dpipe chs)) chss
     in
     let epB = Seq.get rB.role_index g0 in
     let ev  = make_recv bnum ~make_inp rA label chs epB in
@@ -154,7 +154,8 @@ module MakeGlobal(X:LIN) = struct
                 (< .. > as 'labelobj, [> ] as 'labelvar, ('v one * 'epA) Local.out X.lin, 'v * 'epB X.lin) label ->
                 'g0 global -> 'g2 global
     = fun rA rB label (Seq g0) ->
-    Seq (fun env -> a2b env ~num_senders:1 ~num_receivers:1 ~make_out:make_out_one ~make_inp:make_inp_one rA rB label (g0 env))
+    Seq (fun env ->
+        a2b env ~num_senders:1 ~num_receivers:1 ~make_out:make_out_one ~make_inp:make_inp_one rA rB label (g0 env))
 
   let scatter : 'roleAobj 'labelvar 'epA 'roleBobj 'g1 'g2 'labelobj 'epB 'g0 'v.
                 (< .. > as 'roleAobj, 'labelvar Local.inp, 'epA, 'roleBobj, 'g1 Seq.t, 'g2 Seq.t) role ->
@@ -201,7 +202,7 @@ let gen_mult ps g =
   Global_common.gen_with_param
     {props=
        Table.create_with
-         defaultipc
+         defaultlocal
          (List.map defaultlocal ps)}
     g
 
@@ -209,7 +210,7 @@ let gen_mult_ipc ps g =
   Global_common.gen_with_param
     {props=
        Table.create_with
-         defaultlocal
+         defaultipc
          (List.map defaultipc ps)}
     g
 
@@ -221,13 +222,13 @@ let epkind_of_kind = function
 let mkparams ps =
   {props =
      Table.create_with
-       defaultlocal
+       (fun _ -> failwith "gen: parameters not enough")
        (List.map (fun k -> epkind_of_kind k 1) ps)}
 
 let mkparams_mult ps =
   {props =
      Table.create_with
-       defaultlocal
+       (fun _ -> failwith "gen: parameters not enough")
        (List.map (fun (k,p) -> epkind_of_kind k p) ps)}
 
 let gen_with_kinds ps g =

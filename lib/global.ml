@@ -113,9 +113,9 @@ module MakeGlobal(X:LIN) = struct
   let updateipc srckts srcidx dstidx = function
     | Local -> ()
     | IPCProcess kts ->
-       let kss = List.map (fun srckt -> ConnTable.get srckt dstidx) srckts in
+       let kss = List.map (fun srckt -> Conn_table.get srckt dstidx) srckts in
        let kss = transpose kss in
-       List.iter2 (fun kt ks -> ConnTable.put kt srcidx ks) kts kss
+       List.iter2 (fun kt ks -> Conn_table.put kt srcidx ks) kts kss
 
   let a2b env ?num_senders ?num_receivers ~send ~receive = fun rA rB label g0 ->
     let anum = of_option num_senders ~dflt:(multiplicity env rA.role_index) in
@@ -127,12 +127,12 @@ module MakeGlobal(X:LIN) = struct
              BareOutChan(ref @@ List.init bnum (fun _ -> Event.new_channel ())))
       | IPCProcess kts, bkind ->
          assert (List.length kts = anum);
-         let chss = List.map (fun kt -> ConnTable.get_or_create kt rB.role_index bnum) kts in
+         let chss = List.map (fun kt -> Conn_table.get_or_create kt rB.role_index bnum) kts in
          updateipc kts rA.role_index rB.role_index bkind;
          List.map (fun chs -> BareOutIPC(mktag label.var, chs)) chss
       | akind, IPCProcess kts ->
          assert (List.length kts = bnum);
-         let chss = List.map (fun kt -> ConnTable.get_or_create kt rA.role_index anum) kts in
+         let chss = List.map (fun kt -> Conn_table.get_or_create kt rA.role_index anum) kts in
          updateipc kts rB.role_index rA.role_index akind;
          List.map (fun chs -> BareOutIPC(mktag label.var, chs)) chss
     in
@@ -193,5 +193,5 @@ let gen_with_param_ipc p g =
   Global_common.gen_with_param
     {props=List.map (fun p ->
                {multiplicity=p;
-                kind=IPCProcess (List.init p (fun _ -> ConnTable.create new_pipe))}) p}
+                kind=IPCProcess (List.init p (fun _ -> Conn_table.create new_pipe))}) p}
     g

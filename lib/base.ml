@@ -41,3 +41,14 @@ type close = Close
 type 'a one = One__
 
 type 'a ep = LinFlag.t -> 'a
+
+let atomic =
+  let m = Mutex.create () in
+  fun f ->
+  Mutex.lock m;
+  try
+    (f () : unit);
+    Mutex.unlock m
+  with e ->
+    Mutex.unlock m;
+    raise e

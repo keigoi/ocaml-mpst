@@ -1,16 +1,16 @@
 open Base
 type 'a mrg = int * 'a Mergeable.t
 
-module Make(M:S.MONAD)(Event:S.EVENT with type 'a monad = 'a M.t) = struct
+module MakeChan(Event:S.EVENT) = struct
 
   type 'a inp =
     | InpChan of LinFlag.t * 'a Event.event
-    | InpIPC of LinFlag.t * tag Event.event * (tag * 'a Event.event) list
+    | InpIPC of LinFlag.t * tag list Event.event * (tag * 'a Event.event) list
 
   type 'v bare_out =
     | BareOutChan of 'v Event.channel list ref
     | BareOutIPC of ('v -> unit) list
-            
+
   type _ out =
     | Out : LinFlag.t * 'u bare_out * 't mrg -> ('u one * 't) out
     | OutMany : LinFlag.t * 'u bare_out * 't mrg -> ('u list * 't) out
@@ -21,10 +21,10 @@ module Make(M:S.MONAD)(Event:S.EVENT with type 'a monad = 'a M.t) = struct
        LinFlag.use o1;
        LinFlag.use o2;
        InpChan (LinFlag.create (), Event.choose [ev1; ev2])
-    | InpIPC (o1, ps1, alts1), InpIPC (o2, ps2, alts2) ->
+    | InpIPC (o1, etag, alts1), InpIPC (o2, _, alts2) ->
        LinFlag.use o1;
        LinFlag.use o2;
-       InpIPC (LinFlag.create (), ps1, alts1 @ alts2)
+       InpIPC (LinFlag.create (), etag, alts1 @ alts2)
     | _, _ ->
        assert false (* this won't happen since external choice is directed *)
 
@@ -52,6 +52,12 @@ module Make(M:S.MONAD)(Event:S.EVENT with type 'a monad = 'a M.t) = struct
        let a3,b3,c3 = mergelocal (a1,b1,c1) (a2,b2,c2) in
        OutMany(a3,b3,c3)
 
+end
+
+module Make(M:S.MONAD)(Event:S.EVENT with type 'a monad = 'a M.t) = struct
+  module Chan = MakeChan(Event)
+  open Chan
+     
   let receive = function
     | InpChan (once,ev) ->
        LinFlag.use once;
@@ -59,7 +65,8 @@ module Make(M:S.MONAD)(Event:S.EVENT with type 'a monad = 'a M.t) = struct
     | InpIPC (once,etag,alts) ->
        LinFlag.use once;
        (* receive tag(s) *)
-       M.bind (Event.sync etag) (fun tag ->
+       M.bind (Event.sync etag) (fun tags ->
+           let tag = List.hd tags in
        Event.sync (List.assoc tag alts))
 
   let size = function
@@ -94,4 +101,4 @@ module Make(M:S.MONAD)(Event:S.EVENT with type 'a monad = 'a M.t) = struct
     M.return (List.nth (Mergeable.out cont) k))
 
   let close _ = ()
-end
+end  

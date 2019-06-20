@@ -1,11 +1,18 @@
 open Base
 
+module type LIN = sig
+  type 'a lin
+  val mklin : 'a -> 'a lin
+  val unlin : 'a lin -> 'a
+end
+
 module type MONAD = sig
   type 'a t
   val return : 'a -> 'a t
   val return_unit : unit t
   val bind : 'a t -> ('a -> 'b t) -> 'b t
   val iteriM : (int -> 'a -> unit t) -> 'a list -> unit t
+  val mapM : ('a -> 'b t) -> 'a list -> 'b list t
 end
 
 module type EVENT = sig
@@ -15,10 +22,25 @@ module type EVENT = sig
   val new_channel : unit -> 'a channel
   val receive : 'a channel -> 'a event
   val send : 'a channel -> 'a -> unit event
-  val sync : 'a event -> 'a monad
   val guard : (unit -> 'a event) -> 'a event
   val choose : 'a event list -> 'a event
   val wrap : 'a event -> ('a -> 'b) -> 'b event
+  val always : 'a -> 'a event
+  val receive_list : 'a channel list -> 'a list event
+  val sync : 'a event -> 'a monad
+end
+
+module type SERIAL = sig
+  type 'a event
+  type out_channel
+  type in_channel
+  val output_tag : out_channel -> tag -> unit
+  val output_value : out_channel -> 'v -> unit
+  val input_tag : in_channel -> tag event
+  val input_value : in_channel -> 'v event
+  val input_value_list : in_channel list -> 'v list event
+  val flush : out_channel -> unit
+  val pipe : unit -> in_channel * out_channel
 end
 
 module type LIN_FLAG = sig

@@ -8,10 +8,12 @@ type ('la,'lb,'va,'vb) label =
   {obj: ('la, 'va) method_;
    var: 'vb -> 'lb}
 
-type 'k kind = Local | IPCProcess of 'k Conn_table.t list
+type 'k epkind = EpLocal | EpIPCProcess of 'k Conn_table.t list
 
-type 'k prop = {multiplicity:int; kind:'k kind}
-type 'k env = {props: 'k prop list}
+type 'k prop = {multiplicity:int; epkind:'k epkind}
+
+type 'k env = {default_kind: int -> 'k epkind; props: 'k prop list}
+
 type ('k, 'g) t = Seq of ('k env -> 'g Seq.t)
 let unseq_ = function
     Seq f -> f
@@ -23,12 +25,12 @@ let multiplicity {props} l =
   else
     1
 
-let kind {props} l =
+let epkind {props; default_kind} l =
   let i = Seq.int_of_lens l in
   if i < List.length props then
-    (List.nth props i).kind
+    (List.nth props i).epkind
   else
-    Local
+    default_kind i
 
 let fix : type e g. ((e,g) t -> (e,g) t) -> (e,g) t = fun f ->
   Seq (fun e ->

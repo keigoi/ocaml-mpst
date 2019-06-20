@@ -18,34 +18,28 @@ let pipe_send : 'v. pipe -> tag * 'v -> unit =
   flush out
 
 type 'a inp =
-  | Ev of LinFlag.t * 'a Event.event
-  | PipeIn of LinFlag.t * pipe list * (tag * (pipe list -> 'a)) list
-
-let bare_receive_one inp alt =
-  let tag = input_value inp in
-  let f = List.assoc tag alt in
-  f inp
-
+  | BareInpChan of LinFlag.t * 'a Event.event
+  | BareInpIPC of LinFlag.t * pipe list * (tag * (pipe list -> 'a)) list
           
 let merge_in ev1 ev2 =
   match ev1, ev2 with
-  | Ev (o1, ev1), Ev (o2, ev2) ->
+  | BareInpChan (o1, ev1), BareInpChan (o2, ev2) ->
      LinFlag.use o1;
      LinFlag.use o2;
-     Ev (LinFlag.create (), Event.choose [ev1; ev2])
-  | PipeIn (o1, ps1, alts1), PipeIn (o2, ps2, alts2) ->
+     BareInpChan (LinFlag.create (), Event.choose [ev1; ev2])
+  | BareInpIPC (o1, ps1, alts1), BareInpIPC (o2, ps2, alts2) ->
      LinFlag.use o1;
      LinFlag.use o2;
      assert (ps1=ps2);
-     PipeIn (LinFlag.create (), ps1, alts1 @ alts2)
+     BareInpIPC (LinFlag.create (), ps1, alts1 @ alts2)
   | _, _ ->
      assert false (* this won't happen since external choice is directed *)
 
 let receive = function
-  | Ev (once,ev) ->
+  | BareInpChan (once,ev) ->
      LinFlag.use once;
      Event.sync ev
-  | PipeIn (once,ps,alts) ->
+  | BareInpIPC (once,ps,alts) ->
      let ts = List.map (fun {inp;_} -> input_value inp) ps in
      let t = List.hd ts in
      let f = List.assoc t alts in

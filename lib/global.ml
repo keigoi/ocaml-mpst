@@ -15,9 +15,9 @@ module MakeGlobal(X:LIN) = struct
   let receive_one once k phss wrapfun =
     match List.hd phss with
     | BareOutChan chs ->
-       Ev (once, Event.wrap (Event.receive (List.nth !chs k)) wrapfun)
+       BareInpChan (once, Event.wrap (Event.receive (List.nth !chs k)) wrapfun)
     | BareOutIPC (tag,chs) ->
-       PipeIn (once, [List.nth chs k],
+       BareInpIPC (once, [List.nth chs k],
                [(tag, (fun ps -> let {inp; _} = List.hd ps in wrapfun (input_value inp)))])
 
   (* XXX a dumb implementation of receiving from multiple channels  *)
@@ -35,10 +35,10 @@ module MakeGlobal(X:LIN) = struct
     | ((BareOutChan _) as ch :: chs) ->
        let evs = List.map make_ev_ chs
        and ev = make_ev_ ch in
-       Ev (once, Event.wrap ev (fun v -> wrapfun (v :: List.map Event.sync evs)))
+       BareInpChan (once, Event.wrap ev (fun v -> wrapfun (v :: List.map Event.sync evs)))
     | (BareOutIPC (tag,_) :: _) as chs ->
        let ps = List.map pipein_ chs in
-       PipeIn (once, ps, [(tag, (fun ps -> wrapfun (List.map (fun {inp;_} -> input_value inp) ps)))])
+       BareInpIPC (once, ps, [(tag, (fun ps -> wrapfun (List.map (fun {inp;_} -> input_value inp) ps)))])
     | [] ->
        failwith "no channel"
 
@@ -111,8 +111,8 @@ module MakeGlobal(X:LIN) = struct
         chs) hs
 
   let updateipc srckts srcidx dstidx = function
-    | Local -> ()
-    | IPCProcess kts ->
+    | EpLocal -> ()
+    | EpIPCProcess kts ->
        let kss = List.map (fun srckt -> Conn_table.get srckt dstidx) srckts in
        let kss = transpose kss in
        List.iter2 (fun kt ks -> Conn_table.put kt srcidx ks) kts kss
@@ -121,16 +121,16 @@ module MakeGlobal(X:LIN) = struct
     let anum = of_option num_senders ~dflt:(multiplicity env rA.role_index) in
     let bnum = of_option num_receivers ~dflt:(multiplicity env rB.role_index) in
     let ch =
-      match kind env rA.role_index, kind env rB.role_index with
-      | Local, Local ->
+      match epkind env rA.role_index, epkind env rB.role_index with
+      | EpLocal, EpLocal ->
          List.init anum (fun _ ->
              BareOutChan(ref @@ List.init bnum (fun _ -> Event.new_channel ())))
-      | IPCProcess kts, bkind ->
+      | EpIPCProcess kts, bkind ->
          assert (List.length kts = anum);
          let chss = List.map (fun kt -> Conn_table.get_or_create kt rB.role_index bnum) kts in
          updateipc kts rA.role_index rB.role_index bkind;
          List.map (fun chs -> BareOutIPC(mktag label.var, chs)) chss
-      | akind, IPCProcess kts ->
+      | akind, EpIPCProcess kts ->
          assert (List.length kts = bnum);
          let chss = List.map (fun kt -> Conn_table.get_or_create kt rA.role_index anum) kts in
          updateipc kts rB.role_index rA.role_index akind;
@@ -182,16 +182,50 @@ include MakeGlobal(struct type 'a lin = 'a let mklin x = x let unlin x = x end)
 
 let gen g =
   Global_common.gen_with_param
-    {props=[]} g
+    {props=[]; default_kind=(fun _ -> EpLocal)} g
+
+let gen_pipe g =
+  Global_common.gen_with_param
+    {props=[]; default_kind=(fun _ -> EpLocal)} g
 
 let gen_with_param p g =
   Global_common.gen_with_param
-    {props=List.map (fun p -> {multiplicity=p; kind=Local}) p}
+    {props=List.map (fun p -> {multiplicity=p; epkind=EpLocal}) p;
+     default_kind=(fun _ -> EpLocal)}
     g
 
-let gen_with_param_ipc p g =
+let ipc cnt =
+  EpIPCProcess (List.init cnt (fun _ -> Conn_table.create new_pipe))
+
+let gen_with_param_pipe p g =
   Global_common.gen_with_param
     {props=List.map (fun p ->
                {multiplicity=p;
-                kind=IPCProcess (List.init p (fun _ -> Conn_table.create new_pipe))}) p}
+                epkind=ipc p}) p;
+    default_kind=ipc}
+    g
+
+type kind = Local | IPCProcess
+let epkind_of_kind = function
+  | Local -> fun _ -> EpLocal
+  | IPCProcess -> ipc
+
+let mkparams ps =
+  let props = List.map (fun kind -> {epkind=epkind_of_kind kind 1;multiplicity=1}) ps in
+  {default_kind=(fun _ -> failwith "gen1: less parameter than actual participants");
+   props}
+
+let mkparams_mult ps =
+  let props = List.map (fun (kind,num) -> {epkind=epkind_of_kind kind num;multiplicity=num}) ps in
+  {default_kind=(fun _ -> failwith "gen: less parameter than actual participants");
+   props}
+
+let gen_with_kinds ps g =
+  Global_common.gen_with_param
+    (mkparams ps)
+    g
+
+let gen_with_kind_params ps g =
+  Global_common.gen_with_param
+    (mkparams_mult ps)
     g

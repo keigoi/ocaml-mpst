@@ -1,114 +1,97 @@
 open Base
 type 'a mrg = int * 'a Mergeable.t
 
-type tag = Tag of Obj.t
-let mktag : 'v. ('v -> [>]) -> tag = fun f ->
-  Tag (Obj.repr (f (Obj.magic ())))
+module Make(M:S.MONAD)(Event:S.EVENT with type 'a monad = 'a M.t) = struct
 
-type pipe = {inp: in_channel; out: out_channel}
-type dpipe = {me:pipe; otr:pipe; dir: int}
+  type 'a inp =
+    | InpChan of LinFlag.t * 'a Event.event
+    | InpIPC of LinFlag.t * tag Event.event * (tag * 'a Event.event) list
 
-let swap_dpipe {me=otr;otr=me;dir} = {me;otr;dir= -dir}
+  type 'v bare_out =
+    | BareOutChan of 'v Event.channel list ref
+    | BareOutIPC of ('v -> unit) list
+            
+  type _ out =
+    | Out : LinFlag.t * 'u bare_out * 't mrg -> ('u one * 't) out
+    | OutMany : LinFlag.t * 'u bare_out * 't mrg -> ('u list * 't) out
 
-let new_dpipe () =
-  let my_inp, otr_out = Unix.pipe () in
-  let otr_inp, my_out = Unix.pipe () in
-  {me={inp=Unix.in_channel_of_descr my_inp; out=Unix.out_channel_of_descr my_out};
-   otr={inp=Unix.in_channel_of_descr otr_inp; out=Unix.out_channel_of_descr otr_out}; dir=1}
+  let merge_in ev1 ev2 =
+    match ev1, ev2 with
+    | InpChan (o1, ev1), InpChan (o2, ev2) ->
+       LinFlag.use o1;
+       LinFlag.use o2;
+       InpChan (LinFlag.create (), Event.choose [ev1; ev2])
+    | InpIPC (o1, ps1, alts1), InpIPC (o2, ps2, alts2) ->
+       LinFlag.use o1;
+       LinFlag.use o2;
+       InpIPC (LinFlag.create (), ps1, alts1 @ alts2)
+    | _, _ ->
+       assert false (* this won't happen since external choice is directed *)
 
-let dpipe_send : 'v. dpipe -> tag * 'v -> unit =
-  fun {dir; me={out; _}; _} (tag,v) ->
-  output_value out tag;
-  output_value out (Obj.repr v);
-  flush out
+  let unify a b =
+    match a,b with
+    | BareOutChan(a), BareOutChan(b) -> a := !b
+    | BareOutIPC(_), BareOutIPC(_) -> ()
+    | _, _ -> assert false
+                                                                                   
+  let merge_out : type u t. (u * t) out -> (u * t) out -> (u * t) out =
+    fun out1 out2 ->
+    let mergelocal  (o1,s1,(i1,c1)) (o2,s2,(i2,c2)) =
+      assert (i1=i2);
+      LinFlag.use o1; LinFlag.use o2;
+      unify s1 s2;
+      let o12 = LinFlag.create () in
+      let c12 = Mergeable.merge c1 c2 in
+      (o12, s1, (i1, c12))
+    in
+    match out1, out2 with
+    | Out(a1,b1,c1), Out(a2,b2,c2) ->
+       let a3,b3,c3 = mergelocal (a1,b1,c1) (a2,b2,c2) in
+       Out(a3,b3,c3)
+    | OutMany(a1,b1,c1), OutMany(a2,b2,c2) ->
+       let a3,b3,c3 = mergelocal (a1,b1,c1) (a2,b2,c2) in
+       OutMany(a3,b3,c3)
 
-type 'a inp =
-  | BareInpChan of LinFlag.t * 'a Event.event
-  | BareInpIPC of LinFlag.t * dpipe list * (tag * (dpipe list -> 'a)) list
-          
-let merge_in ev1 ev2 =
-  match ev1, ev2 with
-  | BareInpChan (o1, ev1), BareInpChan (o2, ev2) ->
-     LinFlag.use o1;
-     LinFlag.use o2;
-     BareInpChan (LinFlag.create (), Event.choose [ev1; ev2])
-  | BareInpIPC (o1, ps1, alts1), BareInpIPC (o2, ps2, alts2) ->
-     LinFlag.use o1;
-     LinFlag.use o2;
-     assert (ps1=ps2);
-     BareInpIPC (LinFlag.create (), ps1, alts1 @ alts2)
-  | _, _ ->
-     assert false (* this won't happen since external choice is directed *)
+  let receive = function
+    | InpChan (once,ev) ->
+       LinFlag.use once;
+       Event.sync ev
+    | InpIPC (once,etag,alts) ->
+       LinFlag.use once;
+       (* receive tag(s) *)
+       M.bind (Event.sync etag) (fun tag ->
+       Event.sync (List.assoc tag alts))
 
-let receive = function
-  | BareInpChan (once,ev) ->
-     LinFlag.use once;
-     Event.sync ev
-  | BareInpIPC (once,ps,alts) ->
-     LinFlag.use once;
-     (* receive tag(s) *)
-     let ts : tag list = List.map (fun {me={inp;_};_} -> input_value inp) ps in
-     let t = List.hd ts in
-     let f = List.assoc t alts in
-     f ps
+  let size = function
+    | BareOutChan chs -> List.length !chs
+    | BareOutIPC fs -> List.length fs
 
-type 'v bareout =
-  BareOutChan of 'v Event.channel list ref
-| BareOutIPC of tag * dpipe list
+  let send : type t u. (u one * t) out -> u -> t M.t  = fun out v ->
+    let bare_out_one ch v =
+      match ch with
+      | BareOutChan chs ->
+         Event.sync (Event.send (List.hd !chs) v)
+      | BareOutIPC f -> List.hd f v; M.return_unit
+    in
+    match out with
+    | (Out(once,channel,(k,cont))) ->
+       assert (size channel = 1);
+       LinFlag.use once;
+       M.bind (bare_out_one channel v) (fun _ ->
+       M.return (List.nth (Mergeable.out cont) k))
 
-let unify a b =
-  match a,b with
-  | BareOutChan(a), BareOutChan(b) -> a := !b
-  | BareOutIPC(_), BareOutIPC(_) -> ()
-  | _, _ -> assert false
+  let sendmany (OutMany(once,channels,(k,cont))) vf =
+    let bare_out_many ch vf =
+      match ch with
+      | BareOutChan chs ->
+         M.iteriM (fun i ch -> Event.sync (Event.send ch (vf i))) !chs
+      | BareOutIPC fs ->
+         List.iteri (fun i f -> f (vf i)) fs;
+         M.return_unit
+    in
+    LinFlag.use once;
+    M.bind (bare_out_many channels vf) (fun _ ->
+    M.return (List.nth (Mergeable.out cont) k))
 
-let size = function
-  | BareOutChan(xs) -> List.length !xs
-  | BareOutIPC(_,xs) -> List.length xs
-           
-type _ out =
-  | Out : LinFlag.t * 'u bareout * 't mrg -> ('u one * 't) out
-  | OutMany : LinFlag.t * 'u bareout * 't mrg -> ('u list * 't) out
-
-let baresendone ch v =
-  match ch with
-  | BareOutChan chs -> Event.sync (Event.send (List.hd !chs) v)
-  | BareOutIPC (tag,chs) -> dpipe_send (List.hd chs) (tag,v)
-
-let baresendmany ch vf =
-  match ch with
-  | BareOutChan chs -> List.iteri (fun i ch -> Event.sync (Event.send ch (vf i))) !chs
-  | BareOutIPC (tag,chs) -> List.iteri (fun i ch -> dpipe_send ch (tag, vf i)) chs
-                       
-let merge_out : type u t. (u * t) out -> (u * t) out -> (u * t) out =
-  fun out1 out2 ->
-  let mergelocal  (o1,s1,(i1,c1)) (o2,s2,(i2,c2)) =
-    assert (i1=i2);
-    LinFlag.use o1; LinFlag.use o2;
-    unify s1 s2;
-    let o12 = LinFlag.create () in
-    let c12 = Mergeable.merge c1 c2 in
-    (o12, s1, (i1, c12))
-  in
-  match out1, out2 with
-  | Out(a1,b1,c1), Out(a2,b2,c2) ->
-     let a3,b3,c3 = mergelocal (a1,b1,c1) (a2,b2,c2) in
-     Out(a3,b3,c3)
-  | OutMany(a1,b1,c1), OutMany(a2,b2,c2) ->
-     let a3,b3,c3 = mergelocal (a1,b1,c1) (a2,b2,c2) in
-     OutMany(a3,b3,c3)
-
-let send : type t u. (u one * t) out -> u -> t  = fun out v ->
-  match out with
-  | (Out(once,channel,(k,cont))) ->
-     assert (size channel = 1);
-     LinFlag.use once;
-     baresendone channel v;
-     List.nth (Mergeable.out cont) k
-
-let sendmany (OutMany(once,channels,(k,cont))) vf =
-  LinFlag.use once;
-  baresendmany channels vf;
-  List.nth (Mergeable.out cont) k
-
-let close _ = ()
+  let close _ = ()
+end

@@ -1,5 +1,26 @@
 open Base
 
+module type MONAD = sig
+  type 'a t
+  val return : 'a -> 'a t
+  val return_unit : unit t
+  val bind : 'a t -> ('a -> 'b t) -> 'b t
+  val iteriM : (int -> 'a -> unit t) -> 'a list -> unit t
+end
+
+module type EVENT = sig
+  type 'a monad
+  type 'a event
+  type 'a channel
+  val new_channel : unit -> 'a channel
+  val receive : 'a channel -> 'a event
+  val send : 'a channel -> 'a -> unit event
+  val sync : 'a event -> 'a monad
+  val guard : (unit -> 'a event) -> 'a event
+  val choose : 'a event list -> 'a event
+  val wrap : 'a event -> ('a -> 'b) -> 'b event
+end
+
 module type LIN_FLAG = sig
   type t
   val create     : unit -> t

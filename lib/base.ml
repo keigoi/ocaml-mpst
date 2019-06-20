@@ -32,6 +32,10 @@ type ('la,'va) method_ =
   {make_obj: 'va -> 'la;
    call_obj: 'la -> 'va}
 
+type tag = {tag:Obj.t}
+let make_tag : 'v. ('v -> [>]) -> tag = fun f ->
+  {tag=Obj.repr (f (Obj.magic ()))}
+
 type close = Close
 
 type 'a one = One__

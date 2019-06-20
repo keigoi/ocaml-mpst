@@ -45,6 +45,7 @@ let receive = function
      LinFlag.use once;
      Event.sync ev
   | BareInpIPC (once,ps,alts) ->
+     LinFlag.use once;
      (* receive tag(s) *)
      let ts : tag list = List.map (fun {me={inp;_};_} -> input_value inp) ps in
      let t = List.hd ts in

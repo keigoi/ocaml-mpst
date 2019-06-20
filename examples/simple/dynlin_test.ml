@@ -5,6 +5,7 @@ let () = print_endline "dynamic linearity checking"
 
 let mustfail name f =
   try
+    print_endline @@ name^":trying";
     f ();
     failwith (name^":no exception (unexpected)")
   with

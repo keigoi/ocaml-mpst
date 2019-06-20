@@ -11,12 +11,12 @@ module type MONAD = sig
   val return : 'a -> 'a t
   val return_unit : unit t
   val bind : 'a t -> ('a -> 'b t) -> 'b t
+  val map : ('a -> 'b) -> 'a t -> 'b t
   val iteriM : (int -> 'a -> unit t) -> 'a list -> unit t
   val mapM : ('a -> 'b t) -> 'a list -> 'b list t
 end
 
 module type EVENT = sig
-  type 'a monad
   type 'a event
   type 'a channel
   val new_channel : unit -> 'a channel
@@ -27,19 +27,21 @@ module type EVENT = sig
   val wrap : 'a event -> ('a -> 'b) -> 'b event
   val always : 'a -> 'a event
   val receive_list : 'a channel list -> 'a list event
+
+  type 'a monad
   val sync : 'a event -> 'a monad
 end
 
 module type SERIAL = sig
-  type 'a event
+  type 'a monad
   type out_channel
   type in_channel
-  val output_tag : out_channel -> tag -> unit
-  val output_value : out_channel -> 'v -> unit
-  val input_tag : in_channel -> tag event
-  val input_value : in_channel -> 'v event
-  val input_value_list : in_channel list -> 'v list event
-  val flush : out_channel -> unit
+  val output_tag : out_channel -> tag -> unit monad
+  val output_value : out_channel -> 'v -> unit monad
+  val input_tag : in_channel -> tag monad
+  val input_value : in_channel -> 'v monad
+  val input_value_list : in_channel list -> 'v list monad
+  val flush : out_channel -> unit monad
   val pipe : unit -> in_channel * out_channel
 end
 

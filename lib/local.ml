@@ -1,15 +1,15 @@
 open Base
 type 'a mrg = int * 'a Mergeable.t
 
-module MakeChan(Event:S.EVENT) = struct
+module Make(M:S.MONAD)(Event:S.EVENT with type 'a monad = 'a M.t) = struct
 
   type 'a inp =
     | InpChan of LinFlag.t * 'a Event.event
-    | InpIPC of LinFlag.t * tag list Event.event * (tag * 'a Event.event) list
+    | InpIPC of LinFlag.t * (unit -> tag list M.t) * (tag * (unit -> 'a M.t)) list
 
   type 'v bare_out =
     | BareOutChan of 'v Event.channel list ref
-    | BareOutIPC of ('v -> unit) list
+    | BareOutIPC of ('v -> unit Event.monad) list
 
   type _ out =
     | Out : LinFlag.t * 'u bare_out * 't mrg -> ('u one * 't) out
@@ -52,12 +52,7 @@ module MakeChan(Event:S.EVENT) = struct
        let a3,b3,c3 = mergelocal (a1,b1,c1) (a2,b2,c2) in
        OutMany(a3,b3,c3)
 
-end
-
-module Make(M:S.MONAD)(Event:S.EVENT with type 'a monad = 'a M.t) = struct
-  module Chan = MakeChan(Event)
-  open Chan
-     
+       
   let receive = function
     | InpChan (once,ev) ->
        LinFlag.use once;
@@ -65,9 +60,10 @@ module Make(M:S.MONAD)(Event:S.EVENT with type 'a monad = 'a M.t) = struct
     | InpIPC (once,etag,alts) ->
        LinFlag.use once;
        (* receive tag(s) *)
-       M.bind (Event.sync etag) (fun tags ->
-           let tag = List.hd tags in
-       Event.sync (List.assoc tag alts))
+       M.bind (etag ()) (fun tags ->
+       let tag = List.hd tags in
+       let alt = List.assoc tag alts in
+       alt ())
 
   let size = function
     | BareOutChan chs -> List.length !chs
@@ -78,7 +74,8 @@ module Make(M:S.MONAD)(Event:S.EVENT with type 'a monad = 'a M.t) = struct
       match ch with
       | BareOutChan chs ->
          Event.sync (Event.send (List.hd !chs) v)
-      | BareOutIPC f -> List.hd f v; M.return_unit
+      | BareOutIPC f ->
+         List.hd f v
     in
     match out with
     | (Out(once,channel,(k,cont))) ->
@@ -93,8 +90,7 @@ module Make(M:S.MONAD)(Event:S.EVENT with type 'a monad = 'a M.t) = struct
       | BareOutChan chs ->
          M.iteriM (fun i ch -> Event.sync (Event.send ch (vf i))) !chs
       | BareOutIPC fs ->
-         List.iteri (fun i f -> f (vf i)) fs;
-         M.return_unit
+         M.iteriM (fun i f -> f (vf i)) fs
     in
     LinFlag.use once;
     M.bind (bare_out_many channels vf) (fun _ ->

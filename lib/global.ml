@@ -3,7 +3,11 @@ open Local
 
 include Global_common
 
-module Make(Event:S.EVENT)(Serial:S.SERIAL with type 'a event = 'a Event.event)(Lin:S.LIN) = struct
+module Make
+         (M:S.MONAD)
+         (Event:S.EVENT with type 'a monad = 'a M.t)
+         (Serial:S.SERIAL with type 'a monad = 'a M.t)(Lin:S.LIN)
+  = struct
 
   type pipe = {inp: Serial.in_channel; out: Serial.out_channel}
   type dpipe = {me:pipe; othr:pipe}
@@ -17,7 +21,7 @@ module Make(Event:S.EVENT)(Serial:S.SERIAL with type 'a event = 'a Event.event)(
   let swap_dpipe {me=othr;othr=me} =
     {me;othr}
 
-  module LocalChan = Local.MakeChan(Event)
+  module LocalChan = Local.Make(M)(Event)
   open LocalChan
 
   type 'v chan =
@@ -29,9 +33,9 @@ module Make(Event:S.EVENT)(Serial:S.SERIAL with type 'a event = 'a Event.event)(
        BareOutChan xs
     | IPC (tag, chs) ->
        let real_out out v =
-         Serial.output_tag out tag;
-         Serial.output_value out v;
-         Serial.flush out
+         M.bind (Serial.output_tag out tag) (fun () ->
+         M.bind (Serial.output_value out v) (fun () ->
+         Serial.flush out))
        in
        BareOutIPC (List.map (fun {me={out;_};_} -> real_out out) chs)
 
@@ -48,8 +52,8 @@ module Make(Event:S.EVENT)(Serial:S.SERIAL with type 'a event = 'a Event.event)(
        let {me={inp=ch;_};_} = swap_dpipe (List.nth chs myidx) in
        fun once ->
        InpIPC
-         (once, Event.wrap (Serial.input_tag ch) (fun v -> [v]),
-          [(tag, Event.wrap (Serial.input_value ch) wrapfun)])
+         (once, (fun () -> M.map (fun v -> [v]) (Serial.input_tag ch)),
+          [(tag, (fun () -> M.map wrapfun (Serial.input_value ch)))])
 
   (* XXX a dumb implementation of receiving from multiple channels  *)
   let make_inp_list chs myidx wrapfun =
@@ -77,8 +81,8 @@ module Make(Event:S.EVENT)(Serial:S.SERIAL with type 'a event = 'a Event.event)(
        let chs = List.map (fun {me={inp;_};_} -> inp) chs in
        fun once ->
        InpIPC
-         (once, Serial.input_value_list chs,
-          [(tag, Event.wrap (Serial.input_value_list chs) wrapfun)])
+         (once, (fun () -> Serial.input_value_list chs),
+          [(tag, (fun () -> M.map wrapfun (Serial.input_value_list chs)))])
     | [] ->
        failwith "no channel"
 
@@ -212,6 +216,7 @@ module Pure = struct
   let return a = a
   let return_unit = ()
   let bind x f = f x
+  let map f x = f x
   let iteriM = List.iteri
   let mapM = List.map
 end
@@ -227,35 +232,67 @@ module Event = struct
            v :: List.map (fun ch -> Event.sync @@ Event.receive ch) chs)
 end
 module Serial = struct
-  type 'a event = 'a Event.event
+  type 'a monad = 'a
   type in_channel = Stdlib.in_channel
   type out_channel = Stdlib.out_channel
   let pipe () =
     let inp,out = Unix.pipe () in
     Unix.in_channel_of_descr inp, Unix.out_channel_of_descr out
   let input_value ch =
-    (* fit Stdlib.input_value into monadic interface *)
-    Event.guard (fun () -> Event.always (Stdlib.input_value ch))
+    Stdlib.input_value ch
   let input_tag =
     input_value
   let output_value =
     Stdlib.output_value
   let output_tag =
     output_value
-  let flush =
-    Stdlib.flush
+  let flush ch =
+    Stdlib.flush ch
   let input_value_list chs =
     let rec loop = function
       | [] -> []
       | ch::chs -> Stdlib.input_value ch::loop chs
     in
-    Event.guard (fun () -> Event.always (loop chs))
+    loop chs
 end
 
-module G = Make(Event)(Serial)(struct type 'a lin = 'a let mklin x = x let unlin x = x end)
+module G = Make(Pure)(Event)(Serial)(struct type 'a lin = 'a let mklin x = x let unlin x = x end)
 module L = Local.Make(Pure)(Event)
 include G
 include L
+
+module LwtSerial = struct
+  type 'a monad = 'a Lwt.t
+  type in_channel = Lwt_io.input_channel
+  type out_channel = Lwt_io.output_channel
+  let pipe () =
+    let inp,out = Lwt_unix.pipe () in
+    Lwt_io.of_fd Lwt_io.input inp, Lwt_io.of_fd Lwt_io.output out
+  let input_value ch =
+    Lwt_io.read_value ch
+  let input_tag =
+    input_value
+  let output_value ch v =
+    Lwt_io.write_value ch v
+  let output_tag =
+    output_value
+  let flush =
+    Lwt_io.flush
+  let input_value_list chs =
+    let rec loop acc = function
+      | [] -> Lwt.return (List.rev acc)
+      | ch::chs ->
+         Lwt.bind (Lwt_io.read_value ch) (fun v ->
+             loop (v::acc) chs)
+    in loop [] chs
+end
+module Lwt = struct
+  include Lwt
+  let mapM = Lwt_list.map_p
+  let iteriM = Lwt_list.iteri_p
+end
+module GLwt = Make(Lwt)(Base_comm.LwtEvent)(LwtSerial)(struct type 'a lin = 'a let mklin x = x let unlin x = x end)
+module LLwt = Local.Make(Lwt)(Base_comm.LwtEvent)
 
 let ipc cnt =
   EpIPCProcess

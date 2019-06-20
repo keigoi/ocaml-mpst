@@ -1,6 +1,9 @@
 
 
-module LwtEvent : S.EVENT = struct
+module LwtEvent : S.EVENT
+       with type 'a monad = 'a Lwt.t
+       with type 'a event = 'a Lwt.t
+  = struct
   type 'a monad = 'a Lwt.t
   type 'a event = 'a Lwt.t
   type 'a st = {write: 'a option -> unit; read:'a Lwt_stream.t}
@@ -14,7 +17,7 @@ module LwtEvent : S.EVENT = struct
   let receive {me={read}; _} = Lwt_stream.next read
   let flip {me=othr; othr=me} = {me; othr}
   let send {me={write; _}; _} v = write (Some v); Lwt.return_unit
-  let sync = fun x -> x
+  let sync x = x
   let guard f = f () (* XXX *)
   let choose = Lwt.choose
   let wrap e f = Lwt.map f e

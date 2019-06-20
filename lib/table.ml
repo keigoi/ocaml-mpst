@@ -1,10 +1,14 @@
 type 'k t =
-  {mutable table:'k list option array;
-   new_channel: unit -> 'k}
+  {mutable table:'k option array;
+   default: int -> 'k}
 
 let create f =
   {table=Array.make 0 None;
-   new_channel=f}
+   default=f}
+
+let create_with f xs =
+  {table=Array.init (List.length xs) (fun i -> Some(List.nth xs i));
+   default=f}
 
 let extend t newsize =
   t.table <-
@@ -29,17 +33,23 @@ let rec get t lens =
   | Some ks -> ks
   | None -> failwith "ConnTable: no entry"
 
-let rec get_or_create t lens cnt =
-  let idx = Seq.int_of_lens lens in
+let rec get_or_create_ t idx param =
   if idx < Array.length t.table then begin
       match t.table.(idx) with
       | Some ks ->
          ks
       | None ->
-         let ks = List.init cnt (fun _ -> t.new_channel ()) in
-         t.table.(idx) <- Some ks;
-         ks
+         let k = t.default param in
+         t.table.(idx) <- Some k;
+         k
     end else begin
       extend t (idx+1);
-      get_or_create t lens cnt
+      get_or_create_ t idx param
     end
+
+let get_or_create t lens param =
+  let idx = Seq.int_of_lens lens in
+  get_or_create_ t idx param
+
+let size t =
+  Array.length t.table

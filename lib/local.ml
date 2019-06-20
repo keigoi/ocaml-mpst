@@ -6,20 +6,25 @@ let mktag : 'v. ('v -> [>]) -> tag = fun f ->
   Tag (Obj.repr (f (Obj.magic ())))
 
 type pipe = {inp: in_channel; out: out_channel}
+type dpipe = {me:pipe; otr:pipe; dir: int}
 
-let new_pipe () =
-  let inp, out = Unix.pipe () in
-  {inp=Unix.in_channel_of_descr inp; out=Unix.out_channel_of_descr out}
+let swap_dpipe {me=otr;otr=me;dir} = {me;otr;dir= -dir}
 
-let pipe_send : 'v. pipe -> tag * 'v -> unit =
-  fun {out; _} (tag,v) ->
+let new_dpipe () =
+  let my_inp, otr_out = Unix.pipe () in
+  let otr_inp, my_out = Unix.pipe () in
+  {me={inp=Unix.in_channel_of_descr my_inp; out=Unix.out_channel_of_descr my_out};
+   otr={inp=Unix.in_channel_of_descr otr_inp; out=Unix.out_channel_of_descr otr_out}; dir=1}
+
+let dpipe_send : 'v. dpipe -> tag * 'v -> unit =
+  fun {dir; me={out; _}; _} (tag,v) ->
   output_value out tag;
   output_value out (Obj.repr v);
   flush out
 
 type 'a inp =
   | BareInpChan of LinFlag.t * 'a Event.event
-  | BareInpIPC of LinFlag.t * pipe list * (tag * (pipe list -> 'a)) list
+  | BareInpIPC of LinFlag.t * dpipe list * (tag * (dpipe list -> 'a)) list
           
 let merge_in ev1 ev2 =
   match ev1, ev2 with
@@ -40,14 +45,15 @@ let receive = function
      LinFlag.use once;
      Event.sync ev
   | BareInpIPC (once,ps,alts) ->
-     let ts = List.map (fun {inp;_} -> input_value inp) ps in
+     (* receive tag(s) *)
+     let ts : tag list = List.map (fun {me={inp;_};_} -> input_value inp) ps in
      let t = List.hd ts in
      let f = List.assoc t alts in
      f ps
 
 type 'v bareout =
   BareOutChan of 'v Event.channel list ref
-| BareOutIPC of tag * pipe list
+| BareOutIPC of tag * dpipe list
 
 let unify a b =
   match a,b with
@@ -66,12 +72,12 @@ type _ out =
 let baresendone ch v =
   match ch with
   | BareOutChan chs -> Event.sync (Event.send (List.hd !chs) v)
-  | BareOutIPC (tag,chs) -> pipe_send (List.hd chs) (tag,v)
+  | BareOutIPC (tag,chs) -> dpipe_send (List.hd chs) (tag,v)
 
 let baresendmany ch vf =
   match ch with
   | BareOutChan chs -> List.iteri (fun i ch -> Event.sync (Event.send ch (vf i))) !chs
-  | BareOutIPC (tag,chs) -> List.iteri (fun i ch -> pipe_send ch (tag, vf i)) chs
+  | BareOutIPC (tag,chs) -> List.iteri (fun i ch -> dpipe_send ch (tag, vf i)) chs
                        
 let merge_out : type u t. (u * t) out -> (u * t) out -> (u * t) out =
   fun out1 out2 ->

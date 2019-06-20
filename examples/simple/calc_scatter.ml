@@ -37,7 +37,7 @@ let tSrv ew =
   in loop 0 ew
 
 let () =
-  let g = gen_with_param [1;100] calc in
+  let g = gen_mult [1;100] calc in
   let ec = get_ep cli g
   and ess = get_ep_list srv g
   in List.iter Thread.join

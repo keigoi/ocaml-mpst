@@ -8,29 +8,18 @@ type ('la,'lb,'va,'vb) label =
   {obj: ('la, 'va) method_;
    var: 'vb -> 'lb}
 
-type 'k epkind = EpLocal | EpIPCProcess of 'k Conn_table.t list
+type 'k epkind = EpLocal | EpIPCProcess of 'k list Table.t list
 
 type 'k prop = {multiplicity:int; epkind:'k epkind}
 
-type 'k env = {default_kind: int -> 'k epkind; props: 'k prop list}
+type 'k env = {props: 'k prop Table.t}
+
+let epkind {props;_} l = (Table.get_or_create props l 1).epkind
+let multiplicity {props;_} l = (Table.get_or_create props l 1).multiplicity
 
 type ('k, 'g) t = Seq of ('k env -> 'g Seq.t)
 let unseq_ = function
     Seq f -> f
-
-let multiplicity {props} l =
-  let i = Seq.int_of_lens l in
-  if i < List.length props then
-    (List.nth props i).multiplicity
-  else
-    1
-
-let epkind {props; default_kind} l =
-  let i = Seq.int_of_lens l in
-  if i < List.length props then
-    (List.nth props i).epkind
-  else
-    default_kind i
 
 let fix : type e g. ((e,g) t -> (e,g) t) -> (e,g) t = fun f ->
   Seq (fun e ->
@@ -46,10 +35,7 @@ let fix : type e g. ((e,g) t -> (e,g) t) -> (e,g) t = fun f ->
 let finish : 'e. ('e, [`cons of close * 'a] as 'a) t =
   Seq (fun env ->
       SeqRepeat(0, (fun i ->
-            let num =
-              if i < List.length env.props then
-                (List.nth env.props i).multiplicity
-              else 1
+            let num = (Table.get_or_create_ env.props i 1).multiplicity
             in
             Mergeable.make_no_merge (List.init num (fun _ -> Close)))))
 

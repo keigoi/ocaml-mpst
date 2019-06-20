@@ -5,27 +5,27 @@ include Global_common
 
 module Make
          (M:S.MONAD)
-         (Event:S.EVENT with type 'a monad = 'a M.t)
-         (Serial:S.SERIAL with type 'a monad = 'a M.t)(Lin:S.LIN)
+         (E:S.EVENT with type 'a monad = 'a M.t)
+         (C:S.SERIAL with type 'a monad = 'a M.t)(Lin:S.LIN)
   = struct
 
-  type pipe = {inp: Serial.in_channel; out: Serial.out_channel}
+  type pipe = {inp: C.in_channel; out: C.out_channel}
   type dpipe = {me:pipe; othr:pipe}
 
   let new_dpipe () =
-    let my_inp, otr_out = Serial.pipe () in
-    let otr_inp, my_out = Serial.pipe () in
+    let my_inp, otr_out = C.pipe () in
+    let otr_inp, my_out = C.pipe () in
     {me={inp=my_inp; out=my_out};
      othr={inp=otr_inp; out=otr_out}}
 
   let swap_dpipe {me=othr;othr=me} =
     {me;othr}
 
-  module LocalChan = Local.Make(M)(Event)
+  module LocalChan = Local.Make(M)(E)
   open LocalChan
 
   type 'v chan =
-    | Bare of 'v Event.channel list ref
+    | Bare of 'v E.channel list ref
     | IPC of tag * dpipe list
 
   let bare_of_chan = function
@@ -33,9 +33,9 @@ module Make
        BareOutChan xs
     | IPC (tag, chs) ->
        let real_out out v =
-         M.bind (Serial.output_tag out tag) (fun () ->
-         M.bind (Serial.output_value out v) (fun () ->
-         Serial.flush out))
+         M.bind (C.output_tag out tag) (fun () ->
+         M.bind (C.output_value out v) (fun () ->
+         C.flush out))
        in
        BareOutIPC (List.map (fun {me={out;_};_} -> real_out out) chs)
 
@@ -47,15 +47,14 @@ module Make
        fun once ->
        (* we must delay this -- chs is a placeholder for channels which will change during merge *)
        let ch = List.nth !chs myidx in
-       InpChan (once, Event.wrap (Event.receive ch) wrapfun)
+       InpChan (once, E.wrap (E.receive ch) wrapfun)
     | IPC (tag, chs) ->
        let {me={inp=ch;_};_} = swap_dpipe (List.nth chs myidx) in
        fun once ->
        InpIPC
-         (once, (fun () -> M.map (fun v -> [v]) (Serial.input_tag ch)),
-          [(tag, (fun () -> M.map wrapfun (Serial.input_value ch)))])
+         (once, (fun () -> M.map (fun v -> [v]) (C.input_tag ch)),
+          [(tag, (fun () -> M.map wrapfun (C.input_value ch)))])
 
-  (* XXX a dumb implementation of receiving from multiple channels  *)
   let make_inp_list chs myidx wrapfun =
     match chs with
     | ((Bare _) :: _) ->
@@ -65,12 +64,12 @@ module Make
        in
        let chs = List.map ext chs in
        let ev =
-         Event.guard (fun () ->
+         E.guard (fun () ->
              let chs = List.map (fun chs -> List.nth !chs(*delayed*) myidx) chs in 
-             Event.receive_list chs)
+             E.receive_list chs)
        in
        fun once ->
-       InpChan (once, Event.wrap ev wrapfun)
+       InpChan (once, E.wrap ev wrapfun)
     | (IPC (tag,_) :: _) ->
        let ext = function
          | IPC (_,chs) -> List.nth chs myidx
@@ -81,8 +80,8 @@ module Make
        let chs = List.map (fun {me={inp;_};_} -> inp) chs in
        fun once ->
        InpIPC
-         (once, (fun () -> Serial.input_value_list chs),
-          [(tag, (fun () -> M.map wrapfun (Serial.input_value_list chs)))])
+         (once, (fun () -> C.input_value_list chs),
+          [(tag, (fun () -> M.map wrapfun (C.input_value_list chs)))])
     | [] ->
        failwith "no channel"
 
@@ -161,7 +160,7 @@ module Make
       match epkind env rA.role_index, epkind env rB.role_index with
       | EpLocal, EpLocal ->
          List.init anum (fun _ ->
-             Bare(ref @@ List.init bnum (fun _ -> Event.new_channel ())))
+             Bare(ref @@ List.init bnum (fun _ -> E.new_channel ())))
       | EpIPCProcess kts, bkind ->
          assert (List.length kts = anum);
          let chss = List.map (fun kt -> Table.get_or_create kt rB.role_index bnum) kts in
@@ -223,6 +222,7 @@ end
 module Event = struct
   include Event
   type 'a monad = 'a
+  (* XXX a dumb implementation of receiving from multiple channels  *)
   let receive_list = function
     | [] ->
        Event.always []

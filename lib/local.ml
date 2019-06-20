@@ -1,15 +1,15 @@
 open Base
 type 'a mrg = int * 'a Mergeable.t
 
-module Make(M:S.MONAD)(Event:S.EVENT with type 'a monad = 'a M.t) = struct
+module Make(M:S.MONAD)(E:S.EVENT with type 'a monad = 'a M.t) = struct
 
   type 'a inp =
-    | InpChan of LinFlag.t * 'a Event.event
+    | InpChan of LinFlag.t * 'a E.event
     | InpIPC of LinFlag.t * (unit -> tag list M.t) * (tag * (unit -> 'a M.t)) list
 
   type 'v bare_out =
-    | BareOutChan of 'v Event.channel list ref
-    | BareOutIPC of ('v -> unit Event.monad) list
+    | BareOutChan of 'v E.channel list ref
+    | BareOutIPC of ('v -> unit E.monad) list
 
   type _ out =
     | Out : LinFlag.t * 'u bare_out * 't mrg -> ('u one * 't) out
@@ -20,7 +20,7 @@ module Make(M:S.MONAD)(Event:S.EVENT with type 'a monad = 'a M.t) = struct
     | InpChan (o1, ev1), InpChan (o2, ev2) ->
        LinFlag.use o1;
        LinFlag.use o2;
-       InpChan (LinFlag.create (), Event.choose [ev1; ev2])
+       InpChan (LinFlag.create (), E.choose [ev1; ev2])
     | InpIPC (o1, etag, alts1), InpIPC (o2, _, alts2) ->
        LinFlag.use o1;
        LinFlag.use o2;
@@ -56,7 +56,7 @@ module Make(M:S.MONAD)(Event:S.EVENT with type 'a monad = 'a M.t) = struct
   let receive = function
     | InpChan (once,ev) ->
        LinFlag.use once;
-       Event.sync ev
+       E.sync ev
     | InpIPC (once,etag,alts) ->
        LinFlag.use once;
        (* receive tag(s) *)
@@ -73,7 +73,7 @@ module Make(M:S.MONAD)(Event:S.EVENT with type 'a monad = 'a M.t) = struct
     let bare_out_one ch v =
       match ch with
       | BareOutChan chs ->
-         Event.sync (Event.send (List.hd !chs) v)
+         E.sync (E.send (List.hd !chs) v)
       | BareOutIPC f ->
          List.hd f v
     in
@@ -88,7 +88,7 @@ module Make(M:S.MONAD)(Event:S.EVENT with type 'a monad = 'a M.t) = struct
     let bare_out_many ch vf =
       match ch with
       | BareOutChan chs ->
-         M.iteriM (fun i ch -> Event.sync (Event.send ch (vf i))) !chs
+         M.iteriM (fun i ch -> E.sync (E.send ch (vf i))) !chs
       | BareOutIPC fs ->
          M.iteriM (fun i f -> f (vf i)) fs
     in

@@ -32,7 +32,7 @@ let tA ea finally =
 
 let tB eb finally =
   let rec loop eb =
-    match Event.sync (eb#role_A) with
+    match receive eb#role_A with
     | `left(_,eb) -> (* print_endline"left";  *)loop eb
     | `middle(_,eb) -> (* print_endline"middle";  *)loop eb
     | `right(_,eb) -> (* print_endline"right";  *)finally eb

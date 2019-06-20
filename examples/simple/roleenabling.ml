@@ -19,31 +19,31 @@ let tA = Thread.create (fun () ->
   print_endline "A start";
   let ea =
     if Random.bool () then
-      send (ea#role_B#left) ()
+      send ea#role_B#left ()
     else
-      send (ea#role_B#right) ()
+      send ea#role_B#right ()
   in
   print_endline "A done";
   close ea) ()
 
 let tB = Thread.create (fun () ->
   print_endline "B start";
-  match Event.sync (eb#role_A) with
+  match receive eb#role_A with
   | `left((), eb) ->
      print_endline "B left";
-     let `msg((), eb) = Event.sync (eb#role_C) in
-     let eb = send (eb#role_C#left) () in
+     let `msg((), eb) = receive eb#role_C in
+     let eb = send eb#role_C#left () in
      close eb
   | `right((), eb) ->
      print_endline "B right";
-     let `msg((), eb) = Event.sync (eb#role_C) in
-     let eb = send (eb#role_C#right) () in
+     let `msg((), eb) = receive eb#role_C in
+     let eb = send eb#role_C#right () in
      close eb) ()
 
 let tC = Thread.create (fun () ->
   print_endline "C start";
-  let ec = send (ec#role_B#msg) () in
-  match Event.sync (ec#role_B) with
+  let ec = send ec#role_B#msg () in
+  match receive ec#role_B with
   | `left((), ec) ->
      print_endline "C left";
      close ec;

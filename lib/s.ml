@@ -84,6 +84,9 @@ sig
   (** lens put function *)
   val put : ('a, 'b, 'xs, 'ys) lens -> 'xs -> 'b mergeable -> 'ys
 
+  (** lens get function *)
+  val int_of_lens : ('a, 'b, 'xs, 'ys) lens -> int
+
   (** merging of two sequences in a choice  *)
   val seq_merge : 'x t -> 'x t -> 'x t
 

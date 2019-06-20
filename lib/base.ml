@@ -3,6 +3,20 @@ let map_option f = function
   | Some x -> Some (f x)
   | None -> None
 
+let of_option ~dflt = function
+  | Some x -> x
+  | None -> dflt
+
+let rec transpose : 'a list list -> 'a list list = fun xss ->
+  match xss with
+  | [] -> []
+  | []::_ -> []
+  | xss ->
+     let hds, tls =
+       List.map (fun xs -> List.hd xs, List.tl xs) xss |> List.split
+     in
+     hds :: transpose tls
+
 let rec find_physeq : 'a. 'a list -> 'a -> bool = fun xs y ->
   match xs with
   | x::xs -> if x==y then true else find_physeq xs y

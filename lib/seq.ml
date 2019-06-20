@@ -12,6 +12,10 @@ type (_,_,_,_) lens =
   | Succ : ('a, 'b, 'tl0 t, 'tl1 t) lens
            -> ('a,'b, [`cons of 'hd * 'tl0] t, [`cons of 'hd * 'tl1] t) lens
 
+let rec int_of_lens : type a b c d. (a,b,c,d) lens -> int = function
+  | Zero -> 0
+  | Succ l -> int_of_lens l + 1
+
 exception UnguardedLoopSeq
         
 let rec seq_head : type hd tl. [`cons of hd * tl] t -> hd Mergeable.t =

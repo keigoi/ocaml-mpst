@@ -1,4 +1,5 @@
 open Base
+open Common
 
 module type LIN = sig
   type 'a lin
@@ -20,6 +21,7 @@ module type EVENT = sig
   type 'a event
   type 'a channel
   val new_channel : unit -> 'a channel
+  val flip_channel : 'a channel -> 'a channel
   val receive : 'a channel -> 'a event
   val send : 'a channel -> 'a -> unit event
   val guard : (unit -> 'a event) -> 'a event
@@ -42,7 +44,7 @@ module type SERIAL = sig
   val input_value : in_channel -> 'v monad
   val input_value_list : in_channel list -> 'v list monad
   val flush : out_channel -> unit monad
-  val pipe : unit -> in_channel * out_channel
+  val pipe : unit -> (in_channel * out_channel)
 end
 
 module type LIN_FLAG = sig

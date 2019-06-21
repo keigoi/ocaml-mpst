@@ -1,13 +1,15 @@
 open Base
-open Local
-
-include Global_common
+open Common
 
 module Make
          (M:S.MONAD)
          (E:S.EVENT with type 'a monad = 'a M.t)
          (C:S.SERIAL with type 'a monad = 'a M.t)(Lin:S.LIN)
   = struct
+
+  include Global_common
+
+  module Local = Local.Make(M)(E)
 
   type pipe = {inp: C.in_channel; out: C.out_channel}
   type dpipe = {me:pipe; othr:pipe}
@@ -21,8 +23,7 @@ module Make
   let swap_dpipe {me=othr;othr=me} =
     {me;othr}
 
-  module LocalChan = Local.Make(M)(E)
-  open LocalChan
+  open Local
 
   type 'v chan =
     | Bare of 'v E.channel list ref
@@ -47,6 +48,7 @@ module Make
        fun once ->
        (* we must delay this -- chs is a placeholder for channels which will change during merge *)
        let ch = List.nth !chs myidx in
+       let ch = E.flip_channel ch in
        InpChan (once, E.wrap (E.receive ch) wrapfun)
     | IPC (tag, chs) ->
        let {me={inp=ch;_};_} = swap_dpipe (List.nth chs myidx) in
@@ -65,7 +67,8 @@ module Make
        let chs = List.map ext chs in
        let ev =
          E.guard (fun () ->
-             let chs = List.map (fun chs -> List.nth !chs(*delayed*) myidx) chs in 
+             let chs = List.map (fun chs -> List.nth !chs(*delayed*) myidx) chs in
+             let chs = List.map E.flip_channel chs in
              E.receive_list chs)
        in
        fun once ->
@@ -111,11 +114,11 @@ module Make
     Mergeable.wrap_obj rA.role_label
       (Mergeable.make_with_hook
          hook
-         LocalChan.merge_in
+         Local.merge_in
          bare_inp_chs)
 
-  let make_out_one (a,b,(c,d)) = LocalChan.Out (a,b,(c,d))
-  let make_out_list (a,b,(c,d)) = LocalChan.OutMany (a,b,(c,d))
+  let make_out_one (a,b,(c,d)) = Local.Out (a,b,(c,d))
+  let make_out_list (a,b,(c,d)) = Local.OutMany (a,b,(c,d))
 
   let make_send ~make_out num_senders rB lab (chs: _ chan list) epA =
     if num_senders = 0 then begin
@@ -142,7 +145,7 @@ module Make
       (Mergeable.wrap_obj lab.obj
          (Mergeable.make_with_hook
             hook
-            (fun o1 o2 -> Lin.mklin (LocalChan.merge_out (Lin.unlin o1) (Lin.unlin o2)))
+            (fun o1 o2 -> Lin.mklin (Local.merge_out (Lin.unlin o1) (Lin.unlin o2)))
             epA'))
 
   let updateipc srckts srcidx dstidx = function
@@ -183,176 +186,95 @@ module Make
     in g2
 
   let ( --> ) : 'roleAobj 'labelvar 'epA 'roleBobj 'g1 'g2 'labelobj 'epB 'g0 'v.
-                (< .. > as 'roleAobj, 'labelvar LocalChan.inp, 'epA, 'roleBobj, 'g1 Seq.t, 'g2 Seq.t) role ->
+                (< .. > as 'roleAobj, 'labelvar Local.inp, 'epA, 'roleBobj, 'g1 Seq.t, 'g2 Seq.t) role ->
                 (< .. > as 'roleBobj, 'labelobj,     'epB, 'roleAobj, 'g0 Seq.t, 'g1 Seq.t) role ->
-                (< .. > as 'labelobj, [> ] as 'labelvar, ('v one * 'epA) LocalChan.out Lin.lin, 'v * 'epB Lin.lin) label ->
+                (< .. > as 'labelobj, [> ] as 'labelvar, ('v one * 'epA) Local.out Lin.lin, 'v * 'epB Lin.lin) label ->
                 'g0 global -> 'g2 global
     = fun rA rB label (Seq g0) ->
     Seq (fun env ->
         a2b env ~num_senders:1 ~num_receivers:1 ~make_out:make_out_one ~make_inp:make_inp_one rA rB label (g0 env))
 
   let scatter : 'roleAobj 'labelvar 'epA 'roleBobj 'g1 'g2 'labelobj 'epB 'g0 'v.
-                (< .. > as 'roleAobj, 'labelvar LocalChan.inp, 'epA, 'roleBobj, 'g1 Seq.t, 'g2 Seq.t) role ->
+                (< .. > as 'roleAobj, 'labelvar Local.inp, 'epA, 'roleBobj, 'g1 Seq.t, 'g2 Seq.t) role ->
                 (< .. > as 'roleBobj, 'labelobj,     'epB, 'roleAobj, 'g0 Seq.t, 'g1 Seq.t) role ->
-                (< .. > as 'labelobj, [> ] as 'labelvar, ('v list * 'epA) LocalChan.out Lin.lin, 'v * 'epB Lin.lin) label ->
+                (< .. > as 'labelobj, [> ] as 'labelvar, ('v list * 'epA) Local.out Lin.lin, 'v * 'epB Lin.lin) label ->
                 'g0 global -> 'g2 global
     = fun rA rB label (Seq g0) ->
     Seq (fun env ->
         a2b env ~num_senders:1 ~make_out:make_out_list ~make_inp:make_inp_one rA rB label (g0 env))
 
   let gather : 'roleAobj 'labelvar 'epA 'roleBobj 'g1 'g2 'labelobj 'epB 'g0 'v.
-               (< .. > as 'roleAobj, 'labelvar LocalChan.inp, 'epA, 'roleBobj, 'g1 Seq.t, 'g2 Seq.t) role ->
+               (< .. > as 'roleAobj, 'labelvar Local.inp, 'epA, 'roleBobj, 'g1 Seq.t, 'g2 Seq.t) role ->
                (< .. > as 'roleBobj, 'labelobj,     'epB, 'roleAobj, 'g0 Seq.t, 'g1 Seq.t) role ->
-               (< .. > as 'labelobj, [> ] as 'labelvar, ('v one * 'epA) LocalChan.out Lin.lin, 'v list * 'epB Lin.lin) label ->
+               (< .. > as 'labelobj, [> ] as 'labelvar, ('v one * 'epA) Local.out Lin.lin, 'v list * 'epB Lin.lin) label ->
                'g0 global -> 'g2 global
     = fun rA rB label (Seq g0) ->
     Seq (fun env ->
         a2b env ~num_receivers:1 ~make_out:make_out_one ~make_inp:make_inp_list rA rB label (g0 env))
-end
 
-module Pure = struct
-  type 'a t = 'a
-  let return a = a
-  let return_unit = ()
-  let bind x f = f x
-  let map f x = f x
-  let iteriM = List.iteri
-  let mapM = List.map
-end
-module Event = struct
-  include Event
-  type 'a monad = 'a
-  (* XXX a dumb implementation of receiving from multiple channels  *)
-  let receive_list = function
-    | [] ->
-       Event.always []
-    | ch::chs ->
-       Event.wrap (Event.receive ch)
-         (fun v ->
-           v :: List.map (fun ch -> Event.sync @@ Event.receive ch) chs)
-end
-module Serial = struct
-  type 'a monad = 'a
-  type in_channel = Stdlib.in_channel
-  type out_channel = Stdlib.out_channel
-  let pipe () =
-    let inp,out = Unix.pipe () in
-    Unix.in_channel_of_descr inp, Unix.out_channel_of_descr out
-  let input_value ch =
-    Stdlib.input_value ch
-  let input_tag =
-    input_value
-  let output_value =
-    Stdlib.output_value
-  let output_tag =
-    output_value
-  let flush ch =
-    Stdlib.flush ch
-  let input_value_list chs =
-    let rec loop = function
-      | [] -> []
-      | ch::chs -> Stdlib.input_value ch::loop chs
-    in
-    loop chs
-end
 
-module G = Make(Pure)(Event)(Serial)(struct type 'a lin = 'a let mklin x = x let unlin x = x end)
-module L = Local.Make(Pure)(Event)
-include G
-include L
+  let ipc cnt =
+    EpIPCProcess
+      (List.init cnt (fun _ ->
+           Table.create (fun c ->
+               List.init c (fun _ -> new_dpipe ()))))
 
-module LwtSerial = struct
-  type 'a monad = 'a Lwt.t
-  type in_channel = Lwt_io.input_channel
-  type out_channel = Lwt_io.output_channel
-  let pipe () =
-    let inp,out = Lwt_unix.pipe () in
-    Lwt_io.of_fd Lwt_io.input inp, Lwt_io.of_fd Lwt_io.output out
-  let input_value ch =
-    Lwt_io.read_value ch
-  let input_tag =
-    input_value
-  let output_value ch v =
-    Lwt_io.write_value ch v
-  let output_tag =
-    output_value
-  let flush =
-    Lwt_io.flush
-  let input_value_list chs =
-    let rec loop acc = function
-      | [] -> Lwt.return (List.rev acc)
-      | ch::chs ->
-         Lwt.bind (Lwt_io.read_value ch) (fun v ->
-             loop (v::acc) chs)
-    in loop [] chs
-end
-module Lwt = struct
-  include Lwt
-  let mapM = Lwt_list.map_p
-  let iteriM = Lwt_list.iteri_p
-end
-module GLwt = Make(Lwt)(Base_comm.LwtEvent)(LwtSerial)(struct type 'a lin = 'a let mklin x = x let unlin x = x end)
-module LLwt = Local.Make(Lwt)(Base_comm.LwtEvent)
+  let defaultlocal cnt =
+    {multiplicity=cnt; epkind=EpLocal}
 
-let ipc cnt =
-  EpIPCProcess
-    (List.init cnt (fun _ ->
-         Table.create (fun c ->
-             List.init c (fun _ -> new_dpipe ()))))
+  let defaultipc cnt =
+    {multiplicity=cnt; epkind=ipc cnt}
 
-let defaultlocal cnt =
-  {multiplicity=cnt; epkind=EpLocal}
+  let gen g =
+    Global_common.gen_with_param
+      {props=Table.create defaultlocal} g
+    
+  let gen_ipc g =
+    Global_common.gen_with_param
+      {props=Table.create defaultipc} g
 
-let defaultipc cnt =
-  {multiplicity=cnt; epkind=ipc cnt}
+  let gen_mult ps g =
+    Global_common.gen_with_param
+      {props=
+         Table.create_with
+           defaultlocal
+           (List.map defaultlocal ps)}
+      g
 
-let gen g =
-  Global_common.gen_with_param
-    {props=Table.create defaultlocal} g
-  
-let gen_ipc g =
-  Global_common.gen_with_param
-    {props=Table.create defaultipc} g
+  let gen_mult_ipc ps g =
+    Global_common.gen_with_param
+      {props=
+         Table.create_with
+           defaultipc
+           (List.map defaultipc ps)}
+      g
 
-let gen_mult ps g =
-  Global_common.gen_with_param
-    {props=
+  type kind = Local | IPCProcess
+  let epkind_of_kind = function
+    | Local -> fun i -> {multiplicity=i; epkind=EpLocal}
+    | IPCProcess -> fun i -> {multiplicity=i; epkind=ipc i}
+
+  let mkparams ps =
+    {props =
        Table.create_with
-         defaultlocal
-         (List.map defaultlocal ps)}
-    g
+         (fun _ -> failwith "gen: parameters not enough")
+         (List.map (fun k -> epkind_of_kind k 1) ps)}
 
-let gen_mult_ipc ps g =
-  Global_common.gen_with_param
-    {props=
+  let mkparams_mult ps =
+    {props =
        Table.create_with
-         defaultipc
-         (List.map defaultipc ps)}
-    g
+         (fun _ -> failwith "gen: parameters not enough")
+         (List.map (fun (k,p) -> epkind_of_kind k p) ps)}
 
-type kind = Local | IPCProcess
-let epkind_of_kind = function
-  | Local -> fun i -> {multiplicity=i; epkind=EpLocal}
-  | IPCProcess -> fun i -> {multiplicity=i; epkind=ipc i}
+  let gen_with_kinds ps g =
+    Global_common.gen_with_param
+      (mkparams ps)
+      g
 
-let mkparams ps =
-  {props =
-     Table.create_with
-       (fun _ -> failwith "gen: parameters not enough")
-       (List.map (fun k -> epkind_of_kind k 1) ps)}
+  let gen_with_kind_params ps g =
+    Global_common.gen_with_param
+      (mkparams_mult ps)
+      g
 
-let mkparams_mult ps =
-  {props =
-     Table.create_with
-       (fun _ -> failwith "gen: parameters not enough")
-       (List.map (fun (k,p) -> epkind_of_kind k p) ps)}
-
-let gen_with_kinds ps g =
-  Global_common.gen_with_param
-    (mkparams ps)
-    g
-
-let gen_with_kind_params ps g =
-  Global_common.gen_with_param
-    (mkparams_mult ps)
-    g
+  let gen_mult = gen_mult_ipc
+end

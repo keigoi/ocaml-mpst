@@ -1,5 +1,5 @@
-open Global
 open Base
+open Global_common
 
 let a = {role_label={make_obj=(fun v->object method role_A=v end);
                      call_obj=(fun o->o#role_A)};

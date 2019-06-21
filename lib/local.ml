@@ -1,7 +1,8 @@
 open Base
-type 'a mrg = int * 'a Mergeable.t
+open Common
 
 module Make(M:S.MONAD)(E:S.EVENT with type 'a monad = 'a M.t) = struct
+  type 'a mrg = int * 'a Mergeable.t
 
   type 'a inp =
     | InpChan of LinFlag.t * 'a E.event

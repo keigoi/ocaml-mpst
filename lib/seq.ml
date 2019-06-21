@@ -1,3 +1,6 @@
+open Base
+open Common
+
 type 'a mergeable = 'a Mergeable.t
 
 type _ t =
@@ -65,7 +68,7 @@ let rec seq_merge : type x. x t -> x t -> x t = fun l r ->
 
 let rec resolve_seqvar_ : type x. x t lazy_t list -> x t lazy_t -> x t =
   fun hist w ->
-  if Base.find_physeq hist w then begin
+  if Common.find_physeq hist w then begin
       raise UnguardedLoopSeq
     end else begin
       match Lazy.force w with

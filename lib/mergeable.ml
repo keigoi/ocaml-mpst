@@ -4,6 +4,7 @@
  *)
 
 open Base
+open Common
 
 (**
  * The type of a mergeable.

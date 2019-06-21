@@ -30,7 +30,7 @@
   (public_name calc_scatter)
   (modules calc_scatter)
   (flags ("-g" "-short-paths"))
-  (libraries ocaml-mpst calc_util))
+  (libraries ocaml-mpst.lwt ocaml-mpst.async calc_util))
 
 (executable
  (name unfair)

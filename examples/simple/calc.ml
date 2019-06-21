@@ -1,6 +1,4 @@
-open Mpst.Base
-open Mpst.Local
-open Mpst.Global
+open Mpst
 open Calc_util
 
 type op = Add | Sub | Mul | Div

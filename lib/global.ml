@@ -110,8 +110,9 @@ module Make
       lazy begin
           (* force the following endpoints *)
           let eps = MA.out epB in
-          if num_receivers <> List.length eps then
-            failwith "make_recv: endpoint count inconsistency"
+          if num_receivers <> List.length eps then begin
+              failwith "make_recv: endpoint count inconsistency"
+            end
         end
     in
     MA.wrap_obj rA.role_label
@@ -161,7 +162,7 @@ module Make
 
   let a2b env ?num_senders ?num_receivers ~make_out ~make_inp = fun rA rB label g0 ->
     let anum = of_option num_senders ~dflt:(multiplicity env (Seq.int_of_lens rA.role_index)) in
-    let bnum = of_option num_receivers ~dflt:(multiplicity env (Seq.int_of_lens rA.role_index)) in
+    let bnum = of_option num_receivers ~dflt:(multiplicity env (Seq.int_of_lens rB.role_index)) in
     let chs =
       match epkind env (Seq.int_of_lens rA.role_index), epkind env (Seq.int_of_lens rB.role_index) with
       | EpLocal, EpLocal ->
@@ -278,6 +279,4 @@ module Make
     gen_with_param
       (mkparams_mult ps)
       g
-
-  let gen_mult = gen_mult_ipc
 end

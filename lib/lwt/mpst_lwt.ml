@@ -1,3 +1,5 @@
+module Peripheral = Peripheral
+
 module Global =
   Mpst.Global.Make
     (Peripheral.Lwt)

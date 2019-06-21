@@ -1,0 +1,4 @@
+(library
+  (name mpst_monad_async)
+  (public_name ocaml-mpst.monad.async)
+  (libraries ocaml-mpst.monad ocaml-mpst.async linocaml.async async async_unix))

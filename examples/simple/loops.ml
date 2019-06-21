@@ -38,7 +38,7 @@ let tB eb finally =
     | `right(_,eb) -> (* print_endline"right";  *)finally eb
   in
   loop eb
-  
+
 let () =
   let () = print_endline "loop1" in
   let g = gen @@ loop1 () in
@@ -115,10 +115,10 @@ let test1 =
     print_endline"test1";
     ignore (get_ep c g);
     print_endline"test1 done"
-  
+
 let test2 =
   print_endline "test2";
-  let g = 
+  let g =
     gen @@ fix (fun t ->
       (a --> b) left @@
       choice_at a (to_b left_or_right)
@@ -131,13 +131,13 @@ let test2 =
   ignore (get_ep b g);
   print_endline "test2 done";
   ()
-  
+
 let test3 =
   print_endline "test3";
-  let g = 
+  let g =
     gen @@ fix (fun t ->
       (a --> b) right @@
-      fix (fun u ->    
+      fix (fun u ->
           choice_at a (to_b left_or_right)
           (a, (a --> b) left @@ u)
           (a, t)))
@@ -147,7 +147,7 @@ let test3 =
   ignore (get_ep b g);
   print_endline "test3 done";
   ()
-  
+
 let test4 =
   print_endline "test4";
   try
@@ -176,3 +176,22 @@ let test5 =
   with
     Mpst.Seq.UnguardedLoopSeq ->
     print_endline "exception correctly occured"
+
+let test6 =
+  try
+    print_endline "test6";
+    let _ =
+      gen (fix (fun t ->
+               choice_at a (to_b left_or_middle)
+                 (a, (a --> b) left @@
+                     choice_at a (to_b left_middle_or_right)
+                     (a, t)
+                     (a, (* here C blocks indefinitely, and must be rejected *)
+                         fix (fun u -> (a --> b) right @@ u)))
+                 (a, (a --> b) middle @@
+                     (b --> c) middle @@ finish)))
+    in
+    failwith "unexpected (test6)"
+  with
+    Mpst.Seq.UnguardedLoopSeq ->
+    print_endline "exception correctly occurred"

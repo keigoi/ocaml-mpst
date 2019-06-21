@@ -1,5 +1,3 @@
-open Base
-open Common
 
 module type LIN = sig
   type 'a lin
@@ -8,7 +6,7 @@ module type LIN = sig
 end
 
 module type MONAD = sig
-  type 'a t
+  type +'a t
   val return : 'a -> 'a t
   val return_unit : unit t
   val bind : 'a t -> ('a -> 'b t) -> 'b t
@@ -30,17 +28,17 @@ module type EVENT = sig
   val always : 'a -> 'a event
   val receive_list : 'a channel list -> 'a list event
 
-  type 'a monad
+  type +'a monad
   val sync : 'a event -> 'a monad
 end
 
 module type SERIAL = sig
-  type 'a monad
+  type +'a monad
   type out_channel
   type in_channel
-  val output_tag : out_channel -> tag -> unit monad
+  val output_tag : out_channel -> Common.tag -> unit monad
   val output_value : out_channel -> 'v -> unit monad
-  val input_tag : in_channel -> tag monad
+  val input_tag : in_channel -> Common.tag monad
   val input_value : in_channel -> 'v monad
   val input_value_list : in_channel list -> 'v list monad
   val flush : out_channel -> unit monad
@@ -53,4 +51,14 @@ module type LIN_FLAG = sig
   val use        : t -> unit
   val try_use    : t -> bool
   exception InvalidEndpoint
+end
+
+module type LOCAL = sig
+  type +'a monad
+  type 't out
+  type 't inp
+  val send : ('t Base.one * 'u) out -> 't -> 'u monad
+  val sendmany : ('t list * 'u) out -> (int -> 't) -> 'u monad
+  val receive : 't inp -> 't monad
+  val close : Base.close -> unit
 end

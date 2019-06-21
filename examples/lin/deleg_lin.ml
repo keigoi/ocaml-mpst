@@ -1,69 +1,56 @@
-open Mpst_simple
-open Mpst_simple.Lin
-open Mpst_simple.LinMonad
-open Mpst_simple.LinMonad.Op
+open Mpst_monad
+open Linocaml
+open Calc_util
 
-let cli = {lens=Zero;
-           label={make_obj=(fun v->object method role_Cli=v end);
-                 make_var=(fun v->(`role_Cli(v):[`role_Cli of _]))}}
-let srv = {lens=Succ Zero;
-           label={make_obj=(fun v->object method role_Srv=v end);
-                 make_var=(fun v->(`role_Srv(v):[`role_Srv of _]))}}
-let mst = {lens=Zero;
-           label={make_obj=(fun v->object method role_Mst=v end);
-                 make_var=(fun v->(`role_Mst(v):[`role_Mst of _]))}}
+let mst = {role_index=Zero;
+           role_label={make_obj=(fun v->object method role_Mst=v end);
+                       call_obj=(fun o -> o#role_Mst)}}
 
-
-let compute = {make_obj=(fun v-> object method compute=v end); make_var=(fun v -> `compute(v))}
-let result = {make_obj=(fun v-> object method result=v end); make_var=(fun v -> `result(v))}
-let answer = {make_obj=(fun v-> object method answer=v end); make_var=(fun v -> `answer(v))}
-let compute_or_result =
-     {obj_merge=(fun l r -> object method compute=l#compute method result=r#result end)}
-let to_srv m =
-  {obj_merge=(fun l r -> object method role_Srv=m.obj_merge l#role_Srv r#role_Srv end)}
+(* let to_srv m =
+ *   {obj_merge=(fun l r -> object method role_Srv=m.obj_merge l#role_Srv r#role_Srv end);
+ *   obj_splitL=(fun lr -> (lr :> <>))} *)
 
 
 type op = Add | Sub | Mul | Div
 let calc () =
-  let rec g =
-    lazy (choice_at cli (to_srv compute_or_result)
+  fix (fun t ->
+      choice_at cli (to_srv compute_or_result)
            (cli, (cli --> srv) compute @@
-                 goto2 g)
+                 t)
            (cli, (cli --> srv) result @@
                  (srv --> cli) answer @@
-                 finish2))
-  in Lazy.force g
+                 finish))
 
 let worker () =
   (srv --> mst) msg @@
   (mst --> srv) msg @@
-  finish2
+  finish
 
-let _0 = Mpst_simple.LinMonad.Fst
-let _1 = Mpst_simple.LinMonad.Next Mpst_simple.LinMonad.Fst
+let s = Linocaml.Zero
+let t = Linocaml.Succ Linocaml.Zero
 
 let tCli_monad () =
-  let%lin #_0 = send (fun x->x#role_Srv#compute) (Add, 20) _0 in
-  let%lin #_0 = send (fun x->x#role_Srv#compute) (Sub, 45) _0 in
-  let%lin #_0 = send (fun x->x#role_Srv#compute) (Mul, 10) _0 in
-  let%lin #_0 = send (fun x->x#role_Srv#result) () _0 in
-  let%lin `answer(ans, #_0) = receive (fun x->x#role_Srv) _0 in
-  close _0 >>= fun () ->
+  let%lin #s = s <@ send (fun x->x#role_Srv#compute) (Add, 20) in
+  let%lin #s = s <@ send (fun x->x#role_Srv#compute) (Sub, 45) in
+  let%lin #s = s <@ send (fun x->x#role_Srv#compute) (Mul, 10) in
+  let%lin #s = s <@ send (fun x->x#role_Srv#result) () in
+  let%lin `answer(ans, #s) = s <@ receive (fun x->x#role_Srv) in
+  s <@ close >>= fun () ->
   (* outputs "Answer: -250" (= (20 - 45) * 10) *)
   Printf.printf "Answer: %d\n" ans;
   return ()
 
 let tSrv_monad () =
   let rec loop acc =
-    match%lin receive (fun x->x#role_Cli) _0 with
-    | `compute({data=(sym,num)}, #_0) ->
+    match%lin s <@ receive (fun x->x#role_Cli) with
+    | `compute({data=(sym,num)}, #s) ->
       let op = match sym with
         | Add -> (+)   | Sub -> (-)
         | Mul -> ( * ) | Div -> (/)
       in loop (op acc num)
-    | `role_Cli(`result(_, #_0)) ->
-      let%lin #_0 = send (fun x->x#role_Cli#answer) acc _0 in
-      close _0
+    | `result(_, #s) ->
+      let%lin #s = s <@ send (fun x->x#role_Cli#answer) acc in
+      s <@ close
   in loop 0
 
 let calc_sh = create_shared calc [`role_Cli(); `role_Srv()]
@@ -72,10 +59,10 @@ let work_sh = create_shared worker [`role_Mst(); `role_Srv()]
 let tSrvWorker i =
   print_endline "worker started";
   let rec loop () =
-    let%lin #_1 = connect work_sh srv in
-    let%lin #_1 = send (fun x->x#role_Mst#msg) i _1 in
-    let%lin `role_Mst(`msg(#_0, #_1)) = receive _1 in
-    close _1 >>= fun () ->
+    let%lin #t = connect work_sh srv in
+    let%lin #t = t <@ send (fun x->x#role_Mst#msg) i in
+    let%lin `msg(#s, #t) = t <@ receive (fun x->x#role_Mst) in
+    t <@ close >>= fun () ->
     tSrv_monad () >>= fun () ->
     loop ()
   in loop ()
@@ -83,23 +70,17 @@ let tSrvWorker i =
 let tMaster () =
   print_endline "master started";
   let rec loop () =
-    let%lin #_0 = connect calc_sh srv in
+    let%lin #s = connect calc_sh srv in
     print_endline "master: client comes";
-    let%lin #_1 = connect work_sh mst in
-    let%lin `role_Srv(`msg({data=i}, #_1)) = receive _1 in
+    let%lin #t = connect work_sh mst in
+    let%lin `msg(i, #t) = t <@ receive (fun x->x#role_Srv) in
     Printf.printf "master: connecrted to a worker %d\n" i;
-    let%lin #_1 = deleg_send (fun x->x#role_Srv#msg) _0 _1 in
-    close _1 >>= loop
+    let%lin #t = (s @* t) <@ deleg_send (fun x->x#role_Srv#msg) in
+    t <@ close >>= loop
   in loop ()
 
 let run f x =
-  LinMonad.run begin
-      LinMonad.expand >>= fun () ->
-      LinMonad.expand >>= fun () ->
-      f x >>= fun () ->
-      LinMonad.shrink >>= fun () ->
-      LinMonad.shrink
-  end
+  Linocaml.run' f x
 
 let repeat cnt f =
   let rec loop cnt acc =
@@ -123,5 +104,5 @@ let () =
   List.iter Thread.join @@
                     repeat 10 (fun i -> print_endline"here"; Thread.create (run (fun () ->
                                             Printf.printf "%d\n" i;
-                                            let%lin #_0 = connect calc_sh cli in
+                                            let%lin #s = connect calc_sh cli in
                                             tCli_monad ())) ())

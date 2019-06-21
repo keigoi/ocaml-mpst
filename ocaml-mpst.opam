@@ -6,8 +6,8 @@ bug-reports: "https://github.com/keigoi/ocaml-mpst/issues"
 dev-repo: "https://github.com/keigoi/ocaml-mpst.git"
 license: "Apache"
 build:
-[[ "jbuilder" "build" "--only-packages" "%{name}%" "--root" "." "-j" jobs "@install" ]]
+[[ "dune" "build" "-p" name "-j" jobs ]]
 available: [ ocaml-version >= "4.05" ]
 depends: [
-  "jbuilder" {build}
+  "dune" {build & >= "1.0"}
 ]

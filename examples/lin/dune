@@ -1,0 +1,15 @@
+(executable
+ (name calc_lin)
+  (public_name calc_lin_mpst_simple)
+  (modules calc_lin)
+  (preprocess (pps linocaml.ppx))
+  (flags ("-g" "-short-paths"))
+  (libraries ocaml-mpst.monad calc_util))
+
+(executable
+ (name deleg_lin)
+  (public_name deleg_lin_mpst_simple)
+  (modules deleg_lin)
+  (preprocess (pps linocaml.ppx))
+  (flags ("-g" "-short-paths"))
+  (libraries ocaml-mpst.monad calc_util))

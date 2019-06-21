@@ -10,7 +10,8 @@ module Make
 
   include Global_common
 
-  module Local = Local.Make(M)(E)
+  module Out = Out.Make(E)
+  module Inp = Inp.Make(M)(E)
 
   type pipe = {inp: C.in_channel; out: C.out_channel}
   type dpipe = {me:pipe; othr:pipe}
@@ -24,7 +25,8 @@ module Make
   let swap_dpipe {me=othr;othr=me} =
     {me;othr}
 
-  open Local
+  open Out
+  open Inp
 
   type 'v chan =
     | Bare of 'v E.channel list ref
@@ -115,11 +117,11 @@ module Make
     Mergeable.wrap_obj rA.role_label
       (Mergeable.make_with_hook
          hook
-         Local.merge_in
+         Inp.merge_in
          bare_inp_chs)
 
-  let make_out_one (a,b,(c,d)) = Local.Out (a,b,(c,d))
-  let make_out_list (a,b,(c,d)) = Local.OutMany (a,b,(c,d))
+  let make_out_one (a,b,(c,d)) = Out.Out (a,b,(c,d))
+  let make_out_list (a,b,(c,d)) = Out.OutMany (a,b,(c,d))
 
   let make_send ~make_out num_senders rB lab (chs: _ chan list) epA =
     if num_senders = 0 then begin
@@ -146,7 +148,7 @@ module Make
       (Mergeable.wrap_obj lab.obj
          (Mergeable.make_with_hook
             hook
-            (fun o1 o2 -> Lin.mklin (Local.merge_out (Lin.unlin o1) (Lin.unlin o2)))
+            (fun o1 o2 -> Lin.mklin (Out.merge_out (Lin.unlin o1) (Lin.unlin o2)))
             epA'))
 
   let updateipc srckts srcidx dstidx = function
@@ -187,27 +189,27 @@ module Make
     in g2
 
   let ( --> ) : 'roleAobj 'labelvar 'epA 'roleBobj 'g1 'g2 'labelobj 'epB 'g0 'v.
-                (< .. > as 'roleAobj, 'labelvar Local.inp, 'epA, 'roleBobj, 'g1 Seq.t, 'g2 Seq.t) role ->
+                (< .. > as 'roleAobj, 'labelvar Inp.inp, 'epA, 'roleBobj, 'g1 Seq.t, 'g2 Seq.t) role ->
                 (< .. > as 'roleBobj, 'labelobj,     'epB, 'roleAobj, 'g0 Seq.t, 'g1 Seq.t) role ->
-                (< .. > as 'labelobj, [> ] as 'labelvar, ('v one * 'epA) Local.out Lin.lin, 'v * 'epB Lin.lin) label ->
+                (< .. > as 'labelobj, [> ] as 'labelvar, ('v one * 'epA) Out.out Lin.lin, 'v * 'epB Lin.lin) label ->
                 'g0 global -> 'g2 global
     = fun rA rB label (Seq g0) ->
     Seq (fun env ->
         a2b env ~num_senders:1 ~num_receivers:1 ~make_out:make_out_one ~make_inp:make_inp_one rA rB label (g0 env))
 
   let scatter : 'roleAobj 'labelvar 'epA 'roleBobj 'g1 'g2 'labelobj 'epB 'g0 'v.
-                (< .. > as 'roleAobj, 'labelvar Local.inp, 'epA, 'roleBobj, 'g1 Seq.t, 'g2 Seq.t) role ->
+                (< .. > as 'roleAobj, 'labelvar Inp.inp, 'epA, 'roleBobj, 'g1 Seq.t, 'g2 Seq.t) role ->
                 (< .. > as 'roleBobj, 'labelobj,     'epB, 'roleAobj, 'g0 Seq.t, 'g1 Seq.t) role ->
-                (< .. > as 'labelobj, [> ] as 'labelvar, ('v list * 'epA) Local.out Lin.lin, 'v * 'epB Lin.lin) label ->
+                (< .. > as 'labelobj, [> ] as 'labelvar, ('v list * 'epA) Out.out Lin.lin, 'v * 'epB Lin.lin) label ->
                 'g0 global -> 'g2 global
     = fun rA rB label (Seq g0) ->
     Seq (fun env ->
         a2b env ~num_senders:1 ~make_out:make_out_list ~make_inp:make_inp_one rA rB label (g0 env))
 
   let gather : 'roleAobj 'labelvar 'epA 'roleBobj 'g1 'g2 'labelobj 'epB 'g0 'v.
-               (< .. > as 'roleAobj, 'labelvar Local.inp, 'epA, 'roleBobj, 'g1 Seq.t, 'g2 Seq.t) role ->
+               (< .. > as 'roleAobj, 'labelvar Inp.inp, 'epA, 'roleBobj, 'g1 Seq.t, 'g2 Seq.t) role ->
                (< .. > as 'roleBobj, 'labelobj,     'epB, 'roleAobj, 'g0 Seq.t, 'g1 Seq.t) role ->
-               (< .. > as 'labelobj, [> ] as 'labelvar, ('v one * 'epA) Local.out Lin.lin, 'v list * 'epB Lin.lin) label ->
+               (< .. > as 'labelobj, [> ] as 'labelvar, ('v one * 'epA) Out.out Lin.lin, 'v list * 'epB Lin.lin) label ->
                'g0 global -> 'g2 global
     = fun rA rB label (Seq g0) ->
     Seq (fun env ->
@@ -229,7 +231,7 @@ module Make
   let gen g =
     Global_common.gen_with_param
       {props=Table.create defaultlocal} g
-    
+
   let gen_ipc g =
     Global_common.gen_with_param
       {props=Table.create defaultipc} g

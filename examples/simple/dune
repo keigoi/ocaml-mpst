@@ -66,19 +66,3 @@
   (modules dynlin_test)
   (flags ("-g" "-short-paths"))
   (libraries ocaml-mpst))
-
-;(executable
-; (name calc_lin)
-;  (public_name calc_lin_mpst_simple)
-;  (modules calc_lin)
-;  (preprocess (pps ocaml-mpst.ppx))
-;  (flags ("-g" "-short-paths"))
-;  (libraries ocaml-mpst))
-;
-;(executable
-; (name deleg_lin)
-;  (public_name deleg_lin_mpst_simple)
-;  (modules deleg_lin)
-;  (preprocess (pps ocaml-mpst.ppx))
-;  (flags ("-g" "-short-paths"))
-;  (libraries ocaml-mpst))

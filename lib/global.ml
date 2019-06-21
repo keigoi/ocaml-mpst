@@ -2,16 +2,17 @@ open Base
 open Common
 
 module Make
+         (EP:S.LIN_EP)
          (M:S.MONAD)
-         (E:S.EVENT with type 'a monad = 'a M.t)
+         (EV:S.EVENT with type 'a monad = 'a M.t)
          (C:S.SERIAL with type 'a monad = 'a M.t)
          (Lin:S.LIN)
   = struct
 
-  include Global_common
+  include Global_common.Make(EP)
 
-  module Out = Out.Make(E)
-  module Inp = Inp.Make(M)(E)
+  module Out = Out.Make(EP)(EV)
+  module Inp = Inp.Make(EP)(M)(EV)
 
   type pipe = {inp: C.in_channel; out: C.out_channel}
   type dpipe = {me:pipe; othr:pipe}
@@ -29,7 +30,7 @@ module Make
   open Inp
 
   type 'v chan =
-    | Bare of 'v E.channel list ref
+    | Bare of 'v EV.channel list ref
     | IPC of tag * dpipe list
 
   let bare_of_chan = function
@@ -43,22 +44,22 @@ module Make
        in
        BareOutIPC (List.map (fun {me={out;_};_} -> real_out out) chs)
 
-  type 'g global = (dpipe, 'g) Global_common.t
+  type 'g global = (dpipe, 'g) t
 
   let make_inp_one chs myidx wrapfun =
     match List.hd chs with
     | Bare chs ->
-       fun once ->
-       (* we must delay this -- chs is a placeholder for channels which will change during merge *)
-       let ch = List.nth !chs myidx in
-       let ch = E.flip_channel ch in
-       InpChan (once, E.wrap (E.receive ch) wrapfun)
+       EP.make (fun once -> (* FIXME this does NOT delays *)
+           (* we must delay this -- chs is a placeholder for channels which will change during merge *)
+           let ch = List.nth !chs myidx in
+           let ch = EV.flip_channel ch in
+           InpChan (once, EV.wrap (EV.receive ch) wrapfun))
     | IPC (tag, chs) ->
        let {me={inp=ch;_};_} = swap_dpipe (List.nth chs myidx) in
-       fun once ->
+       EP.make (fun once ->
        InpIPC
          (once, (fun () -> M.map (fun v -> [v]) (C.input_tag ch)),
-          [(tag, (fun () -> M.map wrapfun (C.input_value ch)))])
+          [(tag, (fun () -> M.map wrapfun (C.input_value ch)))]))
 
   let make_inp_list chs myidx wrapfun =
     match chs with
@@ -69,13 +70,12 @@ module Make
        in
        let chs = List.map ext chs in
        let ev =
-         E.guard (fun () ->
+         EV.guard (fun () ->
              let chs = List.map (fun chs -> List.nth !chs(*delayed*) myidx) chs in
-             let chs = List.map E.flip_channel chs in
-             E.receive_list chs)
+             let chs = List.map EV.flip_channel chs in
+             EV.receive_list chs)
        in
-       fun once ->
-       InpChan (once, E.wrap ev wrapfun)
+       EP.make (fun once -> InpChan (once, EV.wrap ev wrapfun))
     | (IPC (tag,_) :: _) ->
        let ext = function
          | IPC (_,chs) -> List.nth chs myidx
@@ -84,10 +84,10 @@ module Make
        let chs = List.map ext chs in
        let chs = List.map swap_dpipe chs in
        let chs = List.map (fun {me={inp;_};_} -> inp) chs in
-       fun once ->
+       EP.make (fun once ->
        InpIPC
          (once, (fun () -> C.input_value_list chs),
-          [(tag, (fun () -> M.map wrapfun (C.input_value_list chs)))])
+          [(tag, (fun () -> M.map wrapfun (C.input_value_list chs)))]))
     | [] ->
        failwith "no channel"
 
@@ -102,20 +102,20 @@ module Make
       end;
     let bare_inp_chs =
       List.init num_receivers (fun myidx ->
-          let wrapfun v = lab.var (v, Lin.mklin (List.nth (Mergeable.out epB) myidx))
+          let wrapfun v = lab.var (v, Lin.mklin (List.nth (MA.out epB) myidx))
           in
           make_inp chs myidx wrapfun)
     in
     let hook =
       lazy begin
           (* force the following endpoints *)
-          let eps = Mergeable.out epB in
+          let eps = MA.out epB in
           if num_receivers <> List.length eps then
             failwith "make_recv: endpoint count inconsistency"
         end
     in
-    Mergeable.wrap_obj rA.role_label
-      (Mergeable.make_with_hook
+    MA.wrap_obj rA.role_label
+      (MA.make_with_hook
          hook
          Inp.merge_in
          bare_inp_chs)
@@ -135,18 +135,18 @@ module Make
       List.init num_senders
         (fun k ->
           let ch = bare_of_chan (List.nth chs k) in
-          fun once -> Lin.mklin (make_out (once,ch,(k,epA))))
+          EP.make (fun once -> Lin.mklin (make_out (once,ch,(k,epA)))))
     in
     let hook =
       lazy begin
-          let eps = Mergeable.out epA in
+          let eps = MA.out epA in
           if num_senders <> List.length eps then
             failwith "make_send: endpoint count inconsistency"
         end
     in
-    Mergeable.wrap_obj rB.role_label
-      (Mergeable.wrap_obj lab.obj
-         (Mergeable.make_with_hook
+    MA.wrap_obj rB.role_label
+      (MA.wrap_obj lab.obj
+         (MA.make_with_hook
             hook
             (fun o1 o2 -> Lin.mklin (Out.merge_out (Lin.unlin o1) (Lin.unlin o2)))
             epA'))
@@ -160,23 +160,23 @@ module Make
        List.iter2 (fun kt ks -> Table.put kt srcidx (swap ks)) kts kss
 
   let a2b env ?num_senders ?num_receivers ~make_out ~make_inp = fun rA rB label g0 ->
-    let anum = of_option num_senders ~dflt:(multiplicity env rA.role_index) in
-    let bnum = of_option num_receivers ~dflt:(multiplicity env rB.role_index) in
+    let anum = of_option num_senders ~dflt:(multiplicity env (Seq.int_of_lens rA.role_index)) in
+    let bnum = of_option num_receivers ~dflt:(multiplicity env (Seq.int_of_lens rA.role_index)) in
     let chs =
-      match epkind env rA.role_index, epkind env rB.role_index with
+      match epkind env (Seq.int_of_lens rA.role_index), epkind env (Seq.int_of_lens rB.role_index) with
       | EpLocal, EpLocal ->
          List.init anum (fun _ ->
-             Bare(ref @@ List.init bnum (fun _ -> E.new_channel ())))
+             Bare(ref @@ List.init bnum (fun _ -> EV.new_channel ())))
       | EpIPCProcess kts, bkind ->
          assert (List.length kts = anum);
-         let chss = List.map (fun kt -> Table.get_or_create kt rB.role_index bnum) kts in
-         updateipc kts rA.role_index rB.role_index bkind;
+         let chss = List.map (fun kt -> Table.get_or_create kt (Seq.int_of_lens rB.role_index) bnum) kts in
+         updateipc kts (Seq.int_of_lens rA.role_index) (Seq.int_of_lens rB.role_index) bkind;
          List.map (fun chs -> IPC(make_tag label.var, chs)) chss
       | akind, EpIPCProcess kts ->
          assert (List.length kts = bnum);
-         let chss = List.map (fun kt -> Table.get_or_create kt rA.role_index anum) kts in
+         let chss = List.map (fun kt -> Table.get_or_create kt (Seq.int_of_lens rA.role_index) anum) kts in
          let chss = transpose chss in
-         updateipc kts rB.role_index rA.role_index akind;
+         updateipc kts (Seq.int_of_lens rB.role_index) (Seq.int_of_lens rA.role_index) akind;
          List.map (fun chs -> IPC(make_tag label.var, List.map swap_dpipe chs)) chss
     in
     let epB = Seq.get rB.role_index g0 in
@@ -229,15 +229,15 @@ module Make
     {multiplicity=cnt; epkind=ipc cnt}
 
   let gen g =
-    Global_common.gen_with_param
+    gen_with_param
       {props=Table.create defaultlocal} g
 
   let gen_ipc g =
-    Global_common.gen_with_param
+    gen_with_param
       {props=Table.create defaultipc} g
 
   let gen_mult ps g =
-    Global_common.gen_with_param
+    gen_with_param
       {props=
          Table.create_with
            defaultlocal
@@ -245,7 +245,7 @@ module Make
       g
 
   let gen_mult_ipc ps g =
-    Global_common.gen_with_param
+    gen_with_param
       {props=
          Table.create_with
            defaultipc
@@ -270,12 +270,12 @@ module Make
          (List.map (fun (k,p) -> epkind_of_kind k p) ps)}
 
   let gen_with_kinds ps g =
-    Global_common.gen_with_param
+    gen_with_param
       (mkparams ps)
       g
 
   let gen_with_kind_params ps g =
-    Global_common.gen_with_param
+    gen_with_param
       (mkparams_mult ps)
       g
 

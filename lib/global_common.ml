@@ -1,5 +1,9 @@
 open Base
 
+module Make(EP:S.LIN_EP) = struct
+module Mergeable = Mergeable.Make(EP)
+module Seq = Seq.Make(EP)
+
 type ('robj,'c,'a,'b,'xs,'ys) role =
   {role_label: ('robj,'c) method_;
    role_index: ('a,'b,'xs,'ys) Seq.lens}
@@ -27,7 +31,7 @@ let fix : type e g. ((e,g) t -> (e,g) t) -> (e,g) t = fun f ->
         lazy (unseq_ (f (Seq (fun _ -> SeqRecVars [body]))) e)
       in
       (* A "fail-fast" approach to detect unguarded loops.
-       * Seq.partial_force tries to fully evaluate unguarded recursion variables 
+       * Seq.partial_force tries to fully evaluate unguarded recursion variables
        * in the body.
        *)
       Seq.partial_force [body] (Lazy.force body))
@@ -73,3 +77,4 @@ let choice_at : 'ep 'ep_l 'ep_r 'g0_l 'g0_r 'g1 'g2.
       let g2 = Seq.put r.role_index g1 ep
       in
       g2)
+end

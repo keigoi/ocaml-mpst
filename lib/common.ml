@@ -27,8 +27,6 @@ type tag = {tag:Obj.t}
 let make_tag : 'v. ('v -> [>]) -> tag = fun f ->
   {tag=Obj.repr (f (Obj.magic ()))}
 
-type 'a ep = LinFlag.t -> 'a
-
 let atomic =
   let m = Mutex.create () in
   fun f ->

@@ -1,15 +1,20 @@
 open Base
 open Common
 
-module Make(M:S.MONAD)(E:S.EVENT with type 'a monad = 'a M.t)
+module Make
+         (EP:S.LIN_EP)
+         (F:S.LIN_FLAG with type t = EP.once)
+         (M:S.MONAD)
+         (EV:S.EVENT with type 'a monad = 'a M.t)
        : S.LOCAL
        with type 'a monad = 'a M.t
-       with type 't out = 't Out.Make(E).out
-       with type 't inp = 't Inp.Make(M)(E).inp
+       with type 't out = 't Out.Make(EP)(EV).out
+       with type 't inp = 't Inp.Make(EP)(M)(EV).inp
   = struct
 
-  module Inp = Inp.Make(M)(E)
-  module Out = Out.Make(E)
+  module MA = Mergeable.Make(EP)
+  module Inp = Inp.Make(EP)(M)(EV)
+  module Out = Out.Make(EP)(EV)
 
   type 'a monad = 'a M.t
   type 't out = 't Out.out
@@ -20,10 +25,10 @@ module Make(M:S.MONAD)(E:S.EVENT with type 'a monad = 'a M.t)
 
   let receive = function
     | InpChan (once,ev) ->
-       LinFlag.use once;
-       E.sync ev
+       F.use once;
+       EV.sync ev
     | InpIPC (once,etag,alts) ->
-       LinFlag.use once;
+       F.use once;
        (* receive tag(s) *)
        M.bind (etag ()) (fun tags ->
        let tag = List.hd tags in
@@ -38,28 +43,28 @@ module Make(M:S.MONAD)(E:S.EVENT with type 'a monad = 'a M.t)
     let bare_out_one ch v =
       match ch with
       | BareOutChan chs ->
-         E.sync (E.send (List.hd !chs) v)
+         EV.sync (EV.send (List.hd !chs) v)
       | BareOutIPC f ->
          List.hd f v
     in
     match out with
     | (Out(once,channel,(k,cont))) ->
        assert (size channel = 1);
-       LinFlag.use once;
+       F.use once;
        M.bind (bare_out_one channel v) (fun _ ->
-       M.return (List.nth (Mergeable.out cont) k))
+       M.return (List.nth (MA.out cont) k))
 
   let sendmany (OutMany(once,channels,(k,cont))) vf =
     let bare_out_many ch vf =
       match ch with
       | BareOutChan chs ->
-         M.iteriM (fun i ch -> E.sync (E.send ch (vf i))) !chs
+         M.iteriM (fun i ch -> EV.sync (EV.send ch (vf i))) !chs
       | BareOutIPC fs ->
          M.iteriM (fun i f -> f (vf i)) fs
     in
-    LinFlag.use once;
+    F.use once;
     M.bind (bare_out_many channels vf) (fun _ ->
-    M.return (List.nth (Mergeable.out cont) k))
+    M.return (List.nth (MA.out cont) k))
 
   let close _ = ()
 end

@@ -49,8 +49,18 @@ module type LIN_FLAG = sig
   type t
   val create     : unit -> t
   val use        : t -> unit
-  val try_use    : t -> bool
   exception InvalidEndpoint
+end
+
+module type LIN_EP = sig
+  type once
+  type 'a t
+  val make : (once -> 'a) -> 'a t
+  val unrestricted : 'a list -> 'a t list
+  val map_merge : ('a -> 'a -> 'a) -> 'a t list -> 'a t list -> 'a t list
+  val out : 'a t list -> 'a list
+  val map : ('a -> 'b) -> 'a t list -> 'b t list
+  val map2 : ('a -> 'b -> 'c) -> 'a t list -> 'b t list -> 'c t list
 end
 
 module type LOCAL = sig

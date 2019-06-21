@@ -8,8 +8,8 @@ module Make
 
   type ('p,'q,'a) monad = ('p,'q,'a) L.monad
 
-  type 't out = 't Mpst.Local.Out.Make(E).out
-  type 't inp = 't Mpst.Local.Inp.Make(M)(E).inp
+  type 't out = 't Mpst.Local.Out.Make(Nocheck.Nodyncheck)(E).out
+  type 't inp = 't Mpst.Local.Inp.Make(Nocheck.Nodyncheck)(M)(E).inp
 
   val ( @* ) :
     ('a,'b,'q,'r) Linocaml.lens
@@ -36,8 +36,8 @@ end = struct
 
   type ('p,'q,'a) monad = ('p,'q,'a) L.monad
 
-  type 't out = 't Mpst.Local.Out.Make(E).out
-  type 't inp = 't Mpst.Local.Inp.Make(M)(E).inp
+  type 't out = 't Mpst.Local.Out.Make(Nocheck.Nodyncheck)(E).out
+  type 't inp = 't Mpst.Local.Inp.Make(Nocheck.Nodyncheck)(M)(E).inp
 
   let ( @* ) l1 l2 =
     let open Linocaml in
@@ -52,7 +52,7 @@ end = struct
     in
     Other(get,put)
 
-  module Local = Mpst.Local.Make(M)(E)
+  module Local = Mpst.Local.Make(Nocheck.Nodyncheck)(Nocheck.Noflag)(M)(E)
 
   let mklin x = Linocaml.({__lin=x})
   let unlin x = Linocaml.(x.__lin)

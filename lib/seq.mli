@@ -1,12 +1,14 @@
 (**
  * The module for sequences of mergeables (endpoints).
  *)
+module Make(EP:S.LIN_EP) : sig
+type 'a mergeable = 'a Mergeable.Make(EP).t
 (** sequence type *)
 type _ t = (* can we hide these constructors? *)
   (** cons *)
-  | SeqCons : 'hd Mergeable.t * 'tl t -> [ `cons of 'hd * 'tl ] t
+  | SeqCons : 'hd mergeable * 'tl t -> [ `cons of 'hd * 'tl ] t
   (** repetition -- for closed endpoints *)
-  | SeqRepeat : int * (int -> 'a Mergeable.t) -> ([ `cons of 'a * 'b ] as 'b) t
+  | SeqRepeat : int * (int -> 'a mergeable) -> ([ `cons of 'a * 'b ] as 'b) t
   (** recursion variable(s) *)
   | SeqRecVars : 'a seqvar list -> 'a t
   (** unguarded loop; we have it in the last part of a recursion *)
@@ -24,9 +26,9 @@ type (_, _, _, _) lens =
 exception UnguardedLoopSeq
 
 (** lens get function *)
-val get : ('a, 'b, 'xs, 'ys) lens -> 'xs -> 'a Mergeable.t
+val get : ('a, 'b, 'xs, 'ys) lens -> 'xs -> 'a mergeable
 (** lens put function *)
-val put : ('a, 'b, 'xs, 'ys) lens -> 'xs -> 'b Mergeable.t -> 'ys
+val put : ('a, 'b, 'xs, 'ys) lens -> 'xs -> 'b mergeable -> 'ys
 
 (** lens get function *)
 val int_of_lens : ('a, 'b, 'xs, 'ys) lens -> int
@@ -39,7 +41,8 @@ val seq_merge : 'x t -> 'x t -> 'x t
  * it tries to expand unguarded recursion variables which occurs right under the
  * fixpoint combinator. This enables a "fail-fast" policy to handle unguarded recursions --
  * it would raise an exception if there is an unguarded occurrence of a recursion variable.
- * This fuction is called during the initial construction phase of an 
+ * This fuction is called during the initial construction phase of an
  * endpoint sequence (fix).
  *)
 val partial_force : 'x t lazy_t list -> 'x t -> 'x t
+end

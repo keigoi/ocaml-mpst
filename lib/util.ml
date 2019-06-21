@@ -1,5 +1,9 @@
 open Base
-open Global_common
+
+module Make(EP:S.LIN_EP) = struct
+module G = Global_common.Make(EP)
+open G
+
 
 let a = {role_label={make_obj=(fun v->object method role_A=v end);
                      call_obj=(fun o->o#role_A)};
@@ -30,7 +34,7 @@ let middle =
   {obj={make_obj=(fun f -> object method middle=f end);
         call_obj=(fun o -> o#middle)};
    var=(fun v -> `middle(v))}
-  
+
 let left_or_right =
   {obj_merge=(fun l r -> object method left=l#left method right=r#right end);
    obj_splitL=(fun lr -> (lr :> <left : _>));
@@ -75,3 +79,4 @@ let middle_or_right =
    obj_splitL=(fun lr -> (lr :> <middle : _>));
    obj_splitR=(fun lr -> (lr :> <right : _>));
   }
+end

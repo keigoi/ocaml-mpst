@@ -2,6 +2,7 @@ module Peripheral = Peripheral
 
 module Global =
   Mpst.Global.Make
+    (Mpst.Dyncheck)
     (Peripheral.AsyncMonad)
     (Peripheral.AsyncEvent)
     (Peripheral.AsyncSerial)
@@ -9,6 +10,8 @@ module Global =
 
 module Local =
   Mpst.Local.Make
+    (Mpst.Dyncheck)
+    (Mpst.LinFlag)
     (Peripheral.AsyncMonad)
     (Peripheral.AsyncEvent)
 
@@ -16,7 +19,7 @@ module Default = struct
   include Mpst.Base
   include Global
   include Local
-  include Mpst.Util
+  include Mpst.Util.Make(Mpst.Dyncheck)
 end
 
 include Default

@@ -18,17 +18,16 @@ let extend t newsize =
         else
           None)
 
-let rec put t lens kts =
-  let idx = Seq.int_of_lens lens in
+let rec put t idx kts =
+  let idx = idx in
   if idx < Array.length t.table then begin
       t.table.(idx) <- Some kts
     end else begin
       extend t (idx+1);
-      put t lens kts
+      put t idx kts
     end
 
-let rec get t lens =
-  let idx = Seq.int_of_lens lens in
+let rec get t idx =
   match t.table.(idx) with
   | Some ks -> ks
   | None -> failwith "ConnTable: no entry"
@@ -47,8 +46,7 @@ let rec get_or_create_ t idx param =
       get_or_create_ t idx param
     end
 
-let get_or_create t lens param =
-  let idx = Seq.int_of_lens lens in
+let get_or_create t idx param =
   get_or_create_ t idx param
 
 let size t =

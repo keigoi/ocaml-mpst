@@ -1,14 +1,16 @@
 open Base
 open Common
 
-module Make(E:S.EVENT) = struct
+module Make(EP:S.LIN_EP)(E:S.EVENT) = struct
+  module MA = Mergeable.Make(EP)
+
   type 'v bare_out =
     | BareOutChan of 'v E.channel list ref
     | BareOutIPC of ('v -> unit E.monad) list
 
   type _ out =
-    | Out : LinFlag.t * 'u bare_out * (int * 't Mergeable.t) -> ('u one * 't) out
-    | OutMany : LinFlag.t * 'u bare_out * (int * 't Mergeable.t) -> ('u list * 't) out
+    | Out : EP.once * 'u bare_out * (int * 't MA.t) -> ('u one * 't) out
+    | OutMany : EP.once * 'u bare_out * (int * 't MA.t) -> ('u list * 't) out
 
   let unify a b =
     match a,b with
@@ -20,11 +22,10 @@ module Make(E:S.EVENT) = struct
     fun out1 out2 ->
     let mergelocal (o1,s1,(i1,c1)) (o2,s2,(i2,c2)) =
       assert (i1=i2);
-      LinFlag.use o1; LinFlag.use o2;
       unify s1 s2;
-      let o12 = LinFlag.create () in
-      let c12 = Mergeable.merge c1 c2 in
-      (o12, s1, (i1, c12))
+      let c12 = MA.merge c1 c2 in
+      (* throw away o2 *)
+      (o1, s1, (i1, c12))
     in
     match out1, out2 with
     | Out(a1,b1,c1), Out(a2,b2,c2) ->

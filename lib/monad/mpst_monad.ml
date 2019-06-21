@@ -1,7 +1,9 @@
 module Local_monad = Local_monad
+module Nocheck = Nocheck
 
 module Global =
   Mpst.Global.Make
+    (Nocheck.Nodyncheck)
     (Mpst.Peripheral.Pure)
     (Mpst.Peripheral.Event)
     (Mpst.Peripheral.Serial)
@@ -21,6 +23,6 @@ module Default = struct
   include Mpst.Base
   include Global
   include Local
-  include Mpst.Util
+  include Mpst.Util.Make(Nocheck.Nodyncheck)
 end
 include Default

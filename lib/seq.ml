@@ -1,6 +1,8 @@
 open Base
 open Common
 
+module Make(EP:S.LIN_EP) = struct
+module Mergeable = Mergeable.Make(EP)
 type 'a mergeable = 'a Mergeable.t
 
 type _ t =
@@ -20,7 +22,7 @@ let rec int_of_lens : type a b c d. (a,b,c,d) lens -> int = function
   | Succ l -> int_of_lens l + 1
 
 exception UnguardedLoopSeq
-        
+
 let rec seq_head : type hd tl. [`cons of hd * tl] t -> hd Mergeable.t =
   function
   | SeqCons(hd,_) -> hd
@@ -83,7 +85,7 @@ let rec partial_force : type x. x t lazy_t list -> x t -> x t =
      (* recursion variable -- try to expand it *)
      partial_force [] (resolve_seqvar_ [] d)
   | SeqRecVars ds ->
-     (* A choice between recursion variables -- do not try to resolve. 
+     (* A choice between recursion variables -- do not try to resolve.
       * (will happen at after c of fix (fun t -> choice (a->b)t (a->b)t))
       * Mergeable.resolve_merge will resolve it later during get_ep
       *)
@@ -94,7 +96,7 @@ let rec partial_force : type x. x t lazy_t list -> x t -> x t =
          partial_force [] tl
        with
          UnguardedLoopSeq ->
-         (* we do not raise exception here; 
+         (* we do not raise exception here;
           * in recursion, an unguarded loop will occur in the last part of the sequence.
           * when one tries to take head/tail of SeqBottom, an exception will be raised.
           *)
@@ -103,3 +105,4 @@ let rec partial_force : type x. x t lazy_t list -> x t -> x t =
      SeqCons(hd, tl)
   | SeqRepeat(_) as xs -> xs
   | SeqBottom -> SeqBottom
+end

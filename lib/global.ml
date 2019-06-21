@@ -4,7 +4,8 @@ open Common
 module Make
          (M:S.MONAD)
          (E:S.EVENT with type 'a monad = 'a M.t)
-         (C:S.SERIAL with type 'a monad = 'a M.t)(Lin:S.LIN)
+         (C:S.SERIAL with type 'a monad = 'a M.t)
+         (Lin:S.LIN)
   = struct
 
   include Global_common

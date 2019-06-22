@@ -28,7 +28,7 @@ let tCli_monad () =
   Printf.printf "Answer: %d\n" ans;
   return ()
 
-let tSrv_monad () =
+let rec tSrv_monad () =
   let%lin #s = accept sh srv in
   let rec loop acc =
     match%lin s <@ receive (fun x->x#role_Cli) with
@@ -39,9 +39,20 @@ let tSrv_monad () =
       in loop (op acc num)
     | `result({data=()}, #s) ->
       let%lin #s = s <@ send (fun x->x#role_Cli#answer) acc in
-      s <@ close
+      s <@ close >>= fun () ->
+      tSrv_monad ()
   in loop 0
 
 
 let () =
-   List.iter Thread.join [Thread.create (run' tCli_monad) (); Thread.create (run' tSrv_monad) ()]
+  ignore (Thread.create (run' tSrv_monad) ());
+  ignore (Thread.create (run' tCli_monad) ());
+  ignore (Thread.create (run' tCli_monad) ());
+  ignore (Thread.create (run' tCli_monad) ());
+  ignore (Thread.create (run' tCli_monad) ());
+  ignore (Thread.create (run' tCli_monad) ());
+  ignore (Thread.create (run' tCli_monad) ());
+  run' tCli_monad ();
+  run' tCli_monad ();
+  run' tCli_monad ();
+  ()

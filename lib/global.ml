@@ -281,51 +281,110 @@ module Make
       (mkparams ps)
       g
 
-  let gen_with_kind_params ps g =
+  let gen_with_kinds_mult ps g =
     gen_with_param
       (mkparams_mult ps)
       g
 
-  type _ shared_local =
-    SharedLocal :
-    {global: [`cons of 'ep * 'tl] global;
-     env: dpipe env;
-     accept_lock: Mutex.t; (* FIXME: parameterise over other locks? *)
-     connect_sync: unit EV.channel list;
-     mutable inprocess: [`cons of 'ep * 'tl] Seq.t;
-    } -> [`cons of 'ep * 'tl] shared_local
+  type _ shared =
+    Shared :
+      {global: [`cons of 'ep * 'tl] global;
+       kinds: kind list option;
+       accept_lock: Mutex.t; (* FIXME: parameterise over other lock types? *)
+       connect_sync: dpipe env EV.channel list;
+       start_sync: unit EV.channel;
+       mutable seq_in_process: (dpipe env * [`cons of 'ep * 'tl] Seq.t) option;
+      } -> [`cons of 'ep * 'tl] shared
 
-  let rec sync_all = function
-    | c::cs ->
-       M.bind (EV.sync (EV.send c ())) (fun () ->
-       M.bind (EV.sync (EV.receive c)) (fun () ->
-       sync_all cs))
-    | [] -> M.return_unit
 
-  let create_shared global =
-    let env = {props=Table.create defaultlocal} in
+  let rec sync_all_ except_me connect_sync start_sync env =
+    M.iteriM (fun i c ->
+        if i=except_me then
+          M.return_unit
+        else
+          M.bind (EV.sync (EV.send c env)) (fun () ->
+              EV.sync (EV.receive start_sync)))
+      connect_sync
+
+
+  let init_seq_ (Shared m) =
+    match m.seq_in_process with
+    | Some (env,g) ->
+       env,g
+    | None ->
+       let env =
+         match m.kinds with
+         | Some kinds -> mkparams kinds
+         | None -> {props=Table.create defaultlocal}
+       in
+       let g = gen_with_param env m.global in
+       m.seq_in_process <- Some (env,g);
+       env,g
+
+  let create_shared ?kinds global =
     let accept_lock = Mutex.create () in
-    let inprocess = gen_with_param env global in
-    let len = Seq.effective_length inprocess in
-    let connect_sync = List.init (len-1) (fun _ -> EV.new_channel ()) in
-    SharedLocal {global;env;accept_lock;connect_sync;inprocess}
+    let env =
+      match kinds with
+      | Some kinds -> mkparams kinds
+      | None -> {props=Table.create defaultlocal}
+    in
+    let seq = gen_with_param env global in
+    let len = Seq.effective_length seq in
+    let connect_sync = List.init len (fun _ -> EV.new_channel ()) in
+    Shared
+      {global;
+       kinds;
+       accept_lock;
+       connect_sync;
+       start_sync=EV.new_channel ();
+       seq_in_process=Some (env,seq)}
 
-  let accept (SharedLocal m) r =
+  let accept_ (Shared m) r =
     Mutex.lock m.accept_lock;
-    M.bind (sync_all m.connect_sync) (fun () ->
-    let e0 = get_ep r m.inprocess in
-    (* generate the "next" one *)
-    m.inprocess <- gen_with_param m.env m.global;
+    let env, g = init_seq_ (Shared m) in
+    (* sync with all threads *)
+    let me = Seq.int_of_lens r.role_index in
+    M.bind (sync_all_ me m.connect_sync m.start_sync env) (fun () ->
+    (* get my ep *)
+    let ep = get_ep r g in
+    m.seq_in_process <- None;
     Mutex.unlock m.accept_lock;
-    M.return e0)
+    let prop = Table.get env.props (Seq.int_of_lens r.role_index) in
+    M.return (ep, prop))
 
-  let connect (SharedLocal m) r =
+  let connect_ (Shared m) r =
     let idx = Seq.int_of_lens r.role_index in
     let c = List.nth m.connect_sync idx in
-    M.bind (EV.sync (EV.receive c)) (fun () ->
-    let ep = get_ep r m.inprocess in
-    M.bind (EV.sync (EV.send c ())) (fun () ->
-    M.return ep))
+    M.bind (EV.sync (EV.receive c)) (fun env ->
+    let prop = Table.get env.props (Seq.int_of_lens r.role_index) in
+    let g = match m.seq_in_process with Some (_,g) -> g | None -> assert false in
+    let ep = get_ep r g in
+    M.bind (EV.sync (EV.send m.start_sync ())) (fun () ->
+    M.return (ep, prop)))
 
+  let accept sh r =
+    M.map fst (accept_ sh r)
 
+  let connect sh r =
+    M.map fst (connect_ sh r)
+
+  let accept_and_start sh r f =
+    M.bind (accept_ sh r) (fun (ep,prop) ->
+        match prop.epkind with
+        | EpLocal ->
+           ignore (Thread.create (fun () -> (f ep : unit)) ());
+           M.return_unit
+        | EpIPCProcess _ ->
+           Base.fork_child (fun () -> f ep) ();
+           M.return_unit)
+
+  let connect_and_start sh r f =
+    M.bind (connect_ sh r) (fun (ep,prop) ->
+        match prop.epkind with
+        | EpLocal ->
+           ignore (Thread.create (fun () -> (f ep : unit)) ());
+           M.return_unit
+        | EpIPCProcess _ ->
+           Base.fork_child (fun () -> f ep) ();
+           M.return_unit)
 end

@@ -9,6 +9,13 @@ type ('la,'va) method_ =
   {make_obj: 'va -> 'la;
    call_obj: 'la -> 'va}
 
+let fork_child f x =
+  if Unix.fork () = 0 then begin
+      print_endline "ipc!";
+      f x;
+      exit 0;
+    end else ()
+
 type close = Close
 
 type 'a one = One__

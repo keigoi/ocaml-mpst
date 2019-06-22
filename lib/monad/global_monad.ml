@@ -32,7 +32,7 @@ module Make
 
   let gen_with_kinds ps g = linret (fun () -> gen_with_kinds ps g)
 
-  let gen_with_kind_params ps g = linret (fun () -> gen_with_kind_params ps g)
+  let gen_with_kinds_muult ps g = linret (fun () -> gen_with_kinds_mult ps g)
 
   let degen : (([`cons of Mpst.close * 't] as 't) Seq.t lin, unit, unit data) L.monad =
     {L.__m=(fun _ -> M.return ((), {Linocaml.data=()}))}

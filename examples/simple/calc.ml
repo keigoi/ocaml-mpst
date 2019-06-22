@@ -2,7 +2,7 @@ open Mpst
 open Calc_util.Dyn
 
 type op = Add | Sub | Mul | Div
-let calc () =
+let calc =
   fix (fun t ->
     choice_at cli (to_srv compute_or_result)
            (cli, (cli --> srv) compute @@
@@ -35,10 +35,15 @@ let tSrv es =
   in loop 0 es
 
 let () =
-  let g = gen @@ calc () in
-  let ec = get_ep cli g in
-  let es = get_ep srv g in
-  List.iter Thread.join [Thread.create tCli ec; Thread.create tSrv es]
+  let sh = create_shared ~kinds:[Local;Local] calc in
+  ignore (Thread.create (fun () -> accept_and_start sh srv tSrv) ()); (*FIXME*)
+  connect_and_start sh cli tCli
+  ;
+  ()
+  (* let g = gen @@ calc in
+   * let ec = get_ep cli g in
+   * let es = get_ep srv g in
+   * List.iter Thread.join [Thread.create tCli ec; Thread.create tSrv es] *)
 
 (* custom label declaration *)
 let current =

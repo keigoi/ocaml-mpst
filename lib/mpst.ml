@@ -4,6 +4,7 @@ module S = S
 
 module LinFlag : S.LIN_FLAG = LinFlag
 module Peripheral = Peripheral
+module Global_common = Global_common
 module Util = Util
 
 module Dyncheck = Dyncheck_ep.Make(LinFlag)

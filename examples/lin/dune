@@ -13,3 +13,11 @@
   (preprocess (pps linocaml.ppx))
   (flags ("-g" "-short-paths"))
   (libraries ocaml-mpst.monad calc_util))
+
+(executable
+ (name roleenabling)
+  (public_name roleenabling_mpst_monad)
+  (modules roleenabling)
+  (preprocess (pps linocaml.ppx))
+  (flags ("-g" "-short-paths"))
+  (libraries ocaml-mpst.monad ))

@@ -3,13 +3,13 @@ type 'a data = 'a Linocaml.data
 
 module Make
          (M:Mpst.S.MONAD)
-         (E:Mpst.S.EVENT with type 'a monad = 'a M.t)
-         (L:Linocaml.S.S with type 'a IO.io = 'a E.monad) : sig
+         (EV:Mpst.S.EVENT with type 'a monad = 'a M.t)
+         (L:Linocaml.S.S with type 'a IO.io = 'a EV.monad) : sig
 
   type ('p,'q,'a) monad = ('p,'q,'a) L.monad
 
-  type 't out = 't Mpst.Local.Out.Make(Nocheck.Nodyncheck)(E).out
-  type 't inp = 't Mpst.Local.Inp.Make(Nocheck.Nodyncheck)(M)(E).inp
+  type 't out = 't Mpst.Local.Out.Make(Nocheck.Nodyncheck)(EV).out
+  type 't inp = 't Mpst.Local.Inp.Make(Nocheck.Nodyncheck)(M)(EV).inp
 
   val ( @* ) :
     ('a,'b,'q,'r) Linocaml.lens
@@ -17,12 +17,12 @@ module Make
     -> ('a * 'c,'b,'p,'r) Linocaml.lens
 
   val send :
-    ((< .. > as 'ep) -> ('t Mpst.one * 'u) out)
+    ((< .. > as 'ep) -> ('t Mpst.one * 'u) out lin)
     -> 't
     -> ('ep lin, unit, 'u lin) monad
 
   val deleg_send :
-    ((< .. > as 'ep) -> ('t lin Mpst.one * 'u) out)
+    ((< .. > as 'ep) -> ('t lin Mpst.one * 'u) out lin)
     -> ('ep lin * 't lin, unit, 'u lin) monad
 
   val receive :
@@ -35,9 +35,6 @@ module Make
 end = struct
 
   type ('p,'q,'a) monad = ('p,'q,'a) L.monad
-
-  type 't out = 't Mpst.Local.Out.Make(Nocheck.Nodyncheck)(E).out
-  type 't inp = 't Mpst.Local.Inp.Make(Nocheck.Nodyncheck)(M)(E).inp
 
   let ( @* ) l1 l2 =
     let open Linocaml in
@@ -52,20 +49,23 @@ end = struct
     in
     Other(get,put)
 
-  module Local = Mpst.Local.Make(Nocheck.Nodyncheck)(Nocheck.Noflag)(M)(E)
+  module Local = Mpst.Local.Make(Nocheck.Nodyncheck)(Nocheck.Noflag)(M)(EV)
+
+  type 't out = 't Mpst.Local.Out.Make(Nocheck.Nodyncheck)(EV).out
+  type 't inp = 't Mpst.Local.Inp.Make(Nocheck.Nodyncheck)(M)(EV).inp
 
   let mklin x = Linocaml.({__lin=x})
   let unlin x = Linocaml.(x.__lin)
 
   let send sel v =
     {L.__m=(fun lpre ->
-       let ep = Local.send (sel (unlin lpre)) v in
+       let ep = Local.send (unlin (sel (unlin lpre))) v in
        M.map (fun v -> ((),mklin v)) ep)}
 
   let deleg_send sel =
     {L.__m=(fun lpre ->
        let subj, obj = lpre in
-       let ep = Local.send (sel (unlin subj)) obj in
+       let ep = Local.send (unlin (sel (unlin subj))) obj in
        M.map (fun v -> ((),mklin v)) ep)}
 
   let receive sel =

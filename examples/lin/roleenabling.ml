@@ -3,7 +3,6 @@ open Mpst_monad
 open Linocaml
 
 let s = Linocaml.Zero
-let g = Linocaml.(Succ Zero)
 
 let roleenabling =
   choice_at a (to_b left_or_right)
@@ -28,14 +27,14 @@ let tA () =
 let tB () =
   print_endline "B start";
   match%lin s <@ receive (fun x->x#role_A) with
-  | `left((), #s) ->
+  | `left({data=()}, #s) ->
      print_endline "B left";
-     let%lin `msg((), #s) = s <@ receive (fun x->x#role_C) in
+     let%lin `msg({data=()}, #s) = s <@ receive (fun x->x#role_C) in
      let%lin #s = s <@ send (fun x->x#role_C#left) () in
      s <@ close
-  | `right((), #s) ->
+  | `right({data=()}, #s) ->
      print_endline "B right";
-     let%lin `msg((), #s) = s <@ receive (fun x->x#role_C) in
+     let%lin `msg({data=()}, #s) = s <@ receive (fun x->x#role_C) in
      let%lin #s = s <@ send (fun x->x#role_C#right) () in
      s <@ close
 
@@ -43,28 +42,31 @@ let tC () =
   print_endline "C start";
   let%lin #s = s <@ send (fun x->x#role_B#msg) () in
   begin match%lin s <@ receive (fun x->x#role_B) with
-  | `left((), #s) ->
+  | `left({data=()}, #s) ->
      print_endline "C left";
      s <@ close
-  | `right((), #s) ->
+  | `right({data=()}, #s) ->
      print_endline "C right";
      s <@ close
   end >>= fun () ->
   print_endline "C done";
   return ()
 
+let g = Linocaml.(Succ s)
+let s1 = Linocaml.(Succ g)
+let s2 = Linocaml.(Succ s1)
 
 let () =
   Random.self_init ();
   Linocaml.run' (fun () ->
       let%lin #g = gen roleenabling in
-      let%lin #s = g <@ get_ep a in
-      thread_create s tA () >>
-      let%lin #s = g <@ get_ep b in
-      thread_create s tB () >>
-      let%lin #s = g <@ get_ep c in
-      g <@ degen >>
+      let%lin #g,#s1 = get_ep a @> g in
+      let%lin #g,#s2 = get_ep b @> g in
+      thread_create s1 tA () >>
+      thread_create s2 tB () >>
+      let%lin #g,#s = get_ep c @> g in
       tC () >>= fun () ->
+      degen @> g >>
       return ()
     ) ()
 let f m =

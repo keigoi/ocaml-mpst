@@ -285,4 +285,47 @@ module Make
     gen_with_param
       (mkparams_mult ps)
       g
+
+  type _ shared_local =
+    SharedLocal :
+    {global: [`cons of 'ep * 'tl] global;
+     env: dpipe env;
+     accept_lock: Mutex.t; (* FIXME: parameterise over other locks? *)
+     connect_sync: unit EV.channel list;
+     mutable inprocess: [`cons of 'ep * 'tl] Seq.t;
+    } -> [`cons of 'ep * 'tl] shared_local
+
+  let rec sync_all = function
+    | c::cs ->
+       M.bind (EV.sync (EV.send c ())) (fun () ->
+       M.bind (EV.sync (EV.receive c)) (fun () ->
+       sync_all cs))
+    | [] -> M.return_unit
+
+  let create_shared global =
+    let env = {props=Table.create defaultlocal} in
+    let accept_lock = Mutex.create () in
+    let inprocess = gen_with_param env global in
+    let len = Seq.effective_length inprocess in
+    let connect_sync = List.init (len-1) (fun _ -> EV.new_channel ()) in
+    SharedLocal {global;env;accept_lock;connect_sync;inprocess}
+
+  let accept (SharedLocal m) r =
+    Mutex.lock m.accept_lock;
+    M.bind (sync_all m.connect_sync) (fun () ->
+    let e0 = get_ep r m.inprocess in
+    (* generate the "next" one *)
+    m.inprocess <- gen_with_param m.env m.global;
+    Mutex.unlock m.accept_lock;
+    M.return e0)
+
+  let connect (SharedLocal m) r =
+    let idx = Seq.int_of_lens r.role_index in
+    let c = List.nth m.connect_sync idx in
+    M.bind (EV.sync (EV.receive c)) (fun () ->
+    let ep = get_ep r m.inprocess in
+    M.bind (EV.sync (EV.send c ())) (fun () ->
+    M.return ep))
+
+
 end

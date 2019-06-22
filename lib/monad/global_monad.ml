@@ -62,4 +62,15 @@ module Make
        M.async th;
        M.return (lpost,{data=()}))}
 
+  let accept sh r =
+    {L.__m=(fun lpre ->
+       M.bind (accept sh r) (fun ep ->
+       M.return (lpre, {Linocaml.__lin=ep}))
+    )}
+
+  let connect sh r =
+    {L.__m=(fun lpre ->
+       M.bind (connect sh r) (fun ep ->
+       M.return (lpre, {Linocaml.__lin=ep}))
+    )}
 end

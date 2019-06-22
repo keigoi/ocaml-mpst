@@ -45,12 +45,15 @@ let finish : 'e. ('e, [`cons of close * 'a] as 'a) t =
 
 let gen_with_param p g = unglobal_ g p
 
-let get_ep : ('x0, 'x1, 'ep, 'x2, 't Seq.t, 'x3) role -> 't Seq.t -> 'ep = fun r g ->
-  let ep = Seq.get r.role_index g in
+let get_ep_raw : 'ep 'x2 't 'x3 't 'ep. ('ep, 'x2, 't Seq.t, 'x3) Seq.lens -> 't Seq.t -> 'ep = fun lens g ->
+  let ep = Seq.get lens g in
   match Mergeable.out ep with
   | [e] -> e
   | [] -> assert false
   | _ -> failwith "get_ep: there are more than one endpoints. use get_ep_list."
+
+let get_ep : ('x0, 'x1, 'ep, 'x2, 't Seq.t, 'x3) role -> 't Seq.t -> 'ep = fun r g ->
+  get_ep_raw r.role_index g
 
 let get_ep_list : ('x0, 'x1, 'ep, 'x2, 't Seq.t, 'x3) role -> 't Seq.t -> 'ep list = fun r g ->
   let ep = Seq.get r.role_index g in
@@ -77,4 +80,5 @@ let choice_at : 'ep 'ep_l 'ep_r 'g0_l 'g0_r 'g1 'g2.
       let g2 = Seq.put r.role_index g1 ep
       in
       g2)
+
 end

@@ -102,21 +102,21 @@ module Make
       end;
     let bare_inp_chs =
       List.init num_receivers (fun myidx ->
-          let wrapfun v = lab.var (v, Lin.mklin (List.nth (MA.out epB) myidx))
+          let wrapfun v = lab.var (v, Lin.mklin (List.nth (Mergeable.out epB) myidx))
           in
           make_inp chs myidx wrapfun)
     in
     let hook =
       lazy begin
           (* force the following endpoints *)
-          let eps = MA.out epB in
+          let eps = Mergeable.out epB in
           if num_receivers <> List.length eps then begin
               failwith "make_recv: endpoint count inconsistency"
             end
         end
     in
-    MA.wrap_obj rA.role_label
-      (MA.make_with_hook
+    Mergeable.wrap_obj rA.role_label
+      (Mergeable.make_with_hook
          hook
          Inp.merge_in
          bare_inp_chs)
@@ -140,14 +140,14 @@ module Make
     in
     let hook =
       lazy begin
-          let eps = MA.out epA in
+          let eps = Mergeable.out epA in
           if num_senders <> List.length eps then
             failwith "make_send: endpoint count inconsistency"
         end
     in
-    MA.wrap_obj rB.role_label
-      (MA.wrap_obj lab.obj
-         (MA.make_with_hook
+    Mergeable.wrap_obj rB.role_label
+      (Mergeable.wrap_obj lab.obj
+         (Mergeable.make_with_hook
             hook
             (fun o1 o2 -> Lin.mklin (Out.merge_out (Lin.unlin o1) (Lin.unlin o2)))
             epA'))
@@ -194,8 +194,8 @@ module Make
                 (< .. > as 'roleBobj, 'labelobj,     'epB, 'roleAobj, 'g0 Seq.t, 'g1 Seq.t) role ->
                 (< .. > as 'labelobj, [> ] as 'labelvar, ('v one * 'epA) Out.out Lin.lin, 'v * 'epB Lin.lin) label ->
                 'g0 global -> 'g2 global
-    = fun rA rB label (Seq g0) ->
-    Seq (fun env ->
+    = fun rA rB label (Global g0) ->
+    Global (fun env ->
         a2b env ~num_senders:1 ~num_receivers:1 ~make_out:make_out_one ~make_inp:make_inp_one rA rB label (g0 env))
 
   let scatter : 'roleAobj 'labelvar 'epA 'roleBobj 'g1 'g2 'labelobj 'epB 'g0 'v.
@@ -203,8 +203,8 @@ module Make
                 (< .. > as 'roleBobj, 'labelobj,     'epB, 'roleAobj, 'g0 Seq.t, 'g1 Seq.t) role ->
                 (< .. > as 'labelobj, [> ] as 'labelvar, ('v list * 'epA) Out.out Lin.lin, 'v * 'epB Lin.lin) label ->
                 'g0 global -> 'g2 global
-    = fun rA rB label (Seq g0) ->
-    Seq (fun env ->
+    = fun rA rB label (Global g0) ->
+    Global (fun env ->
         a2b env ~num_senders:1 ~make_out:make_out_list ~make_inp:make_inp_one rA rB label (g0 env))
 
   let gather : 'roleAobj 'labelvar 'epA 'roleBobj 'g1 'g2 'labelobj 'epB 'g0 'v.
@@ -212,8 +212,8 @@ module Make
                (< .. > as 'roleBobj, 'labelobj,     'epB, 'roleAobj, 'g0 Seq.t, 'g1 Seq.t) role ->
                (< .. > as 'labelobj, [> ] as 'labelvar, ('v one * 'epA) Out.out Lin.lin, 'v list * 'epB Lin.lin) label ->
                'g0 global -> 'g2 global
-    = fun rA rB label (Seq g0) ->
-    Seq (fun env ->
+    = fun rA rB label (Global g0) ->
+    Global (fun env ->
         a2b env ~num_receivers:1 ~make_out:make_out_one ~make_inp:make_inp_list rA rB label (g0 env))
 
 

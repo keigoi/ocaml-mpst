@@ -105,4 +105,14 @@ let rec partial_force : type x. x t lazy_t list -> x t -> x t =
      SeqCons(hd, tl)
   | SeqRepeat(_) as xs -> xs
   | SeqBottom -> SeqBottom
+
+let seq_merge_all : type x. x t list -> x t = function
+  | [] -> failwith "seq_merge_all"
+  | s::ss -> List.fold_left seq_merge s ss
+
+let rec effective_length : type x. x t -> int = function
+  | SeqRepeat(_) -> 0
+  | SeqBottom -> 0
+  | SeqCons(_,_) as s -> 1 + effective_length (seq_tail s)
+  | SeqRecVars ds -> effective_length (seq_merge_all (List.map Lazy.force ds))
 end

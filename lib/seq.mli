@@ -45,4 +45,6 @@ val seq_merge : 'x t -> 'x t -> 'x t
  * endpoint sequence (fix).
  *)
 val partial_force : 'x t lazy_t list -> 'x t -> 'x t
+
+val effective_length : 'x t -> int
 end

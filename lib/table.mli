@@ -1,10 +1,8 @@
 type 'k t
-val create : (int -> 'a) -> 'a t
-val create_with : (int -> 'a) -> 'a list -> 'a t
-val extend : 'a t -> int -> unit
+val create : unit -> 'a t
+val create_from : 'a list -> 'a t
 val put : 'a t -> int -> 'a -> unit
 val get : 'a t -> int -> 'a
-val get_or_create :
-  'a t -> int -> int -> 'a
-val get_or_create_ : 'a t -> int -> int -> 'a
+val get_or_add : 'a t -> int -> (unit -> 'a) -> 'a
+val get_opt : 'a t -> int -> 'a option
 val size : 'a t -> int

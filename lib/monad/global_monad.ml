@@ -44,7 +44,7 @@ module Make
        let g = lpre.__lin in
        let ep = List.hd @@ Mergeable.out (Seq.get r.role_index g) in
        let g' = Seq.put r.role_index g (Mergeable.make_no_merge [Mpst.Close]) in
-       M.return ({__lin=g'}, {__lin=ep}))}
+       M.return ((), ({__lin=({__lin=g'},{__lin=ep})})))}
 
   let rec all_empty = `cons((), all_empty)
 

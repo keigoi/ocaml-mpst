@@ -17,7 +17,7 @@ module Make
     -> ('a * 'c,'b,'p,'r) Linocaml.lens
 
   val send :
-    ((< .. > as 'ep) -> ('t Mpst.one * 'u) out lin)
+    ((< .. > as 'ep) -> ('t data Mpst.one * 'u) out lin)
     -> 't
     -> ('ep lin, unit, 'u lin) monad
 
@@ -59,7 +59,7 @@ end = struct
 
   let send sel v =
     {L.__m=(fun lpre ->
-       let ep = Local.send (unlin (sel (unlin lpre))) v in
+       let ep = Local.send (unlin (sel (unlin lpre))) {Linocaml.data=v} in
        M.map (fun v -> ((),mklin v)) ep)}
 
   let deleg_send sel =

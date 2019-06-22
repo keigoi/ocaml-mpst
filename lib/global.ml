@@ -49,11 +49,17 @@ module Make
   let make_inp_one chs myidx wrapfun =
     match List.hd chs with
     | Bare chs ->
-       EP.make (fun once -> (* FIXME this does NOT delays *)
-           (* we must delay this -- chs is a placeholder for channels which will change during merge *)
-           let ch = List.nth !chs myidx in
-           let ch = EV.flip_channel ch in
-           InpChan (once, EV.wrap (EV.receive ch) wrapfun))
+       EP.make (fun once -> (* this lambda does NOT delay if linearity check is static *)
+           InpChan (once,
+                    EV.wrap (EV.guard (fun () ->
+                                 (* we must delay this -- chs is a placeholder for channels
+                                  * which might be "unified" during merge (see out.ml).
+                                  * if we do not delay, and if the channel unification occurs,
+                                  * input will block indefinitely.
+                                  *)
+                                 let ch = List.nth !chs myidx in
+                                 let ch = EV.flip_channel ch in
+                                 EV.receive ch)) wrapfun))
     | IPC (tag, chs) ->
        let {me={inp=ch;_};_} = swap_dpipe (List.nth chs myidx) in
        EP.make (fun once ->

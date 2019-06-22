@@ -1,17 +1,14 @@
 module Local_monad = Local_monad
+module Global_monad = Global_monad
 module Nocheck = Nocheck
 
+
 module Global =
-  Mpst.Global.Make
-    (Nocheck.Nodyncheck)
+  Global_monad.Make
     (Mpst.Peripheral.Pure)
     (Mpst.Peripheral.Event)
     (Mpst.Peripheral.Serial)
-    (struct
-      type 'a lin = 'a Linocaml.lin
-      let mklin x = {Linocaml.__lin=x}
-      let unlin x = x.Linocaml.__lin
-    end)
+    (Linocaml.Direct)
 
 module Local =
   Local_monad.Make

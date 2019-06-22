@@ -1,4 +1,9 @@
-module Global = Mpst_async.Global
+module Global =
+  Mpst_monad.Global_monad.Make
+    (Mpst_async.Peripheral.AsyncMonad)
+    (Mpst_async.Peripheral.AsyncEvent)
+    (Mpst_async.Peripheral.AsyncSerial)
+    (Linocaml_async)
 
 module Local =
   Mpst_monad.Local_monad.Make

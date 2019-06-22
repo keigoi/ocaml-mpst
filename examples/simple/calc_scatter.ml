@@ -1,4 +1,4 @@
-open Calc_util
+open Calc_util.Dyn
 open Mpst_lwt
 let (>>=) = Lwt.(>>=)
 let return_unit = Lwt.return_unit

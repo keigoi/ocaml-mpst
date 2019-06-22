@@ -1,5 +1,9 @@
 open Mpst
 
+module Make(EP:S.LIN_EP) = struct
+module G = Mpst.Global_common.Make(EP)
+open G
+
 let cli = {role_index=Zero;
            role_label={make_obj=(fun v->object method role_Cli=v end);
                        call_obj=(fun o->o#role_Cli)}}
@@ -26,3 +30,5 @@ let to_srv m =
    obj_splitL=(fun lr -> object method role_Srv=m.obj_splitL lr#role_Srv end);
    obj_splitR=(fun lr -> object method role_Srv=m.obj_splitR lr#role_Srv end);
   }
+end
+module Dyn = Make(Mpst.Dyncheck)

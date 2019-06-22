@@ -1,5 +1,5 @@
 open Mpst
-open Calc_util
+open Calc_util.Dyn
 
 type op = Add | Sub | Mul | Div
 let calc () =

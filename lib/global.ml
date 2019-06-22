@@ -26,6 +26,10 @@ module Make
   let swap_dpipe {me=othr;othr=me} =
     {me;othr}
 
+  type epkind = EpLocal | EpIPCProcess of dpipe list Table.t list
+  let epkind {props;_} l = (Table.get_or_create props l 1).epkind
+  let multiplicity {props;_} l = (Table.get_or_create props l 1).multiplicity
+
   open Out
   open Inp
 
@@ -44,7 +48,7 @@ module Make
        in
        BareOutIPC (List.map (fun {me={out;_};_} -> real_out out) chs)
 
-  type 'g global = (dpipe, 'g) t
+  type 'g global = (epkind, 'g) t
 
   let make_inp_one chs myidx wrapfun =
     match List.hd chs with
@@ -291,9 +295,9 @@ module Make
       {global: [`cons of 'ep * 'tl] global;
        kinds: kind list option;
        accept_lock: Mutex.t; (* FIXME: parameterise over other lock types? *)
-       connect_sync: dpipe env EV.channel list;
+       connect_sync: epkind env EV.channel list;
        start_sync: unit EV.channel;
-       mutable seq_in_process: (dpipe env * [`cons of 'ep * 'tl] Seq.t) option;
+       mutable seq_in_process: (epkind env * [`cons of 'ep * 'tl] Seq.t) option;
       } -> [`cons of 'ep * 'tl] shared
 
 

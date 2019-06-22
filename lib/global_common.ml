@@ -12,14 +12,9 @@ type ('la,'lb,'va,'vb) label =
   {obj: ('la, 'va) method_;
    var: 'vb -> 'lb}
 
-type 'k epkind = EpLocal | EpIPCProcess of 'k list Table.t list
-
-type 'k prop = {multiplicity:int; epkind:'k epkind}
+type 'k prop = {multiplicity:int; epkind:'k}
 
 type 'k env = {props: 'k prop Table.t}
-
-let epkind {props;_} l = (Table.get_or_create props l 1).epkind
-let multiplicity {props;_} l = (Table.get_or_create props l 1).multiplicity
 
 type ('k, 'g) t = Global of ('k env -> 'g Seq.t)
 let unglobal_ = function

@@ -67,4 +67,5 @@ module AsyncMonad : Mpst.S.MONAD with type 'a t = 'a Async.Deferred.t = struct
   let map f m = Deferred.map m ~f
   let iteriM f xs = Deferred.List.iteri ~f xs
   let mapM f xs = Deferred.List.map ~f xs
+  let async f = Deferred.upon (f ()) ignore
 end

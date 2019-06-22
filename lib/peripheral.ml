@@ -6,6 +6,7 @@ module Pure = struct
   let map f x = f x
   let iteriM = List.iteri
   let mapM = List.map
+  let async f = ignore (Thread.create f ())
 end
 module Event = struct
   include Event

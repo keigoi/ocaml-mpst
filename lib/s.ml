@@ -13,6 +13,7 @@ module type MONAD = sig
   val map : ('a -> 'b) -> 'a t -> 'b t
   val iteriM : (int -> 'a -> unit t) -> 'a list -> unit t
   val mapM : ('a -> 'b t) -> 'a list -> 'b list t
+  val async : (unit -> 'a t) -> unit
 end
 
 module type EVENT = sig

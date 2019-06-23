@@ -73,3 +73,10 @@
  (modules scatter)
  (flags ("-g" "-short-paths"))
  (libraries ocaml-mpst.lwt))
+
+(executable
+ (name scatter2)
+ (public_name scatter2)
+ (modules scatter2)
+ (flags ("-g" "-short-paths"))
+ (libraries ocaml-mpst.lwt))

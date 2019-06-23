@@ -14,7 +14,7 @@ type ('la,'lb,'va,'vb) label =
 
 type 'k prop = {multiplicity:int; epkind:'k}
 
-type 'k env = {props: 'k prop Table.t}
+type 'k env = {props: 'k prop Table.t; default:int -> 'k}
 
 type ('k, 'g) t = Global of ('k env -> 'g Seq.t)
 let unglobal_ = function
@@ -34,7 +34,10 @@ let fix : type e g. ((e,g) t -> (e,g) t) -> (e,g) t = fun f ->
 let finish : 'e. ('e, [`cons of close * 'a] as 'a) t =
   Global (fun env ->
       SeqRepeat(0, (fun i ->
-            let num = (Table.get_or_create_ env.props i 1).multiplicity
+            let num =
+              match Table.get_opt env.props i with
+              | Some prop -> prop.multiplicity
+              | None -> 1
             in
             Mergeable.make_no_merge (List.init num (fun _ -> Close)))))
 

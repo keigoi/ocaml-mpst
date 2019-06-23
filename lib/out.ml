@@ -1,12 +1,12 @@
 open Base
 open Common
 
-module Make(EP:S.LIN_EP)(E:S.EVENT) = struct
+module Make(EP:S.LIN_EP)(EV:S.EVENT) = struct
   module MA = Mergeable.Make(EP)
 
   type 'v bare_out =
-    | BareOutChan of 'v E.channel list ref
-    | BareOutIPC of ('v -> unit E.monad) list
+    | BareOutChan of 'v EV.channel list ref
+    | BareOutFun of ('v -> unit EV.monad) list
 
   type _ out =
     | Out : EP.once * 'u bare_out * (int * 't MA.t) -> ('u one * 't) out
@@ -15,7 +15,7 @@ module Make(EP:S.LIN_EP)(E:S.EVENT) = struct
   let unify a b =
     match a,b with
     | BareOutChan(a), BareOutChan(b) -> a := !b
-    | BareOutIPC(_), BareOutIPC(_) -> ()
+    | BareOutFun(_), BareOutFun(_) -> ()
     | _, _ -> assert false
 
   let merge_out : type u t. (u * t) out -> (u * t) out -> (u * t) out =

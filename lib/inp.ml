@@ -5,16 +5,16 @@ module Make(EP:S.LIN_EP)(M:S.MONAD)(EV:S.EVENT with type 'a monad = 'a M.t) = st
 
   type 'a inp =
     | InpChan of EP.once * 'a EV.event
-    | InpIPC of EP.once * (unit -> tag list M.t) * (tag * (unit -> 'a M.t)) list
+    | InpFun of EP.once * (unit -> (tag * Obj.t) M.t) * (tag * (Obj.t -> 'a)) list
 
   let merge_in ev1 ev2 =
     match ev1, ev2 with
     | InpChan (o1, ev1), InpChan (o2, ev2) ->
        (* throw away o2 *)
        InpChan (o1, EV.choose [ev1; ev2])
-    | InpIPC (o1, etag, alts1), InpIPC (o2, _, alts2) ->
+    | InpFun (o1, etag, alts1), InpFun (o2, _, alts2) ->
        (* throw away o2 *)
-       InpIPC (o1, etag, alts1 @ alts2)
+       InpFun (o1, etag, alts1 @ alts2)
     | _, _ ->
        assert false (* this won't happen since external choice is directed *)
 end

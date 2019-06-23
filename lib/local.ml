@@ -27,24 +27,23 @@ module Make
     | InpChan (once,ev) ->
        F.use once;
        EV.sync ev
-    | InpIPC (once,etag,alts) ->
+    | InpFun (once,etag,alts) ->
        F.use once;
        (* receive tag(s) *)
-       M.bind (etag ()) (fun tags ->
-       let tag = List.hd tags in
+       M.bind (etag ()) (fun (tag,v) ->
        let alt = List.assoc tag alts in
-       alt ())
+       M.return (alt v))
 
   let size = function
     | BareOutChan chs -> List.length !chs
-    | BareOutIPC fs -> List.length fs
+    | BareOutFun fs -> List.length fs
 
   let send : type t u. (u one * t) out -> u -> t M.t  = fun out v ->
     let bare_out_one ch v =
       match ch with
       | BareOutChan chs ->
          EV.sync (EV.send (List.hd !chs) v)
-      | BareOutIPC f ->
+      | BareOutFun f ->
          List.hd f v
     in
     match out with
@@ -59,7 +58,7 @@ module Make
       match ch with
       | BareOutChan chs ->
          M.iteriM (fun i ch -> EV.sync (EV.send ch (vf i))) !chs
-      | BareOutIPC fs ->
+      | BareOutFun fs ->
          M.iteriM (fun i f -> f (vf i)) fs
     in
     F.use once;

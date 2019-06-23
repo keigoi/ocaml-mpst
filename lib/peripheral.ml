@@ -8,7 +8,10 @@ module Pure = struct
   let mapM = List.map
   let async f = ignore (Thread.create f ())
 end
-module Event = struct
+module Event : S.EVENT
+       with type 'a event = 'a Event.event
+       with type 'a monad = 'a
+  = struct
   include Event
   type 'a monad = 'a
   let flip_channel x = x
@@ -21,7 +24,9 @@ module Event = struct
          (fun v ->
            v :: List.map (fun ch -> Event.sync @@ Event.receive ch) chs)
 end
-module Serial = struct
+module Serial : S.SERIAL
+       with type 'a monad = 'a
+  = struct
   type 'a monad = 'a
   type in_channel = Stdlib.in_channel
   type out_channel = Stdlib.out_channel
@@ -30,11 +35,11 @@ module Serial = struct
     Unix.in_channel_of_descr inp, Unix.out_channel_of_descr out
   let input_value ch =
     Stdlib.input_value ch
-  let input_tag =
+  let input_tagged =
     input_value
   let output_value =
     Stdlib.output_value
-  let output_tag =
+  let output_tagged =
     output_value
   let flush ch =
     Stdlib.flush ch

@@ -45,13 +45,13 @@ module AsyncSerial : Mpst.S.SERIAL with type 'a monad = 'a Async.Deferred.t = st
     Deferred.map (Async_unix.Reader.read_marshal ch) ~f:(function
     | `Ok v -> v
     | `Eof -> failwith "mpst_async: unix pipe eof")
-  let input_tag =
+  let input_tagged =
     input_value
   let output_value ch v =
     let raw = Marshal.to_string v Mpst.Common.marshal_flags in
     Async_unix.Writer.write ch raw;
     Deferred.return ()
-  let output_tag =
+  let output_tagged =
     output_value
   let flush =
     Async_unix.Writer.flushed

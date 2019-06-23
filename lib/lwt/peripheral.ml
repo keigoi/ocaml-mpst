@@ -8,23 +8,21 @@ module LwtEvent : Mpst.S.EVENT
   type 'a channel = {me:'a st; othr:'a st}
 
   let new_channel () =
-    let r1, w2 = Lwt_stream.create () 
+    let r1, w2 = Lwt_stream.create ()
     and r2, w1 = Lwt_stream.create ()
     in
     {me={write=w1;read=r1}; othr={write=w2;read=r2}}
   let receive {me={read}; _} = Lwt_stream.next read
   let flip_channel {me=othr; othr=me} = {me; othr}
-  let send {me={write; _}; _} v = print_string"<";flush stdout;write (Some v); Lwt.return_unit
+  let send {me={write; _}; _} v = write (Some v); Lwt.return_unit
   let sync x = x
   let guard f = f () (* XXX *)
   let choose = Lwt.choose
   let wrap e f = Lwt.map f e
   let always = Lwt.return
   let receive_list chs =
-    print_endline "receive_list";
     Lwt_list.map_p (fun {me={read;_};_} ->
         let x = Lwt_stream.next read in
-        print_string"*";flush stdout;
         x
       ) chs
 end
@@ -40,11 +38,11 @@ module LwtSerial : Mpst.S.SERIAL
     Lwt_io.of_fd Lwt_io.input inp, Lwt_io.of_fd Lwt_io.output out
   let input_value ch =
     Lwt_io.read_value ch
-  let input_tag =
+  let input_tagged =
     input_value
   let output_value ch v =
     Lwt_io.write_value ch v
-  let output_tag =
+  let output_tagged =
     output_value
   let flush =
     Lwt_io.flush

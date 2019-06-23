@@ -11,7 +11,6 @@ type ('la,'va) method_ =
 
 let fork_child f x =
   if Unix.fork () = 0 then begin
-      print_endline "ipc!";
       f x;
       exit 0;
     end else ()

@@ -8,6 +8,10 @@ let of_option ~dflt = function
   | Some x -> x
   | None -> dflt
 
+let option ~dflt ~f = function
+  | Some x -> f x
+  | None -> dflt
+
 let rec transpose : 'a list list -> 'a list list = fun xss ->
   match xss with
   | [] -> []

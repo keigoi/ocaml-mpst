@@ -68,8 +68,8 @@
   (libraries ocaml-mpst))
 
 (executable
- (name ex2)
-  (public_name ex2)
-  (modules ex2)
-  (flags ("-g" "-short-paths"))
-  (libraries ocaml-mpst.lwt))
+ (name scatter)
+ (public_name scatter)
+ (modules scatter)
+ (flags ("-g" "-short-paths"))
+ (libraries ocaml-mpst.lwt))

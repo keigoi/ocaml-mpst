@@ -1,11 +1,11 @@
 
 module AsyncEvent : Mpst.S.EVENT
        with type 'a monad = 'a Async.Deferred.t
-       with type 'a event = 'a Async.Deferred.t
+       with type 'a event = unit -> 'a Async.Deferred.t
   = struct
   open Async
   type 'a monad = 'a Deferred.t
-  type 'a event = 'a Deferred.t
+  type 'a event = unit -> 'a Deferred.t
   type 'a st = {read: 'a Pipe.Reader.t; write: 'a Pipe.Writer.t}
   type 'a channel = {me:'a st; othr:'a st}
 
@@ -14,20 +14,20 @@ module AsyncEvent : Mpst.S.EVENT
     and r2, w1 = Pipe.create ()
     in
     {me={write=w1;read=r1}; othr={write=w2;read=r2}}
-  let receive {me={read}; _} =
+  let receive {me={read}; _} () =
     Deferred.map (Pipe.read read) (function
     | `Ok(v) -> v
     | `Eof -> failwith "mpst_async: pipe eof")
   let flip_channel {me=othr; othr=me} = {me; othr}
-  let send {me={write; _}; _} v =
+  let send {me={write; _}; _} v () =
     Pipe.write write v
-  let sync x = x
-  let guard f = f () (* XXX *)
-  let choose = Deferred.any
-  let wrap e f = Deferred.map ~f e
-  let always = Deferred.return
-  let receive_list chs =
-    Deferred.List.map chs receive
+  let guard f = f ()
+  let sync f = f ()
+  let choose xs = fun () -> Deferred.any (List.map (fun f -> f ()) xs)
+  let wrap e f () = Deferred.map ~f (e ())
+  let always x () = Deferred.return x
+  let receive_list chs () =
+    Deferred.List.map chs (fun ch -> receive ch ())
 end
 
 module AsyncSerial : Mpst.S.SERIAL with type 'a monad = 'a Async.Deferred.t = struct

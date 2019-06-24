@@ -9,7 +9,7 @@
  (name calc_util)
   (modules calc_util)
   (flags ("-g" "-short-paths"))
-  (libraries ocaml-mpst))
+  (libraries ocaml-mpst.lwt))
 
 (executable
  (name calc)

@@ -12,7 +12,7 @@ let calc =
                  (srv --> cli) answer @@
                  finish))
 
-let sh = create_shared ~kinds:[Untyped;Untyped] calc
+let sh = create_shared ~kinds:[`Untyped;`Untyped] calc
 
 let s = Linocaml.Zero
 

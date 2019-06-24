@@ -60,24 +60,30 @@ module Make
   let make_inp_one chs myidx wrapfun =
     match List.hd chs with
     | Bare chs ->
+       let ch =
+         lazy begin
+             (* we must delay this -- chs is a placeholder for channels
+              * which might be "unified" during merge (see out.ml).
+              * if we do not delay, and if the channel unification occurs,
+              * input will block indefinitely.
+              *)
+             let ch = List.nth !chs myidx in
+             EV.flip_channel ch
+           end
+       in
+       let hook = lazy (ignore (Lazy.force ch); ()) in
+       hook,
        EP.make (fun once -> (* this lambda does NOT delay if linearity check is static *)
-           InpChan (once,
-                    EV.wrap (EV.guard (fun () ->
-                                 (* we must delay this -- chs is a placeholder for channels
-                                  * which might be "unified" during merge (see out.ml).
-                                  * if we do not delay, and if the channel unification occurs,
-                                  * input will block indefinitely.
-                                  *)
-                                 let ch = List.nth !chs myidx in
-                                 let ch = EV.flip_channel ch in
-                                 EV.receive ch)) wrapfun))
+           InpChan (once, EV.guard (fun () -> EV.wrap (EV.receive (Lazy.force ch)) wrapfun)))
     | Untyped (tag,chs) ->
        let ch = List.nth chs myidx in
        let ch = EV.flip_channel ch in
+       Lazy.from_val (),
        EP.make (fun once ->
            InpFun (once, (fun () -> EV.sync (EV.receive ch)), [(tag, (fun t -> wrapfun (Obj.obj t)))]))
     | IPC (tag, chs) ->
        let {me={inp=ch;_};_} = flip_dpipe (List.nth chs myidx) in
+       Lazy.from_val (),
        EP.make (fun once ->
            InpFun
              (once, (fun () -> C.input_tagged ch), [(tag, (fun t -> wrapfun (Obj.obj t)))]))
@@ -89,14 +95,17 @@ module Make
          | Bare chs -> chs
          | _ -> assert false
        in
-       let chs = List.map ext chs in
-       let ev =
-         EV.guard (fun () ->
+       let chs =
+         lazy
+           begin
+             let chs = List.map ext chs in
              let chs = List.map (fun chs -> List.nth !chs(*delayed*) myidx) chs in
-             let chs = List.map EV.flip_channel chs in
-             EV.receive_list chs)
+             List.map EV.flip_channel chs
+           end
        in
-       EP.make (fun once -> InpChan (once, EV.wrap ev wrapfun))
+       let hook = lazy (ignore (Lazy.force chs); ()) in
+       hook,
+       EP.make (fun once -> InpChan (once, EV.guard (fun () -> EV.wrap (EV.receive_list (Lazy.force chs)) wrapfun)))
     | ((Untyped (tag,_)) :: _) ->
        let ext = function
          | Untyped (_,chs) -> chs
@@ -104,6 +113,7 @@ module Make
        in
        let chs = List.map ext chs in
        let chs = List.map (fun chs -> EV.flip_channel (List.nth chs myidx)) chs in
+       Lazy.from_val (),
        EP.make (fun once ->
            InpFun (once,
                    (fun () ->
@@ -120,6 +130,7 @@ module Make
        let chs = List.map ext chs in
        let chs = List.map flip_dpipe chs in
        let chs = List.map (fun {me={inp;_};_} -> inp) chs in
+       Lazy.from_val (),
        EP.make (fun once ->
            InpFun
              (once,
@@ -139,14 +150,17 @@ module Make
     if List.length chs = 0 then begin
         failwith "make_recv: scatter/gather error: number of senders is zero"
       end;
-    let bare_inp_chs =
+    let hooks_and_chs =
       List.init num_receivers (fun myidx ->
           let wrapfun v = lab.var (v, Lin.mklin (List.nth (Mergeable.out epB) myidx))
           in
           make_inp chs myidx wrapfun)
     in
+    let hooks, chs = List.split hooks_and_chs in
     let hook =
       lazy begin
+          (* force merging *)
+          List.iter Lazy.force hooks;
           (* force the following endpoints *)
           let eps = Mergeable.out epB in
           if num_receivers <> List.length eps then begin
@@ -158,7 +172,7 @@ module Make
       (Mergeable.make_with_hook
          hook
          Inp.merge_in
-         bare_inp_chs)
+         chs)
 
   let make_out_one (a,b,(c,d)) = Out.Out (a,b,(c,d))
   let make_out_list (a,b,(c,d)) = Out.OutMany (a,b,(c,d))
@@ -350,11 +364,11 @@ module Make
       {props=Table.create_from ps; default=ipc}
       g
 
-  type kind = Local | IPCProcess | Untyped
+  type kind = [`Local | `IPCProcess | `Untyped]
   let epkind_of_kind = function
-    | Local -> fun i -> {multiplicity=i; epkind=EpLocal}
-    | IPCProcess -> fun i -> {multiplicity=i; epkind=ipc i}
-    | Untyped -> fun i -> {multiplicity=i; epkind=untyped i}
+    | `Local -> fun i -> {multiplicity=i; epkind=EpLocal}
+    | `IPCProcess -> fun i -> {multiplicity=i; epkind=ipc i}
+    | `Untyped -> fun i -> {multiplicity=i; epkind=untyped i}
 
   let mkparams ps =
     {props =
@@ -391,11 +405,13 @@ module Make
 
   let rec sync_all_ except_me connect_sync start_sync env =
     M.iteriM (fun i c ->
-        if i=except_me then
+        if i=except_me then begin
           M.return_unit
-        else
+          end else begin
           M.bind (EV.sync (EV.send c env)) (fun () ->
-              EV.sync (EV.receive start_sync)))
+              EV.sync (EV.receive start_sync))
+          end
+      )
       connect_sync
 
 
@@ -437,22 +453,22 @@ module Make
     (* sync with all threads *)
     let me = Seq.int_of_lens r.role_index in
     M.bind (sync_all_ me m.connect_sync m.start_sync env) (fun () ->
-        (* get my ep *)
-        let ep = get_ep r g in
-        m.seq_in_process <- None;
-        Mutex.unlock m.accept_lock;
-        let prop = Table.get env.props (Seq.int_of_lens r.role_index) in
-        M.return (ep, prop))
+    (* get my ep *)
+    let ep = get_ep r g in
+    m.seq_in_process <- None;
+    Mutex.unlock m.accept_lock;
+    let prop = Table.get env.props (Seq.int_of_lens r.role_index) in
+    M.return (ep, prop))
 
   let connect_ (Shared m) r =
     let role = Seq.int_of_lens r.role_index in
-    let c = List.nth m.connect_sync role in
+    let c = EV.flip_channel (List.nth m.connect_sync role) in
     M.bind (EV.sync (EV.receive c)) (fun env ->
         let prop = Table.get env.props role in
         let g = match m.seq_in_process with Some (_,g) -> g | None -> assert false in
         let ep = get_ep r g in
-        M.bind (EV.sync (EV.send m.start_sync ())) (fun () ->
-            M.return (ep, prop)))
+        M.bind (EV.sync (EV.send (EV.flip_channel m.start_sync) ())) (fun () ->
+        M.return (ep, prop)))
 
   let accept sh r =
     M.map fst (accept_ sh r)

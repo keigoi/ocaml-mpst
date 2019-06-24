@@ -35,7 +35,7 @@ let tSrv es =
   in loop 0 es
 
 let () =
-  let sh = create_shared ~kinds:[Local;Local] calc in
+  let sh = create_shared ~kinds:[`Local;`Local] calc in
   ignore (Thread.create (fun () -> accept_and_start sh srv tSrv) ()); (*FIXME*)
   connect_and_start sh cli tCli
   ;

@@ -25,6 +25,11 @@ let compute_or_result =
    obj_splitL=(fun lr -> (lr :> <compute : _>));
    obj_splitR=(fun lr -> (lr :> <result : _>));
   }
+let result_or_compute =
+  {obj_merge=(fun l r -> object method result=l#result method compute=r#compute end);
+   obj_splitL=(fun lr -> (lr :> <result : _>));
+   obj_splitR=(fun lr -> (lr :> <compute : _>));
+  }
 let to_srv m =
   {obj_merge=(fun l r -> object method role_Srv=m.obj_merge l#role_Srv r#role_Srv end);
    obj_splitL=(fun lr -> object method role_Srv=m.obj_splitL lr#role_Srv end);

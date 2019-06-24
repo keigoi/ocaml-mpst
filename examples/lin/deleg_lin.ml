@@ -51,8 +51,8 @@ let tSrv_monad () =
        s <@ close
   in loop 0
 
-let calc_sh = create_shared ~kinds:[IPCProcess;IPCProcess] calc
-let work_sh = create_shared ~kinds:[Untyped;Untyped] worker
+let calc_sh = create_shared ~kinds:[`IPCProcess;`IPCProcess] calc
+let work_sh = create_shared ~kinds:[`Untyped;`Untyped] worker
 
 let tSrvWorker i =
   let rec loop () =

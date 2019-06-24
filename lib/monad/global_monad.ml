@@ -21,8 +21,14 @@ module Make
 
   let linret f = {L.__m=(fun pre -> M.return (pre, {Linocaml.__lin=f ()}))}
 
-  let gen g = linret (fun () -> gen g)
+  let raw_gen = gen
+  let raw_gen_ipc = gen_ipc
+  let raw_gen_mult = gen_mult
+  let raw_gen_mult_ipc = gen_mult_ipc
+  let raw_gen_with_kinds = gen_with_kinds
+  let raw_gen_with_kinds_mult = gen_with_kinds_mult
 
+  let gen g = linret (fun () -> gen g)
 
   let gen_ipc g = linret (fun () -> gen_ipc g)
 
@@ -32,10 +38,12 @@ module Make
 
   let gen_with_kinds ps g = linret (fun () -> gen_with_kinds ps g)
 
-  let gen_with_kinds_muult ps g = linret (fun () -> gen_with_kinds_mult ps g)
+  let gen_with_kinds_mult ps g = linret (fun () -> gen_with_kinds_mult ps g)
 
   let degen : (([`cons of Mpst.close * 't] as 't) Seq.t lin, unit, unit data) L.monad =
     {L.__m=(fun _ -> M.return ((), {Linocaml.data=()}))}
+
+  let raw_get_ep = get_ep
 
   let get_ep r =
     let open Linocaml in

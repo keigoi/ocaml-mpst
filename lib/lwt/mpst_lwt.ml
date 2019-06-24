@@ -1,19 +1,22 @@
-module Peripheral = Peripheral
+module M = struct
+  module Peripheral = Peripheral
+  module P = Peripheral
+end
 
 module Global =
   Mpst.Global.Make
     (Mpst.Dyncheck)
-    (Peripheral.Lwt)
-    (Peripheral.LwtEvent)
-    (Peripheral.LwtSerial)
-    (struct type 'a lin = 'a let mklin x = x let unlin x = x end)
+    (M.Peripheral.Lwt)
+    (M.Peripheral.LwtEvent)
+    (M.Peripheral.LwtSerial)
+    (Mpst.NoLin)
 
 module Local =
   Mpst.Local.Make
     (Mpst.Dyncheck)
     (Mpst.LinFlag)
-    (Peripheral.Lwt)
-    (Peripheral.LwtEvent)
+    (M.Peripheral.Lwt)
+    (M.Peripheral.LwtEvent)
 
 module Default = struct
   include Mpst.Base
@@ -22,4 +25,5 @@ module Default = struct
   include Mpst.Util.Make(Mpst.Dyncheck)
 end
 
+include M
 include Default

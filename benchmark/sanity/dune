@@ -1,10 +1,9 @@
-; (executable
-;  (name iteration)
-;  (modules iteration)
-;  (public_name benchmark_msgsize)
-;  (ocamlopt_flags -O3)
-;  (flags ("-g" "-short-paths"))
-;  (libraries mpst_simple mpst_implicit mpst_explicit lwt.unix core_bench)
-;  )
-; 
-;  (ocamlopt_flags -Oclassic)
+(executable
+ (name msgsize)
+ (modules msgsize)
+ (public_name benchmark_msgsize)
+ (preprocess (pps linocaml.ppx))
+ (ocamlopt_flags -O3)
+ (flags ("-short-paths"))
+ (libraries core_bench ocaml-mpst.monad ocaml-mpst.lwt ocaml-mpst.async ocaml-mpst.monad.lwt)
+ )

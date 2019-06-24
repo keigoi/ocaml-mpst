@@ -1,0 +1,3 @@
+[submodule "linocaml"]
+	path = linocaml
+	url = git@github.com:keigoi/linocaml.git

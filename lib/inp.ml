@@ -16,5 +16,5 @@ module Make(EP:S.LIN_EP)(M:S.MONAD)(EV:S.EVENT with type 'a monad = 'a M.t) = st
        (* throw away o2 *)
        InpFun (o1, etag, alts1 @ alts2)
     | _, _ ->
-       assert false (* this won't happen since external choice is directed *)
+       assert false
 end

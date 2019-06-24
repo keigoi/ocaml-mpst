@@ -60,8 +60,7 @@ module Make
   let make_inp_one chs myidx wrapfun =
     match List.hd chs with
     | Bare chs ->
-       let ch =
-         lazy begin
+       let resolve_ch () =
              (* we must delay this -- chs is a placeholder for channels
               * which might be "unified" during merge (see out.ml).
               * if we do not delay, and if the channel unification occurs,
@@ -69,21 +68,18 @@ module Make
               *)
              let ch = List.nth !chs myidx in
              EV.flip_channel ch
-           end
        in
-       let hook = lazy (ignore (Lazy.force ch); ()) in
-       hook,
        EP.make (fun once -> (* this lambda does NOT delay if linearity check is static *)
-           InpChan (once, EV.guard (fun () -> EV.wrap (EV.receive (Lazy.force ch)) wrapfun)))
+           InpChan (once,
+                    EV.guard (fun () -> (* so, this guard is mandatory *)
+                        EV.wrap (EV.receive (resolve_ch ())) wrapfun)))
     | Untyped (tag,chs) ->
        let ch = List.nth chs myidx in
        let ch = EV.flip_channel ch in
-       Lazy.from_val (),
        EP.make (fun once ->
            InpFun (once, (fun () -> EV.sync (EV.receive ch)), [(tag, (fun t -> wrapfun (Obj.obj t)))]))
     | IPC (tag, chs) ->
        let {me={inp=ch;_};_} = flip_dpipe (List.nth chs myidx) in
-       Lazy.from_val (),
        EP.make (fun once ->
            InpFun
              (once, (fun () -> C.input_tagged ch), [(tag, (fun t -> wrapfun (Obj.obj t)))]))
@@ -95,17 +91,12 @@ module Make
          | Bare chs -> chs
          | _ -> assert false
        in
-       let chs =
-         lazy
-           begin
-             let chs = List.map ext chs in
-             let chs = List.map (fun chs -> List.nth !chs(*delayed*) myidx) chs in
-             List.map EV.flip_channel chs
-           end
+       let resolve_ch () =
+         let chs = List.map ext chs in
+         let chs = List.map (fun chs -> List.nth !chs(*delayed*) myidx) chs in
+         List.map EV.flip_channel chs
        in
-       let hook = lazy (ignore (Lazy.force chs); ()) in
-       hook,
-       EP.make (fun once -> InpChan (once, EV.guard (fun () -> EV.wrap (EV.receive_list (Lazy.force chs)) wrapfun)))
+       EP.make (fun once -> InpChan (once, EV.guard (fun () -> EV.wrap (EV.receive_list (resolve_ch ())) wrapfun)))
     | ((Untyped (tag,_)) :: _) ->
        let ext = function
          | Untyped (_,chs) -> chs
@@ -113,7 +104,6 @@ module Make
        in
        let chs = List.map ext chs in
        let chs = List.map (fun chs -> EV.flip_channel (List.nth chs myidx)) chs in
-       Lazy.from_val (),
        EP.make (fun once ->
            InpFun (once,
                    (fun () ->
@@ -130,7 +120,6 @@ module Make
        let chs = List.map ext chs in
        let chs = List.map flip_dpipe chs in
        let chs = List.map (fun {me={inp;_};_} -> inp) chs in
-       Lazy.from_val (),
        EP.make (fun once ->
            InpFun
              (once,
@@ -150,17 +139,14 @@ module Make
     if List.length chs = 0 then begin
         failwith "make_recv: scatter/gather error: number of senders is zero"
       end;
-    let hooks_and_chs =
+    let channels =
       List.init num_receivers (fun myidx ->
           let wrapfun v = lab.var (v, Lin.mklin (List.nth (Mergeable.out epB) myidx))
           in
           make_inp chs myidx wrapfun)
     in
-    let hooks, chs = List.split hooks_and_chs in
     let hook =
       lazy begin
-          (* force merging *)
-          List.iter Lazy.force hooks;
           (* force the following endpoints *)
           let eps = Mergeable.out epB in
           if num_receivers <> List.length eps then begin
@@ -172,7 +158,7 @@ module Make
       (Mergeable.make_with_hook
          hook
          Inp.merge_in
-         chs)
+         channels)
 
   let make_out_one (a,b,(c,d)) = Out.Out (a,b,(c,d))
   let make_out_list (a,b,(c,d)) = Out.OutMany (a,b,(c,d))

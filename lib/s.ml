@@ -37,9 +37,9 @@ module type SERIAL = sig
   type +'a monad
   type out_channel
   type in_channel
-  val output_tagged : out_channel -> Common.tag * Obj.t -> unit monad
+  val output_tagged : out_channel -> Base.tag * Obj.t -> unit monad
   val output_value : out_channel -> 'v -> unit monad
-  val input_tagged : in_channel -> (Common.tag * Obj.t) monad
+  val input_tagged : in_channel -> (Base.tag * Obj.t) monad
   val input_value : in_channel -> 'v monad
   val input_value_list : in_channel list -> 'v list monad
   val flush : out_channel -> unit monad

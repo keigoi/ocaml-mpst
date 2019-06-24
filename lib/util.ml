@@ -57,6 +57,15 @@ let right_or_left =
    obj_splitL=(fun lr -> (lr :> <right : _>));
    obj_splitR=(fun lr -> (lr :> <left : _>));
   }
+let to_b m =
+  {obj_merge=(fun l r ->
+     object method role_B=m.obj_merge (l#role_B) (r#role_B) end);
+   obj_splitL=(fun lr -> object method role_B=m.obj_splitL (lr#role_B) end);
+   obj_splitR=(fun lr -> object method role_B=m.obj_splitR (lr#role_B) end)
+  }
+   
+  
+
 let to_ m r1 r2 r3 =
   let (!) x = x.role_label in
   {obj_merge=(fun l r -> !r1.make_obj (m.obj_merge (!r2.call_obj l) (!r3.call_obj r)));

@@ -14,31 +14,21 @@ module Make
   module Out = Out.Make(EP)(EV)
   module Inp = Inp.Make(EP)(M)(EV)
 
-  type pipe = {inp: C.in_channel; out: C.out_channel}
-  type dpipe = {me:pipe; othr:pipe}
-
-  let new_dpipe () =
-    let my_inp, otr_out = C.pipe () in
-    let otr_inp, my_out = C.pipe () in
-    {me={inp=my_inp; out=my_out};
-     othr={inp=otr_inp; out=otr_out}}
-
-  let flip_dpipe {me=othr;othr=me} =
-    {me;othr}
+  module Dpipe = Make_dpipe(C)
 
   type epkind =
     EpLocal
-  | EpIPCProcess of dpipe list Table.t list
-  | EpUntyped of (Common.tag * Obj.t) EV.channel list Table.t list
+  | EpIPCProcess of Dpipe.dpipe list Table.t list
+  | EpUntyped of (Base.tag * Obj.t) EV.channel list Table.t list
 
   open Out
   open Inp
+  open Dpipe
 
   type 'v chan =
     | Bare of 'v EV.channel list ref
-    (* | Untyped of Obj.t EV.channel list *)
     | Untyped of tag * (tag * Obj.t) EV.channel list
-    | IPC of tag * dpipe list
+    | IPC of tag * Dpipe.dpipe list
 
   let bare_of_chan = function
     | Bare xs ->
@@ -469,7 +459,7 @@ module Make
            ignore (Thread.create (fun () -> (f ep : unit)) ());
            M.return_unit
         | EpIPCProcess _ ->
-           Base.fork_child (fun () -> f ep) ();
+           Common.fork_child (fun () -> f ep) ();
            M.return_unit)
 
   let connect_and_start sh r f =
@@ -479,6 +469,6 @@ module Make
            ignore (Thread.create (fun () -> (f ep : unit)) ());
            M.return_unit
         | EpIPCProcess _ ->
-           Base.fork_child (fun () -> f ep) ();
+           Common.fork_child (fun () -> f ep) ();
            M.return_unit)
 end

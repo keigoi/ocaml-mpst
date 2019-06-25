@@ -1,0 +1,578 @@
+
+type ('lr, 'l, 'r) disj_merge =
+  {disj_merge: 'l -> 'r -> 'lr;
+   disj_splitL: 'lr -> 'l;
+   disj_splitR: 'lr -> 'r;
+  }
+
+type ('la,'va) method_ =
+  {make_obj: 'va -> 'la;
+   call_obj: 'la -> 'va}
+
+type ('la,'lb,'va,'vb) label =
+  {obj: ('la, 'va) method_;
+   var: 'vb -> 'lb}
+
+let rec find_physeq : 'a. 'a list -> 'a -> bool = fun xs y ->
+  match xs with
+  | x::xs -> if x==y then true else find_physeq xs y
+  | [] -> false
+
+(** a flag for dynamic linearity checking  *)
+module Flag : sig
+  type t
+  exception InvalidEndpoint
+  val use : t -> unit
+  val create : unit -> t
+end = struct
+  type t         = Mutex.t
+  exception InvalidEndpoint
+  let create ()  = Mutex.create ()
+  let use f      = if not (Mutex.try_lock f) then raise InvalidEndpoint
+end  
+
+module Mergeable : sig
+  type 'a t
+  val make : hook:unit lazy_t -> ('a -> 'a -> 'a) -> (Flag.t -> 'a) -> 'a t
+  val make_recvar : 'a t lazy_t -> 'a t
+  val make_disj_merge : ('lr,'l,'r) disj_merge -> 'l t -> 'r t -> 'lr t
+  val make_merge : 'a t -> 'a t -> 'a t
+  val make_merge_list : 'a t list -> 'a t
+  val wrap_label : (< .. > as 'l, 'v) method_ -> 'v t -> 'l t
+  val resolve_merge : 'a t -> 'a
+end = struct
+
+  type 'a t =
+    | Single of 'a single
+    (** (A) delayed merge involving recvars *)
+    | Merge  of 'a single list * 'a cache
+  and 'a single =
+    (** fully resolved merge *)
+    | Val    : 'a body * hook -> 'a single
+    (** (B) disjoint merge involving recvars  (output) *)
+    | DisjMerge   : 'l t * 'r t * ('lr,'l,'r) disj_merge * 'lr cache -> 'lr single
+    (** (C) a recursion variable *) 
+    | RecVar : 'a t lazy_t * 'a cache -> 'a single
+  and 'a body =
+    {merge: 'a -> 'a -> 'a;
+     value: (Flag.t -> 'a)}
+  and 'a cache = 'a body lazy_t
+  and hook = unit lazy_t
+
+  exception UnguardedLoop
+
+  let disj_merge_body
+      : 'lr 'l 'r. ('lr,'l,'r) disj_merge -> 'l body * hook -> 'r body * hook -> 'lr body * hook =
+    fun mrg (bl,hl) (br,hr) ->
+    let merge lr1 lr2 =
+      mrg.disj_merge
+        (bl.merge (mrg.disj_splitL lr1) (mrg.disj_splitL lr2))
+        (br.merge (mrg.disj_splitR lr1) (mrg.disj_splitR lr2))
+    in
+    let value once =
+      (* we can only choose one of them -- distribute the linearity flag among merged objects *)
+      mrg.disj_merge (bl.value once) (br.value once)
+    in
+    {value; merge},lazy (Lazy.force hl; Lazy.force hr)    
+
+  (**
+   * Declares how mergeables are resolved
+   *)
+  let rec real_resolve : type x. x t lazy_t list -> x t -> x body * hook = fun hist t ->
+    match t with
+    | Single s ->
+       real_resolve_single hist s
+    | Merge (ss, _) ->
+       (* (A) merge involves recursion variables *)
+       real_resolve_merge hist ss
+
+  and real_resolve_single : type x. x t lazy_t list -> x single -> x body * hook = fun hist ->
+      function
+      | Val (v,hook) ->
+         (* already resolved *)
+         (v,hook)
+      | DisjMerge (l,r,mrg,d) ->
+         (* (B) disjoint merge involves recursion variables *)
+         (* we can safely reset the history; as the split types are different from the merged one, the same type variable will not occur. *)
+         let l, hl = real_resolve [] l in
+         let r, hr = real_resolve [] r in
+         disj_merge_body mrg (l,hl) (r,hr)
+      | RecVar (t, d) ->
+         (* (C) a recursion variable *)
+         if find_physeq hist t then begin
+           (* we found μt. .. ⊔ t ⊔ .. *)
+           raise UnguardedLoop
+         end else
+           (* force it, and resolve it. at the same time, check that t occurs again or not by adding t to the history  *)
+           let b, _ = real_resolve (t::hist) (Lazy.force t) in
+           b, Lazy.from_val () (* dispose the hook -- recvar is already evaluated *)
+
+  and real_resolve_merge : type x. x t lazy_t list -> x single list -> x body * hook = fun hist ss ->
+    (* remove unguarded recursions *)
+    let solved : (x body * hook) list =
+      List.fold_left (fun acc u ->
+          try
+            real_resolve_single hist u :: acc
+          with
+            UnguardedLoop ->
+            prerr_endline "WARNING: an unbalanced loop detected";
+            (* remove it. *)
+            acc)
+        [] ss
+    in
+    (* then, merge them altogether *)
+    match solved with
+    | [] ->
+       raise UnguardedLoop
+    | (b,h)::xs ->
+       let hook =
+         lazy begin
+             Lazy.force h;
+             List.iter (fun (_,h) -> Lazy.force h) xs
+           end
+       in
+       let value =
+         List.fold_left
+           (fun l r once -> b.merge (l once) (r (Flag.create ())))
+           b.value
+           (List.map (fun (v,_)->v.value) xs)
+       in
+       {value; merge=b.merge}, hook
+
+  let real_resolve_force t =
+    let v,hook = real_resolve [] t in
+    Lazy.force hook ;
+    v
+    
+  let make ~hook merge value =
+    Single (Val ({merge;value}, hook))
+
+  let make_recvar_single t =
+    let rec d = RecVar (t, lazy (real_resolve_force (Single d)))
+    in d
+
+  let make_recvar t =
+    Single (make_recvar_single t)
+
+  let make_merge_single : 'a. 'a single list -> 'a t = fun us ->
+    let rec d = Merge (us, lazy (real_resolve_force d))
+    in d
+
+  let make_merge : 'a. 'a t -> 'a t -> 'a t = fun l r ->
+    match l, r with
+    | Single (Val (ll,hl)), Single (Val (rr,hr)) ->
+       let hook = lazy (Lazy.force hl; Lazy.force hr) in
+       Single (Val ({merge=ll.merge;
+                     value=(fun once -> ll.merge (ll.value once) (rr.value once))},
+                    hook))
+    | Single v1, Single v2 ->
+       make_merge_single [v1; v2]
+    | Single v, Merge (ds,_) | Merge (ds,_), Single v ->
+       make_merge_single (v :: ds)
+    | Merge (d1, _), Merge (d2, _) ->
+       make_merge_single (d1 @ d2)
+
+  let make_merge_list = function
+    | [] -> failwith "merge_all: empty"
+    | m::ms -> List.fold_left make_merge m ms
+
+  let make_disj_merge : 'lr 'l 'r. ('lr,'l,'r) disj_merge -> 'l t -> 'r t -> 'lr t = fun mrg l r ->
+    match l, r with
+    | Single (Val (bl, hl)), Single (Val (br, hr)) ->
+       let blr,hlr = disj_merge_body mrg (bl,hl) (br,hr) in
+       Single (Val (blr, hlr))
+    | _ ->
+       let rec d = Single (DisjMerge (l,r,mrg, lazy (real_resolve_force d)))
+       (* prerr_endline "WARNING: internal choice involves recursion variable"; *)
+       in d
+
+  let wrap_label : 'v. (< .. > as 'o, 'v) method_ -> 'v t -> 'o t = fun meth -> function
+    | Single (Val (b,h)) ->
+       let body =
+         {value=(fun once -> meth.make_obj (b.value once));
+          merge=(fun l r ->
+            let ll = meth.call_obj l
+            and rr = meth.call_obj r
+            in
+            meth.make_obj (b.merge ll rr))}
+       in
+       Single (Val (body,h))
+    | Single (DisjMerge (_,_,_,_)) ->
+       assert false
+       (* failwith "wrap_obj_singl: Disj" (\* XXX *\) *)
+    | Single (RecVar (t, _)) ->
+       assert false
+       (* make_recvar_single (lazy (wrap_label meth (Lazy.force t))) *)
+    | Merge (ds,_) ->
+       assert false
+       (* make_merge_single (List.map (wrap_label_single meth) ds) *)
+
+  let resolve_merge t =
+    match t with
+    | Single (Val (b,h)) ->
+       Lazy.force h;
+       b.value (Flag.create ())
+    | Single (RecVar (_,d)) ->
+       (Lazy.force d).value  (Flag.create ())
+    | Single (DisjMerge (_,_,_,d)) ->
+       (Lazy.force d).value (Flag.create ())
+    | Merge (_,d) ->
+       (Lazy.force d).value (Flag.create ())
+end
+
+module Inp : sig
+  type 'a inp
+  val receive : 'a inp -> 'a
+  val merge_inp : 'a inp -> 'a inp -> 'a inp
+  val create_inp : 'v Event.channel ref -> (_,[>] as 'var,_,'v * 't) label -> 't Mergeable.t -> 'var inp Mergeable.t
+end = struct
+  type 'a inp = Flag.t * 'a Event.event
+  let receive (once, ev) = Flag.use once; Event.sync ev
+  let merge_inp (once, ev1) (_, ev2) = (once, Event.choose [ev1; ev2])
+  let create_inp ch label cont =
+    let hook =
+      lazy begin
+          let _ = Mergeable.resolve_merge cont in
+          ()
+        end
+    in
+    Mergeable.make
+      ~hook
+      merge_inp
+      (fun once ->
+        (once,
+         Event.wrap
+           (Event.guard (fun () -> Event.receive !ch)) (* dereference of ch is delayed by this Event.guard *)
+           (fun v -> label.var (v, Mergeable.resolve_merge cont))))
+end
+
+module Out : sig
+  type ('v, 't) out
+  val send : ('v, 't) out -> 'v -> 't
+  val merge_out : ('v, 't) out -> ('v, 't) out -> ('v, 't) out
+  val create_out : 'v Event.channel ref -> (< .. > as 'obj, _, ('v, 't) out, _) label -> 't Mergeable.t -> 'obj Mergeable.t
+end = struct
+  type ('v, 'u) out = Flag.t * 'v Event.channel ref * 'u Mergeable.t
+  let send (once,ch,cont) v = Flag.use once; Event.sync (Event.send !ch v); Mergeable.resolve_merge cont
+  let merge_out (once,ch1,cont1) (_,ch2,cont2) = ch1 := !ch2; (once,ch1, Mergeable.make_merge cont1 cont2)
+  let create_out ch label cont =
+    let hook =
+      lazy begin
+          let _ = Mergeable.resolve_merge cont in
+          ()
+        end
+    in
+    Mergeable.make
+      ~hook
+      (fun l r -> label.obj.make_obj (merge_out (label.obj.call_obj l) (label.obj.call_obj r)))
+      (fun once ->
+        label.obj.make_obj (once,ch,cont))
+end
+
+module Close : sig
+  type close
+  val mclose : close Mergeable.t
+  val close : close -> unit
+  val merge_close : close -> close -> close
+end = struct
+  type close = unit
+  let merge_close _ _ = ()
+  let close _ = ()
+  let mclose = Mergeable.make ~hook:(Lazy.from_val ()) merge_close (fun once -> Flag.use once; ())
+end
+
+module Seq : sig
+  type _ t 
+  and (_,_,_,_) lens =
+    Zero : ('a, 'b, [`cons of 'a * 'tl], [`cons of 'b * 'tl]) lens
+  | Succ : ('a, 'b, 'aa, 'bb) lens -> ('a, 'b, [`cons of 'hd * 'aa], [`cons of 'hd * 'bb]) lens
+
+  exception UnguardedLoopSeq
+
+  val lens_get : ('a, _, 'aa, _) lens -> 'aa t -> 'a Mergeable.t
+  val lens_put : ('a, 'b, 'aa, 'bb) lens -> 'aa t -> 'b Mergeable.t -> 'bb t
+
+  val seq_merge : 'a t -> 'a t -> 'a t
+  val recvar : 'a t lazy_t -> 'a t
+  val all_closed : ([`cons of Close.close * 'a] as 'a) t
+end = struct
+  type _ t =
+    (* hidden *)
+  | SeqCons : 'hd Mergeable.t * 'tl t -> [`cons of 'hd * 'tl] t
+  | SeqFinish : ([`cons of Close.close * 'a] as 'a) t
+  | SeqRecVars : 'a t lazy_t list -> 'a t
+  | SeqBottom : 'a t
+  and (_,_,_,_) lens =
+    Zero : ('a, 'b, [`cons of 'a * 'tl], [`cons of 'b * 'tl]) lens
+  | Succ : ('a, 'b, 'aa, 'bb) lens -> ('a, 'b, [`cons of 'hd * 'aa], [`cons of 'hd * 'bb]) lens
+
+  exception UnguardedLoopSeq
+
+  let all_closed = SeqFinish
+  let recvar l = SeqRecVars [l]
+
+  let rec seq_head : type hd tl. [`cons of hd * tl] t -> hd Mergeable.t =
+    function
+    | SeqCons(hd,_) -> hd
+    | SeqRecVars ds -> Mergeable.make_merge_list (List.map seqvar_head ds)
+    | SeqFinish -> Close.mclose
+    | SeqBottom -> raise UnguardedLoopSeq
+  and seqvar_head : type hd tl. [`cons of hd * tl] t lazy_t -> hd Mergeable.t = fun d ->
+    Mergeable.make_recvar (lazy (seq_head (Lazy.force d)))
+
+  let rec seq_tail : type hd tl. [`cons of hd * tl] t -> tl t =
+    function
+    | SeqCons(_,tl) -> tl
+    | SeqRecVars ds -> SeqRecVars(List.map seqvar_tail ds)
+    | SeqFinish -> SeqFinish
+    | SeqBottom -> raise UnguardedLoopSeq
+  and seqvar_tail : type hd tl. [`cons of hd * tl] t lazy_t -> tl t lazy_t = fun d ->
+    lazy (seq_tail (Lazy.force d))
+
+  let rec lens_get : type a b xs ys. (a, b, xs, ys) lens -> xs t -> a Mergeable.t = fun ln xs ->
+    match ln with
+    | Zero -> seq_head xs
+    | Succ ln' -> lens_get ln' (seq_tail xs)
+
+  let rec lens_put : type a b xs ys. (a,b,xs,ys) lens -> xs t -> b Mergeable.t -> ys t =
+    fun ln xs b ->
+    match ln with
+    | Zero -> SeqCons(b, seq_tail xs)
+    | Succ ln' -> SeqCons(seq_head xs, lens_put ln' (seq_tail xs) b)
+
+  let rec seq_merge : type x. x t -> x t -> x t = fun l r ->
+    match l,r with
+    | SeqCons(_,_), _ ->
+       let hd = Mergeable.make_merge (seq_head l) (seq_head r) in
+       let tl = seq_merge (seq_tail l) (seq_tail r) in
+       SeqCons(hd, tl)
+    | _, SeqCons(_,_) -> seq_merge r l
+    (* delayed constructors are left as-is *)
+    | SeqRecVars(us1), SeqRecVars(us2) -> SeqRecVars(us1 @ us2)
+    (* repeat *)
+    | SeqFinish, _ -> SeqFinish
+    | _, SeqFinish -> SeqFinish
+    (* bottom *)
+    | SeqBottom,_  -> raise UnguardedLoopSeq
+    | _, SeqBottom -> raise UnguardedLoopSeq
+
+  let rec force_recvar : type x. x t lazy_t list -> x t lazy_t -> x t =
+    fun hist w ->
+    if find_physeq hist w then begin
+        raise UnguardedLoopSeq
+      end else begin
+        match Lazy.force w with
+        | SeqRecVars [w'] -> force_recvar (w::hist) w'
+        | s -> s
+      end
+
+  let rec partial_force : type x. x t lazy_t list -> x t -> x t =
+    fun hist ->
+    function
+    | SeqFinish -> SeqFinish
+    | SeqBottom -> SeqBottom
+    | SeqCons(hd,tl) ->
+       let tl =
+         try
+           partial_force [] tl
+         with
+           UnguardedLoopSeq ->
+           (* we do not raise exception here;
+            * in recursion, an unguarded loop will occur in the last part of the sequence.
+            * when one tries to take head/tail of SeqBottom, an exception will be raised.
+            *)
+           SeqBottom
+       in
+       SeqCons(hd, tl)
+    | SeqRecVars [] -> assert false
+    | SeqRecVars ((d::ds) as dss) ->
+       partial_force
+         dss
+         (List.fold_left seq_merge (force_recvar dss d) (List.map (force_recvar dss) ds))
+end
+
+module Local : sig
+  type 'a inp = 'a Inp.inp
+  type ('v, 't) out = ('v, 't) Out.out
+  type close = Close.close
+  val receive : 'a inp -> 'a
+  val send : ('v, 't) out -> 'v -> 't
+  val close : close -> unit
+end  = struct
+  include Inp
+  include Out
+  include Close
+end
+
+module Global = struct
+  include Inp
+  include Out
+  include Close
+
+  type ('r,'v,'a,'b,'aa,'bb) role =
+    {role_label : ('r,'v) method_;
+     role_index : ('a,'b,'aa,'bb) Seq.lens}
+  let fix f =
+    let rec body = lazy (f (Seq.recvar body)) in
+    Lazy.force body
+
+  let finish =
+    Seq.all_closed
+
+  let choice_at rA0 mrg (rA1,g1) (rA2,g2) =
+    let epA1, epA2 = Seq.lens_get rA1.role_index g1, Seq.lens_get rA2.role_index g2 in
+    let g1, g2 = Seq.lens_put rA1.role_index g1 Close.mclose, Seq.lens_put rA2.role_index g2 Close.mclose in
+    let epA = Mergeable.make_disj_merge mrg epA1 epA2 in
+    let g = Seq.seq_merge g1 g2 in
+    let g = Seq.lens_put rA0.role_index g epA in
+    g
+
+  let (-->) rA rB label g =
+    let ch = ref (Event.new_channel ()) in
+    let epB = Seq.lens_get rB.role_index g in
+    let epB = create_inp ch label epB in
+    let epB = Mergeable.wrap_label rA.role_label epB in
+    let g = Seq.lens_put rB.role_index g epB in
+    let epA = Seq.lens_get rA.role_index g in
+    let epA = create_out ch label epA in
+    let epA = Mergeable.wrap_label rB.role_label epA in
+    Seq.lens_put rA.role_index g epA
+
+  let get_ep r g =
+    Mergeable.resolve_merge (Seq.lens_get r.role_index g)
+end
+
+module Util = struct
+  open Global
+  open Local
+
+  let a = {role_label={make_obj=(fun v->object method role_A=v end);
+                       call_obj=(fun o->o#role_A)};
+           role_index=Zero}
+  let b = {role_label={make_obj=(fun v->object method role_B=v end);
+                       call_obj=(fun o->o#role_B)};
+           role_index=Succ Zero}
+  let c = {role_label={make_obj=(fun v->object method role_C=v end);
+                       call_obj=(fun o->o#role_C)};
+           role_index=Succ (Succ Zero)}
+  let d = {role_label={make_obj=(fun v->object method role_D=v end);
+                       call_obj=(fun o->o#role_D)};
+           role_index=Succ (Succ (Succ Zero))}
+
+  let msg =
+    {obj={make_obj=(fun f -> object method msg=f end);
+          call_obj=(fun o -> o#msg)};
+     var=(fun v -> `msg(v))}
+  let left =
+    {obj={make_obj=(fun f -> object method left=f end);
+          call_obj=(fun o -> o#left)};
+     var=(fun v -> `left(v))}
+  let right =
+    {obj={make_obj=(fun f -> object method right=f end);
+          call_obj=(fun o -> o#right)};
+     var=(fun v -> `right(v))}
+  let middle =
+    {obj={make_obj=(fun f -> object method middle=f end);
+          call_obj=(fun o -> o#middle)};
+     var=(fun v -> `middle(v))}
+  let ping =
+    {obj={make_obj=(fun f -> object method ping=f end);
+          call_obj=(fun o -> o#ping)};
+     var=(fun v -> `ping(v))}
+  let pong =
+    {obj={make_obj=(fun f -> object method pong=f end);
+          call_obj=(fun o -> o#pong)};
+     var=(fun v -> `pong(v))}
+  let fini =
+    {obj={make_obj=(fun f -> object method fini=f end);
+          call_obj=(fun o -> o#fini)};
+     var=(fun v -> `fini(v))}
+
+  let left_or_right =
+    {disj_merge=(fun l r -> object method left=l#left method right=r#right end);
+     disj_splitL=(fun lr -> (lr :> <left : _>));
+     disj_splitR=(fun lr -> (lr :> <right : _>));
+    }
+  let right_or_left =
+    {disj_merge=(fun l r -> object method right=l#right method left=r#left end);
+     disj_splitL=(fun lr -> (lr :> <right : _>));
+     disj_splitR=(fun lr -> (lr :> <left : _>));
+    }
+  let to_b m =
+    {disj_merge=(fun l r ->
+       object method role_B=m.disj_merge (l#role_B) (r#role_B) end);
+     disj_splitL=(fun lr -> object method role_B=m.disj_splitL (lr#role_B) end);
+     disj_splitR=(fun lr -> object method role_B=m.disj_splitR (lr#role_B) end)
+    }
+    
+    
+
+  let to_ m r1 r2 r3 =
+    let (!) x = x.role_label in
+    {disj_merge=(fun l r -> !r1.make_obj (m.disj_merge (!r2.call_obj l) (!r3.call_obj r)));
+     disj_splitL=(fun lr -> !r2.make_obj (m.disj_splitL @@ !r1.call_obj lr));
+     disj_splitR=(fun lr -> !r3.make_obj (m.disj_splitR @@ !r1.call_obj lr));
+    }
+  let to_a m = to_ m a a a
+  let to_b m = to_ m b b b
+  let to_c m = to_ m c c c
+
+  let left_middle_or_right =
+    {disj_merge=(fun l r -> object method left=l#left method middle=l#middle method right=r#right end);
+     disj_splitL=(fun lr -> (lr :> <left : _; middle: _>));
+     disj_splitR=(fun lr -> (lr :> <right : _>));
+    }
+
+  let left_or_middle =
+    {disj_merge=(fun l r -> object method left=l#left method middle=r#middle end);
+     disj_splitL=(fun lr -> (lr :> <left : _>));
+     disj_splitR=(fun lr -> (lr :> <middle : _>));
+    }
+
+  let left_or_middle_right =
+    {disj_merge=(fun l r -> object method left=l#left method middle=r#middle method right=r#right end);
+     disj_splitL=(fun lr -> (lr :> <left : _>));
+     disj_splitR=(fun lr -> (lr :> <middle: _; right : _>));
+    }
+
+  let middle_or_right =
+    {disj_merge=(fun l r -> object method middle=l#middle method right=r#right end);
+     disj_splitL=(fun lr -> (lr :> <middle : _>));
+     disj_splitR=(fun lr -> (lr :> <right : _>));
+    }
+end
+
+include Global
+include Local
+include Util
+
+module Example = struct
+  open Global
+  open Local
+  open Util
+
+  let g =
+    choice_at a (to_b left_or_right)
+      (a, (a --> b) left @@ finish)
+      (a, (a --> b) right @@ finish)
+
+  let ea, eb = get_ep a g, get_ep b g
+
+  (* role B *)
+  let (_:Thread.t) =
+    Thread.create (fun () ->
+        match receive eb#role_A with
+        | `left(_, eb) -> close eb
+        | `right(_, eb) -> close eb) ()
+
+  (* role A *)
+  let () =
+    if true then begin
+        let ea = send ea#role_B#left () in
+        close ea
+      end else begin
+        let ea = send ea#role_B#right () in
+        (* let ea = send ea#role_B#right () in *)
+        close ea
+      end
+end

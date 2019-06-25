@@ -1,9 +1,15 @@
+(library
+ (name util)
+ (modules util)
+ (preprocess (pps linocaml.ppx))
+ (flags ("-short-paths"))
+ (libraries core_bench ocaml-mpst.monad ocaml-mpst.lwt ocaml-mpst.monad.lwt ocaml-mpst.ref))
+
 (executable
- (name msgsize)
- (modules msgsize)
- (public_name benchmark_msgsize)
+ (name sanity)
+ (modules sanity)
+ (public_name benchmark_sanity)
  (preprocess (pps linocaml.ppx))
  (ocamlopt_flags -O3)
  (flags ("-short-paths"))
- (libraries core_bench ocaml-mpst.monad ocaml-mpst.lwt ocaml-mpst.async ocaml-mpst.monad.lwt)
- )
+ (libraries util))

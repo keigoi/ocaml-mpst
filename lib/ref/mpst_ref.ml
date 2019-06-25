@@ -1,3 +1,4 @@
+(** A reference implementation of ocaml-mpst *)
 
 type ('lr, 'l, 'r) disj_merge =
   {disj_merge: 'l -> 'r -> 'lr;
@@ -34,7 +35,7 @@ end
 module Mergeable
 (*        : sig
  *   type 'a t
- *   val make : hook:unit lazy_t -> ('a -> 'a -> 'a) -> (Flag.t -> 'a) -> 'a t
+ *   val make : hook:unit lazy_t -> mergefun:('a -> 'a -> 'a) -> valuefun:(Flag.t -> 'a) -> 'a t
  *   val make_recvar : 'a t lazy_t -> 'a t
  *   val make_disj_merge : ('lr,'l,'r) disj_merge -> 'l t -> 'r t -> 'lr t
  *   val make_merge : 'a t -> 'a t -> 'a t
@@ -56,8 +57,8 @@ module Mergeable
     (** (C) a recursion variable *) 
     | RecVar : 'a t lazy_t * 'a cache -> 'a single
   and 'a body =
-    {merge: 'a -> 'a -> 'a;
-     value: (Flag.t -> 'a)}
+    {mergefun: 'a -> 'a -> 'a;
+     valuefun: (Flag.t -> 'a)}
   and 'a cache = (Flag.t -> 'a) lazy_t
   and hook = unit lazy_t
 
@@ -65,23 +66,23 @@ module Mergeable
 
   let merge_body (ll,hl) (rr,hr) =
     let hook = lazy (Lazy.force hl; Lazy.force hr) in
-    ({merge=ll.merge;
-      value=(fun once -> ll.merge (ll.value once) (rr.value once))},
+    ({mergefun=ll.mergefun;
+      valuefun=(fun once -> ll.mergefun (ll.valuefun once) (rr.valuefun once))},
      hook)
 
   let disj_merge_body
       : 'lr 'l 'r. ('lr,'l,'r) disj_merge -> 'l body * hook -> 'r body * hook -> 'lr body * hook =
     fun mrg (bl,hl) (br,hr) ->
-    let merge lr1 lr2 =
+    let mergefun lr1 lr2 =
       mrg.disj_merge
-        (bl.merge (mrg.disj_splitL lr1) (mrg.disj_splitL lr2))
-        (br.merge (mrg.disj_splitR lr1) (mrg.disj_splitR lr2))
+        (bl.mergefun (mrg.disj_splitL lr1) (mrg.disj_splitL lr2))
+        (br.mergefun (mrg.disj_splitR lr1) (mrg.disj_splitR lr2))
     in
-    let value once =
+    let valuefun once =
       (* we can only choose one of them -- distribute the linearity flag among merged objects *)
-      mrg.disj_merge (bl.value once) (br.value once)
+      mrg.disj_merge (bl.valuefun once) (br.valuefun once)
     in
-    {value; merge},lazy (Lazy.force hl; Lazy.force hr)    
+    {valuefun; mergefun},lazy (Lazy.force hl; Lazy.force hr)    
 
   (**
    * Resolve delayed merges
@@ -138,10 +139,10 @@ module Mergeable
   let force_mergeable : 'a. 'a t -> Flag.t -> 'a = fun t ->
     let v,hook = resolve_merge [] t in
     Lazy.force hook ;
-    v.value
+    v.valuefun
     
-  let make ~hook merge value =
-    Single (Val ({merge;value}, hook))
+  let make ~hook ~mergefun ~valuefun =
+    Single (Val ({mergefun;valuefun}, hook))
 
   let make_recvar_single t =
     let rec d = RecVar (t, lazy (force_mergeable (Single d)))
@@ -183,12 +184,12 @@ module Mergeable
   let wrap_label : 'v. (< .. > as 'o, 'v) method_ -> 'v t -> 'o t = fun meth -> function
     | Single (Val (b,h)) ->
        let body =
-         {value=(fun once -> meth.make_obj (b.value once));
-          merge=(fun l r ->
+         {valuefun=(fun once -> meth.make_obj (b.valuefun once));
+          mergefun=(fun l r ->
             let ll = meth.call_obj l
             and rr = meth.call_obj r
             in
-            meth.make_obj (b.merge ll rr))}
+            meth.make_obj (b.mergefun ll rr))}
        in
        Single (Val (body,h))
     | Single (DisjMerge (_,_,_,_)) ->
@@ -205,7 +206,7 @@ module Mergeable
     match t with
     | Single (Val (b,h)) ->
        Lazy.force h;
-       b.value (Flag.create ())
+       b.valuefun (Flag.create ())
     | Single (RecVar (_,d)) ->
        Lazy.force d  (Flag.create ())
     | Single (DisjMerge (_,_,_,d)) ->
@@ -217,12 +218,14 @@ end
 module Inp : sig
   type 'a inp
   val receive : 'a inp -> 'a
-  val merge_inp : 'a inp -> 'a inp -> 'a inp
   val create_inp : 'v Event.channel ref -> (_,[>] as 'var,_,'v * 't) label -> 't Mergeable.t -> 'var inp Mergeable.t
 end = struct
   type 'a inp = Flag.t * 'a Event.event
-  let receive (once, ev) = Flag.use once; Event.sync ev
-  let merge_inp (once, ev1) (_, ev2) = (once, Event.choose [ev1; ev2])
+  let receive (once, ev) =
+    Flag.use once;
+    Event.sync ev
+  let merge_inp (once, ev1) (_, ev2) =
+    (once, Event.choose [ev1; ev2])
   let create_inp ch label cont =
     let hook =
       lazy begin
@@ -232,7 +235,8 @@ end = struct
     in
     Mergeable.make
       ~hook
-      merge_inp
+      ~mergefun:merge_inp
+      ~valuefun:
       (fun once ->
         (once,
          Event.wrap
@@ -243,12 +247,18 @@ end
 module Out : sig
   type ('v, 't) out
   val send : ('v, 't) out -> 'v -> 't
-  val merge_out : ('v, 't) out -> ('v, 't) out -> ('v, 't) out
   val create_out : 'v Event.channel ref -> (< .. > as 'obj, _, ('v, 't) out, _) label -> 't Mergeable.t -> 'obj Mergeable.t
 end = struct
   type ('v, 'u) out = Flag.t * 'v Event.channel ref * 'u Mergeable.t
-  let send (once,ch,cont) v = Flag.use once; Event.sync (Event.send !ch v); Mergeable.generate cont
-  let merge_out (once,ch1,cont1) (_,ch2,cont2) = ch1 := !ch2; (once,ch1, Mergeable.make_merge cont1 cont2)
+  let send (once,ch,cont) v =
+    Flag.use once;
+    Event.sync (Event.send !ch v);
+    Mergeable.generate cont
+  let merge_out (once,ch1,cont1) (_,ch2,cont2) =
+    ch1 := !ch2;
+    (once, ch1, Mergeable.make_merge cont1 cont2)
+  let merge_outobj label l r =
+    label.obj.make_obj (merge_out (label.obj.call_obj l) (label.obj.call_obj r))
   let create_out ch label cont =
     let hook =
       lazy begin
@@ -258,21 +268,24 @@ end = struct
     in
     Mergeable.make
       ~hook
-      (fun l r -> label.obj.make_obj (merge_out (label.obj.call_obj l) (label.obj.call_obj r)))
-      (fun once ->
-        label.obj.make_obj (once,ch,cont))
+      ~mergefun:(merge_outobj label)
+      ~valuefun:(fun once -> label.obj.make_obj (once,ch,cont))
 end
 
 module Close : sig
   type close
-  val mclose : close Mergeable.t
   val close : close -> unit
   val merge_close : close -> close -> close
+  val mclose : close Mergeable.t
 end = struct
   type close = unit
   let merge_close _ _ = ()
   let close _ = ()
-  let mclose = Mergeable.make ~hook:(Lazy.from_val ()) merge_close (fun once -> Flag.use once; ())
+  let mclose =
+    Mergeable.make
+      ~hook:(Lazy.from_val ())
+      ~mergefun:merge_close
+      ~valuefun:(fun once -> Flag.use once; ())
 end
 
 module Seq
@@ -400,7 +413,36 @@ end  = struct
   include Close
 end
 
-module Global = struct
+module Global
+(*        : sig
+ *   open Close
+ *   open Inp
+ *   open Out
+ * 
+ *   type ('r,'v,'a,'b,'aa,'bb) role =
+ *     {role_label : ('r,'v) method_;
+ *      role_index : ('a,'b,'aa,'bb) Seq.lens}
+ * 
+ *   val fix : ('a Seq.t -> 'a Seq.t) -> 'a Seq.t
+ *   val finish : ([ `cons of close * 'a ] as 'a) Seq.t
+ * 
+ *   val choice_at :
+ *     (_, _, close, 'lr, 'g12, 'g3) role ->
+ *     ('lr, 'l, 'r) disj_merge ->
+ *     (_, _, 'l, close, 'g1, 'g12) role * 'g1 Seq.t ->
+ *     (_, _, 'r, close, 'g2, 'g12) role * 'g2 Seq.t -> 'g3 Seq.t
+ * 
+ *   val ( --> ) :
+ *     (< .. > as 'rA, ([>  ] as 'var) inp, 'epA, 'rB, 'g1, 'g2) role ->
+ *     (< .. > as 'rB, < .. > as 'obj, 'epB, 'rA, 'g0, 'g1) role ->
+ *     ('obj, 'var, ('v, 'epA) out, 'v * 'epB) label -> 'g0 Seq.t -> 'g2 Seq.t
+ * 
+ *   (\** forces delayed merges. *\)
+ *   val gen : 'a Seq.t -> 'a Seq.t
+ * 
+ *   val get_ep : (_, _, 'ep, _, 'g, _) role -> 'g Seq.t -> 'ep
+ * end *)
+  = struct
   include Inp
   include Out
   include Close
@@ -408,6 +450,7 @@ module Global = struct
   type ('r,'v,'a,'b,'aa,'bb) role =
     {role_label : ('r,'v) method_;
      role_index : ('a,'b,'aa,'bb) Seq.lens}
+     
   let fix f =
     let rec body = lazy (f (Seq.recvar body)) in
     Lazy.force body

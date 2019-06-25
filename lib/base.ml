@@ -9,6 +9,10 @@ type ('la,'va) method_ =
   {make_obj: 'va -> 'la;
    call_obj: 'la -> 'va}
 
+type ('la,'lb,'va,'vb) label =
+  {obj: ('la, 'va) method_;
+   var: 'vb -> 'lb}
+
 type close = Close
 
 type 'a one = One__

@@ -8,10 +8,6 @@ type ('robj,'c,'a,'b,'xs,'ys) role =
   {role_label: ('robj,'c) method_;
    role_index: ('a,'b,'xs,'ys) Seq.lens}
 
-type ('la,'lb,'va,'vb) label =
-  {obj: ('la, 'va) method_;
-   var: 'vb -> 'lb}
-
 type 'k prop = {multiplicity:int; epkind:'k}
 
 type 'k env = {props: 'k prop Table.t; default:int -> 'k}

@@ -1,8 +1,7 @@
 open Mpst.M
 open Mpst.M.Base
 module ML = Mpst_lwt.M
-module MA = Mpst_async.M
-   
+
 module type PERIPHERAL = sig
   include S.MONAD
   val run : 'a t -> 'a
@@ -46,7 +45,7 @@ module LinLwtMonad : PERIPHERAL_LIN with type 'a t = 'a Lwt.t = struct
   module Linocaml = Linocaml_lwt
 end
 
-                
+
 module type MEDIUM = sig
   val medium : [`Local | `IPCProcess | `Untyped]
 end
@@ -59,7 +58,7 @@ end
 module Untyped = struct
   let medium = `Untyped
 end
-               
+
 let ping_or_fini =
   {obj_merge=(fun l r -> object method ping=l#ping method fini=r#fini end);
    obj_splitL=(fun lr -> (lr :> <ping : _>));

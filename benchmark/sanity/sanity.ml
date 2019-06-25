@@ -3,7 +3,6 @@ open Util
 open Mpst.M
 open Mpst.M.Base
 module ML = Mpst_lwt.M
-module MA = Mpst_async.M
 
 let fork f x =
   Common.fork_child (fun () ->

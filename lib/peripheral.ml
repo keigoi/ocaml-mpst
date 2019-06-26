@@ -25,7 +25,7 @@ module Event : S.EVENT
            v :: List.map (fun ch -> Event.sync @@ Event.receive ch) chs)
 end
 module Serial : S.SERIAL
-       with type 'a monad = 'a
+       with type 'a monad = 'a and type in_channel = Stdlib.in_channel and type out_channel=Stdlib.out_channel
   = struct
   type 'a monad = 'a
   type in_channel = Stdlib.in_channel

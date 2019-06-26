@@ -28,7 +28,7 @@ module LwtEvent : Mpst.S.EVENT
 end
 
 module LwtSerial : Mpst.S.SERIAL
-       with type 'a monad = 'a Lwt.t
+       with type 'a monad = 'a Lwt.t and   type in_channel = Lwt_io.input_channel and type out_channel = Lwt_io.output_channel
   = struct
   type 'a monad = 'a Lwt.t
   type in_channel = Lwt_io.input_channel

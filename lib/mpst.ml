@@ -2,6 +2,9 @@ module M = struct
   module Base = Base
   module Common = Common
   module S = S
+  module Inp = Inp
+  module Out = Out
+  module Table = Table
 
   module LinFlag : S.LIN_FLAG = LinFlag
   module Peripheral = Peripheral

@@ -1,4 +1,5 @@
-; (library
-;  (name mpst_explicit)
-;  (flags ("-g" "-short-paths"))
-;  (libraries mpst_common threads))
+(library
+ (name mpst_explicit)
+ (public_name ocaml-mpst.explicit)
+ (flags ("-g" "-short-paths"))
+ (libraries lwt threads))

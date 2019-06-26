@@ -497,8 +497,24 @@ end = struct
 end
 
 module Discon : sig
+  val create_discon :
+    ('k,unit,'ks1,'ks2) lens ->
+    ('ks2 vec -> 't) Mergeable.t ->
+    ('ks1 vec -> <disconnect:'t Lwt.t>) Mergeable.t
 end = struct
-  (* let create_diconnect  *)
+  let create_discon : 'k 'ks1 'ks2.
+    ('k,unit,'ks1,'ks2) lens ->
+    ('ks2 vec -> 't) Mergeable.t ->
+    ('ks1 vec -> <disconnect:'t Lwt.t>) Mergeable.t =
+    fun lens cont ->
+    Mergeable.make
+      ~hook:(delay_force cont)
+      ~mergefun:(fun d _ -> d)
+      ~valuefun:(fun once ks1 ->
+        object method disconnect =
+            Lwt.return @@
+              Mergeable.generate cont (vec_put lens ks1 ())
+            end)
 end
 
 module Seq
@@ -649,6 +665,7 @@ module Global
   include Inp
   include Out
   include Close
+  include Discon
 
   let fix f =
     let rec body = lazy (f (Seq.recvar body)) in
@@ -703,12 +720,17 @@ module Global
 
   let disconnect
       : 'epA 'ksA0 'ksA1 'ksB0 'ksB1 'kA 'kB 'g1 'g0.
-        (_, _, ('ksA0 vec -> 'epA) * ('ksA1 vec -> 'epA) * 'g1 * 'g0, 'kA * unit * 'ksA0 * 'ksA1) role ->
-        (_, _, ('ksB0 vec -> 'epB) * ('ksB1 vec -> 'epB) * 'g2 * 'g1, 'kB * unit * 'ksB0 * 'ksB1) role ->
+        (_, _, ('ksA1 vec -> 'epA) * ('ksA0 vec -> <disconnect:'epA Lwt.t>) * 'g1 * 'g2, 'kA * unit * 'ksA0 * 'ksA1) role ->
+        (_, _, ('ksB1 vec -> 'epB) * ('ksB0 vec -> <disconnect:'epB Lwt.t>) * 'g0 * 'g1, 'kB * unit * 'ksB0 * 'ksB1) role ->
         'g0 Seq.t -> 'g2 Seq.t
     =
     fun (Role rA) (Role rB) g ->
-    failwith ""
+    let epB = Seq.lens_get rB.role_index g in
+    let epB = create_discon rB.role_index0 epB in
+    let g = Seq.lens_put rB.role_index g epB in
+    let epA = Seq.lens_get rA.role_index g in
+    let epA = create_discon rA.role_index0 epA in
+    Seq.lens_put rA.role_index g epA
 
   let (-!->)
       : 'rA 'rB 'epA 'epB 'ksA1 'ksA2 'ksB1 'ksB2 'kA 'obj 'var.
@@ -879,24 +901,26 @@ module Example = struct
       (a, (a --> b) !%right @@ disconnect a b @@ finish)
 
   let ea, eb = get_ep a g vec_all_empty, get_ep b g vec_all_empty
+  let ($$) f m =
+    Lwt.bind m (fun x -> f x)
 
   (* role B *)
   let ta =
     receive (eb (failwith ""))#role_A >>= fun (`msg(_,eb)) ->
     receive eb#role_A >>= function
     | `left(_, eb) ->
-       close eb
+       close $$ eb#disconnect
     | `right(_, eb) ->
-       close eb
+       close $$ eb#disconnect
 
   (* role A *)
   let tb =
     (ea (failwith ""))#role_B#msg () >>= fun ea ->
     if true then begin
         ea#role_B#left () >>= fun ea ->
-        close ea
+        close $$ ea#disconnect
       end else begin
         ea#role_B#right () >>= fun ea ->
-        close ea
+        close $$ ea#disconnect
       end
 end

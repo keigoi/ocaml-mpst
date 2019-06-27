@@ -91,7 +91,7 @@ let facebook_oauth () =
   let s = get_ep c g HList.vec_all_empty in
   let sessionid = Int64.to_string @@ Random.int64 Int64.max_int in
   let/ srv = my_acceptor sessionid in
-  let/ `get(params, s) = receive (s {conn=srv;buf=None})#role_U in
+  let/ `get(params, s) = receive (s srv)#role_U in
   print_endline "connection accepted";
   let redirect_url =
     Uri.add_query_params'
@@ -102,11 +102,11 @@ let facebook_oauth () =
   in
   let/ s = s#role_U#_302 redirect_url in
   let/ srv = my_acceptor sessionid in
-  let/ res = receive (s {conn=srv;buf=None})#role_U in
+  let/ res = receive (s srv)#role_U in
   match res with
   | `success(_,s) ->
      let/ cli = H.http_connector ~base_url:"https://graph.facebook.com/v2.11/oauth" sessionid in
-     let/ s = (s {conn=cli;buf=None})#role_P#get [] in
+     let/ s = (s cli)#role_P#get [] in
      let/ `_200(_,s) = receive (s#role_P) in
      let/ s = s#role_U#_200 "auth succeeded" in
      close s

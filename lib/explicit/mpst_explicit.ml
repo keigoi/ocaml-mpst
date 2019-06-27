@@ -17,50 +17,17 @@ type ('la,'lb,'va,'vb) label =
 type ('kb,'vb) input_handler = 'kb -> 'vb option Lwt.t
 type ('ka,'va) output_handler = 'ka -> 'va -> unit Lwt.t
 
-type ('ka,'kb,'v) handler =
-  {write:('ka,'v) output_handler;
-   try_read:('kb,'v) input_handler}
-
-type ('ka,'kb,'v,'b) bufferred_handler =
-  {buf_write: 'ka -> 'v -> unit Lwt.t;
-   buf_read: 'kb -> 'b Lwt.t;
-   buf_try_parse: 'kb -> 'b -> 'v option
+type ('ka,'kb,'v,'buf) handler =
+  {write: 'ka -> 'v -> unit Lwt.t;
+   read: 'kb -> 'buf Lwt.t;
+   try_parse: 'kb -> 'buf -> 'v option
   }
-  
-type ('k,'b) bufferred =
-  {conn:'k; mutable buf:'b option}
-  
-let new_bufferred : 'ka 'kb 'v 'b. ('ka,'kb,'v,'b) bufferred_handler -> (('ka,_) bufferred,('kb,'b) bufferred,'v) handler  =
-  fun h ->
-  let open Lwt in
-  {write=(fun bh -> h.buf_write bh.conn);
-   try_read=(fun bh ->
-     begin match bh.buf with
-     | None ->
-        h.buf_read bh.conn
-     | Some v ->
-        bh.buf <- None;
-        Lwt.return v
-     end >>= fun v ->
-     match h.buf_try_parse bh.conn v with
-     | None ->
-        bh.buf <- Some v;
-        Lwt.return None
-     | v ->
-        Lwt.return v
-  )}
 
-let new_no_buffer : 'ka 'kb 'v 'b. ('ka,'kb,'v) handler -> ('ka,('kb,'b) bufferred,'v) handler  =
-  fun h ->
-  let open Lwt in
-  {write=(fun conn -> h.write conn);
-   try_read=(fun bh -> h.try_read bh.conn)}
-
-type (_, _, _, _, _, _) slabel =
+type (_, _, _, _, _, _, _) slabel =
   Slabel :
-       {handler:('ka,'kb,'v) handler;
+       {handler:('ka,'kb,'v,'buf) handler;
         label: ('la,'lb,'v -> 'ca Lwt.t,'v * 'cb) label}
-       -> ('la, 'lb, 'v -> 'ca, 'v * 'cb, 'ka, 'kb) slabel
+       -> ('la, 'lb, 'v -> 'ca, 'v * 'cb, 'ka, 'kb, 'buf) slabel
 
 let (%%) label handler =
   Slabel
@@ -327,124 +294,124 @@ end
 open HList
 
 module Inp : sig
-  type 'a inp
-  val receive : 'a inp -> 'a Lwt.t
+  type ('a,'buf) inp
+  val receive : ('a,'buf) inp -> 'a Lwt.t
   val create_inp :
     ('k,'k,'ks,'ks) lens ->
-    (_, [>] as 'var, 'v->_, 'v * 't, _, 'k) slabel ->
+    (_, [>] as 'var, 'v->_, 'v * 't, _, 'k, 'buf) slabel ->
     ('ks vec -> 't) Mergeable.t ->
-    ('ks vec -> 'var inp) Mergeable.t
+    ('ks vec -> ('var,'buf) inp) Mergeable.t
   val create_inp_conn :
     (unit,'k,'ks1,'ks2) lens ->
-    (_,'var,'v->_,'v * 't, _,'k) slabel ->
+    (_,'var,'v->_,'v * 't, _,'k,'buf) slabel ->
     ('ks2 vec -> 't) Mergeable.t ->
-    ('ks1 vec -> 'k -> 'var inp) Mergeable.t
+    ('ks1 vec -> 'k -> ('var,'buf) inp) Mergeable.t
   val create_inp_discon :
     ('k,unit,'ks1,'ks2) lens ->
-    (_,'var,'v->_,'v * 't, _,'k) slabel ->
+    (_,'var,'v->_,'v * 't, _,'k, 'buf) slabel ->
     ('ks2 vec -> 't) Mergeable.t ->
-    ('ks1 vec -> 'var inp) Mergeable.t
+    ('ks1 vec -> ('var,'buf) inp) Mergeable.t
 end = struct
-  type 'a inp = Inp of Flag.t * (unit -> 'a option Lwt.t)
+  type ('l,'r) either = Left of 'l | Right of 'r
+  type ('a,'buf) inp = {once:Flag.t;  handler:'buf option -> ('buf,'a) either Lwt.t}
   let create_inp_discon _ = failwith ""
-  let receive (Inp(once, handler)) =
+  let receive {once; handler} =
     Flag.use once;
-    Lwt.bind (handler ()) (function
-        | Some v -> Lwt.return v
-        | None -> Lwt.fail (Failure"receiption failed") )
+    Lwt.bind (handler None) (function
+        | Left _ -> Lwt.fail (Failure"receiption failed")
+        | Right v -> Lwt.return v)
 
   let merge_inp f1 f2 =
-    let try_read h1 h2 = fun () ->
-      Lwt.bind (h1 ()) (function
-          | None -> h2 ()
-          | success -> Lwt.return success)
+    let seq h1 h2 = fun buf ->
+      Lwt.bind (h1 buf) (function
+          | Left buf -> h2 (Some buf)
+          | Right success -> Lwt.return (Right success))
     in
     fun k0 ->
-    match f1 k0, f2 k0 with
-    | Inp(once, h1), Inp(_, h2) ->
-       Inp(once, try_read h1 h2)
+    let inp1, inp2 = f1 k0, f2 k0 in
+    {once=inp1.once; handler=seq inp1.handler inp2.handler}
 
-  let try_read readfun k wrapfun =
-      Lwt.map
-        (fun v -> map_option ~f:wrapfun v)
-        (readfun k)
+  let try_read (Slabel slabel) k ks cont = fun buf ->
+    let open Lwt in
+    begin match buf with
+    | None ->
+       slabel.handler.read k
+    | Some buf ->
+       Lwt.return buf
+    end >>= fun buf ->
+    match (slabel.handler.try_parse k buf) with
+    | None -> Lwt.return (Left buf)
+    | Some v ->
+       let cont = Mergeable.generate cont ks in
+       Lwt.return @@ Right (slabel.label.var (v, cont))
 
   let create_inp
-      : type k ks v t var.
+      : type k ks v t var buf.
     (k,k,ks,ks) lens ->
-             (_,var,v->_,v * t,_,k) slabel ->
+             (_,var,v->_,v * t,_,k,buf) slabel ->
              (ks vec -> t) Mergeable.t ->
-             (ks vec -> var inp) Mergeable.t
-    = fun lens (Slabel label) cont ->
+             (ks vec -> (var, buf) inp) Mergeable.t
+    = fun lens slabel cont ->
+    let open Lwt in
     Mergeable.make
       ~hook:(delay_force cont)
       ~mergefun:merge_inp
       ~valuefun:
       (fun once ks ->
-        Inp(once,
-            (fun () ->
-              let cont = Mergeable.generate cont ks in
-              let k = vec_get lens ks in
-              try_read
-                label.handler.try_read
-                k
-                (fun v -> label.label.var (v, cont)))))
+        {once;
+         handler=(fun buf ->
+           let k = vec_get lens ks in
+           try_read slabel k ks cont buf
+      )})
 
   let create_inp_conn
-      : type k ks1 ks2 v t var.
+      : type k ks1 ks2 v t var buf.
     (unit,k,ks1,ks2) lens ->
-             (_,var,v->_,v * t,_,k) slabel ->
+             (_,var,v->_,v * t,_,k,buf) slabel ->
              (ks2 vec -> t) Mergeable.t ->
-             (ks1 vec -> k -> var inp) Mergeable.t
-    = fun lens (Slabel label) cont ->
+             (ks1 vec -> k -> (var,buf) inp) Mergeable.t
+    = fun lens slabel cont ->
     Mergeable.make
       ~hook:(delay_force cont)
       ~mergefun:(fun l r k -> merge_inp (l k) (r k))
       ~valuefun:(fun once ks1 k ->
-        Inp(once,
-            (fun () ->
-              let ks2 = vec_put lens ks1 k in
-              let cont = Mergeable.generate cont ks2 in
-              try_read
-                label.handler.try_read
-                k
-                (fun v -> label.label.var (v, cont)))))
+        {once;
+         handler=(fun buf ->
+           let ks2 = vec_put lens ks1 k in
+           try_read slabel k ks2 cont buf)})
 
   let create_inp_discon
-      : type k ks1 ks2 v t var.
+      : type k ks1 ks2 v t var buf.
              (k,unit,ks1,ks2) lens ->
-             (_,var,v->_,v * t,_,k) slabel ->
+             (_,var,v->_,v * t,_,k,buf) slabel ->
              (ks2 vec -> t) Mergeable.t ->
-             (ks1 vec -> var inp) Mergeable.t
-    = fun lens (Slabel label) cont ->
+             (ks1 vec -> (var,buf) inp) Mergeable.t
+    = fun lens slabel cont ->
     Mergeable.make
       ~hook:(delay_force cont)
       ~mergefun:merge_inp
       ~valuefun:(fun once ks1 ->
-        Inp(once,
-            (fun () ->
-              let ks2 = vec_put lens ks1 () in
-              let cont = Mergeable.generate cont ks2 in
-              try_read
-                label.handler.try_read
-                (vec_get lens ks1)
-                (fun v -> label.label.var (v, cont)))))
+        {once;
+         handler=(fun buf ->
+           let k = vec_get lens ks1 in
+           let ks2 = vec_put lens ks1 () in
+           try_read slabel k ks2 cont buf)})
 end
 
 module Out : sig
   val create_out :
     ('k, 'k, 'ks, 'ks) lens ->
-    ('obj, _, 'v -> 't, 'v * _, 'k, _) slabel ->
+    ('obj, _, 'v -> 't, 'v * _, 'k, _, _) slabel ->
     ('ks vec -> 't) Mergeable.t ->
     ('ks vec -> 'obj) Mergeable.t
   val create_out_conn :
     (unit,'k,'ks1,'ks2) lens ->
-    ('obj,_,'v -> 't, 'v*_,'k,_) slabel ->
+    ('obj,_,'v -> 't, 'v*_,'k,_, _) slabel ->
     ('ks2 vec -> 't) Mergeable.t ->
     ('ks1 vec -> 'k -> 'obj) Mergeable.t
   val create_out_discon :
     ('k,unit,'ks1,'ks2) lens ->
-    ('obj,_,'v -> 't, 'v*_,'k,_) slabel ->
+    ('obj,_,'v -> 't, 'v*_,'k,_,_) slabel ->
     ('ks2 vec -> 't) Mergeable.t ->
     ('ks1 vec -> 'obj) Mergeable.t
 end = struct
@@ -457,9 +424,9 @@ end = struct
     f
 
   let create_out :
-        type ks k obj v t.
+        type ks k obj v t buf.
              (k,_,ks,_) lens ->
-             (obj,_,v -> t,v*_,k,_) slabel ->
+             (obj,_,v -> t,v*_,k,_,buf) slabel ->
              (ks vec -> t) Mergeable.t ->
              (ks vec -> obj) Mergeable.t
     =
@@ -475,9 +442,9 @@ end = struct
             write label.handler.write (vec_get lens ks) v cont))
 
   let create_out_conn :
-        type k ks1 ks2 obj v t.
+        type k ks1 ks2 obj v t buf.
              (unit,k,ks1,ks2) lens ->
-             (obj,_,v -> t,v*_,k,_) slabel ->
+             (obj,_,v -> t,v*_,k,_,buf) slabel ->
              (ks2 vec -> t) Mergeable.t ->
              (ks1 vec -> k -> obj) Mergeable.t
     =
@@ -494,9 +461,9 @@ end = struct
             write label.handler.write k v cont))
 
   let create_out_discon :
-        type k ks1 ks2 obj v t.
+        type k ks1 ks2 obj v t buf.
              (k,unit,ks1,ks2) lens ->
-             (obj,_,v -> t,v*_,k,_) slabel ->
+             (obj,_,v -> t,v*_,k,_,buf) slabel ->
              (ks2 vec -> t) Mergeable.t ->
              (ks1 vec -> obj) Mergeable.t
     =
@@ -736,10 +703,10 @@ module Global
     g
 
   let (-->)
-      : 'rA 'rB 'epA 'epB 'ksA 'ksB 'kA 'obj 'var.
-        (< .. > as 'rA, ([>  ] as 'var) inp, ('ksA vec -> 'epA) * ('ksA vec -> 'rB) * 'g1 * 'g2, 'kB * 'kB * 'ksB * 'ksB) role ->
+      : 'rA 'rB 'epA 'epB 'ksA 'ksB 'kA 'obj 'var 'buf.
+        (< .. > as 'rA, ([>  ] as 'var, 'buf) inp, ('ksA vec -> 'epA) * ('ksA vec -> 'rB) * 'g1 * 'g2, 'kB * 'kB * 'ksB * 'ksB) role ->
         (< .. > as 'rB, < .. > as 'obj, ('ksB vec -> 'epB) * ('ksB vec -> 'rA) * 'g0 * 'g1, 'kA * 'kA * 'ksA * 'ksA) role ->
-        ('obj, 'var, 'v -> 'epA, 'v * 'epB, 'kA, 'kB) slabel -> 'g0 Seq.t -> 'g2 Seq.t
+        ('obj, 'var, 'v -> 'epA, 'v * 'epB, 'kA, 'kB, 'buf) slabel -> 'g0 Seq.t -> 'g2 Seq.t
     =
     fun (Role rA) (Role rB) slabel g ->
     let epB = Seq.lens_get rB.role_index g in
@@ -766,10 +733,10 @@ module Global
     Seq.lens_put rA.role_index g epA
 
   let (-!->)
-      : 'rA 'rB 'epA 'epB 'ksA1 'ksA2 'ksB1 'ksB2 'kA 'obj 'var.
-        (< .. > as 'rA, ([>  ] as 'var) inp, ('ksA2 vec -> 'epA) * ('ksA1 vec -> 'kA -> 'rB) * 'g1 * 'g2, unit * 'kB * 'ksB1 * 'ksB2) role ->
+      : 'rA 'rB 'epA 'epB 'ksA1 'ksA2 'ksB1 'ksB2 'kA 'obj 'var 'buf.
+        (< .. > as 'rA, ([>  ] as 'var, 'buf) inp, ('ksA2 vec -> 'epA) * ('ksA1 vec -> 'kA -> 'rB) * 'g1 * 'g2, unit * 'kB * 'ksB1 * 'ksB2) role ->
         (< .. > as 'rB, < .. > as 'obj, ('ksB2 vec -> 'epB) * ('ksB1 vec -> 'kB -> 'rA) * 'g0 * 'g1, unit * 'kA * 'ksA1 * 'ksA2) role ->
-        ('obj, 'var, 'v -> 'epA, 'v * 'epB, 'kA, 'kB) slabel -> 'g0 Seq.t -> 'g2 Seq.t
+        ('obj, 'var, 'v -> 'epA, 'v * 'epB, 'kA, 'kB, 'buf) slabel -> 'g0 Seq.t -> 'g2 Seq.t
     =
     fun (Role rA) (Role rB) slabel g ->
     let epB = Seq.lens_get rB.role_index g in
@@ -782,10 +749,10 @@ module Global
     Seq.lens_put rA.role_index g epA
 
   let (-?->)
-      : 'rA 'rB 'epA 'epB 'ksA1 'ksA2 'ksB1 'ksB2 'kA 'obj 'var.
-        (< .. > as 'rA, ([>  ] as 'var) inp, ('ksA2 vec -> 'epA) * ('ksA1 vec -> 'rB) * 'g1 * 'g2, 'kB * unit * 'ksB1 * 'ksB2) role ->
+      : 'rA 'rB 'epA 'epB 'ksA1 'ksA2 'ksB1 'ksB2 'kA 'obj 'var 'buf.
+        (< .. > as 'rA, ([>  ] as 'var, 'buf) inp, ('ksA2 vec -> 'epA) * ('ksA1 vec -> 'rB) * 'g1 * 'g2, 'kB * unit * 'ksB1 * 'ksB2) role ->
         (< .. > as 'rB, < .. > as 'obj, ('ksB2 vec -> 'epB) * ('ksB1 vec -> 'rA) * 'g0 * 'g1, 'kA * unit * 'ksA1 * 'ksA2) role ->
-        ('obj, 'var, 'v -> 'epA, 'v * 'epB, 'kA, 'kB) slabel -> 'g0 Seq.t -> 'g2 Seq.t
+        ('obj, 'var, 'v -> 'epA, 'v * 'epB, 'kA, 'kB, 'buf) slabel -> 'g0 Seq.t -> 'g2 Seq.t
     =
     fun (Role rA) (Role rB) slabel g ->
     let epB = Seq.lens_get rB.role_index g in

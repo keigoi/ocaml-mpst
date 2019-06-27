@@ -23,27 +23,16 @@ let new_channel () =
 let generic_handler label =
   let open Lwt in
   let mytag = Mpst.M.Base.make_tag label.var in
-  {try_read=
-     (fun h ->
-       begin match h.tagbuf with
-       | None ->
-          Lwt_io.read_value h.inp
-       | Some tag ->
-          h.tagbuf <- None;
-          Lwt.return tag
-       end >>= fun tag ->
-       if tag=mytag then
-         Lwt.map
-           (fun v -> Some v)
-           (Lwt_io.read_value h.inp)
-       else begin
-           h.tagbuf <- Some tag;
-           Lwt.return None
-         end);
-   write=(fun h v ->
-     Lwt_io.write_value h.out mytag >>= fun () ->
-     Lwt_io.write_value h.out v >>= fun () ->
-     Lwt_io.flush h.out)}
+  {write=(fun h v ->
+     Lwt_io.write_value h.out (mytag, v) >>= fun () ->
+     Lwt_io.flush h.out);
+   read=(fun h -> Lwt_io.read_value h.inp);
+   try_parse=(fun _ (tag,v) ->
+     if tag=mytag then
+       Some (Obj.obj v)
+     else
+       None)
+  }
 
 let (!%) label =
   label %% generic_handler label

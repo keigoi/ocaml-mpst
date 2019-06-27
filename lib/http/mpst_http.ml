@@ -228,13 +228,12 @@ module Handlers = struct
   type http_param = (string * string list) list 
 
   let get ?sess_pred ?pred path =
-    new_bufferred
-      {buf_write=(fun c v ->
+      {write=(fun c v ->
          c.write_request ~path ~params:v);
-       buf_read=(fun c ->
+       read=(fun c ->
          c.read_request ~paths:[path] ~predicate:(mkpred sess_pred c) () >>= fun (req,_) ->
          Lwt.return @@ param req);
-       buf_try_parse=(fun k req ->
+       try_parse=(fun k req ->
          match pred with
          | None -> Some req
          | Some pred -> if pred k req then Some req else None
@@ -246,10 +245,11 @@ module Handlers = struct
          ~status:`OK
          ~body:v
          () >>= fun (resp,body) ->
-       c.conn.write_response (resp, body));
-     try_read=(fun c -> (* FIXME: check resposne code *)
-       c.conn.read_response >>= fun (_resp, body) ->
-       Lwt.return @@ Some body)}
+       c.write_response (resp, body));
+     read=(fun c -> (* FIXME: check resposne code *)
+       c.read_response >>= fun (_resp, body) ->
+       Lwt.return body);
+     try_parse=(fun _ req -> Some req)}
 
   let _302 =
       {write=(fun c url ->
@@ -257,8 +257,9 @@ module Handlers = struct
            ~status:`Found
            ~headers:(Cohttp.Header.init_with "Location" @@ Uri.to_string url)
            ~body:"" () >>= fun (resp,body) ->
-         c.conn.write_response (resp, body));
-       try_read=(fun _ -> Lwt.fail_with "TODO: not implemented")}
+         c.write_response (resp, body));
+       read=(fun _ -> Lwt.fail_with "TODO: not implemented");
+       try_parse=(fun _ v -> Some v)}
 end
 
 module SLabels = struct

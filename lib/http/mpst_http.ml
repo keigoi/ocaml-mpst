@@ -169,6 +169,10 @@ module Util = struct
     let uri = req |> Cohttp.Request.resource |> Uri.of_string in
     Uri.get_query_param uri key = Some value
 
+  let http_parameter_key_contains key req =
+    let uri = req |> Cohttp.Request.resource |> Uri.of_string in
+    Uri.get_query_param uri key <> None
+
   (** (parse req) returns (relative_path, request_params) *)
   let parse req =
     let uri = req |> Cohttp.Request.resource |> Uri.of_string in
@@ -221,40 +225,48 @@ let mkpred = function
 module Handlers = struct
   open Mpst_explicit
 
-  let get ?pred path =
-    {write=(fun c v ->
-       c.write_request ~path ~params:v);
-     try_read=(fun c ->
-       c.read_request ~paths:[path] ~predicate:(mkpred pred c) () >>= fun (req,_) ->
-       Lwt.return (Some(param req)))}
+  type http_param = (string * string list) list 
+
+  let get ?sess_pred ?pred path =
+    new_bufferred
+      {buf_write=(fun c v ->
+         c.write_request ~path ~params:v);
+       buf_read=(fun c ->
+         c.read_request ~paths:[path] ~predicate:(mkpred sess_pred c) () >>= fun (req,_) ->
+         Lwt.return @@ param req);
+       buf_try_parse=(fun k req ->
+         match pred with
+         | None -> Some req
+         | Some pred -> if pred k req then Some req else None
+      )}
 
   let _200 =
     {write=(fun c v ->
-         Cohttp_lwt_unix.Server.respond_string
-           ~status:`OK
-           ~body:v
-           () >>= fun (resp,body) ->
-         c.write_response (resp, body));
+       Cohttp_lwt_unix.Server.respond_string
+         ~status:`OK
+         ~body:v
+         () >>= fun (resp,body) ->
+       c.conn.write_response (resp, body));
      try_read=(fun c -> (* FIXME: check resposne code *)
-       c.read_response >>= fun (_resp, body) ->
+       c.conn.read_response >>= fun (_resp, body) ->
        Lwt.return @@ Some body)}
 
   let _302 =
-    {write=(fun c url ->
-           Cohttp_lwt_unix.Server.respond_string
-             ~status:`Found
-             ~headers:(Cohttp.Header.init_with "Location" @@ Uri.to_string url)
-             ~body:"" () >>= fun (resp,body) ->
-           c.write_response (resp, body));
-     try_read=(fun _ -> Lwt.fail_with "TODO: not implemented")}
+      {write=(fun c url ->
+         Cohttp_lwt_unix.Server.respond_string
+           ~status:`Found
+           ~headers:(Cohttp.Header.init_with "Location" @@ Uri.to_string url)
+           ~body:"" () >>= fun (resp,body) ->
+         c.conn.write_response (resp, body));
+       try_read=(fun _ -> Lwt.fail_with "TODO: not implemented")}
 end
 
 module SLabels = struct
   open Mpst_explicit
-  let get ?pred url = Labels.get %% Handlers.get ?pred url
-  let post ?pred url = Labels.post %% Handlers.get ?pred:None url (* FIXME *)
-  let success ?pred url = Labels.success %% Handlers.get ?pred url
-  let fail ?pred url = Labels.fail %% Handlers.get ?pred url
+  let get ?sess_pred ?pred url = Labels.get %% Handlers.get ?sess_pred ?pred url
+  let post ?sess_pred ?pred url = Labels.post %% Handlers.get ?sess_pred ?pred:None url (* FIXME *)
+  let success ?sess_pred ?pred url = Labels.success %% Handlers.get ?sess_pred ?pred url
+  let fail ?sess_pred ?pred url = Labels.fail %% Handlers.get ?sess_pred ?pred url
 
   let _302 = Slabel {label=Labels._302; handler=Handlers._302}
   let _200 = Slabel {label=Labels._200; handler=Handlers._200}

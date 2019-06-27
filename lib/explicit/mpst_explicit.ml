@@ -21,6 +21,41 @@ type ('ka,'kb,'v) handler =
   {write:('ka,'v) output_handler;
    try_read:('kb,'v) input_handler}
 
+type ('ka,'kb,'v,'b) bufferred_handler =
+  {buf_write: 'ka -> 'v -> unit Lwt.t;
+   buf_read: 'kb -> 'b Lwt.t;
+   buf_try_parse: 'kb -> 'b -> 'v option
+  }
+  
+type ('k,'b) bufferred =
+  {conn:'k; mutable buf:'b option}
+  
+let new_bufferred : 'ka 'kb 'v 'b. ('ka,'kb,'v,'b) bufferred_handler -> (('ka,_) bufferred,('kb,'b) bufferred,'v) handler  =
+  fun h ->
+  let open Lwt in
+  {write=(fun bh -> h.buf_write bh.conn);
+   try_read=(fun bh ->
+     begin match bh.buf with
+     | None ->
+        h.buf_read bh.conn
+     | Some v ->
+        bh.buf <- None;
+        Lwt.return v
+     end >>= fun v ->
+     match h.buf_try_parse bh.conn v with
+     | None ->
+        bh.buf <- Some v;
+        Lwt.return None
+     | v ->
+        Lwt.return v
+  )}
+
+let new_no_buffer : 'ka 'kb 'v 'b. ('ka,'kb,'v) handler -> ('ka,('kb,'b) bufferred,'v) handler  =
+  fun h ->
+  let open Lwt in
+  {write=(fun conn -> h.write conn);
+   try_read=(fun bh -> h.try_read bh.conn)}
+
 type (_, _, _, _, _, _) slabel =
   Slabel :
        {handler:('ka,'kb,'v) handler;
@@ -767,7 +802,7 @@ module Global
   let get_ep (Role r) g =
     Mergeable.generate (Seq.lens_get r.role_index g)
 end
-
+  
 module Util = struct
   open Global
   (* open Local *)
@@ -869,8 +904,8 @@ module Util = struct
      disj_splitL=(fun lr -> (lr :> <middle : _>));
      disj_splitR=(fun lr -> (lr :> <right : _>));
     }
+       
 end
 
 include Global
-(* include Local *)
 include Util

@@ -56,6 +56,15 @@ let to_c m = to_ m c c c
 let to_p m = to_ m p p p
 
 let mk_oauth () =
+  let sess_pred c =
+    H.Util.http_parameter_contains ("state", c.H.extra_server)
+  in
+  let success_pred c params =
+    not (List.mem_assoc "error" params)
+  in
+  let error_pred c params =
+    List.mem_assoc "error" params
+  in
   (u -!-> c) (get "/oauth") @@
   (c -?-> u) _302  @@
   (u -!-> p) (get "-TODO-") @@
@@ -63,13 +72,13 @@ let mk_oauth () =
   (u -!-> p) (post "-TODO-") @@
   choice_at p (to_u success_or_fail)
     (p, (p -?-> u) success_resp @@
-        (u -!-> c) (success ~pred:(fun c -> H.Util.http_parameter_contains ("state", c.H.extra_server)) "/callback") @@
+        (u -!-> c) (success ~sess_pred ~pred:success_pred "/callback") @@
         (c -!-> p) (get "/access_token") @@
         (p -?-> c) _200 @@
         (c -?-> u) _200 @@
         finish)
     (p, (p -?-> u) fail_resp @@
-        (u -!-> c) (fail ~pred:(fun _ -> H.Util.http_parameter_contains ("error", "access_denied")) "/callback") @@
+        (u -!-> c) (fail ~sess_pred ~pred:error_pred "/callback") @@
         (c -?-> u) _200 @@
         finish)
 
@@ -82,7 +91,7 @@ let facebook_oauth () =
   let s = get_ep c g HList.vec_all_empty in
   let sessionid = Int64.to_string @@ Random.int64 Int64.max_int in
   let/ srv = my_acceptor sessionid in
-  let/ `get(params, s) = receive (s srv)#role_U in
+  let/ `get(params, s) = receive (s {conn=srv;buf=None})#role_U in
   print_endline "connection accepted";
   let redirect_url =
     Uri.add_query_params'
@@ -93,11 +102,11 @@ let facebook_oauth () =
   in
   let/ s = s#role_U#_302 redirect_url in
   let/ srv = my_acceptor sessionid in
-  let/ res = receive (s srv)#role_U in
+  let/ res = receive (s {conn=srv;buf=None})#role_U in
   match res with
   | `success(_,s) ->
      let/ cli = H.http_connector ~base_url:"https://graph.facebook.com/v2.11/oauth" sessionid in
-     let/ s = (s cli)#role_P#get [] in
+     let/ s = (s {conn=cli;buf=None})#role_P#get [] in
      let/ `_200(_,s) = receive (s#role_P) in
      let/ s = s#role_U#_200 "auth succeeded" in
      close s

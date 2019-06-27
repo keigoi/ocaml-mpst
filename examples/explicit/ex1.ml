@@ -45,7 +45,7 @@ let g =
       (a, (a --> b) !%left @@ disconnect a b @@ finish)
       (a, (a --> b) !%right @@ disconnect a b @@ finish)
 
-let ea, eb = get_ep a g vec_all_empty, get_ep b g vec_all_empty
+let ea, eb = get_ep a g, get_ep b g
 
 let pa, pb = new_channel ()
 

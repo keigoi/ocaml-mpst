@@ -1,4 +1,4 @@
-(** A reference implementation of ocaml-mpst *)
+(** ocaml-mpst w/ explicit connection handling *)
 
 type ('lr, 'l, 'r) disj_merge =
   {disj_merge: 'l -> 'r -> 'lr;
@@ -75,6 +75,8 @@ module Mergeable
  *   val make_merge : 'a t -> 'a t -> 'a t
  *   val make_merge_list : 'a t list -> 'a t
  *   val wrap_label : (< .. > as 'l, 'v) method_ -> 'v t -> 'l t
+ *   val wrap_label_fun : (< .. > as 'o, 'v) method_ -> ('p -> 'v) t -> ('p -> 'o) t
+ *   val wrap_label_fun2 : (< .. > as 'o, 'v) method_ -> ('p -> 'q -> 'v) t -> ('p -> 'q -> 'o) t
  *   val generate : 'a t -> 'a
  * end *)
   = struct
@@ -520,15 +522,15 @@ end
 module Seq
   (*        : sig
    *   type _ t
-   *
+   * 
    *   exception UnguardedLoopSeq
-   *
+   * 
    *   val lens_get : ('a, _, 'aa, _) lens -> 'aa t -> 'a Mergeable.t
    *   val lens_put : ('a, 'b, 'aa, 'bb) lens -> 'aa t -> 'b Mergeable.t -> 'bb t
-   *
+   * 
    *   val seq_merge : 'a t -> 'a t -> 'a t
    *   val recvar : 'a t lazy_t -> 'a t
-   *   val all_closed : ([`c of Close.close * 'a] as 'a) t
+   *   val all_closed : (<c: (vec_all_empty -> Close.close) * 'a>as 'a) t
    *   val partial_force : 'x t -> 'x t
    * end *)
   = struct
@@ -623,49 +625,71 @@ module Seq
     | SeqBottom -> SeqBottom
 end
 
-(* module Local : sig
- *   type 'a inp = ('ks,'k,'a) Inp.inp
- *   type ('v, 't) out = ('v, 't) Out.out
- *   type close = Close.close
- *   val receive : ('ep,('ks,'k,'a)inp,'k,_,'ks,_) role -> 'ep -> 'a Lwt.t
- *   val send : 'ep -> ('ep,('ks,'obj) out,'k,_,'ks,_) role -> ('obj,_,'k->'v->'t Lwt.t,_) label -> 'v -> 't Lwt.t
- *   val close : close -> unit
- * end  = struct
- *   include Inp
- *   include Out
- *   include Close
- * end *)
-
-module Global
-(*        : sig
- * open Close
- * open Inp
- * open Out
- *
- * val fix : ('a Seq.t -> 'a Seq.t) -> 'a Seq.t
- * val finish : ([ `c of close * 'a ] as 'a) Seq.t
- *
- * val choice_at :
- *   (_, _, close, 'lr, 'g12, 'g3) role ->
- *   ('lr, 'l, 'r) disj_merge ->
- *   (_, _, 'l, close, 'g1, 'g12) role * 'g1 Seq.t ->
- *   (_, _, 'r, close, 'g2, 'g12) role * 'g2 Seq.t -> 'g3 Seq.t
- *
- * val (-->) :
- *       (< .. > as 'rA, ('ksB, 'kb, 'var) inp, 'ksA HList.t -> 'v -> 'epA, 'ksA HList.t -> 'rB, 'g1, 'g) role ->
- *       (< .. > as 'rB, ('ksA, 'obj) out,      'ksB HList.t -> 'epB, 'ksB HList.t -> 'rA, 'g0, 'g1) role ->
- *       ('ka, 'kb, (< .. > as 'obj), ([>] as 'var), 'ka -> 'v -> 'epA, 'v * 'epB) slabel -> 'g0 Seq.t -> 'g Seq.t
- *
- * (\** forces delayed merges. *\)
- * val gen : 'a Seq.t -> 'a Seq.t
- *
- * val get_ep : (_, _, 'ep, _, 'g, _) role -> 'g Seq.t -> 'ep
- * end *)
-  = struct
+module Local : sig
+  type ('a,'buf) inp = ('a,'buf) Inp.inp
+  type close = Close.close
+  val receive : ('a,'buf) inp -> 'a Lwt.t
+  val close : close -> unit Lwt.t
+end  = struct
   include Inp
   include Out
   include Close
-  include Discon
+end
+
+module Global
+(*        : sig
+ *   open Close
+ *   open Inp
+ *   open Out
+ * 
+ *   val fix : ('a Seq.t -> 'a Seq.t) -> 'a Seq.t
+ *   val finish : (<c : (vec_all_empty -> close) * 'a > as 'a) Seq.t
+ * 
+ *   val choice_at :
+ *         (_, _, unit * ('ksA -> 'epA) * 'g12 * 'g3, _*_*_*_) role ->
+ *         ('epA, 'epA1, 'epA2) disj_merge ->
+ *         (_, _, ('ksA -> 'epA1) * unit * 'g1 * 'g12, _*_*_*_) role * 'g1 Seq.t ->
+ *         (_, _, ('ksA -> 'epA2) * unit * 'g2 * 'g12,  _*_*_*_) role * 'g2 Seq.t ->
+ *         'g3 Seq.t
+ * 
+ *   val choice_req_at :
+ *         (_, _, unit * ('ksA -> 'kA -> 'epA) * 'g12 * 'g3, _*_*_*_) role ->
+ *         ('epA, 'epA1, 'epA2) disj_merge ->
+ *         (_, _, ('ksA -> 'kA -> 'epA1) * unit * 'g1 * 'g12, _*_*_*_) role * 'g1 Seq.t ->
+ *         (_, _, ('ksA -> 'kA -> 'epA2) * unit * 'g2 * 'g12,  _*_*_*_) role * 'g2 Seq.t ->
+ *         'g3 Seq.t
+ * 
+ *   val (-->) :
+ *         (< .. > as 'rA, ([>  ] as 'var, 'buf) inp, ('ksA vec -> 'epA) * ('ksA vec -> 'rB) * 'g1 * 'g2, 'kB * 'kB * 'ksB * 'ksB) role ->
+ *         (< .. > as 'rB, < .. > as 'obj, ('ksB vec -> 'epB) * ('ksB vec -> 'rA) * 'g0 * 'g1, 'kA * 'kA * 'ksA * 'ksA) role ->
+ *         ('obj, 'var, 'v -> 'epA, 'v * 'epB, 'kA, 'kB, 'buf) slabel -> 'g0 Seq.t -> 'g2 Seq.t
+ * 
+ *   val disconnect :
+ *         (_, _, ('ksA1 vec -> 'epA) * ('ksA0 vec -> <disconnect:'epA Lwt.t>) * 'g1 * 'g2, 'kB * unit * 'ksB0 * 'ksB1) role ->
+ *         (_, _, ('ksB1 vec -> 'epB) * ('ksB0 vec -> <disconnect:'epB Lwt.t>) * 'g0 * 'g1, 'kA * unit * 'ksA0 * 'ksA1) role ->
+ *         'g0 Seq.t -> 'g2 Seq.t
+ * 
+ *   val (-!->) :
+ *         (< .. > as 'rA, ([>  ] as 'var, 'buf) inp, ('ksA2 vec -> 'epA) * ('ksA1 vec -> 'kA -> 'rB) * 'g1 * 'g2, unit * 'kB * 'ksB1 * 'ksB2) role ->
+ *         (< .. > as 'rB, < .. > as 'obj, ('ksB2 vec -> 'epB) * ('ksB1 vec -> 'kB -> 'rA) * 'g0 * 'g1, unit * 'kA * 'ksA1 * 'ksA2) role ->
+ *         ('obj, 'var, 'v -> 'epA, 'v * 'epB, 'kA, 'kB, 'buf) slabel -> 'g0 Seq.t -> 'g2 Seq.t
+ * 
+ *   val (-?->) :
+ *         (< .. > as 'rA, ([>  ] as 'var, 'buf) inp, ('ksA2 vec -> 'epA) * ('ksA1 vec -> 'rB) * 'g1 * 'g2, 'kB * unit * 'ksB1 * 'ksB2) role ->
+ *         (< .. > as 'rB, < .. > as 'obj, ('ksB2 vec -> 'epB) * ('ksB1 vec -> 'rA) * 'g0 * 'g1, 'kA * unit * 'ksA1 * 'ksA2) role ->
+ *         ('obj, 'var, 'v -> 'epA, 'v * 'epB, 'kA, 'kB, 'buf) slabel -> 'g0 Seq.t -> 'g2 Seq.t
+ * 
+ *   (\** forces delayed merges. *\)
+ *   val gen : 'a Seq.t -> 'a Seq.t
+ * 
+ *   val get_ep :
+ *     (_, _, (vec_all_empty -> 'ep) * _ * 'xs * _, _*_*_*_) role -> 'xs Seq.t -> 'ep
+ * end *)
+  = struct
+  open Inp
+  open Out
+  open Close
+  open Discon
 
   let fix f =
     let rec body = lazy (f (Seq.recvar body)) in
@@ -782,7 +806,7 @@ module Global
   let gen g = Seq.partial_force g
 
   let get_ep (Role r) g =
-    Mergeable.generate (Seq.lens_get r.role_index g)
+    Mergeable.generate (Seq.lens_get r.role_index g) HList.vec_all_empty
 end
   
 module Util = struct
@@ -890,4 +914,5 @@ module Util = struct
 end
 
 include Global
+include Local
 include Util

@@ -88,7 +88,7 @@ let () =
 let facebook_oauth () =
   print_endline "oauth_consumer started";
   let g = mk_oauth () in
-  let s = get_ep c g HList.vec_all_empty in
+  let s = get_ep c g in
   let sessionid = Int64.to_string @@ Random.int64 Int64.max_int in
   let/ srv = my_acceptor sessionid in
   let/ `get(params, s) = receive (s srv)#role_U in

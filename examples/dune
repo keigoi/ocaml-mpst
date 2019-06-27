@@ -1,0 +1,5 @@
+(executable
+ (name usecases)
+  (public_name usecases)
+  (flags ("-g" "-short-paths"))
+  (libraries ocaml-mpst))

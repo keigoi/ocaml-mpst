@@ -1,16 +1,3 @@
-; (library
-;  (name marshal_example)
-;  (modules marshal_example)
-;  (flags ("-g" "-short-paths"))
-;  (libraries mpst_explicit lwt.unix))
-;
-; (executable
-;  (name ex7)
-;   (public_name ex7)
-;   (modules ex7)
-;   (flags ("-g" "-short-paths"))
-;   (libraries marshal_example mpst_explicit lwt.unix))
-;
 (executable
  (name ex1)
   (public_name mpst_explicit_ex1)

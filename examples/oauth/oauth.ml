@@ -4,23 +4,12 @@
  * a -!-> b : connect, then send.
  * b -?-> a : receive, then disconnect.
  *)
-open Mpst_explicit.Session
-open Mpst_explicit.Global
-open Mpst_explicit.Parties
-open Mpst_explicit.Util.Labels
-open Mpst_http.Labels
+open Mpst_explicit
 module H = Mpst_http
-let (>>=) = Lwt.(>>=)
 
-let finish :
-      (((unit * (unit * (unit * unit))) slots, close) prot *
-         (((unit * (unit * (unit * unit))) slots, close) prot *
-            (((unit * (unit * (unit * unit))) slots, close) prot * unit)))
-        slots lazy_t =
-  lv@@Cons(lv@@Prot Close,lv@@Cons(lv@@Prot Close,lv@@Cons(lv@@Prot Close,lv Nil)))
+open Mpst_http.SLabels
 
-let emp = Cons(lv Unit,lv@@Cons(lv Unit,lv@@Cons(lv Unit,lv Nil)))
-let get_sess_ r c = Sess(emp, unprot @@ lens_get_ r.lens c)
+let (let/) = Lwt.(>>=)
 
 (*
   (replace keigoimai.info with appropriate domain)
@@ -50,27 +39,38 @@ let () =
   Cohttp_server_lwt.hook := hook;
   Lwt.async (Cohttp_server_lwt.start_server "/var/empty" 8080 "127.0.0.1" "index.html" None)
 
-type u = U
-type p = P
-let u = {a with role=U}
-let p = {b with role=P}
+let u = Role {role_label=
+                {make_obj=(fun v->object method role_U=v end);
+                 call_obj=(fun o->o#role_U)};
+              role_index=Zero; role_index0=Zero}
+let c = Role {role_label=
+                {make_obj=(fun v->object method role_C=v end);
+                 call_obj=(fun o->o#role_C)};
+              role_index=Succ Zero; role_index0=Succ Zero}
+let p = Role {role_label=
+                {make_obj=(fun v->object method role_P=v end);
+                 call_obj=(fun o->o#role_P)};
+              role_index=Succ (Succ Zero); role_index0=Succ (Succ Zero)}
+let to_u m = to_ m u u u
+let to_c m = to_ m c c c
+let to_p m = to_ m p p p
 
-let mk_oauth muc mup mcp =
-  ((u,u) -!-> (c,c)) (get muc "/oauth") @@
-  ((c,c) -?-> (u,u)) (_302 muc)  @@
-  ((u,u) -!-> (p,p)) (get mup "-TODO-") @@
-  ((p,p) -?-> (u,u)) (_200 mup) @@
-  ((u,u) -!-> (p,p)) (post mup "-TODO-") @@
-  choice_at p success_or_fail
-    (p, ((p,p) -?-> (u,u)) (success_resp ~pred:(fun c -> failwith "TODO") mup) @@
-        ((u,u) -!-> (c,c)) (success ~pred:(fun c -> H.Util.http_parameter_contains ("state", c.H.extra_server)) muc "/callback") @@
-        ((c,c) -!-> (p,p)) (get mcp "/access_token") @@
-        ((p,p) -?-> (c,c)) (_200 mcp) @@
-        ((c,c) -?-> (u,u)) (_200 muc) @@
+let mk_oauth () =
+  (u -!-> c) (get "/oauth") @@
+  (c -?-> u) _302  @@
+  (u -!-> p) (get "-TODO-") @@
+  (p -?-> u) _200 @@
+  (u -!-> p) (post "-TODO-") @@
+  choice_at p (to_u success_or_fail)
+    (p, (p -?-> u) success_resp @@
+        (u -!-> c) (success ~pred:(fun c -> H.Util.http_parameter_contains ("state", c.H.extra_server)) "/callback") @@
+        (c -!-> p) (get "/access_token") @@
+        (p -?-> c) _200 @@
+        (c -?-> u) _200 @@
         finish)
-    (p, ((p,p) -?-> (u,u)) (fail_resp ~pred:(fun c -> failwith "TODO") mup) @@
-        ((u,u) -!-> (c,c)) (fail ~pred:(fun _ -> H.Util.http_parameter_contains ("error", "access_denied")) muc "/callback") @@
-        ((c,c) -?-> (u,u)) (_200 muc) @@
+    (p, (p -?-> u) fail_resp @@
+        (u -!-> c) (fail ~pred:(fun _ -> H.Util.http_parameter_contains ("error", "access_denied")) "/callback") @@
+        (c -?-> u) _200 @@
         finish)
 
 let () =
@@ -78,11 +78,11 @@ let () =
 
 let facebook_oauth () =
   print_endline "oauth_consumer started";
-  let g = mk_oauth H.http H.http H.http in
-  let s = get_sess_ c g in
+  let g = mk_oauth () in
+  let s = get_ep c g HList.vec_all_empty in
   let sessionid = Int64.to_string @@ Random.int64 Int64.max_int in
-  my_acceptor sessionid >>= fun srv ->
-  accept u srv s >>= fun (`get(params, s)) ->
+  let/ srv = my_acceptor sessionid in
+  let/ `get(params, s) = receive (s srv)#role_U in
   print_endline "connection accepted";
   let redirect_url =
     Uri.add_query_params'
@@ -91,33 +91,28 @@ let facebook_oauth () =
        ("redirect_uri", Params.callback_url);
        ("state", sessionid)]
   in
-  let s = send u (fun x->x#_302) redirect_url s in
-  let s = disconnect u s in
-  my_acceptor sessionid >>= fun srv ->
-  accept u srv s >>= function
+  let/ s = s#role_U#_302 redirect_url in
+  let/ srv = my_acceptor sessionid in
+  let/ res = receive (s srv)#role_U in
+  match res with
   | `success(_,s) ->
-     H.http_connector ~base_url:"https://graph.facebook.com/v2.11/oauth" sessionid >>= fun cli ->
-     let s = request p (fun x->x#get) [] cli s in
-     receive p s >>= fun (`_200(_,s)) ->
-     let s = disconnect p s in
-     let s = send u (fun x->x#_200) "auth succeeded" s in
-     let s = disconnect u s in
-     close s;
-     Lwt.return ()
+     let/ cli = H.http_connector ~base_url:"https://graph.facebook.com/v2.11/oauth" sessionid in
+     let/ s = (s cli)#role_P#get [] in
+     let/ `_200(_,s) = receive (s#role_P) in
+     let/ s = s#role_U#_200 "auth succeeded" in
+     close s
   | `fail(_,s) ->
-     let s = send u (fun x->x#_200) "auth failed" s in
-     let s = disconnect u s in
-     close s;
-     Lwt.return ()
+     let/ s = s#role_U#_200 "auth failed" in
+     close s
 
 let () =
   Lwt_main.run @@
-    let rec f () =
-      Lwt.finalize (fun () ->
-          facebook_oauth ())
-        (fun () ->
-          prerr_endline "exception";
-          Lwt.return ())
-      >>= fun () -> f ()
+    let rec loop () =
+      let/ () =
+        Lwt.finalize
+          (fun () -> facebook_oauth ())
+          (fun () -> prerr_endline "exception"; Lwt.return ())
+      in
+      loop ()
     in
-    f ()
+    loop ()

@@ -176,67 +176,39 @@ module Util = struct
 end
 
 module Labels = struct
-  open Mpst_explicit.Global
-  type 'a server_pred = 'a cohttp_server -> Cohttp.Request.t -> bool
-  type 'a client_pred = 'a cohttp_client -> Cohttp.Response.t -> bool
-
-  let get ?(pred:'a server_pred option) m path =
-    {channel=m#ch_get ?pred path;
-     select_label=(fun f -> object method get=f end);
-     offer_label=(fun l -> `get(l))}
-
-  let post m path =
-    {channel=m#ch_post path;
-     select_label=(fun f -> object method post=f end);
-     offer_label=(fun l -> `post(l))}
-
-  let _302 m =
-    {channel=m#ch_302;
-     select_label=(fun f -> object method _302=f end);
-     offer_label=(fun l -> `_302(l))}
-
-  let _200 m =
-    {channel=m#ch_200;
-     select_label=(fun f -> object method _200=f end);
-     offer_label=(fun l -> `_200(l))}
-
-  let success ~(pred:'a server_pred) m path =
-    {channel=m#ch_success path pred;
-     select_label=(fun f -> object method success=f end);
-     offer_label=(fun l -> `success(l))}
-
-  let fail ~(pred:'a server_pred) m path =
-    {channel=m#ch_fail path pred;
-     select_label=(fun f -> object method fail=f end);
-     offer_label=(fun l -> `fail(l))}
-
-  let success_resp ~(pred:'a client_pred) m =
-    {channel=m#ch_success_resp pred;
-     select_label=(fun f -> object method success=f end);
-     offer_label=(fun l -> `success(l))}
-
-  let fail_resp ~(pred:'a client_pred) m =
-    {channel=m#ch_fail_resp pred;
-     select_label=(fun f -> object method fail=f end);
-     offer_label=(fun l -> `fail(l))}
-
+  open Mpst_explicit
+  let get =
+    {obj={make_obj=(fun v -> object method get=v end);
+          call_obj=(fun o -> o#get)};
+     var=(fun v -> `get v)}
+  let post =
+    {obj={make_obj=(fun v -> object method post=v end);
+          call_obj=(fun o -> o#post)};
+     var=(fun v -> `post v)}
+  let _302 =
+    {obj={make_obj=(fun v -> object method _302=v end);
+          call_obj=(fun o -> o#_302)};
+     var=(fun v -> `_302 v)}
+  let _200 =
+    {obj={make_obj=(fun v -> object method _200=v end);
+          call_obj=(fun o -> o#_200)};
+     var=(fun v -> `_200 v)}
+  let success =
+    {obj={make_obj=(fun v -> object method success=v end);
+          call_obj=(fun o -> o#success)};
+     var=(fun v -> `success v)}
+  let fail =
+    {obj={make_obj=(fun v -> object method fail=v end);
+          call_obj=(fun o -> o#fail)};
+     var=(fun v -> `fail v)}
   let success_or_fail =
-    {label_merge=(fun l r ->
-       object
-         method success=l#success
-         method fail=r#fail
-       end
-    )}
-    
-  let fail_or_success =
-    {label_merge=(fun l r ->
-       object
-         method success=r#success
-         method fail=l#fail
-       end
-    )}
+    {disj_merge=(fun l r -> object method success=l#success method fail=r#fail end);
+     disj_splitL=(fun lr -> (lr :> <success:_>));
+     disj_splitR=(fun lr -> (lr :> <fail:_>))}
+end
 
-end  
+type 'a server_pred = 'a cohttp_server -> Cohttp.Request.t -> bool
+type 'a client_pred = 'a cohttp_client -> Cohttp.Response.t -> bool
 
 let param req =
   let uri = req |> Cohttp.Request.resource |> Uri.of_string in
@@ -246,47 +218,49 @@ let mkpred = function
   | Some f -> f
   | None -> (fun _ _ -> true)
 
-let http =
-  let open Mpst_explicit.Global in
-  let open Mpst_explicit.Session in
+module Handlers = struct
+  open Mpst_explicit
+
   let get ?pred path =
-    {sender=(fun c v ->
-       ignore (c.write_request ~path ~params:v));
-     receiver=(fun c ->
+    {write=(fun c v ->
+       c.write_request ~path ~params:v);
+     try_read=(fun c ->
        c.read_request ~paths:[path] ~predicate:(mkpred pred c) () >>= fun (req,_) ->
-       Lwt.return (param req))}
-  in
+       Lwt.return (Some(param req)))}
+
   let _200 =
-    {sender=(fun c v ->
-       Lwt.async begin fun () ->
+    {write=(fun c v ->
          Cohttp_lwt_unix.Server.respond_string
            ~status:`OK
            ~body:v
            () >>= fun (resp,body) ->
-         c.write_response (resp, body)
-         end);
-     receiver=(fun c -> (* FIXME: check resposne code *)
+         c.write_response (resp, body));
+     try_read=(fun c -> (* FIXME: check resposne code *)
        c.read_response >>= fun (_resp, body) ->
-       Lwt.return @@ body)}
-  in
+       Lwt.return @@ Some body)}
+
   let _302 =
-    {sender=(fun c url ->
-       ignore begin
+    {write=(fun c url ->
            Cohttp_lwt_unix.Server.respond_string
              ~status:`Found
              ~headers:(Cohttp.Header.init_with "Location" @@ Uri.to_string url)
              ~body:"" () >>= fun (resp,body) ->
-           c.write_response (resp, body)
-         end);
-     receiver=(fun _ -> Lwt.fail_with "TODO: not implemented")}
-  in
-  object
-    method ch_get = get
-    method ch_post = get ?pred:None (* FIXME *)
-    method ch_success path pred = get ~pred path
-    method ch_fail path pred = get ~pred path
-    method ch_success_resp _pred = ignore (failwith"TODO"); _200
-    method ch_fail_resp _pred = ignore (failwith"TODO"); _200
-    method ch_200 = _200
-    method ch_302 = _302
-  end
+           c.write_response (resp, body));
+     try_read=(fun _ -> Lwt.fail_with "TODO: not implemented")}
+end
+
+module SLabels = struct
+  open Mpst_explicit
+  let get ?pred url = Labels.get %% Handlers.get ?pred url
+  let post ?pred url = Labels.post %% Handlers.get ?pred:None url (* FIXME *)
+  let success ?pred url = Labels.success %% Handlers.get ?pred url
+  let fail ?pred url = Labels.fail %% Handlers.get ?pred url
+
+  let _302 = Slabel {label=Labels._302; handler=Handlers._302}
+  let _200 = Slabel {label=Labels._200; handler=Handlers._200}
+  let success_resp = Slabel {label=Labels.success; handler=Handlers._200}
+  let fail_resp = Slabel {label=Labels.fail; handler=Handlers._200}
+
+  let success_or_fail = Labels.success_or_fail
+
+end

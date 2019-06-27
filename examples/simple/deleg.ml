@@ -19,7 +19,7 @@ let calc =
 
 let worker =
   (srv --> mst) msg @@
-  (mst --> srv) msg @@
+  (mst --> srv) (msg >: prot srv calc) @@
   finish
 
 let tCli s =

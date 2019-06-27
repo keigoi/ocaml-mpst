@@ -471,4 +471,12 @@ module Make
         | EpIPCProcess _ ->
            Common.fork_child (fun () -> f ep) ();
            M.return_unit)
+
+  let (>:) :
+        ('obj,'var,('v Lin.lin one * 'epA) Out.out Lin.lin, 'v Lin.lin * 'epB Lin.lin) label ->
+        (unit -> 'v) ->
+        ('obj,'var,('v Lin.lin one * 'epA) Out.out Lin.lin, 'v Lin.lin * 'epB Lin.lin) label =
+    fun l _ -> l
+
+  let prot a g () = get_ep a (gen g)
 end

@@ -20,7 +20,7 @@ let calc =
 
 let worker =
   (srv --> mst) msg @@
-  (mst --> srv) msg @@
+  (mst --> srv) (msg >: prot srv calc) @@
   finish
 
 let s = Linocaml.Zero
@@ -89,22 +89,6 @@ let repeat cnt f =
       acc
   in
   loop cnt []
-
-let rec tSrv_monad () =
-  let%lin #s = accept calc_sh srv in
-  let rec loop acc =
-    match%lin s <@ receive (fun x->x#role_Cli) with
-    | `compute({data=(sym,num)}, #s) ->
-      let op = match sym with
-        | Add -> (+)   | Sub -> (-)
-        | Mul -> ( * ) | Div -> (/)
-      in loop (op acc num)
-    | `result({data=()}, #s) ->
-      let%lin #s = s <@ send (fun x->x#role_Cli#answer) acc in
-      s <@ close >>= fun () ->
-      tSrv_monad ()
-  in loop 0
-
 
 let _ : Thread.t list =
   repeat 10 (fun i ->

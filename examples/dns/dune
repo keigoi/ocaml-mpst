@@ -1,17 +1,17 @@
-; (executable
-;   (public_name dnsserver)
-;   (name     dnsserver)
-;   (modules dnsserver)
-;   (libraries mpst_explicit dns-lwt-unix lwt.unix dnshelper))
-; 
-; ;(executable
-; ;  (public_name dnsserver_monad)
-; ;  (name     dnsserver_monad)
-; ;  (modules dnsserver_monad)
-; ;  (libraries mpst_explicit dns-lwt-unix lwt.unix dnshelper))
-; 
-; (library
-;   (name dnshelper)
-;   (modules dnshelper)
-;   (libraries mpst_explicit dns-lwt-unix lwt.unix))
-; 
+(executable
+  (public_name dnsserver)
+  (name     dnsserver)
+  (modules dnsserver)
+  (libraries mpst_explicit dns-lwt-unix lwt.unix dnshelper))
+
+;(executable
+;  (public_name dnsserver_monad)
+;  (name     dnsserver_monad)
+;  (modules dnsserver_monad)
+;  (libraries mpst_explicit dns-lwt-unix lwt.unix dnshelper))
+
+(library
+  (name dnshelper)
+  (modules dnshelper)
+  (flags "-g")
+  (libraries mpst_explicit dns-lwt-unix lwt.unix))

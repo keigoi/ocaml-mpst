@@ -686,6 +686,12 @@ module Global
      disj_splitL=(fun lr ks -> mrg.disj_splitL (lr ks));
      disj_splitR=(fun lr ks -> mrg.disj_splitR (lr ks))}
 
+  let lift_merge2 : 'lr 'l 'r 'ks. ('lr,'l,'r) disj_merge -> ('ks -> 'k -> 'lr,'ks->'k->'l,'ks->'k->'r) disj_merge =
+    fun mrg ->
+    {disj_merge=(fun l r ks k -> mrg.disj_merge (l ks k) (r ks k));
+     disj_splitL=(fun lr ks k -> mrg.disj_splitL (lr ks k));
+     disj_splitR=(fun lr ks k -> mrg.disj_splitR (lr ks k))}
+
   let choice_at
       : 'epA 'epA1 'epA2 'g1 'g2 'g12 'g3.
         (_, _, unit * ('ksA -> 'epA) * 'g12 * 'g3, _) role ->
@@ -698,6 +704,15 @@ module Global
     let epA1, epA2 = Seq.lens_get rA1.role_index g1, Seq.lens_get rA2.role_index g2 in
     let g1, g2 = Seq.lens_put rA1.role_index g1 munit, Seq.lens_put rA2.role_index g2 munit in
     let epA = Mergeable.make_disj_merge (lift_merge mrg) epA1 epA2 in
+    let g = Seq.seq_merge g1 g2 in
+    let g = Seq.lens_put rA0.role_index g epA in
+    g
+
+  let choice_req_at =
+    fun (Role rA0) mrg (Role rA1,g1) (Role rA2,g2) ->
+    let epA1, epA2 = Seq.lens_get rA1.role_index g1, Seq.lens_get rA2.role_index g2 in
+    let g1, g2 = Seq.lens_put rA1.role_index g1 munit, Seq.lens_put rA2.role_index g2 munit in
+    let epA = Mergeable.make_disj_merge (lift_merge2 mrg) epA1 epA2 in
     let g = Seq.seq_merge g1 g2 in
     let g = Seq.lens_put rA0.role_index g epA in
     g

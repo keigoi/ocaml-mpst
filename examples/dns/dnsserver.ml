@@ -1,11 +1,11 @@
-open Mpst_explicit.Global
-open Mpst_explicit.Session
-module S = Mpst_explicit.Session
+open Mpst_explicit
 let (>>=) = Lwt.(>>=)
+let (let/) = Lwt.bind
+
 open Dnshelper
 
 (* FIXME!!! *)
-let myip = "10.0.1.11"
+let myip = "192.168.1.7"
 let myport = 12345
 
 let forward_ip = "8.8.8.8"
@@ -27,31 +27,17 @@ module Roles = struct
   type oth = Oth
 end
 
-let cli = {Mpst_explicit.Parties.a with role=Roles.Cli}
-let srv = {Mpst_explicit.Parties.b with role=Roles.Srv}
-let fwd = {Mpst_explicit.Parties.c with role=Roles.Oth}
-
-let emp = Cons(lv Unit,lv@@Cons(lv Unit,lv@@Cons(lv Unit,lv Nil)))
-let get_sess_ r c = Sess(emp, unprot @@ lens_get_ r.lens c)
-
-let finish_ :
-      (((unit * (unit * (unit * unit))) slots, close) prot *
-         (((unit * (unit * (unit * unit))) slots, close) prot *
-            (((unit * (unit * (unit * unit))) slots, close) prot * unit)))
-        slots lazy_t =
-  lv@@Cons(lv@@Prot Close,lv@@Cons(lv@@Prot Close,lv@@Cons(lv@@Prot Close,lv Nil)))
-
 let dns () =
-  ((cli,cli) -!-> (srv,srv)) query @@ (* DNS query from a client *)
-  choice_req_at srv query_or_dummy (* do I have an entry for the query?  *)
-    (srv, ((srv,srv) -!-> (fwd,fwd)) query @@  (* if not, forward the query to aoother server *)
-          ((fwd,fwd) -?-> (srv,srv)) answer @@ (* and receive a reply *)
-          ((srv,srv) -?-> (cli,cli)) answer @@ (* then send back it to the client *)
-          finish_)
-    (srv, ((srv,srv) -!-> (fwd,fwd)) dummy @@ (* DUMMY (no effect)  *)
-          discon (srv,srv) (fwd,fwd) @@       (* DUMMY (no effect) *)
-          ((srv,srv) -?-> (cli,cli)) answer @@ (* send back to the client the answer *)
-          finish_)
+  (cli -!-> srv) query @@ (* DNS query from a client *)
+  choice_req_at srv (to_fwd query_or_dummy) (* do I have an entry for the query?  *)
+    (srv, (srv -!-> fwd) query @@  (* if not, forward the query to aoother server *)
+          (fwd -?-> srv) answer @@ (* and receive a reply *)
+          (srv -?-> cli) answer @@ (* then send back it to the client *)
+          finish)
+    (srv, (srv -!-> fwd) dummy @@ (* DUMMY (no effect)  *)
+          disconnect srv fwd @@       (* DUMMY (no effect) *)
+          (srv -?-> cli) answer @@ (* send back to the client the answer *)
+          finish)
 
 let addresses = [
   Dns.Name.of_string "nagoya.my.domain", Ipaddr.V4.of_string_exn "1.2.3.4";
@@ -81,17 +67,26 @@ let server (fd_cli : Lwt_unix.file_descr) (fd_fwd : Lwt_unix.file_descr) =
   in
   let fd_fwd = create_resolver_fd ~fd:fd_fwd ~peer_addr:fwd_addr in
   let fd_cli = create_listener_fd ~fd:fd_cli in
-  let s = get_sess_ srv (dns ()) in
+  
   let rec loop () =
-    S.accept cli fd_cli s >>= fun (`query(query, s)) ->
+    (* get a new session endpoint *)
+    let s = get_ep srv (dns ()) HList.vec_all_empty
+    in
+    
+    let/ `query(query, s) = receive (s fd_cli)#role_Cli
+    in
+    
     begin match query.questions with
     | ({Dns.Packet.q_class = Q_IN; q_type = Q_A; _} as question) :: _ ->
-       lookup question >>= fun answer ->
+       
+       let/ answer = lookup question in
+       
        begin match answer with
        | Some answer ->
-          let s = S.request fwd (fun x->x#dummy) () fd_fwd s in (* no effect *)
-          let s = S.disconnect fwd s in (* no effect *)
+          let/ s = (s fd_fwd)#role_Fwd#dummy () in (* no effect *)
+          let/ s = s#disconnect in (* no effect *)
           Lwt.return (answer, s)
+
        | None ->
           let fwd_query =
             Dns.Query.create
@@ -99,21 +94,22 @@ let server (fd_cli : Lwt_unix.file_descr) (fd_fwd : Lwt_unix.file_descr) =
               ~dnssec:false
               question.q_class question.q_type question.q_name
           in
-          let s = S.request fwd (fun x->x#query) fwd_query fd_fwd s in
-          S.receive fwd s >>= fun (`answer( fwd_resp,s)) ->
-          let fwd_answer = Dns.Query.answer_of_response fwd_resp in
-          let s = S.disconnect fwd s in
+          let/ s = (s fd_fwd)#role_Fwd#query fwd_query
+          in
+          let/ `answer(fwd_resp,s) = receive s#role_Fwd
+          in
+          let fwd_answer = Dns.Query.answer_of_response fwd_resp
+          in
           Lwt.return (fwd_answer, s)
        end
     | _ ->
-       let s = S.request fwd (fun x->x#dummy) () fd_fwd s in (* no effect *)
-       let s = S.disconnect fwd s in (* no effect *)
+       let/ s = (s fd_fwd)#role_Fwd#dummy () in (* no effect *)
+       let/ s = s#disconnect in (* no effect *)
        Lwt.return (nxdomain, s)
     end >>= fun (answer, s) ->
     let resp = Dns.Query.response_of_answer query answer in
-    let s = S.send cli (fun x->x#answer) resp s in
-    let s = S.disconnect cli s in
-    S.close s;
+    let/ s = s#role_Cli#answer resp in
+    let/ () = close s in
     loop ()
   in
   loop ()

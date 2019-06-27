@@ -80,3 +80,10 @@
  (modules scatter2)
  (flags ("-g" "-short-paths"))
  (libraries ocaml-mpst.lwt))
+
+(executable
+ (name deleg)
+  (public_name deleg_mpst_simple)
+  (modules deleg)
+  (flags ("-g" "-short-paths"))
+  (libraries ocaml-mpst calc_util))

@@ -5,6 +5,7 @@ open Mpst.M.Base
 module ML = Mpst_lwt.M
 
 module MakeDyn
+         (D:DYNCHECK)
          (M:PERIPHERAL)
          (Med:MEDIUM)
          ()
@@ -15,18 +16,9 @@ sig
 end
   = struct
 
-  (* module Local = Local.Make(Mpst.M.Nocheck.Nodyncheck)(Mpst.M.Nocheck.Noflag)(M)(M.Event)
-   * module Global = Global.Make (Mpst.M.Nocheck.Nodyncheck)(M)(M.Event)(M.Serial)(NoLin)
-   * module Util = Util.Make(Mpst.M.Nocheck.Nodyncheck) *)
-
-  (* module DynamicNano = Mpst.M.Dyncheck_ep.Make(Dyncheck_nanomutex.NanoMutexFlag)
-   * module Local = Local.Make(DynamicNano)(Dyncheck_nanomutex.NanoMutexFlag)(M)(M.Event)
-   * module Global = Global.Make (DynamicNano)(M)(M.Event)(M.Serial)(NoLin)
-   * module Util = Util.Make(DynamicNano) *)
-
-  module Local = Local.Make(Mpst.M.Dyncheck)(Mpst.LinFlag)(M)(M.Event)
-  module Global = Global.Make(Mpst.M.Dyncheck)(M)(M.Event)(M.Serial)(NoLin)
-  module Util = Util.Make(Mpst.M.Dyncheck)
+  module Local = Local.Make(D.EP)(D.Flag)(M)(M.Event)
+  module Global = Global.Make(D.EP)(M)(M.Event)(M.Serial)(NoLin)
+  module Util = Util.Make(D.EP)
 
   open Global
   open Local

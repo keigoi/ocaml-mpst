@@ -12,8 +12,8 @@ let test_msgsize =
      create_indexed ~name:"msgsize/ocaml-lwt/shmem,chvec" ~args BLwtStream.test_msgsize;
      create_indexed ~name:"msgsize/ocaml-lwt/shmem,cont" ~args (let module M = BLwtCont(LwtMVar)() in M.test_msgsize);
 
-     create_indexed ~name:"msgsize/mpst-dynamic/lwt/shmem,chvec" ~args (let module M = MakeDyn(LwtMonad)(Shmem)() in M.test_msgsize);
-     create_indexed ~name:"msgsize/mpst-dynamic/lwt/shmem,untyped" ~args (let module M = MakeDyn(LwtMonad)(Untyped)() in M.test_msgsize);
+     create_indexed ~name:"msgsize/mpst-dynamic/lwt/shmem,chvec" ~args (let module M = MakeDyn(DynCheckNano)(LwtMonad)(Shmem)() in M.test_msgsize);
+     create_indexed ~name:"msgsize/mpst-dynamic/lwt/shmem,untyped" ~args (let module M = MakeDyn(DynCheckNano)(LwtMonad)(Untyped)() in M.test_msgsize);
      create_indexed ~name:"msgsize/mpst-static/lwt/shmem,chvec" ~args (let module M = MakeStatic(LinLwtMonad)(Shmem)() in M.test_msgsize);
      create_indexed ~name:"msgsize/mpst-static/lwt/shmen,untyped" ~args (let module M = MakeStatic(LinLwtMonad)(Untyped)() in M.test_msgsize);
 
@@ -23,18 +23,18 @@ let test_msgsize =
 
      create_indexed ~name:"msgsize/mpst-ref" ~args @@ (fun i -> Staged.stage (fun () -> BRefImpl.test_msgsize i));
 
-     create_indexed ~name:"msgsize/mpst-dynamic/ev/shmem,chvec" ~args (let module M = MakeDyn(Direct)(Shmem)() in M.test_msgsize);
-     create_indexed ~name:"msgsize/mpst-dynamic/ev/shmem,untyped" ~args @@ (let module M = MakeDyn(Direct)(Untyped)() in M.test_msgsize);
+     create_indexed ~name:"msgsize/mpst-dynamic/ev/shmem,chvec" ~args (let module M = MakeDyn(DynCheckNano)(Direct)(Shmem)() in M.test_msgsize);
+     create_indexed ~name:"msgsize/mpst-dynamic/ev/shmem,untyped" ~args @@ (let module M = MakeDyn(DynCheckNano)(Direct)(Untyped)() in M.test_msgsize);
      create_indexed ~name:"msgsize/mpst-static/ev/shmem,chvec" ~args @@ (let module M = MakeStatic(LinDirect)(Shmem)() in M.test_msgsize);
      create_indexed ~name:"msgsize/mpst-static/ev/shmem,untyped" ~args @@ (let module M = MakeStatic(LinDirect)(Shmem)() in M.test_msgsize);
 
      (* running times will increase proportional to the array size *)
      create_indexed ~name:"msgsize/lwt/ipc" ~args (let module M = Make_IPC(LwtMonad)() in M.test_msgsize);
-     create_indexed ~name:"msgsize/mpst-dynamic/lwt/ipc" ~args (let module M = MakeDyn(LwtMonad)(IPC)() in M.test_msgsize);
+     create_indexed ~name:"msgsize/mpst-dynamic/lwt/ipc" ~args (let module M = MakeDyn(DynCheckNano)(LwtMonad)(IPC)() in M.test_msgsize);
      create_indexed ~name:"msgsize/mpst-static/lwt/ipc" ~args (let module M = MakeStatic(LinLwtMonad)(IPC)() in M.test_msgsize);
 
      create_indexed ~name:"msgsize/ocaml-ev/ipc" ~args (let module M = Make_IPC(Direct)() in M.test_msgsize);
-     create_indexed ~name:"msgsize/mpst-dynamic/ev/ipc" ~args (let module M = MakeDyn(Direct)(IPC)() in M.test_msgsize);
+     create_indexed ~name:"msgsize/mpst-dynamic/ev/ipc" ~args (let module M = MakeDyn(DynCheckNano)(Direct)(IPC)() in M.test_msgsize);
      create_indexed ~name:"msgsize/mpst-static/ev/ipc" ~args (let module M = MakeStatic(LinDirect)(IPC)() in M.test_msgsize);
   ])
 
@@ -60,7 +60,8 @@ let test_iteration =
          * Linocaml allocates more memory for closures, it does not affect running times.
          *)
         create_indexed ~name:"iter/mpst-ref/ev/shmem" ~args BRefImpl.test_iteration;
-        create_indexed ~name:"iter/mpst-dynamic/ev/shmem" ~args (let module M = MakeDyn(Direct)(Shmem)() in M.test_iteration);
+        create_indexed ~name:"iter/mpst-dynamic/ev/shmem" ~args (let module M = MakeDyn(DynCheckNano)(Direct)(Shmem)() in M.test_iteration);
+        create_indexed ~name:"iter/mpst-dynamic/ev/shmem(nodyncheck)" ~args (let module M = MakeDyn(NoDynCheck)(Direct)(Shmem)() in M.test_iteration);
         create_indexed ~name:"iter/mpst-static/ev/shmem" ~args @@ (let module M = MakeStatic(LinDirect)(Shmem)() in M.test_iteration);
 
         (* Lwt is far more faster than Event.
@@ -75,17 +76,18 @@ let test_iteration =
          * create_indexed ~name:"iter/ocaml-lwt(wake),cont" ~args (let module M = BLwtCont(LwtWait)() in M.test_iteration); *)
         create_indexed ~name:"iter/ocaml-lwt(stream)/twochan" ~args BLwtStream.test_iteration;
 
-        create_indexed ~name:"iter/mpst-dynamic/lwt(stream)" ~args (let module M = MakeDyn(LwtMonad)(Shmem)() in M.test_iteration);
+        create_indexed ~name:"iter/mpst-dynamic/lwt(stream)" ~args (let module M = MakeDyn(DynCheckNano)(LwtMonad)(Shmem)() in M.test_iteration);
+        create_indexed ~name:"iter/mpst-dynamic/lwt(stream,nodyncheck)" ~args (let module M = MakeDyn(NoDynCheck)(LwtMonad)(Shmem)() in M.test_iteration);
         create_indexed ~name:"iter/mpst-static/lwt(stream)" ~args (let module M = MakeStatic(LinLwtMonad)(Shmem)() in M.test_iteration);
 
         (* Interestingly, in Unix pipe, event-based versions are always faster by 2x or more.
          *)
         create_indexed ~name:"iter/ocaml-lwt/ipc" ~args (let module M = Make_IPC(LwtMonad)() in M.test_iteration);
-        create_indexed ~name:"iter/mpst-dynamic/lwt/ipc" ~args (let module M = MakeDyn(LwtMonad)(IPC)() in M.test_iteration);
+        create_indexed ~name:"iter/mpst-dynamic/lwt/ipc" ~args (let module M = MakeDyn(DynCheckNano)(LwtMonad)(IPC)() in M.test_iteration);
         create_indexed ~name:"iter/mpst-static/lwt/ipc" ~args (let module M = MakeStatic(LinLwtMonad)(IPC)() in M.test_iteration);
 
         create_indexed ~name:"iter/ev/ipc" ~args (let module M = Make_IPC(Direct)() in M.test_iteration);
-        create_indexed ~name:"iter/mpst-dynamic/ev/ipc" ~args (let module M = MakeDyn(Direct)(IPC)() in M.test_iteration);
+        create_indexed ~name:"iter/mpst-dynamic/ev/ipc" ~args (let module M = MakeDyn(DynCheckNano)(Direct)(IPC)() in M.test_iteration);
         create_indexed ~name:"iter/mpst-static/ev/ipc" ~args (let module M = MakeStatic(LinDirect)(IPC)() in M.test_iteration);
   ])
 

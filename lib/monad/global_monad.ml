@@ -45,13 +45,19 @@ module Make
 
   let raw_get_ep = get_ep
 
+  let mclose =
+    Mergeable.make
+      ~hook:(Lazy.from_val ())
+      ~mergefun:(fun _ _ -> Mpst.Close)
+      ~value:[Nocheck.Nodyncheck.make (fun _ -> Mpst.Close)]
+
   let get_ep r =
     let open Linocaml in
     let open L in
     {__m=(fun lpre ->
        let g = lpre.__lin in
-       let ep = List.hd @@ Mergeable.out (Seq.get r.role_index g) in
-       let g' = Seq.put r.role_index g (Mergeable.make_no_merge [Mpst.Close]) in
+       let ep = List.hd @@ Mergeable.generate (Seq.get r.role_index g) in
+       let g' = Seq.put r.role_index g mclose in
        M.return ((), ({__lin=({__lin=g'},{__lin=ep})})))}
 
   let rec all_empty = `cons((), all_empty)

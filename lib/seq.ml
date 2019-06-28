@@ -26,7 +26,7 @@ exception UnguardedLoopSeq
 let rec seq_head : type hd tl. [`cons of hd * tl] t -> hd Mergeable.t =
   function
   | SeqCons(hd,_) -> hd
-  | SeqRecVars ds -> Mergeable.merge_all (List.map seqvar_head ds)
+  | SeqRecVars ds -> Mergeable.make_merge_list (List.map seqvar_head ds)
   | SeqRepeat(i,f) -> f i
   | SeqBottom -> raise UnguardedLoopSeq
 and seqvar_head : type hd tl. [`cons of hd * tl] t lazy_t -> hd Mergeable.t = fun d ->
@@ -55,7 +55,7 @@ let rec put : type a b xs ys. (a,b,xs,ys) lens -> xs -> b Mergeable.t -> ys =
 let rec seq_merge : type x. x t -> x t -> x t = fun l r ->
   match l,r with
   | SeqCons(_,_), _ ->
-     let hd = Mergeable.merge (seq_head l) (seq_head r) in
+     let hd = Mergeable.make_merge (seq_head l) (seq_head r) in
      let tl = seq_merge (seq_tail l) (seq_tail r) in
      SeqCons(hd, tl)
   | _, SeqCons(_,_) -> seq_merge r l

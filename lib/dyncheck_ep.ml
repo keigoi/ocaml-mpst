@@ -16,6 +16,6 @@ module Make(LinFlag:S.LIN_FLAG) : S.LIN_EP with type once = LinFlag.t = struct
   let map2 f ts1 ts2 =
     List.map2 (fun t1 t2 once -> f (t1 once) (t2 once)) ts1 ts2
 
-  let out fs =
+  let generate fs =
     List.map (fun f -> f @@ LinFlag.create ()) fs
 end

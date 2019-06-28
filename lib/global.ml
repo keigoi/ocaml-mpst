@@ -131,24 +131,24 @@ module Make
       end;
     let channels =
       List.init num_receivers (fun myidx ->
-          let wrapfun v = lab.var (v, Lin.mklin (List.nth (Mergeable.out epB) myidx))
+          let wrapfun v = lab.var (v, Lin.mklin (List.nth (Mergeable.generate epB) myidx))
           in
           make_inp chs myidx wrapfun)
     in
     let hook =
       lazy begin
           (* force the following endpoints *)
-          let eps = Mergeable.out epB in
+          let eps = Mergeable.generate epB in
           if num_receivers <> List.length eps then begin
               failwith "make_recv: endpoint count inconsistency"
             end
         end
     in
-    Mergeable.wrap_obj rA.role_label
-      (Mergeable.make_with_hook
-         hook
-         Inp.merge_in
-         channels)
+    Mergeable.wrap_label rA.role_label
+      (Mergeable.make
+         ~hook
+         ~mergefun:Inp.merge_in
+         ~value:channels)
 
   let make_out_one (a,b,(c,d)) = Out.Out (a,b,(c,d))
   let make_out_list (a,b,(c,d)) = Out.OutMany (a,b,(c,d))
@@ -169,17 +169,17 @@ module Make
     in
     let hook =
       lazy begin
-          let eps = Mergeable.out epA in
+          let eps = Mergeable.generate epA in
           if num_senders <> List.length eps then
             failwith "make_send: endpoint count inconsistency"
         end
     in
-    Mergeable.wrap_obj rB.role_label
-      (Mergeable.wrap_obj lab.obj
-         (Mergeable.make_with_hook
-            hook
-            (fun o1 o2 -> Lin.mklin (Out.merge_out (Lin.unlin o1) (Lin.unlin o2)))
-            epA'))
+    Mergeable.wrap_label rB.role_label
+      (Mergeable.wrap_label lab.obj
+         (Mergeable.make
+            ~hook
+            ~mergefun:(fun o1 o2 -> Lin.mklin (Out.merge_out (Lin.unlin o1) (Lin.unlin o2)))
+            ~value:epA'))
 
   let update_other_tables flip src_tables src_role other_tables other_role =
     let chss = List.map (fun t -> Table.get t other_role) src_tables in

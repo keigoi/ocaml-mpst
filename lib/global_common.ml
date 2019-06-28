@@ -35,13 +35,16 @@ let finish : 'e. ('e, [`cons of close * 'a] as 'a) t =
               | Some prop -> prop.multiplicity
               | None -> 1
             in
-            Mergeable.make_no_merge (List.init num (fun _ -> Close)))))
+            Mergeable.make
+              ~hook:(Lazy.from_val ())
+              ~mergefun:(fun x _ -> x)
+              ~value:(List.init num (fun _ -> EP.make (fun _ -> Close))))))
 
 let gen_with_param p g = unglobal_ g p
 
 let get_ep_raw : 'ep 'x2 't 'x3 't 'ep. ('ep, 'x2, 't Seq.t, 'x3) Seq.lens -> 't Seq.t -> 'ep = fun lens g ->
   let ep = Seq.get lens g in
-  match Mergeable.out ep with
+  match Mergeable.generate ep with
   | [e] -> e
   | [] -> assert false
   | _ -> failwith "get_ep: there are more than one endpoints. use get_ep_list."
@@ -51,7 +54,13 @@ let get_ep : ('x0, 'x1, 'ep, 'x2, 't Seq.t, 'x3) role -> 't Seq.t -> 'ep = fun r
 
 let get_ep_list : ('x0, 'x1, 'ep, 'x2, 't Seq.t, 'x3) role -> 't Seq.t -> 'ep list = fun r g ->
   let ep = Seq.get r.role_index g in
-  Mergeable.out ep
+  Mergeable.generate ep
+
+let munit =
+  Mergeable.make
+    ~hook:(Lazy.from_val ())
+    ~mergefun:(fun _ _ -> ())
+    ~value:[EP.make (fun _ -> ())]
 
 let choice_at : 'ep 'ep_l 'ep_r 'g0_l 'g0_r 'g1 'g2.
                   (_, _, unit, (< .. > as 'ep), 'g1 Seq.t, 'g2 Seq.t) role ->
@@ -66,10 +75,10 @@ let choice_at : 'ep 'ep_l 'ep_r 'g0_l 'g0_r 'g1 'g2.
         Seq.get r'.role_index g0left,
         Seq.get r''.role_index g0right in
       let g1left, g1right =
-        Seq.put r'.role_index g0left (Mergeable.make_no_merge [()]),
-        Seq.put r''.role_index g0right (Mergeable.make_no_merge [()]) in
+        Seq.put r'.role_index g0left munit,
+        Seq.put r''.role_index g0right munit in
       let g1 = Seq.seq_merge g1left g1right in
-      let ep = Mergeable.disjoint_merge merge epL epR
+      let ep = Mergeable.make_obj_merge merge epL epR
       in
       let g2 = Seq.put r.role_index g1 ep
       in

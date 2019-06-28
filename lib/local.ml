@@ -51,7 +51,7 @@ module Make
        assert (size channel = 1);
        F.use once;
        M.bind (bare_out_one channel v) (fun _ ->
-       M.return (List.nth (MA.out cont) k))
+       M.return (List.nth (MA.generate cont) k))
 
   let sendmany (OutMany(once,channels,(k,cont))) vf =
     let bare_out_many ch vf =
@@ -63,7 +63,7 @@ module Make
     in
     F.use once;
     M.bind (bare_out_many channels vf) (fun _ ->
-    M.return (List.nth (MA.out cont) k))
+    M.return (List.nth (MA.generate cont) k))
 
   let close _ = ()
 end

@@ -23,7 +23,7 @@ module Make(EP:S.LIN_EP)(EV:S.EVENT) = struct
     let mergelocal (o1,s1,(i1,c1)) (o2,s2,(i2,c2)) =
       assert (i1=i2);
       unify s1 s2;
-      let c12 = MA.merge c1 c2 in
+      let c12 = MA.make_merge c1 c2 in
       (* throw away o2 *)
       (o1, s1, (i1, c12))
     in

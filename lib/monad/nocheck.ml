@@ -22,6 +22,6 @@ module Nodyncheck : Mpst.S.LIN_EP with type once = unit = struct
   let map2 f ts1 ts2 =
     List.map2 f ts1 ts2
 
-  let out fs = fs
+  let generate fs = fs
 
 end

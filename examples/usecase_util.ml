@@ -167,13 +167,13 @@ let reject =
   {obj={make_obj=(fun f -> object method reject=f end);
         call_obj=(fun o -> o#reject)};
    var=(fun v -> `reject(v))}
-  
+
 let accpt_reject_or_propose =
   {obj_merge=(fun l r -> object method accpt=l#accpt method reject=l#reject method propose=r#propose end);
    obj_splitL=(fun lr -> (lr :> <accpt : _; reject: _>));
    obj_splitR=(fun lr -> (lr :> <propose : _>));
   }
-  
+
 let accpt_or_reject =
   {obj_merge=(fun l r -> object method accpt=l#accpt method reject=r#reject end);
    obj_splitL=(fun lr -> (lr :> <accpt : _>));
@@ -194,7 +194,7 @@ let no =
   {obj={make_obj=(fun f -> object method no=f end);
         call_obj=(fun o -> o#no)};
    var=(fun v -> `no(v))}
-  
+
 let ok_or_reject =
   {obj_merge=(fun l r -> object method ok=l#ok method reject=r#reject end);
    obj_splitL=(fun lr -> (lr :> <ok : _>));
@@ -242,3 +242,199 @@ let bye =
   {obj={make_obj=(fun f -> object method bye=f end);
         call_obj=(fun o -> o#bye)};
    var=(fun v -> `bye(v))}
+
+let login =
+  {obj={make_obj=(fun f -> object method login=f end);
+        call_obj=(fun o -> o#login)};
+   var=(fun v -> `login(v))}
+
+let loginfailure =
+  {obj={make_obj=(fun f -> object method loginfailure=f end);
+        call_obj=(fun o -> o#loginfailure)};
+   var=(fun v -> `loginfailure(v))}
+
+let loginsuccess =
+  {obj={make_obj=(fun f -> object method loginsuccess=f end);
+        call_obj=(fun o -> o#loginsuccess)};
+   var=(fun v -> `loginsuccess(v))}
+
+let getsuppliers =
+  {obj={make_obj=(fun f -> object method getsuppliers=f end);
+        call_obj=(fun o -> o#getsuppliers)};
+   var=(fun v -> `getsuppliers(v))}
+
+let getcontracts =
+  {obj={make_obj=(fun f -> object method getcontracts=f end);
+        call_obj=(fun o -> o#getcontracts)};
+   var=(fun v -> `getcontracts(v))}
+
+let deny =
+  {obj={make_obj=(fun f -> object method deny=f end);
+        call_obj=(fun o -> o#deny)};
+   var=(fun v -> `deny(v))}
+
+let getsuppliers =
+  {obj={make_obj=(fun f -> object method getsuppliers=f end);
+        call_obj=(fun o -> o#getsuppliers)};
+   var=(fun v -> `getsuppliers(v))}
+
+let suppliers =
+  {obj={make_obj=(fun f -> object method suppliers=f end);
+        call_obj=(fun o -> o#suppliers)};
+   var=(fun v -> `suppliers(v))}
+
+let getcontracts =
+  {obj={make_obj=(fun f -> object method getcontracts=f end);
+        call_obj=(fun o -> o#getcontracts)};
+   var=(fun v -> `getcontracts(v))}
+
+let contracts =
+  {obj={make_obj=(fun f -> object method contracts=f end);
+        call_obj=(fun o -> o#contracts)};
+   var=(fun v -> `contracts(v))}
+
+let filtered =
+  {obj={make_obj=(fun f -> object method filtered=f end);
+        call_obj=(fun o -> o#filtered)};
+   var=(fun v -> `filtered(v))}
+
+let getsuppliers_or_getcontracts =
+  {obj_merge=(fun l r -> object method getsuppliers=l#getsuppliers method getcontracts=r#getcontracts end);
+   obj_splitL=(fun lr -> (lr :> <getsuppliers : _>));
+   obj_splitR=(fun lr -> (lr :> <getcontracts : _>));
+  }
+
+let loginfailure_or_loginsuccess =
+  {obj_merge=(fun l r -> object method loginfailure=l#loginfailure method loginsuccess=r#loginsuccess end);
+   obj_splitL=(fun lr -> (lr :> <loginfailure : _>));
+   obj_splitR=(fun lr -> (lr :> <loginsuccess : _>));
+  }
+
+let ehlo =
+  {obj={make_obj=(fun f -> object method ehlo=f end);
+        call_obj=(fun o -> o#ehlo)};
+   var=(fun v -> `ehlo(v))}
+
+let quit =
+  {obj={make_obj=(fun f -> object method quit=f end);
+        call_obj=(fun o -> o#quit)};
+   var=(fun v -> `quit(v))}
+
+let starttls =
+  {obj={make_obj=(fun f -> object method starttls=f end);
+        call_obj=(fun o -> o#starttls)};
+   var=(fun v -> `starttls(v))}
+
+let auth =
+  {obj={make_obj=(fun f -> object method auth=f end);
+        call_obj=(fun o -> o#auth)};
+   var=(fun v -> `auth(v))}
+
+let mail =
+  {obj={make_obj=(fun f -> object method mail=f end);
+        call_obj=(fun o -> o#mail)};
+   var=(fun v -> `mail(v))}
+
+let rcpt =
+  {obj={make_obj=(fun f -> object method rcpt=f end);
+        call_obj=(fun o -> o#rcpt)};
+   var=(fun v -> `rcpt(v))}
+
+let data =
+  {obj={make_obj=(fun f -> object method data=f end);
+        call_obj=(fun o -> o#data)};
+   var=(fun v -> `data(v))}
+
+let _220 =
+  {obj={make_obj=(fun f -> object method _220=f end);
+        call_obj=(fun o -> o#_220)};
+   var=(fun v -> `_220(v))}
+
+let _235 =
+  {obj={make_obj=(fun f -> object method _235=f end);
+        call_obj=(fun o -> o#_235)};
+   var=(fun v -> `_235(v))}
+
+let _250 =
+  {obj={make_obj=(fun f -> object method _250=f end);
+        call_obj=(fun o -> o#_250)};
+   var=(fun v -> `_250(v))}
+
+let _250d =
+  {obj={make_obj=(fun f -> object method _250d=f end);
+        call_obj=(fun o -> o#_250d)};
+   var=(fun v -> `_250d(v))}
+
+let _354 =
+  {obj={make_obj=(fun f -> object method _354=f end);
+        call_obj=(fun o -> o#_354)};
+   var=(fun v -> `_354(v))}
+
+let _501 =
+  {obj={make_obj=(fun f -> object method _501=f end);
+        call_obj=(fun o -> o#_501)};
+   var=(fun v -> `_501(v))}
+
+let _535 =
+  {obj={make_obj=(fun f -> object method _535=f end);
+        call_obj=(fun o -> o#_535)};
+   var=(fun v -> `_535(v))}
+
+let mailbody =
+  {obj={make_obj=(fun f -> object method mailbody=f end);
+        call_obj=(fun o -> o#mailbody)};
+   var=(fun v -> `mailbody(v))}
+
+let starttls_or_quit =
+  {obj_merge=(fun l r -> object method starttls=l#starttls method quit=r#quit end);
+   obj_splitL=(fun lr -> (lr :> <starttls : _>));
+   obj_splitR=(fun lr -> (lr :> <quit : _>));
+  }
+
+let ehlo_or_quit =
+  {obj_merge=(fun l r -> object method ehlo=l#ehlo method quit=r#quit end);
+   obj_splitL=(fun lr -> (lr :> <ehlo : _>));
+   obj_splitR=(fun lr -> (lr :> <quit : _>));
+  }
+
+let mail_or_quit =
+  {obj_merge=(fun l r -> object method mail=l#mail method quit=r#quit end);
+   obj_splitL=(fun lr -> (lr :> <mail : _>));
+   obj_splitR=(fun lr -> (lr :> <quit : _>));
+  }
+
+let _501_or_250 =
+  {obj_merge=(fun l r -> object method _501=l#_501 method _250=r#_250 end);
+   obj_splitL=(fun lr -> (lr :> <_501 : _>));
+   obj_splitR=(fun lr -> (lr :> <_250 : _>));
+  }
+
+let rcpt_or_data =
+  {obj_merge=(fun l r -> object method rcpt=l#rcpt method data=r#data end);
+   obj_splitL=(fun lr -> (lr :> <rcpt : _>));
+   obj_splitR=(fun lr -> (lr :> <data : _>));
+  }
+
+let auth_or_quit =
+  {obj_merge=(fun l r -> object method auth=l#auth method quit=r#quit end);
+   obj_splitL=(fun lr -> (lr :> <auth : _>));
+   obj_splitR=(fun lr -> (lr :> <quit : _>));
+  }
+
+let _235_or_535 =
+  {obj_merge=(fun l r -> object method _235=l#_235 method _535=r#_535 end);
+   obj_splitL=(fun lr -> (lr :> <_235 : _>));
+   obj_splitR=(fun lr -> (lr :> <_535 : _>));
+  }
+
+let _250d_or_250 =
+  {obj_merge=(fun l r -> object method _250d=l#_250d method _250=r#_250 end);
+   obj_splitL=(fun lr -> (lr :> <_250d : _>));
+   obj_splitR=(fun lr -> (lr :> <_250 : _>));
+  }
+
+let _250d_250_or_220 =
+  {obj_merge=(fun l r -> object method _250d=l#_250d method _250=l#_250 method _220=r#_220 end);
+   obj_splitL=(fun lr -> (lr :> <_250d : _; _250 : _>));
+   obj_splitR=(fun lr -> (lr :> <_220 : _>));
+  }

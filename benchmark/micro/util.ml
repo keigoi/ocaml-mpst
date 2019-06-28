@@ -77,9 +77,9 @@ end
 module IPC = struct
   let medium = `IPCProcess
 end
-module Untyped = struct
-  let medium = `Untyped
-end
+(* module Untyped = struct
+ *   let medium = `Untyped
+ * end *)
 
 let ping_or_fini =
   {obj_merge=(fun l r -> object method ping=l#ping method fini=r#fini end);
@@ -105,4 +105,9 @@ end
 module NoDynCheck : DYNCHECK = struct
   module Flag = Mpst.M.Nocheck.Noflag
   module EP = Mpst.M.Nocheck.Nodyncheck
+end
+
+module NoDynCheckWithClosure : DYNCHECK = struct
+  module Flag = Mpst.M.Nocheck.Noflag
+  module EP = Mpst.M.Dyncheck_ep.Make(Flag)
 end

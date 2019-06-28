@@ -1,7 +1,7 @@
 open Base
 open Common
 
-module Make(EP:S.LIN_EP)(EV:S.EVENT) = struct
+module Make(EP:S.ENDPOINT)(EV:S.EVENT) = struct
   module MA = Mergeable.Make(EP)
 
   type 'v bare_out =

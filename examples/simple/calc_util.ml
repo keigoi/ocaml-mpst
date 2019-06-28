@@ -1,6 +1,6 @@
 open Mpst
 
-module Make(EP:S.LIN_EP) = struct
+module Make(EP:S.ENDPOINT) = struct
 module G = Mpst.Global_common.Make(EP)
 open G
 

@@ -40,14 +40,14 @@ module type SERIAL = sig
   val pipe : unit -> (in_channel * out_channel)
 end
 
-module type LIN_FLAG = sig
+module type DYN_LIN_FLAG = sig
   type t
   val create     : unit -> t
   val use        : t -> unit
   exception InvalidEndpoint
 end
 
-module type LIN_EP = sig
+module type ENDPOINT = sig
   type once
   type 'a t
   val make : (once -> 'a) -> 'a t

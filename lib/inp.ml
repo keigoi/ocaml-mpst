@@ -1,7 +1,7 @@
 open Base
 open Common
 
-module Make(EP:S.LIN_EP)(M:S.MONAD)(EV:S.EVENT with type 'a monad = 'a M.t) = struct
+module Make(EP:S.ENDPOINT)(M:S.MONAD)(EV:S.EVENT with type 'a monad = 'a M.t) = struct
 
   type 'a inp =
     | InpChan of EP.once * 'a EV.event

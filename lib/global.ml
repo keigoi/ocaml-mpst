@@ -2,7 +2,7 @@ open Base
 open Common
 
 module Make
-         (EP:S.LIN_EP)
+         (EP:S.ENDPOINT)
          (M:S.MONAD)
          (EV:S.EVENT with type 'a monad = 'a M.t)
          (C:S.SERIAL with type 'a monad = 'a M.t)

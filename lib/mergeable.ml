@@ -6,7 +6,7 @@
 open Base
 open Common
 
-module Make(EP:S.LIN_EP) = struct
+module Make(EP:S.ENDPOINT) = struct
 
   type 'a ep = 'a EP.t
 

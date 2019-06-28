@@ -6,7 +6,7 @@ module M = struct
   module Out = Out
   module Table = Table
 
-  module LinFlag : S.LIN_FLAG = LinFlag
+  module LinFlag : S.DYN_LIN_FLAG = LinFlag
   module Peripheral = Peripheral
   module P = Peripheral
   module Global_common = Global_common

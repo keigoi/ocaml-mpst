@@ -22,7 +22,7 @@
  * the all mergings are resolved before actual communication will take place.
  * It is realised by the hooks -- see the implementation of (-->) combinator, for example.
  *)
-module Make(EP:S.LIN_EP) : sig
+module Make(EP:S.ENDPOINT) : sig
   type 'a ep = 'a EP.t
   type 'a t
   and hook = unit lazy_t

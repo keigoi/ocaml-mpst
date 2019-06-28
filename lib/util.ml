@@ -1,6 +1,6 @@
 open Base
 
-module Make(EP:S.LIN_EP) = struct
+module Make(EP:S.ENDPOINT) = struct
 module G = Global_common.Make(EP)
 open G
 
@@ -63,8 +63,8 @@ let to_b m =
    obj_splitL=(fun lr -> object method role_B=m.obj_splitL (lr#role_B) end);
    obj_splitR=(fun lr -> object method role_B=m.obj_splitR (lr#role_B) end)
   }
-   
-  
+
+
 
 let to_ m r1 r2 r3 =
   let (!) x = x.role_label in

@@ -1,6 +1,6 @@
 open Base
 
-module Make(EP:S.LIN_EP) = struct
+module Make(EP:S.ENDPOINT) = struct
 module Mergeable = Mergeable.Make(EP)
 module Seq = Seq.Make(EP)
 

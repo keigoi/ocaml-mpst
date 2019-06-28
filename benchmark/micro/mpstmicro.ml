@@ -15,13 +15,18 @@ sig
 end
   = struct
 
-  module Local = Local.Make(Mpst.M.Nocheck.Nodyncheck)(Mpst.M.Nocheck.Noflag)(M)(M.Event)
-  module Global = Global.Make (Mpst.M.Nocheck.Nodyncheck)(M)(M.Event)(M.Serial)(NoLin)
-  module Util = Util.Make(Mpst.M.Nocheck.Nodyncheck)
+  (* module Local = Local.Make(Mpst.M.Nocheck.Nodyncheck)(Mpst.M.Nocheck.Noflag)(M)(M.Event)
+   * module Global = Global.Make (Mpst.M.Nocheck.Nodyncheck)(M)(M.Event)(M.Serial)(NoLin)
+   * module Util = Util.Make(Mpst.M.Nocheck.Nodyncheck) *)
 
-  (* module Local = Local.Make(Mpst.M.Dyncheck)(Mpst.LinFlag)(M)(M.Event)
-   * module Global = Global.Make(Mpst.M.Dyncheck)(M)(M.Event)(M.Serial)(NoLin)
-   * module Util = Util.Make(Mpst.M.Dyncheck) *)
+  (* module DynamicNano = Mpst.M.Dyncheck_ep.Make(Dyncheck_nanomutex.NanoMutexFlag)
+   * module Local = Local.Make(DynamicNano)(Dyncheck_nanomutex.NanoMutexFlag)(M)(M.Event)
+   * module Global = Global.Make (DynamicNano)(M)(M.Event)(M.Serial)(NoLin)
+   * module Util = Util.Make(DynamicNano) *)
+
+  module Local = Local.Make(Mpst.M.Dyncheck)(Mpst.LinFlag)(M)(M.Event)
+  module Global = Global.Make(Mpst.M.Dyncheck)(M)(M.Event)(M.Serial)(NoLin)
+  module Util = Util.Make(Mpst.M.Dyncheck)
 
   open Global
   open Local
@@ -170,7 +175,6 @@ end
   module Local = Mpst_monad.Local_monad.Make(M)(M.Event)(M.Linocaml)
   module Global = Mpst_monad.Global_monad.Make(M)(M.Event)(M.Serial)(M.Linocaml)
   module Util = Util.Make(Mpst.M.Nocheck.Nodyncheck)
-  (* module Util = Util.Make(Mpst.M.Dyncheck) *)
   open Global
   open Local
   open Util

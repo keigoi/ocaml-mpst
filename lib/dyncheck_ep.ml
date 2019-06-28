@@ -1,6 +1,6 @@
-module Make(LinFlag:S.LIN_FLAG) : S.LIN_EP with type once = LinFlag.t = struct
-  type once = LinFlag.t
-  type 'a t = LinFlag.t -> 'a
+module Make(DynLinFlag:S.DYN_LIN_FLAG) : S.ENDPOINT with type once = DynLinFlag.t = struct
+  type once = DynLinFlag.t
+  type 'a t = DynLinFlag.t -> 'a
 
   let make f = f
 
@@ -13,5 +13,5 @@ module Make(LinFlag:S.LIN_FLAG) : S.LIN_EP with type once = LinFlag.t = struct
     List.map2 (fun t1 t2 once -> f (t1 once) (t2 once)) ts1 ts2
 
   let generate fs =
-    List.map (fun f -> f @@ LinFlag.create ()) fs
+    List.map (fun f -> f @@ DynLinFlag.create ()) fs
 end

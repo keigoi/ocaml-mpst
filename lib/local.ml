@@ -2,8 +2,8 @@ open Base
 open Common
 
 module Make
-         (EP:S.LIN_EP)
-         (F:S.LIN_FLAG with type t = EP.once)
+         (EP:S.ENDPOINT)
+         (F:S.DYN_LIN_FLAG with type t = EP.once)
          (M:S.MONAD)
          (EV:S.EVENT with type 'a monad = 'a M.t)
        : S.LOCAL

@@ -1,7 +1,7 @@
 (**
  * The module for sequences of mergeables (endpoints).
  *)
-module Make(EP:S.LIN_EP) : sig
+module Make(EP:S.ENDPOINT) : sig
 type 'a mergeable = 'a Mergeable.Make(EP).t
 (** sequence type *)
 type _ t = (* can we hide these constructors? *)

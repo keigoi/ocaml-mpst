@@ -1,5 +1,6 @@
-(executable
+(library
  (name usecases)
-  (public_name usecases)
+  (public_name ocaml-mpst.usecases)
+  (modules usecases usecase_util)
   (flags ("-g" "-short-paths"))
   (libraries ocaml-mpst))

@@ -438,3 +438,149 @@ let _250d_250_or_220 =
    obj_splitL=(fun lr -> (lr :> <_250d : _; _250 : _>));
    obj_splitR=(fun lr -> (lr :> <_220 : _>));
   }
+
+let full =
+  {obj={make_obj=(fun f -> object method full=f end);
+        call_obj=(fun o -> o#full)};
+   var=(fun v -> `full(v))}
+
+let seat =
+  {obj={make_obj=(fun f -> object method seat=f end);
+        call_obj=(fun o -> o#seat)};
+   var=(fun v -> `seat(v))}
+
+let available =
+  {obj={make_obj=(fun f -> object method available=f end);
+        call_obj=(fun o -> o#available)};
+   var=(fun v -> `available(v))}
+
+let ready =
+  {obj={make_obj=(fun f -> object method ready=f end);
+        call_obj=(fun o -> o#ready)};
+   var=(fun v -> `ready(v))}
+
+let descr =
+  {obj={make_obj=(fun f -> object method descr=f end);
+        call_obj=(fun o -> o#descr)};
+   var=(fun v -> `descr(v))}
+
+let haircut =
+  {obj={make_obj=(fun f -> object method haircut=f end);
+        call_obj=(fun o -> o#haircut)};
+   var=(fun v -> `haircut(v))}
+
+let pay =
+  {obj={make_obj=(fun f -> object method pay=f end);
+        call_obj=(fun o -> o#pay)};
+   var=(fun v -> `pay(v))}
+
+let full_or_seat =
+  {obj_merge=(fun l r -> object method full=l#full method seat=r#seat end);
+   obj_splitL=(fun lr -> (lr :> <full : _>));
+   obj_splitR=(fun lr -> (lr :> <seat : _>));
+  }
+
+let deleg_customer =
+  {obj={make_obj=(fun f -> object method deleg_customer=f end);
+        call_obj=(fun o -> o#deleg_customer)};
+   var=(fun v -> `deleg_customer(v))}
+
+let start_smoking =
+  {obj={make_obj=(fun f -> object method start_smoking=f end);
+        call_obj=(fun o -> o#start_smoking)};
+   var=(fun v -> `start_smoking(v))}
+
+let exit =
+  {obj={make_obj=(fun f -> object method exit=f end);
+        call_obj=(fun o -> o#exit)};
+   var=(fun v -> `exit(v))}
+
+let started_smoking =
+  {obj={make_obj=(fun f -> object method started_smoking=f end);
+        call_obj=(fun o -> o#started_smoking)};
+   var=(fun v -> `started_smoking(v))}
+
+let start_smoking_or_exit =
+  {obj_merge=(fun l r -> object method start_smoking=l#start_smoking method exit=r#exit end);
+   obj_splitL=(fun lr -> (lr :> <start_smoking : _>));
+   obj_splitR=(fun lr -> (lr :> <exit : _>));
+  }
+
+let playAsA =
+  {obj={make_obj=(fun f -> object method playAsA=f end);
+        call_obj=(fun o -> o#playAsA)};
+   var=(fun v -> `playAsA(v))}
+
+let playAsB =
+  {obj={make_obj=(fun f -> object method playAsB=f end);
+        call_obj=(fun o -> o#playAsB)};
+   var=(fun v -> `playAsB(v))}
+
+let playAsC =
+  {obj={make_obj=(fun f -> object method playAsC=f end);
+        call_obj=(fun o -> o#playAsC)};
+   var=(fun v -> `playAsC(v))}
+
+let playAsA_playAsB_or_playAsC =
+  {obj_merge=(fun l r -> object method playAsA=l#playAsA method playAsB=l#playAsB method playAsC=r#playAsC end);
+   obj_splitL=(fun lr -> (lr :> <playAsA : _; playAsB : _>));
+   obj_splitR=(fun lr -> (lr :> <playAsC : _>));
+  }
+
+let playAsA_or_playAsB =
+  {obj_merge=(fun l r -> object method playAsA=l#playAsA method playAsB=r#playAsB end);
+   obj_splitL=(fun lr -> (lr :> <playAsA : _;>));
+   obj_splitR=(fun lr -> (lr :> <playAsB : _>));
+  }
+
+let map =
+  {obj={make_obj=(fun f -> object method map=f end);
+        call_obj=(fun o -> o#map)};
+   var=(fun v -> `map(v))}
+
+let work =
+  {obj={make_obj=(fun f -> object method work=f end);
+        call_obj=(fun o -> o#work)};
+   var=(fun v -> `work(v))}
+
+let result =
+  {obj={make_obj=(fun f -> object method result=f end);
+        call_obj=(fun o -> o#result)};
+   var=(fun v -> `result(v))}
+
+let done_ =
+  {obj={make_obj=(fun f -> object method done_=f end);
+        call_obj=(fun o -> o#done_)};
+   var=(fun v -> `done_(v))}
+
+let work_or_stop =
+  {obj_merge=(fun l r -> object method work=l#work method stop=r#stop end);
+   obj_splitL=(fun lr -> (lr :> <work : _;>));
+   obj_splitR=(fun lr -> (lr :> <stop : _>));
+  }
+
+let result_or_done =
+  {obj_merge=(fun l r -> object method result=l#result method done_=r#done_ end);
+   obj_splitL=(fun lr -> (lr :> <result : _;>));
+   obj_splitR=(fun lr -> (lr :> <done_ : _>));
+  }
+
+let knock =
+  {obj={make_obj=(fun f -> object method knock=f end);
+        call_obj=(fun o -> o#knock)};
+   var=(fun v -> `knock(v))}
+
+let deliver =
+  {obj={make_obj=(fun f -> object method deliver=f end);
+        call_obj=(fun o -> o#deliver)};
+   var=(fun v -> `deliver(v))}
+
+let maketoy =
+  {obj={make_obj=(fun f -> object method maketoy=f end);
+        call_obj=(fun o -> o#maketoy)};
+   var=(fun v -> `maketoy(v))}
+
+let start =
+  {obj={make_obj=(fun f -> object method start=f end);
+        call_obj=(fun o -> o#start)};
+   var=(fun v -> `start(v))}

@@ -768,3 +768,192 @@ module Smtp = struct
     (s --> c) _220 @@ ehlo ()
 
 end
+
+(** Sleeping Barber protocol:
+ *  from A. Scalas and N. Yoshida, Lightweight Session Programming in Scala, ECOOP 2016 *)
+module SleepingBarber = struct
+  let customer = {role_index=Zero; role_label={make_obj=(fun v -> object method role_Customer=v end); call_obj=(fun o->o#role_Customer)}}
+  let shop = {role_index=Succ Zero; role_label={make_obj=(fun v -> object method role_Shop=v end); call_obj=(fun o->o#role_Shop)}}
+  let barber = {role_index=Succ (Succ Zero); role_label={make_obj=(fun v -> object method role_Barber=v end); call_obj=(fun o->o#role_Barber)}}
+  let to_customer m = to_ m customer customer customer
+  let to_shop m = to_ m shop shop shop
+  let to_barber m = to_ m barber barber barber
+
+  let haircut () =
+    (customer --> barber) descr @@
+      (barber --> customer) haircut @@
+        (customer --> barber) pay @@
+          finish
+
+
+  let g () =
+    fix (fun t ->
+        choice_at shop (to_customer full_or_seat)
+          (shop, (shop --> customer) full @@
+                       t)
+          (shop, (shop --> customer) seat @@
+                   (barber --> shop) available @@
+                     (shop --> customer) ready @@
+                       (shop --> barber) (deleg_customer >:prot barber (haircut ()))   @@
+                           t))
+end
+
+module SigSmoker = struct
+  (* global protocol CigaretteSmoker ( role Arbiter as A , role Smoker [1.. N ] as S ) {
+   *     rec Loop {
+   *             choice at A {
+   *                 start_smoking () from A to S [ i ];
+   *                 started_smoking () from S [ i ] to A ;
+   *                 continue Loop ;
+   *               } or {
+   *                 exit () from A to S [ i .. n ];
+   *               }}} *)
+  let a = {role_index=Zero; role_label={make_obj=(fun v -> object method role_A=v end); call_obj=(fun o->o#role_A)}}
+  let s = {role_index=Succ Zero; role_label={make_obj=(fun v -> object method role_S=v end); call_obj=(fun o->o#role_S)}}
+  let to_a m = to_ m a a a
+  let to_s m = to_ m s s s
+
+  (* let g () =
+   *   fix (fun loop ->
+   *       choice_at a (to_s start_smoking_or_exit)
+   *         (a, (oneof a s) start_smoking @@
+   *               (oneof s a) started_smoking @@
+   *                 loop)
+   *         (a, (gather a s) exit @@ finish)) *)
+
+end
+
+module Game = struct
+(* global protocol Proto(role C, role S)
+ * {
+ * 	choice at S
+ * 	{
+ * 		playAsA(Game@A) from S to C;
+ * 	}
+ * 	or
+ * 	{
+ * 		playAsB(Game@B) from S to C;
+ * 	}
+ * 	or
+ * 	{
+ * 		playAsC(Game@C) from S to C;
+ * 	}
+ * }
+ *
+ *
+ * global protocol Game(role A, role B, role C)
+ * {
+ * 	// Arbitrary for now
+ * 	rec X
+ * 	{
+ * 		choice at A
+ * 		{
+ * 			1() from A to B;
+ * 			1() from B to C;
+ * 			1() from C to A;
+ * 			continue X;
+ * 		}
+ * 		or
+ * 		{
+ * 			2() from A to B;
+ * 			2() from B to C;
+ * 			2() from C to A;
+ * 		}
+ * 	}
+ * } *)
+  (* let main () = *)
+
+  let srv = {role_index=Zero; role_label={make_obj=(fun v -> object method role_Srv=v end); call_obj=(fun o->o#role_Srv)}}
+  let cli = {role_index=Succ Zero; role_label={make_obj=(fun v -> object method role_Cli=v end); call_obj=(fun o->o#role_Cli)}}
+  let a = {role_index=Zero; role_label={make_obj=(fun v -> object method role_A=v end); call_obj=(fun o->o#role_A)}}
+  let b = {role_index=Succ Zero; role_label={make_obj=(fun v -> object method role_B=v end); call_obj=(fun o->o#role_B)}}
+  let c = {role_index=Succ (Succ Zero); role_label={make_obj=(fun v -> object method role_C=v end); call_obj=(fun o->o#role_C)}}
+  let to_a m = to_ m a a a
+  let to_b m = to_ m b b b
+  let to_c m = to_ m c c c
+  let to_srv m = to_ m srv srv srv
+  let to_cli m = to_ m cli cli cli
+
+  let game () =
+    fix (fun t ->
+        choice_at a (to_b left_or_right)
+          (a, (a --> b) left @@
+              (b --> c) left @@
+              (c --> a) left @@
+              t)
+          (a, (a --> b) right @@
+              (b --> c) right @@
+              (c --> a) right @@
+              finish))
+
+  let main () =
+    choice_at srv (to_cli playAsA_playAsB_or_playAsC)
+      (srv, choice_at srv (to_cli playAsA_or_playAsB)
+              (srv, (srv --> cli) (playAsA >: prot a (game ())) finish)
+              (srv, (srv --> cli) (playAsB >: prot b (game ())) finish))
+      (srv, (srv --> cli) (playAsC >: prot c (game ())) finish)
+
+end
+
+module MapReduce = struct
+  let mst = {role_index=Zero; role_label={make_obj=(fun v -> object method role_Mst=v end); call_obj=(fun o->o#role_Mst)}}
+  let wrk = {role_index=Succ Zero; role_label={make_obj=(fun v -> object method role_Wrk=v end); call_obj=(fun o->o#role_Wrk)}}
+
+  let to_mst m = to_ m mst mst mst
+  let to_wrk m = to_ m wrk wrk wrk
+
+  let g () =
+    fix (fun moredata ->
+        (scatter mst wrk) map @@
+          (gather wrk mst) sum @@
+            moredata)
+end
+
+module NQueen = struct
+  let mst = {role_index=Zero; role_label={make_obj=(fun v -> object method role_Mst=v end); call_obj=(fun o->o#role_Mst)}}
+  let wrk = {role_index=Succ Zero; role_label={make_obj=(fun v -> object method role_Wrk=v end); call_obj=(fun o->o#role_Wrk)}}
+
+  let to_mst m = to_ m mst mst mst
+  let to_wrk m = to_ m wrk wrk wrk
+
+  let reply () =
+    fix (fun t ->
+        choice_at wrk (to_mst result_or_done)
+          (wrk, (wrk --> mst) result @@ t)
+          (wrk, (wrk --> mst) done_ @@ finish))
+
+  let g () =
+    fix (fun t ->
+        choice_at mst (to_wrk work_or_stop)
+          (mst, (scatter mst wrk) (work >>: prot wrk (reply ())) @@
+                  t)
+          (mst, (scatter mst wrk) stop @@
+                  (gather wrk mst) stop @@ finish))
+end
+
+module Santa = struct
+  let santa = {role_index=Zero; role_label={make_obj=(fun v -> object method role_Santa=v end); call_obj=(fun o->o#role_Santa)}}
+  let reindeer = {role_index=Succ Zero; role_label={make_obj=(fun v -> object method role_Reindeer=v end); call_obj=(fun o->o#role_Reindeer)}}
+  let elf = {role_index=Succ (Succ Zero); role_label={make_obj=(fun v -> object method role_Elf=v end); call_obj=(fun o->o#role_Elf)}}
+
+  let to_santa m = to_ m santa santa santa
+  let to_reindeer m = to_ m reindeer reindeer reindeer
+  let to_elf m = to_ m elf elf elf
+
+  let elf_session () =
+    fix (fun t ->
+        (gather elf santa) knock @@
+          (scatter santa elf) maketoy @@
+            t)
+
+  let reindeer_session () =
+    fix (fun t ->
+        (gather reindeer santa) knock @@
+          (scatter santa elf) deliver @@
+            t)
+
+  let main () =
+    scatter santa elf (start >>: prot elf (elf_session ())) @@
+      scatter santa reindeer (start >>: prot reindeer (reindeer_session ())) @@
+        finish
+end

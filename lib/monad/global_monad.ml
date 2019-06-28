@@ -9,7 +9,7 @@ module Make
   = struct
   include
     Mpst.Global.Make
-      (Nocheck.Nodyncheck)
+      (Mpst.M.Nocheck.Nodyncheck)
       (M)
       (EV)
       (C)
@@ -49,7 +49,7 @@ module Make
     Mergeable.make
       ~hook:(Lazy.from_val ())
       ~mergefun:(fun _ _ -> Mpst.Close)
-      ~value:[Nocheck.Nodyncheck.unrestricted Mpst.Close]
+      ~value:[Mpst.M.Nocheck.Nodyncheck.unrestricted Mpst.Close]
 
   let get_ep r =
     let open Linocaml in

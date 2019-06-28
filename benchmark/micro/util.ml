@@ -4,12 +4,10 @@ module ML = Mpst_lwt.M
 
 let fork f x =
   Common.fork_child (fun () ->
-      print_endline "process forked";
       f ()) ()
 
 let thread f x =
   ignore (Thread.create (fun () ->
-              print_endline "thread started";
               (f x:unit)) ())
 
 (* array size parameters *)

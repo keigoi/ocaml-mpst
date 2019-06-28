@@ -52,7 +52,7 @@ module type LIN_EP = sig
   type 'a t
   val make : (once -> 'a) -> 'a t
   val unrestricted : 'a -> 'a t
-  val map_merge : ('a -> 'a -> 'a) -> 'a t list -> 'a t list -> 'a t list
+
   val generate : 'a t list -> 'a list
   val map : ('a -> 'b) -> 'a t list -> 'b t list
   val map2 : ('a -> 'b -> 'c) -> 'a t list -> 'b t list -> 'c t list

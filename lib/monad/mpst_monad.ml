@@ -1,6 +1,5 @@
 module Local_monad = Local_monad
 module Global_monad = Global_monad
-module Nocheck = Nocheck
 
 
 module Global =
@@ -20,6 +19,6 @@ module Default = struct
   include Mpst.Base
   include Global
   include Local
-  include Mpst.Util.Make(Nocheck.Nodyncheck)
+  include Mpst.Util.Make(Mpst.M.Nocheck.Nodyncheck)
 end
 include Default

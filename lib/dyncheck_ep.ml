@@ -6,10 +6,6 @@ module Make(LinFlag:S.LIN_FLAG) : S.LIN_EP with type once = LinFlag.t = struct
 
   let unrestricted v = (fun _ -> v)
 
-
-  let map_merge mrg l r =
-    List.map2 (fun l r f -> mrg (l f) (r @@ LinFlag.create ())) l r
-
   let map f ts =
     List.map (fun t once -> f (t once)) ts
 

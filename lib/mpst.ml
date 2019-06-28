@@ -17,6 +17,8 @@ module M = struct
     let unlin x = x
   end
 
+  module Dyncheck_ep = Dyncheck_ep
+  module Nocheck = Nocheck
   module Dyncheck = Dyncheck_ep.Make(LinFlag)
 
   module Global = struct

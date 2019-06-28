@@ -15,13 +15,13 @@ sig
 end
   = struct
 
-  (* module Local = Local.Make(Mpst_monad.Nocheck.Nodyncheck)(Mpst_monad.Nocheck.Noflag)(M)(M.Event)
-   * module Global = Global.Make (Mpst_monad.Nocheck.Nodyncheck)(M)(M.Event)(M.Serial)(NoLin)
-   * module Util = Util.Make(Mpst_monad.Nocheck.Nodyncheck) *)
+  module Local = Local.Make(Mpst.M.Nocheck.Nodyncheck)(Mpst.M.Nocheck.Noflag)(M)(M.Event)
+  module Global = Global.Make (Mpst.M.Nocheck.Nodyncheck)(M)(M.Event)(M.Serial)(NoLin)
+  module Util = Util.Make(Mpst.M.Nocheck.Nodyncheck)
 
-  module Local = Local.Make(Mpst.Dyncheck)(Mpst.LinFlag)(M)(M.Event)
-  module Global = Global.Make(Mpst.Dyncheck)(M)(M.Event)(M.Serial)(NoLin)
-  module Util = Util.Make(Mpst.Dyncheck)
+  (* module Local = Local.Make(Mpst.M.Dyncheck)(Mpst.LinFlag)(M)(M.Event)
+   * module Global = Global.Make(Mpst.M.Dyncheck)(M)(M.Event)(M.Serial)(NoLin)
+   * module Util = Util.Make(Mpst.M.Dyncheck) *)
 
   open Global
   open Local
@@ -169,7 +169,7 @@ end
   = struct
   module Local = Mpst_monad.Local_monad.Make(M)(M.Event)(M.Linocaml)
   module Global = Mpst_monad.Global_monad.Make(M)(M.Event)(M.Serial)(M.Linocaml)
-  module Util = Util.Make(Mpst_monad.Nocheck.Nodyncheck)
+  module Util = Util.Make(Mpst.M.Nocheck.Nodyncheck)
   (* module Util = Util.Make(Mpst.M.Dyncheck) *)
   open Global
   open Local
@@ -277,9 +277,9 @@ end
 
   let () =
     if Med.medium = `IPCProcess then begin
-        fork (fun () -> print_endline"IPC";M.run (M.Linocaml.run' server_loop None)) ();
+        fork (fun () -> M.run (M.Linocaml.run' server_loop None)) ();
       end else if M.is_direct then begin
-        ignore (thread (fun () ->print_endline"direct"; M.run (M.Linocaml.run' server_loop None)) ());
+        ignore (thread (fun () -> M.run (M.Linocaml.run' server_loop None)) ());
       end
 
 end

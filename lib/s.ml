@@ -1,10 +1,4 @@
 
-module type LIN = sig
-  type 'a lin
-  val mklin : 'a -> 'a lin
-  val unlin : 'a lin -> 'a
-end
-
 module type MONAD = sig
   type +'a t
   val return : 'a -> 'a t
@@ -57,7 +51,7 @@ module type LIN_EP = sig
   type once
   type 'a t
   val make : (once -> 'a) -> 'a t
-  val unrestricted : 'a list -> 'a t list
+  val unrestricted : 'a -> 'a t
   val map_merge : ('a -> 'a -> 'a) -> 'a t list -> 'a t list -> 'a t list
   val generate : 'a t list -> 'a list
   val map : ('a -> 'b) -> 'a t list -> 'b t list
@@ -72,4 +66,10 @@ module type LOCAL = sig
   val sendmany : ('t list * 'u) out -> (int -> 't) -> 'u monad
   val receive : 't inp -> 't monad
   val close : Base.close -> unit
+end
+
+module type LIN = sig
+  type 'a lin
+  val mklin : 'a -> 'a lin
+  val unlin : 'a lin -> 'a
 end

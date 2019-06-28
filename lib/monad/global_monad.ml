@@ -49,7 +49,7 @@ module Make
     Mergeable.make
       ~hook:(Lazy.from_val ())
       ~mergefun:(fun _ _ -> Mpst.Close)
-      ~value:[Nocheck.Nodyncheck.make (fun _ -> Mpst.Close)]
+      ~value:[Nocheck.Nodyncheck.unrestricted Mpst.Close]
 
   let get_ep r =
     let open Linocaml in

@@ -60,7 +60,7 @@ let munit =
   Mergeable.make
     ~hook:(Lazy.from_val ())
     ~mergefun:(fun _ _ -> ())
-    ~value:[EP.make (fun _ -> ())]
+    ~value:[EP.unrestricted ()]
 
 let choice_at : 'ep 'ep_l 'ep_r 'g0_l 'g0_r 'g1 'g2.
                   (_, _, unit, (< .. > as 'ep), 'g1 Seq.t, 'g2 Seq.t) role ->

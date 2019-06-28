@@ -1,6 +1,11 @@
 (library
- (name usecases)
-  (public_name ocaml-mpst.usecases)
-  (modules protocols usecase_util)
-  (flags ("-g" "-short-paths"))
-  (libraries ocaml-mpst))
+ (name usecase)
+ (modules protocols usecase_util)
+ (flags ("-g" "-short-paths"))
+ (libraries ocaml-mpst))
+
+(executable
+ (public_name ocaml-mpst.test_projection)
+ (name test_projection)
+ (modules test_projection)
+ (libraries ocaml-mpst usecase))

@@ -43,7 +43,6 @@ module TwoBuyer = struct
         finish)
 
   let g () =
-    gen @@
     (a --> s) title @@
     (s --> a) quote @@
     (s --> b) quote @@

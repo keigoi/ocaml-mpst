@@ -106,18 +106,26 @@ let test_iteration =
         create_indexed ~name:"iter/mpst-dynamic/lwt" ~args:last (let module M = MakeDyn(DynCheckNano)(LwtMonad)(Shmem)() in M.test_iteration);
         create_indexed ~name:"iter/mpst-dynamic/lwt(nodyncheck)" ~args:last (let module M = MakeDyn(NoDynCheckWithClosure)(LwtMonad)(Shmem)() in M.test_iteration);
         create_indexed ~name:"iter/mpst-dynamic/lwt(nodyncheck,noclosure)" ~args:last (let module M = MakeDyn(NoDynCheck)(LwtMonad)(Shmem)() in M.test_iteration);
+
+        (* channel vector by hand *)
+        create_indexed ~name:"iter/OCaml-lwt/chvec_byhand(stream),closure" ~args:last BLwtChannelVectorManualDyncheckClosure.test_iteration;
         create_indexed ~name:"iter/OCaml-lwt/chvec_byhand(stream)" ~args:last BLwtChannelVectorManual.test_iteration;
+        (* less closure, no polyvar wrap (but have object wrap, with extra closures on reception) *)
         create_indexed ~name:"iter/OCaml-lwt/chvec_byhand_less_wrap(stream)" ~args:last BLwtChannelVectorManualLessWrap.test_iteration;
+        (* less closure, no polyvar wrap (but have object wrap) *)
+        create_indexed ~name:"iter/OCaml-lwt/chvec_byhand_less_wrap1_5(stream)" ~args:last BLwtChannelVectorManualLessWrap1_5.test_iteration;
+        (* no object wrap (but have polyvar wrap) *)
         create_indexed ~name:"iter/OCaml-lwt/chvec_byhand_less_wrap2(stream)" ~args:last BLwtChannelVectorManualLessWrap2.test_iteration;
+        (* almost same as twochan *)
         create_indexed ~name:"iter/OCaml-lwt/chvec_byhand_less_wrap3(stream)" ~args:last BLwtChannelVectorManualLessWrap3.test_iteration;
         create_indexed ~name:"iter/OCaml-lwt/twochan(stream)" ~args:last (let module M = BLwtTwoChan(LwtStream)() in M.test_iteration);
 
-        (* For Event-based one, the overhead for dynamic checking is negligible. Closures has some cost (less than 5 percent) *)
-        create_indexed ~name:"iter/mpst-static/ev" ~args:last @@ (let module M = MakeStatic(LinDirect)(Shmem)() in M.test_iteration);
-        create_indexed ~name:"iter/mpst-dynamic/ev" ~args:last (let module M = MakeDyn(DynCheckNano)(Direct)(Shmem)() in M.test_iteration);
-        create_indexed ~name:"iter/mpst-dynamic/ev(nodyncheck)" ~args:last (let module M = MakeDyn(NoDynCheckWithClosure)(Direct)(Shmem)() in M.test_iteration);
-        create_indexed ~name:"iter/mpst-dynamic/ev(nodyncheck,noclosure)" ~args:last (let module M = MakeDyn(NoDynCheck)(Direct)(Shmem)() in M.test_iteration);
-        create_indexed ~name:"iter/OCaml-ev/twochan" ~args:last BEvent.test_iteration;
+        (* (\* For Event-based one, the overhead for dynamic checking is negligible. Closures has some cost (less than 5 percent) *\)
+         * create_indexed ~name:"iter/mpst-static/ev" ~args:last @@ (let module M = MakeStatic(LinDirect)(Shmem)() in M.test_iteration);
+         * create_indexed ~name:"iter/mpst-dynamic/ev" ~args:last (let module M = MakeDyn(DynCheckNano)(Direct)(Shmem)() in M.test_iteration);
+         * create_indexed ~name:"iter/mpst-dynamic/ev(nodyncheck)" ~args:last (let module M = MakeDyn(NoDynCheckWithClosure)(Direct)(Shmem)() in M.test_iteration);
+         * create_indexed ~name:"iter/mpst-dynamic/ev(nodyncheck,noclosure)" ~args:last (let module M = MakeDyn(NoDynCheck)(Direct)(Shmem)() in M.test_iteration);
+         * create_indexed ~name:"iter/OCaml-ev/twochan" ~args:last BEvent.test_iteration; *)
   ])
 
 

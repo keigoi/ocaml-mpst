@@ -404,7 +404,180 @@ module BLwtChannelVectorManual = struct
           end)
 end
 
+module BLwtChannelVectorManualDyncheckClosure = struct
+  let (let/) = Lwt.bind
+
+  let ch1 = Lwt_stream.create ()
+  let ch2 = Lwt_stream.create ()
+  let raw_receive (st,_) = Lwt_stream.next st
+  let raw_send (_,push) v = push (Some v); Lwt.return_unit
+  (* let ch1 = Lwt_mvar.create_empty ()
+   * let ch2 = Lwt_mvar.create_empty ()
+   * let receive m = Lwt_mvar.take m
+   * let send m v = Lwt_mvar.put m v *)
+
+  let create () =
+    let rec epa () =
+          object method role_B =
+              object method ping =
+                  (ch1, epa1 ())
+              end
+          end
+    and epa1 () =
+          object method role_B =
+              fun () -> Lwt.map (fun v -> `pong(v, epa ())) (raw_receive ch2)
+          end
+    in
+    let rec epb () =
+          object method role_A =
+              fun () -> Lwt.map (fun v -> `ping(v, epb1 ())) (raw_receive ch1)
+          end
+    and epb1 () =
+          object method role_A =
+              object method pong =
+                  (ch2, epb ())
+              end
+          end
+    in
+    epa (), epb ()
+
+  let send (ch,cont) v =
+    let/ () = raw_send ch v in
+    Lwt.return cont
+
+  let receive ep = ep ()
+
+
+
+  let server_iter epb cnt =
+    let rec loop epb cnt =
+      if cnt = 0 then
+        Lwt.return epb
+      else begin
+          let/ `ping(_arr, epb) = receive epb#role_A in
+          let/ epb = send epb#role_A#pong () in
+          loop epb (cnt-1)
+        end
+    in
+    loop epb cnt
+
+  let test_iteration =
+    fun cnt ->
+    let epa, epb = create () in
+    Core.Staged.stage (fun () ->
+        Lwt.async (fun () -> server_iter epb cnt);
+        Lwt_main.run begin
+            let rec loop epa cnt =
+              if cnt=0 then
+                Lwt.return epa
+              else
+                let/ epa = send epa#role_B#ping default_payload in
+                let/ `pong((), epa) = receive epa#role_B in
+                loop epa (cnt-1)
+            in
+            loop epa cnt
+          end)
+end
+
 module BLwtChannelVectorManualLessWrap = struct
+  let (let/) = Lwt.bind
+
+  let ch1 = Lwt_stream.create ()
+  let ch2 = Lwt_stream.create ()
+  let raw_receive (st,_) = Lwt_stream.next st
+  let raw_send (_,push) v = push (Some v); Lwt.return_unit
+  (* let ch1 = Lwt_mvar.create_empty ()
+   * let ch2 = Lwt_mvar.create_empty ()
+   * let receive m = Lwt_mvar.take m
+   * let send m v = Lwt_mvar.put m v *)
+
+  let create () =
+    let rec epa =
+      lazy begin
+          object method role_B =
+              object method ping =
+                  (ch1, Lazy.force epa1)
+              end
+          end
+        end
+    and epa1 =
+      lazy begin
+          object method role_B =
+              (* fun () -> Lwt.map (fun v -> `pong(v, Lazy.force epa)) (raw_receive ch2) *)
+              fun () -> raw_receive ch2, Lazy.force epa
+              (* raw_receive ch2, Lazy.force epa *)
+          end
+        end
+    in
+    let rec epb =
+      lazy begin
+          object method role_A =
+              (* fun () -> Lwt.map (fun v -> `ping(v, Lazy.force epb1)) (raw_receive ch1) *)
+              fun () -> raw_receive ch1, Lazy.force epb1
+              (* raw_receive ch1, Lazy.force epb1 *)
+          end
+        end
+    and epb1 =
+      lazy begin
+          object method role_A =
+              object method pong =
+                  (ch2, Lazy.force epb)
+              end
+          end
+        end
+    in
+    (* let _: unit -> _ = Lazy.force epa1 in
+     * ignore (Lazy.force epb1); *)
+    Lazy.force epa, Lazy.force epb
+
+  let send (ch,cont) v =
+    let/ () = raw_send ch v in
+    Lwt.return cont
+
+  let receive ep = ep ()
+
+  (* let receive ep = ep *)
+
+  let server_iter epb cnt =
+    let rec loop epb cnt =
+      if cnt = 0 then
+        Lwt.return epb
+      else begin
+          let inp, epb =  receive epb#role_A in
+          (* let inp, epb =  receive epb in *)
+          let/ arr_ =  inp in
+          (* let/ `ping(_arr, epb) = receive epb#role_A in *)
+          (* let/ epb = send epb () in *)
+          let/ epb = send epb#role_A#pong () in
+          loop epb (cnt-1)
+        end
+    in
+    loop epb cnt
+
+  let test_iteration =
+    fun cnt ->
+    let epa, epb = create () in
+    Core.Staged.stage (fun () ->
+        Lwt.async (fun () -> server_iter epb cnt);
+        Lwt_main.run begin
+            let rec loop epa cnt =
+              if cnt=0 then
+                Lwt.return epa
+              else
+                let/ epa = send epa#role_B#ping default_payload in
+                (* let/ epa = send epa default_payload in *)
+                (* let/ `pong((), epa) = receive epa#role_B in *)
+                (* let inp, epa = receive epa in *)
+                let inp, epa = receive epa#role_B in
+                let/ () = inp in
+                loop epa (cnt-1)
+            in
+            loop epa cnt
+          end)
+end
+
+
+module BLwtChannelVectorManualLessWrap1_5 = struct
   let (let/) = Lwt.bind
 
   let ch1 = Lwt_stream.create ()

@@ -232,7 +232,6 @@ module Lin
 
   (** extract the value. raises LinFlag.InvalidEndpoint if the endpoint is already consumed *)
   val use : 'a lin -> 'a
-  val lin_map2 : ('a -> 'b -> 'c) -> 'a lin -> 'b lin -> 'c lin
 
   (** a generator for linear values *)
   type 'a gen
@@ -244,53 +243,61 @@ module Lin
   (** generate a fresh linear value (possibly wrapped by objects) *)
   val fresh : 'a gen -> 'a
 
-  val gen_map : ('a -> 'b) -> 'a gen -> 'b gen
-  val gen_map2 : ('a -> 'b -> 'c) -> 'a gen -> 'b gen -> 'c gen
+  val map_gen : ('a -> 'b) -> 'a gen -> 'b gen
+  val merge_gen : ('a -> 'a -> 'a) -> 'a lin gen -> 'a lin gen -> 'a lin gen
+  val lift_disj_merge : ('lr,'l,'r) disj_merge -> ('lr gen, 'l gen, 'r gen) disj_merge
 end
-  = struct
-  type 'a lin = {once:Flag.t; value: 'a}
-  type 'a gen = Flag.t -> 'a
-  let use t =
-    Flag.use t.once;
-    t.value
-  let create v = fun once -> {once; value=v}
-  let create_nolin v = fun _ -> v
-  let fresh f = f (Flag.create ())
-  let gen_map f x = fun once -> f (x once)
-  let gen_map2 f x y = fun once -> f (x once) (y once)
-  let lin_map2 f x y = {once=x.once; value=f x.value y.value}
-end
-(* Closure-less implementation (more efficient) *)
 (*   = struct
- *   type once_store = Flag.t ref
- *   type 'a lin = {value:'a; store_ref:once_store ref}
- *   type 'a gen = 'a lin = {value:'a; store_ref:once_store ref}
- *
+ *   type 'a lin = {once:Flag.t; value: 'a}
+ *   type 'a gen = Flag.t -> 'a
  *   let use t =
- *     Flag.use !(!(t.store_ref));
+ *     Flag.use t.once;
  *     t.value
+ *   let create v = fun once -> {once; value=v}
+ *   let create_nolin v = fun _ -> v
+ *   let fresh f = f (Flag.create ())
+ *   let map_gen f x = fun once -> f (x once)
+ *   let merge_gen f x y = fun once -> {once; value=f (x once).value (y once).value}
  * 
- *   let create v =
- *     let store = ref (Flag.create ()) in
- *     let store_ref = ref store in
- *     {value={value=v; store_ref}; store_ref}
- *   let create_nolin v = 
- *     {value=v; store_ref=ref @@ ref @@ Flag.create ()}
- * 
- *   let extract t = t.value
- *   let gen_map f x =
- *     {value=f x.value; store_ref=x.store_ref}
- *   let gen_map2 f l r =
- *     r.store_ref := !(l.store_ref); (* track and use the same linearit flag *)
- *     {value=f l.value r.value; store_ref=l.store_ref}
- *   let refresh t =
- *     !(t.store_ref) := Flag.create ()
- *   let fresh t =
- *     refresh t;
- *     t.value
- * 
- *   let lin_map2 = gen_map2
+ *   let lift_disj_merge : 'lr 'l 'r. ('lr,'l,'r) disj_merge -> ('lr gen, 'l gen, 'r gen) disj_merge = fun mrg ->
+ *     {disj_merge=(fun l r once -> mrg.disj_merge (l once) (r once));
+ *      disj_splitL=(fun lr -> map_gen mrg.disj_splitL lr);
+ *      disj_splitR=(fun lr -> map_gen mrg.disj_splitR lr)}
  * end *)
+(* Closure-less implementation (more efficient) *)
+  = struct
+  type once_store = Flag.t ref
+  type 'a lin = {value:'a; store_ref:once_store ref}
+  type 'a gen = 'a lin = {value:'a; store_ref:once_store ref}
+
+  let use t =
+    Flag.use !(!(t.store_ref));
+    t.value
+
+  let create v =
+    let store = ref (Flag.create ()) in
+    let store_ref = ref store in
+    {value={value=v; store_ref}; store_ref}
+  let create_nolin v = 
+    {value=v; store_ref=ref @@ ref @@ Flag.create ()}
+
+  let extract t = t.value
+  let map_gen f x =
+    {value=f x.value; store_ref=x.store_ref}
+  let merge_gen f l r =
+    {value={value=f l.value.value r.value.value; store_ref=l.store_ref}; store_ref=l.store_ref}
+  let lift_disj_merge mrg =
+    {disj_merge=(fun l r ->
+       r.store_ref := !(l.store_ref); (* track and use the same linearity flag *)
+       {store_ref=l.store_ref; value=mrg.disj_merge l.value r.value});
+     disj_splitL=(fun lr -> map_gen mrg.disj_splitL lr);
+     disj_splitR=(fun lr -> map_gen mrg.disj_splitR lr)}
+  let refresh t =
+    !(t.store_ref) := Flag.create ()
+  let fresh t =
+    refresh t;
+    t.value
+end
 
 (** EP: A thin wrapper around mergeables 
   *)   
@@ -311,7 +318,7 @@ end = struct
   let make_lin ~hook ~mergefun ~value =
     Mergeable.make
       ~hook
-      ~mergefun:(Lin.gen_map2 (Lin.lin_map2 mergefun))
+      ~mergefun:(Lin.merge_gen mergefun)
       ~value:(Lin.create value)
   let make_simple v =
     let v = Lin.create_nolin v in
@@ -320,7 +327,7 @@ end = struct
       ~mergefun:(fun _ _ -> v)
       ~value:v
   let wrap_label meth t =
-    Mergeable.map (Lin.gen_map meth.make_obj) (Lin.gen_map meth.call_obj) t
+    Mergeable.map (Lin.map_gen meth.make_obj) (Lin.map_gen meth.call_obj) t
   let force_merge t =
     ignore (Mergeable.resolve t)
   let fresh t =
@@ -330,13 +337,7 @@ end = struct
   let make_merge = Mergeable.make_merge
   let make_merge_list = Mergeable.make_merge_list
 
-  let lift_merge : 'lr 'l 'r 'ks. ('lr,'l,'r) disj_merge -> ('lr Lin.gen, 'l Lin.gen, 'r Lin.gen) disj_merge =
-    fun mrg ->
-    {disj_merge=(fun l r -> Lin.gen_map2 mrg.disj_merge l r);
-     disj_splitL=(fun lr -> Lin.gen_map mrg.disj_splitL lr);
-     disj_splitR=(fun lr -> Lin.gen_map mrg.disj_splitR lr)}
-
-  let make_disj_merge mrg = Mergeable.make_disj_merge (lift_merge mrg)
+  let make_disj_merge mrg = Mergeable.make_disj_merge (Lin.lift_disj_merge mrg)
 end
     
 module Inp : sig

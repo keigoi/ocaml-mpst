@@ -498,7 +498,6 @@ module Seq
             *)
            SeqBottom
        in
-       ignore (EP.force_merge hd);
        SeqCons(hd, tl)
     | SeqRecVars [] -> assert false
     | SeqRecVars ((d::ds) as dss) ->
@@ -506,6 +505,17 @@ module Seq
          (List.fold_left seq_merge (force_recvar dss d) (List.map (force_recvar dss) ds))
     | SeqFinish -> SeqFinish
     | SeqBottom -> SeqBottom
+
+  let rec force_all : type x. x t -> unit = function
+    | SeqCons(hd,tl) ->
+       EP.force_merge hd;
+       force_all tl
+    | SeqRecVars [] -> assert false
+    | SeqRecVars ((d::ds) as dss) ->
+       force_all
+         (List.fold_left seq_merge (force_recvar dss d) (List.map (force_recvar dss) ds))
+    | SeqFinish -> ()
+    | SeqBottom -> ()
 end
 
 module Local : sig
@@ -587,7 +597,9 @@ module Global
     Seq.lens_put rA.role_index g epA
 
 
-  let gen g = Seq.resolve_merge g
+  let gen g =
+    Seq.force_all g;
+    g
     
   let get_ep r g =
     EP.fresh (Seq.lens_get r.role_index g)

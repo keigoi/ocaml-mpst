@@ -45,17 +45,92 @@ end
 end
 
 
-module Mergeable
-       : sig
-  type 'a t
-  val make : hook:unit lazy_t -> mergefun:('a -> 'a -> 'a) -> value:'a -> 'a t
-  val make_recvar : 'a t lazy_t -> 'a t
-  val make_disj_merge : ('lr,'l,'r) disj_merge -> 'l t -> 'r t -> 'lr t
-  val make_merge : 'a t -> 'a t -> 'a t
-  val make_merge_list : 'a t list -> 'a t
-  val map : ('a -> 'b) -> ('b -> 'a) -> 'a t -> 'b t
-  val resolve : 'a t -> 'a
+(** Linear types *)
+module Lin
+(*        : sig
+ *   (\** linear type constructor *\)
+ *   type 'a lin
+ * 
+ *   (\** extract the value. raises LinFlag.InvalidEndpoint if the endpoint is already consumed *\)
+ *   val use : 'a lin -> 'a
+ * 
+ *   (\** a generator for linear values *\)
+ *   type 'a gen
+ * 
+ *   (\** create a generator *\)
+ *   val create : 'a -> 'a lin gen
+ *   val create_nolin : 'a -> 'a gen
+ * 
+ *   (\** generate a fresh linear value (possibly wrapped by objects) *\)
+ *   val fresh : 'a gen -> 'a
+ * 
+ *   val map_gen : ('a -> 'b) -> 'a gen -> 'b gen
+ *   val merge_gen : ('a -> 'a -> 'a) -> 'a lin gen -> 'a lin gen -> 'a lin gen
+ *   val lift_disj_merge : ('lr,'l,'r) disj_merge -> ('lr gen, 'l gen, 'r gen) disj_merge
+ * end *)
+(*   = struct
+ *   type 'a lin = {once:Flag.t; value: 'a}
+ *   type 'a gen = Flag.t -> 'a
+ *   let use t =
+ *     Flag.use t.once;
+ *     t.value
+ *   let create v = fun once -> {once; value=v}
+ *   let create_nolin v = fun _ -> v
+ *   let fresh f = f (Flag.create ())
+ *   let map_gen f x = fun once -> f (x once)
+ *   let merge_gen f x y = fun once -> {once; value=f (x once).value (y once).value}
+ * 
+ *   let lift_disj_merge : 'lr 'l 'r. ('lr,'l,'r) disj_merge -> ('lr gen, 'l gen, 'r gen) disj_merge = fun mrg ->
+ *     {disj_merge=(fun l r once -> mrg.disj_merge (l once) (r once));
+ *      disj_splitL=(fun lr -> map_gen mrg.disj_splitL lr);
+ *      disj_splitR=(fun lr -> map_gen mrg.disj_splitR lr)}
+ * end *)
+(* Closure-less implementation (more efficient) *)
+  = struct
+  type once_store = Flag.t ref
+  type 'a lin = {value:'a; store_ref:once_store ref}
+  type 'a gen = 'a lin = {value:'a; store_ref:once_store ref}
+
+  let use t =
+    Flag.use !(!(t.store_ref));
+    t.value
+
+  let create v =
+    let store = ref (Flag.create ()) in
+    let store_ref = ref store in
+    {value={value=v; store_ref}; store_ref}
+  let create_nolin v = 
+    {value=v; store_ref=ref @@ ref @@ Flag.create ()}
+
+  let extract t = t.value
+  let map_gen f x =
+    {value=f x.value; store_ref=x.store_ref}
+  let merge_gen f l r =
+    {value={value=f l.value.value r.value.value; store_ref=l.store_ref}; store_ref=l.store_ref}
+  let lift_disj_merge mrg =
+    {disj_merge=(fun l r ->
+       r.store_ref := !(l.store_ref); (* track and use the same linearity flag *)
+       {store_ref=l.store_ref; value=mrg.disj_merge l.value r.value});
+     disj_splitL=(fun lr -> map_gen mrg.disj_splitL lr);
+     disj_splitR=(fun lr -> map_gen mrg.disj_splitR lr)}
+  let refresh t =
+    !(t.store_ref) := Flag.create ()
+  let fresh t =
+    refresh t;
+    t.value
 end
+
+module Mergeable
+(*        : sig
+ *   type 'a t
+ *   val make : hook:unit lazy_t -> mergefun:('a -> 'a -> 'a) -> value:'a -> 'a t
+ *   val make_recvar : 'a t lazy_t -> 'a t
+ *   val make_disj_merge : ('lr,'l,'r) disj_merge -> 'l t -> 'r t -> 'lr t
+ *   val make_merge : 'a t -> 'a t -> 'a t
+ *   val make_merge_list : 'a t list -> 'a t
+ *   val map : ('a -> 'b) -> ('b -> 'a) -> 'a t -> 'b t
+ *   val resolve : 'a t -> 'a
+ * end *)
   = struct
 
   type 'a t =
@@ -224,96 +299,23 @@ end
        Lazy.force d
 end
 
-(** Linear types *)
-module Lin
-       : sig
-  (** linear type constructor *)
-  type 'a lin
-
-  (** extract the value. raises LinFlag.InvalidEndpoint if the endpoint is already consumed *)
-  val use : 'a lin -> 'a
-
-  (** a generator for linear values *)
-  type 'a gen
-
-  (** create a generator *)
-  val create : 'a -> 'a lin gen
-  val create_nolin : 'a -> 'a gen
-
-  (** generate a fresh linear value (possibly wrapped by objects) *)
-  val fresh : 'a gen -> 'a
-
-  val map_gen : ('a -> 'b) -> 'a gen -> 'b gen
-  val merge_gen : ('a -> 'a -> 'a) -> 'a lin gen -> 'a lin gen -> 'a lin gen
-  val lift_disj_merge : ('lr,'l,'r) disj_merge -> ('lr gen, 'l gen, 'r gen) disj_merge
-end
-(*   = struct
- *   type 'a lin = {once:Flag.t; value: 'a}
- *   type 'a gen = Flag.t -> 'a
- *   let use t =
- *     Flag.use t.once;
- *     t.value
- *   let create v = fun once -> {once; value=v}
- *   let create_nolin v = fun _ -> v
- *   let fresh f = f (Flag.create ())
- *   let map_gen f x = fun once -> f (x once)
- *   let merge_gen f x y = fun once -> {once; value=f (x once).value (y once).value}
- * 
- *   let lift_disj_merge : 'lr 'l 'r. ('lr,'l,'r) disj_merge -> ('lr gen, 'l gen, 'r gen) disj_merge = fun mrg ->
- *     {disj_merge=(fun l r once -> mrg.disj_merge (l once) (r once));
- *      disj_splitL=(fun lr -> map_gen mrg.disj_splitL lr);
- *      disj_splitR=(fun lr -> map_gen mrg.disj_splitR lr)}
- * end *)
-(* Closure-less implementation (more efficient) *)
-  = struct
-  type once_store = Flag.t ref
-  type 'a lin = {value:'a; store_ref:once_store ref}
-  type 'a gen = 'a lin = {value:'a; store_ref:once_store ref}
-
-  let use t =
-    Flag.use !(!(t.store_ref));
-    t.value
-
-  let create v =
-    let store = ref (Flag.create ()) in
-    let store_ref = ref store in
-    {value={value=v; store_ref}; store_ref}
-  let create_nolin v = 
-    {value=v; store_ref=ref @@ ref @@ Flag.create ()}
-
-  let extract t = t.value
-  let map_gen f x =
-    {value=f x.value; store_ref=x.store_ref}
-  let merge_gen f l r =
-    {value={value=f l.value.value r.value.value; store_ref=l.store_ref}; store_ref=l.store_ref}
-  let lift_disj_merge mrg =
-    {disj_merge=(fun l r ->
-       r.store_ref := !(l.store_ref); (* track and use the same linearity flag *)
-       {store_ref=l.store_ref; value=mrg.disj_merge l.value r.value});
-     disj_splitL=(fun lr -> map_gen mrg.disj_splitL lr);
-     disj_splitR=(fun lr -> map_gen mrg.disj_splitR lr)}
-  let refresh t =
-    !(t.store_ref) := Flag.create ()
-  let fresh t =
-    refresh t;
-    t.value
-end
-
-(** EP: A thin wrapper around mergeables 
+(** EP: The endpoint type. An endpoint is a mergeable, linear channel.
   *)   
-module EP : sig
-  type 'a t (* = 'a Lin.gen Mergeable.t *)
-  val make_lin : hook:unit lazy_t -> mergefun:('a -> 'a -> 'a) -> value:'a -> 'a Lin.lin t
-  val make_simple : 'a -> 'a t
-  val wrap_label : ('o, 'v) method_ -> 'v t -> 'o t
-  val fresh : 'a t -> 'a
-  val force_merge : 'a t -> unit
-
-  val make_recvar : 'a t lazy_t -> 'a t
-  val make_disj_merge : ('lr,'l,'r) disj_merge -> 'l t -> 'r t -> 'lr t
-  val make_merge : 'a t -> 'a t -> 'a t
-  val make_merge_list : 'a t list -> 'a t
-end = struct
+module EP
+(*        : sig
+ *   type 'a t (\* = 'a Lin.gen Mergeable.t *\)
+ *   val make_lin : hook:unit lazy_t -> mergefun:('a -> 'a -> 'a) -> value:'a -> 'a Lin.lin t
+ *   val make_simple : 'a -> 'a t
+ *   val wrap_label : ('o, 'v) method_ -> 'v t -> 'o t
+ *   val fresh : 'a t -> 'a
+ *   val force_merge : 'a t -> unit
+ * 
+ *   val make_recvar : 'a t lazy_t -> 'a t
+ *   val make_disj_merge : ('lr,'l,'r) disj_merge -> 'l t -> 'r t -> 'lr t
+ *   val make_merge : 'a t -> 'a t -> 'a t
+ *   val make_merge_list : 'a t list -> 'a t
+ * end *)
+  = struct
   type 'a t = 'a Lin.gen Mergeable.t
   let make_lin ~hook ~mergefun ~value =
     Mergeable.make
@@ -395,22 +397,22 @@ end = struct
 end
 
 module Seq
-       : sig
-  type _ t 
-  and (_,_,_,_) lens =
-    Zero : ('a, 'b, [`cons of 'a * 'tl], [`cons of 'b * 'tl]) lens
-  | Succ : ('a, 'b, 'aa, 'bb) lens -> ('a, 'b, [`cons of 'hd * 'aa], [`cons of 'hd * 'bb]) lens
-
-  exception UnguardedLoopSeq
-
-  val lens_get : ('a, _, 'aa, _) lens -> 'aa t -> 'a EP.t
-  val lens_put : ('a, 'b, 'aa, 'bb) lens -> 'aa t -> 'b EP.t -> 'bb t
-
-  val seq_merge : 'a t -> 'a t -> 'a t
-  val recvar : 'a t lazy_t -> 'a t
-  val all_closed : ([`cons of Close.close * 'a] as 'a) t
-  val partial_force : 'x t -> 'x t
-end
+(*        : sig
+ *   type _ t 
+ *   and (_,_,_,_) lens =
+ *     Zero : ('a, 'b, [`cons of 'a * 'tl], [`cons of 'b * 'tl]) lens
+ *   | Succ : ('a, 'b, 'aa, 'bb) lens -> ('a, 'b, [`cons of 'hd * 'aa], [`cons of 'hd * 'bb]) lens
+ * 
+ *   exception UnguardedLoopSeq
+ * 
+ *   val lens_get : ('a, _, 'aa, _) lens -> 'aa t -> 'a EP.t
+ *   val lens_put : ('a, 'b, 'aa, 'bb) lens -> 'aa t -> 'b EP.t -> 'bb t
+ * 
+ *   val seq_merge : 'a t -> 'a t -> 'a t
+ *   val recvar : 'a t lazy_t -> 'a t
+ *   val all_closed : ([`cons of Close.close * 'a] as 'a) t
+ *   val partial_force : 'x t -> 'x t
+ * end *)
   = struct
   type _ t =
     (* hidden *)
@@ -482,12 +484,12 @@ end
         | s -> s
       end
 
-  let rec partial_force : type x. x t -> x t =
+  let rec resolve_merge : type x. x t -> x t =
     function
     | SeqCons(hd,tl) ->
        let tl =
          try
-           partial_force tl
+           resolve_merge tl
          with
            UnguardedLoopSeq ->
            (* we do not raise exception here;
@@ -500,7 +502,7 @@ end
        SeqCons(hd, tl)
     | SeqRecVars [] -> assert false
     | SeqRecVars ((d::ds) as dss) ->
-       partial_force
+       resolve_merge
          (List.fold_left seq_merge (force_recvar dss d) (List.map (force_recvar dss) ds))
     | SeqFinish -> SeqFinish
     | SeqBottom -> SeqBottom
@@ -560,7 +562,7 @@ module Global
      
   let fix f =
     let rec body = lazy (f (Seq.recvar body)) in
-    Lazy.force body
+    Seq.resolve_merge (Lazy.force body)
 
   let finish =
     Seq.all_closed
@@ -585,7 +587,7 @@ module Global
     Seq.lens_put rA.role_index g epA
 
 
-  let gen g = Seq.partial_force g
+  let gen g = Seq.resolve_merge g
     
   let get_ep r g =
     EP.fresh (Seq.lens_get r.role_index g)

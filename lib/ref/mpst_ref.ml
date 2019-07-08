@@ -709,36 +709,36 @@ include Global
 include Local
 include Util
 
-module Example = struct
-  open Global
-  open Local
-  open Util
-
-  let g =
-    choice_at a (to_b left_or_right)
-      (a, (a --> b) left @@ finish)
-      (a, (a --> b) right @@ finish)
-
-  let ea, eb = get_ep a g, get_ep b g
-
-  (* role B *)
-  let (_:Thread.t) =
-    Thread.create (fun () ->
-        match receive eb#role_A with
-        | `left(_, eb) ->
-           close eb
-        | `right(_, eb) ->
-           close eb) ()
-
-  (* role A *)
-  let () =
-    if true then begin
-        let ea = send ea#role_B#left () in
-        close ea
-      end else begin
-        let ea = send ea#role_B#right () in
-        (* let ea = send ea#role_B#right () in *)
-        close ea
-      end;
-    print_endline "example1 finished."
-end
+(* module Example = struct
+ *   open Global
+ *   open Local
+ *   open Util
+ * 
+ *   let g =
+ *     choice_at a (to_b left_or_right)
+ *       (a, (a --> b) left @@ finish)
+ *       (a, (a --> b) right @@ finish)
+ * 
+ *   let ea, eb = get_ep a g, get_ep b g
+ * 
+ *   (\* role B *\)
+ *   let (_:Thread.t) =
+ *     Thread.create (fun () ->
+ *         match receive eb#role_A with
+ *         | `left(_, eb) ->
+ *            close eb
+ *         | `right(_, eb) ->
+ *            close eb) ()
+ * 
+ *   (\* role A *\)
+ *   let () =
+ *     if true then begin
+ *         let ea = send ea#role_B#left () in
+ *         close ea
+ *       end else begin
+ *         let ea = send ea#role_B#right () in
+ *         (\* let ea = send ea#role_B#right () in *\)
+ *         close ea
+ *       end;
+ *     print_endline "example1 finished."
+ * end *)

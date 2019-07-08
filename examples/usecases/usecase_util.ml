@@ -584,3 +584,45 @@ let start =
   {obj={make_obj=(fun f -> object method start=f end);
         call_obj=(fun o -> o#start)};
    var=(fun v -> `start(v))}
+
+let login =
+  {obj={make_obj=(fun f -> object method login=f end);
+        call_obj=(fun o -> o#login)};
+   var=(fun v -> `login(v))}
+
+let password =
+  {obj={make_obj=(fun f -> object method password=f end);
+        call_obj=(fun o -> o#password)};
+   var=(fun v -> `password(v))}
+
+let auth =
+  {obj={make_obj=(fun f -> object method auth=f end);
+        call_obj=(fun o -> o#auth)};
+   var=(fun v -> `auth(v))}
+
+let again =
+  {obj={make_obj=(fun f -> object method again=f end);
+        call_obj=(fun o -> o#again)};
+   var=(fun v -> `again(v))}
+
+let cancel =
+  {obj={make_obj=(fun f -> object method cancel=f end);
+        call_obj=(fun o -> o#cancel)};
+   var=(fun v -> `cancel(v))}
+
+let quit =
+  {obj={make_obj=(fun f -> object method quit=f end);
+        call_obj=(fun o -> o#quit)};
+   var=(fun v -> `quit(v))}
+
+let login_or_cancel =
+  {obj_merge=(fun l r -> object method login=l#login method cancel=r#cancel end);
+   obj_splitL=(fun lr -> (lr :> <login : _;>));
+   obj_splitR=(fun lr -> (lr :> <cancel : _>));
+  }
+
+let auth_or_again =
+  {obj_merge=(fun l r -> object method auth=l#auth method again=r#again end);
+   obj_splitL=(fun lr -> (lr :> <auth : _;>));
+   obj_splitR=(fun lr -> (lr :> <again : _>));
+  }

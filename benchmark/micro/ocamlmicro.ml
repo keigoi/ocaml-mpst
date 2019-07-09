@@ -20,7 +20,7 @@ module BEvent = struct
         Event.sync (Event.send ch_arr arr);
         Event.sync (Event.receive ch_unit))
 
-  let test_iteration cnt =
+  let runtest cnt =
     Core.Staged.stage (fun () ->
         let rec loop cnt =
           if cnt = 0 then
@@ -49,7 +49,7 @@ module BEventUntyped = struct
         Event.sync (Event.send ch (Obj.repr arr));
         Event.sync (Event.receive ch))
 
-  let test_iteration cnt =
+  let runtest cnt =
     Core.Staged.stage (fun () ->
         let rec loop cnt =
           if cnt=0 then
@@ -88,7 +88,7 @@ module BEventCont = struct
         ())
 
   let stored = ref init_ch
-  let test_iteration cnt =
+  let runtest cnt =
     Core.Staged.stage @@
       fun () ->
       let rec loop ch cnt =
@@ -177,7 +177,7 @@ module BLwtTwoChan(Chan:LWT_CHAN)() = struct
     in
     loop cnt
 
-  let test_iteration =
+  let runtest =
     fun cnt ->
     Core.Staged.stage (fun () ->
         Lwt.async (fun () -> server_iter cnt);
@@ -233,7 +233,7 @@ module BLwtCont(Chan:LWT_CHAN)() = struct
     stored := ch;
     Lwt.return_unit
 
-  let test_iteration =
+  let runtest =
     fun cnt ->
     let init = create () in
     let server_loop = server_loop init in
@@ -302,7 +302,7 @@ module Make_IPC(M:PERIPHERAL)() = struct
           C.input_value ch.Dpipe.me.inp
       end
 
-  let test_iteration cnt =
+  let runtest cnt =
     Core.Staged.stage @@
       fun () ->
       M.run begin
@@ -386,7 +386,7 @@ module BLwtChannelVectorManual = struct
     in
     loop epb cnt
 
-  let test_iteration =
+  let runtest =
     fun cnt ->
     let epa, epb = create () in
     Core.Staged.stage (fun () ->
@@ -461,7 +461,7 @@ module BLwtChannelVectorManualDyncheckClosure = struct
     in
     loop epb cnt
 
-  let test_iteration =
+  let runtest =
     fun cnt ->
     let epa, epb = create () in
     Core.Staged.stage (fun () ->
@@ -554,7 +554,7 @@ module BLwtChannelVectorManualLessWrap = struct
     in
     loop epb cnt
 
-  let test_iteration =
+  let runtest =
     fun cnt ->
     let epa, epb = create () in
     Core.Staged.stage (fun () ->
@@ -652,7 +652,7 @@ module BLwtChannelVectorManualLessWrap1_5 = struct
     in
     loop epb cnt
 
-  let test_iteration =
+  let runtest =
     fun cnt ->
     let epa, epb = create () in
     Core.Staged.stage (fun () ->
@@ -738,7 +738,7 @@ module BLwtChannelVectorManualLessWrap2 = struct
     in
     loop epb cnt
 
-  let test_iteration =
+  let runtest =
     fun cnt ->
     let epa, epb = create () in
     Core.Staged.stage (fun () ->
@@ -825,7 +825,7 @@ module BLwtChannelVectorManualLessWrap3 = struct
     in
     loop epb cnt
 
-  let test_iteration =
+  let runtest =
     fun cnt ->
     let epa, epb = create () in
     Core.Staged.stage (fun () ->

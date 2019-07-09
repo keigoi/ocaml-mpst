@@ -4,7 +4,7 @@ module ML = Mpst_lwt.M
 
 let fork f x =
   Common.fork_child (fun () ->
-      f ()) ()
+      f x) ()
 
 let thread f x =
   ignore (Thread.create (fun () ->
@@ -92,10 +92,10 @@ module type DYNCHECK = sig
   module EP : Mpst.S.ENDPOINT with type once = Flag.t
 end
 
-(* module DynCheckMutex : DYNCHECK = struct
- *   module Flag = Mpst.M.LinFlag
- *   module EP = Mpst.M.Dyncheck
- * end *)
+module DynCheckMutex : DYNCHECK = struct
+  module Flag = Mpst.M.LinFlag
+  module EP = Mpst.M.Dyncheck
+end
 
 module DynCheckNano : DYNCHECK = struct
   module Flag = Dyncheck_nanomutex.NanoMutexFlag

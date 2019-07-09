@@ -122,8 +122,14 @@ end
 
   let test_iteration cnt =
     Core.Staged.stage (fun () ->
-        if Med.medium <> `IPCProcess && not M.is_direct then begin
-            M.async (fun () -> server_iter cnt)
+        if M.is_direct then begin
+            (* counterpart is run in another thread *)
+          end else begin
+            if Med.medium = `IPCProcess then begin
+                (* counterpart is run in another proess *)
+              end else begin
+                M.async (fun () -> server_iter cnt)
+              end
           end;
         M.run (test_iter_body cnt))
 

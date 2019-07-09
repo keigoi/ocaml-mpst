@@ -152,4 +152,4 @@ let () =
 let () =
   Core.Command.run @@
     Core_bench.Bench.make_command
-      test_lwt_ipc
+      test_iteration

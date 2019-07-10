@@ -49,7 +49,7 @@ module MakeTestBase
   (* start server thread *)
   let () =
     if Med.medium = `IPCProcess then begin
-        fork (fun () -> M.run (loop Test.server_step None)) ();
+        ignore (M.Serial.fork_child (fun () -> M.run (loop Test.server_step None)));
       end else if M.is_direct then begin
         thread (fun () -> M.run (loop Test.server_step None)) ();
       end

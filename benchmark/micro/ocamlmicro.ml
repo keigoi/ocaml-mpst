@@ -201,14 +201,14 @@ module Make_IPC(M:PERIPHERAL)() : TEST = struct
   let (let/) = M.bind
 
   let () =
-    fork (fun () ->
+    ignore @@ M.Serial.fork_child (fun () ->
         let ch = Dpipe.flip_dpipe ch in
         let rec loop () =
           let/ _ = C.input_value ch.Dpipe.me.inp in
           let/ _ = C.output_value ch.Dpipe.me.out () in
           let/ () = C.flush ch.Dpipe.me.out in
           loop ()
-        in M.run (loop ())) ()
+        in M.run (loop ()))
 
   let runtest param =
     let payload = List.assoc param big_arrays in

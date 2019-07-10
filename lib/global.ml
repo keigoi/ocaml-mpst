@@ -459,7 +459,7 @@ module Make
            ignore (Thread.create (fun () -> (f ep : unit)) ());
            M.return_unit
         | EpIPCProcess _ ->
-           Common.fork_child (fun () -> f ep) ();
+           ignore (C.fork_child (fun () -> f ep));
            M.return_unit)
 
   let connect_and_start sh r f =
@@ -469,7 +469,7 @@ module Make
            ignore (Thread.create (fun () -> (f ep : unit)) ());
            M.return_unit
         | EpIPCProcess _ ->
-           Common.fork_child (fun () -> f ep) ();
+           ignore (C.fork_child (fun () -> f ep));
            M.return_unit)
 
   let (>:) :

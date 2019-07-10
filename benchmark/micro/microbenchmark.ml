@@ -1,7 +1,9 @@
 open Util
 open Ocamlmicro
 open Mpstmicro
-
+let () =
+  Lwt_io.set_default_buffer_size (1000000 * 16)
+let array_sizes = [1000000]
 
 let one = [1]
 let run f = Core.Staged.unstage (f 1)
@@ -90,8 +92,8 @@ let test_ev_ipc =
         create_indexed ~args ~name:"ev_ipc-mpst_dynamic" (let module M = MakeDyn(DynCheckMutex)(Direct)(IPC)() in M.runtest);
         create_indexed ~args ~name:"ev_ipc-mpst_static" (let module M = MakeStatic(LinDirect)(IPC)() in M.runtest);
         create_indexed ~args ~name:"ev_ipc-OCaml_ideal" (let module M = Make_IPC(Direct)() in M.runtest);
-        create ~name:"mpst-dynamic/ev(nodyncheck)" (let module M = MakeDyn(NoDynCheckWithClosure)(Direct)(Shmem)() in run M.runtest);
-        create ~name:"mpst-dynamic/ev(nodyncheck,noclosure)" (let module M = MakeDyn(NoDynCheck)(Direct)(Shmem)() in run M.runtest);
+        (* create ~name:"mpst-dynamic/ev(nodyncheck)" (let module M = MakeDyn(NoDynCheckWithClosure)(Direct)(Shmem)() in run M.runtest);
+         * create ~name:"mpst-dynamic/ev(nodyncheck,noclosure)" (let module M = MakeDyn(NoDynCheck)(Direct)(Shmem)() in run M.runtest); *)
       ]
   )
 

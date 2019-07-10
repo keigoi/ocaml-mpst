@@ -49,4 +49,13 @@ module Serial : S.SERIAL
       | ch::chs -> Stdlib.input_value ch::loop chs
     in
     loop chs
+
+  let fork_child f =
+    let pid = Unix.fork () in
+    if pid = 0 then begin
+        (f ():unit);
+        exit 0;
+      end
+    else
+      pid
 end

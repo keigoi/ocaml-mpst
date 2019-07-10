@@ -38,12 +38,6 @@ let atomic =
     Mutex.unlock m;
     raise e
 
-let fork_child f x =
-  if Unix.fork () = 0 then begin
-      (f x:unit);
-      exit 0;
-    end else ()
-
 module Make_dpipe(C:S.SERIAL) = struct
 
   type pipe = {inp: C.in_channel; out: C.out_channel}

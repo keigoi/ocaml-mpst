@@ -2,10 +2,6 @@ open Mpst.M
 open Mpst.M.Base
 module ML = Mpst_lwt.M
 
-let fork f x =
-  Common.fork_child (fun () ->
-      f x) ()
-
 let thread f x =
   ignore (Thread.create (fun () ->
               (f x:unit)) ())

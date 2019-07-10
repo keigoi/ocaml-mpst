@@ -38,6 +38,7 @@ module type SERIAL = sig
   val input_value_list : in_channel list -> 'v list monad
   val flush : out_channel -> unit monad
   val pipe : unit -> (in_channel * out_channel)
+  val fork_child : (unit -> unit) -> int
 end
 
 module type DYN_LIN_FLAG = sig

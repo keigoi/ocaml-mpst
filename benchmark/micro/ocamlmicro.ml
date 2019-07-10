@@ -4,6 +4,8 @@ open Testbase
 module Base =  Mpst.M.Base
 module Common = Mpst.M.Common
 
+let default_buffer_size = Lwt_io.default_buffer_size ()
+
 module BEvent : TEST = struct
   let ch_arr = Event.new_channel ()
   let ch_unit = Event.new_channel ()
@@ -100,39 +102,34 @@ end
 module BLwtTwoChan(Chan:LWT_CHAN)() : TEST = struct
   let (let/) = Lwt.bind
 
-  let ch1 = Chan.create ()
-  let ch2 = Chan.create ()
-  (* let receive (st,_) = Lwt_stream.next st
-   * let send (_,push) v = push (Some v); Lwt.return_unit *)
-  (* let ch1 = Lwt_mvar.create_empty ()
-   * let ch2 = Lwt_mvar.create_empty ()
-   * let receive m = Lwt_mvar.take m
-   * let send m v = Lwt_mvar.put m v *)
-
-  let server_step () =
+  let server_step init =
+    let stored = ref init in
+    fun () ->
+    let ch1, ch2 = !stored in
     let/ arr_ = Chan.receive ch1 in
-    Chan.send ch2 ()
+    let/ () = Chan.send ch2 (`Next()) in
+    stored := ch1, ch2;
+    Lwt.return_unit
 
-  let server_iter cnt =
-    let rec loop cnt =
-      if cnt = 0 then
-        Lwt.return_unit
-      else begin
-          let/ arr_ = Chan.receive ch1 in
-          let/ () = Chan.send ch2 () in
-          loop (cnt-1)
-        end
-    in
-    loop cnt
-
-  let runtest param =
+  let client_step init param =
+    let stored = ref init in
     let payload = List.assoc param big_arrays in
+    fun () ->
+    let ch1, ch2 = !stored in
+    let/ () = Chan.send ch1 payload in
+    let/ `Next(()) = Chan.receive ch2 in
+    stored := ch1, ch2;
+    Lwt.return_unit
+    
+  let runtest param =
+    let ch1 = Chan.create () 
+    and ch2 = Chan.create ()
+    in
+    let server_step = server_step (ch1,ch2) in
+    let client_step = client_step (ch1,ch2) param in
     Core.Staged.stage (fun () ->
-        Lwt.async (fun () -> server_iter 1);
-        Lwt_main.run begin
-            let/ () = Chan.send ch1 payload in
-            Chan.receive ch2
-          end)
+        Lwt.async server_step;
+        Lwt_main.run (client_step ()))
 end
 
 module BLwtCont(Chan:LWT_CHAN)() : TEST = struct
@@ -141,27 +138,21 @@ module BLwtCont(Chan:LWT_CHAN)() : TEST = struct
 
   (* let init = create () *)
 
-  let server_loop init =
+  let server_step init =
     let stored = ref init in
-    fun cnt ->
-    let rec loop ch cnt =
-      if cnt=0 then
-        Lwt.return ch
-      else
-        let/ arr_,ch = receive ch in
-        let next = create () in
-        let/ () = send ch (`Next((),next)) in
-        loop next (cnt-1)
-    in
-    let/ ch = loop !stored cnt in
-    stored := ch;
+    fun () ->
+    let ch = !stored in
+    let/ arr_,ch = receive ch in
+    let next = create () in
+    let/ () = send ch (`Next((),next)) in
+    stored := next;
     Lwt.return_unit
 
-  let iteration_body init =
+  let client_step param init =
     let stored = ref init in
-    fun param ->
-    let ch = !stored in
     let payload = List.assoc param big_arrays in
+    fun () ->
+    let ch = !stored in
     let next = create () in
     let/ () = send ch (payload,next) in
     let/ `Next((),ch) = receive next in
@@ -171,24 +162,12 @@ module BLwtCont(Chan:LWT_CHAN)() : TEST = struct
   let runtest =
     fun param ->
     let init = create () in
+    let server_step = server_step init in
+    let client_step = client_step param init in
     Core.Staged.stage (fun () ->
-        Lwt.async (fun () -> server_loop init 1);
-        Lwt_main.run begin
-            iteration_body init param
-          end)
+        Lwt.async server_step;
+        Lwt_main.run (client_step ()))
 
-
-  let init_st, init_push = Lwt_stream.create ()
-
-  let server_step =
-    let stored = ref (init_st, init_push) in
-    fun () ->
-    let st, _ = !stored in
-    let/ (arr_,(_,push)) = Lwt_stream.next st in
-    let next = Lwt_stream.create () in
-    stored := next;
-    push (Some((),`Cont(next)));
-    Lwt.return_unit
 
 end
 
@@ -211,6 +190,7 @@ module Make_IPC(M:PERIPHERAL)() : TEST = struct
         in M.run (loop ()))
 
   let runtest param =
+    Lwt_io.set_default_buffer_size (max (param*16) default_buffer_size);
     let payload = List.assoc param big_arrays in
     Core.Staged.stage @@
       fun () ->

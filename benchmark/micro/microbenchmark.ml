@@ -1,32 +1,40 @@
+open Core_bench.Bench
 open Util
 open Ocamlmicro
 open Mpstmicro
-let () =
-  Lwt_io.set_default_buffer_size (1000000 * 16)
-let array_sizes = [1000000]
 
-let one = [1]
-let run f = Core.Staged.unstage (f 1)
+let run f = Core.Staged.unstage (f (List.nth array_sizes 0))
+
+(* let array_sizes = [List.nth array_sizes (List.length array_sizes -1)] *)
+
+let lwt_ideal =
+  Test.create ~name:"lwt-OCaml_ideal" (let module M = BLwtTwoChan(LwtStream)() in run M.runtest)
+let lwt_cps =
+  Test.create ~name:"lwt-OCaml_cps" (let module M = BLwtCont(LwtStream)() in run M.runtest)
+
+let lwt_mvar_ideal =
+  Test.create ~name:"lwt_mvar-OCaml_ideal" (let module M = BLwtTwoChan(LwtMVar)() in run M.runtest)
+  
+let lwt_mvar_cps =      
+  Test.create ~name:"lwt_mvar-OCaml_cps" (let module M = BLwtCont(LwtMVar)() in run M.runtest)
 
 let test_lwt =
-  let open Core in
-  let open Core_bench in
-  Bench.Test.(
+  Core_bench.Bench.Test.(
     [
         (* Lwt is far more faster than Event. Static version is slower; In such a tight loop- cost for monadic closures seems relatively high. *)
         create ~name:"lwt-mpst_dynamic" (let module M = MakeDyn(DynCheckMutex)(LwtMonad)(Shmem)() in run M.runtest);
         create ~name:"lwt-mpst_static" (let module M = MakeStatic(LinLwtMonad)(Shmem)() in run M.runtest);
-        create ~name:"lwt-OCaml_ideal" (let module M = BLwtTwoChan(LwtStream)() in run M.runtest);
+        lwt_ideal;
         (* For Lwt, CPS is slower than two_channel communication (around 5 %)
          * (It seems that Lwt_mvar is the fastest in CPS_style communication _ as for Lwt version 4.2.1.
          *  Note that MVars are 1_bounded; hence- they are not suitable for chvec MPST implementation)
          *)
-        create ~name:"lwt-OCaml_cps" (let module M = BLwtCont(LwtStream)() in run M.runtest);
+        lwt_cps;
         create ~name:"lwt(bstream)-OCaml_cps" (let module M = BLwtCont(LwtBoundedStream)() in run M.runtest);
         (* create ~name:"lwt(wake)-OCaml_cps" (let module M = BLwtCont(LwtWait)() in run M.runtest); *)
 
-        create ~name:"lwt_mvar-OCaml_ideal" (let module M = BLwtTwoChan(LwtMVar)() in run M.runtest);
-        create ~name:"lwt_mvar-OCaml_cps" (let module M = BLwtCont(LwtMVar)() in run M.runtest);
+        lwt_mvar_ideal;
+        lwt_mvar_cps;
 
         (* Chcek why it exactly is slow. Closures around endpoints incur a huge cost (~ 20 %) in a tight loop.
          * Nano_mutex does not cause much slow down.  *)
@@ -80,7 +88,7 @@ let test_lwt_ipc =
       ]
   )
     
-let test_ev_ipc =
+let test_ipc =
   let args = array_sizes in
   let open Core in
   let open Core_bench in
@@ -89,9 +97,9 @@ let test_ev_ipc =
         (* Interestingly- when we use Unix pipe, event_based versions are always faster by 2x or more.
          * Also, static (monadic) versions are always faster; it seems that closures are GC'ed during i;o.
          *)
-        create_indexed ~args ~name:"ev_ipc-mpst_dynamic" (let module M = MakeDyn(DynCheckMutex)(Direct)(IPC)() in M.runtest);
-        create_indexed ~args ~name:"ev_ipc-mpst_static" (let module M = MakeStatic(LinDirect)(IPC)() in M.runtest);
-        create_indexed ~args ~name:"ev_ipc-OCaml_ideal" (let module M = Make_IPC(Direct)() in M.runtest);
+        create_indexed ~args ~name:"ipc-mpst_dynamic" (let module M = MakeDyn(DynCheckMutex)(Direct)(IPC)() in M.runtest);
+        create_indexed ~args ~name:"ipc-mpst_static" (let module M = MakeStatic(LinDirect)(IPC)() in M.runtest);
+        create_indexed ~args ~name:"ipc-OCaml_ideal" (let module M = Make_IPC(Direct)() in M.runtest);
         (* create ~name:"mpst-dynamic/ev(nodyncheck)" (let module M = MakeDyn(NoDynCheckWithClosure)(Direct)(Shmem)() in run M.runtest);
          * create ~name:"mpst-dynamic/ev(nodyncheck,noclosure)" (let module M = MakeDyn(NoDynCheck)(Direct)(Shmem)() in run M.runtest); *)
       ]
@@ -101,13 +109,25 @@ let test_iteration =
   let open Core in
   let open Core_bench in
   Bench.Test.(
-    test_ev @ test_lwt @ test_ev_ipc @ test_lwt_ipc
+    test_ev @ test_lwt @ test_ipc @ test_lwt_ipc
   )
 
 (* let () =
  *   Lwt_engine.set (new Lwt_engine.libev ~backend:Lwt_engine.Ev_backend.poll ()) *)
   
 let () =
+  (* let gc = Gc.get() in
+   * Gc.set { gc with Gc.minor_heap_size = gc.Gc.minor_heap_size * 2 }; *)
   Core.Command.run @@
     Core_bench.Bench.make_command
-      test_iteration
+      [lwt_ideal; lwt_cps;
+       lwt_mvar_ideal; lwt_mvar_cps
+      ]
+      (* test_iteration *)
+      (* (test_ipc @ test_lwt_ipc) *)
+      (* Core_bench.Bench.Test.(
+       * [
+       *   create_indexed ~args:array_sizes ~name:"lwt_ipc-OCaml_ideal" (let module M = Make_IPC(LwtMonad)() in M.runtest);
+       *   create_indexed ~args:array_sizes ~name:"ipc-OCaml_ideal" (let module M = Make_IPC(Direct)() in M.runtest);
+       * ]) *)
+      

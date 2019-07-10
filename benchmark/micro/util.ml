@@ -7,7 +7,8 @@ let thread f x =
               (f x:unit)) ())
 
 (* array size parameters *)
-let array_sizes = [1; 100; 1000; 10000; 100000; 1000000]
+let array_sizes = [1; 1000; 100000; 1000000]
+(* let array_sizes = [100000; 1000000] *)
 
 (* actual array that is passed around threads/processes *)
 let big_arrays =

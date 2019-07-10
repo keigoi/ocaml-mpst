@@ -2,6 +2,8 @@ open Util
 open Mpst.M
 open Mpst.M.Base
 
+let default_buffer_size = Lwt_io.default_buffer_size ()
+
 module type TESTBED = sig
   type +'a monad 
   val server_step : unit -> unit monad
@@ -31,6 +33,7 @@ module MakeTestBase
     loop cnt
 
   let runtest_repeat ~count ~param =
+    Lwt_io.set_default_buffer_size (max (param*8) default_buffer_size);
     Core.Staged.stage
       (fun () ->
         if Med.medium = `IPCProcess then begin

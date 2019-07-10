@@ -1,10 +1,13 @@
 open Util
+open Testbase
+
 module Base =  Mpst.M.Base
 module Common = Mpst.M.Common
 
-module BEvent = struct
+module BEvent : TEST = struct
   let ch_arr = Event.new_channel ()
   let ch_unit = Event.new_channel ()
+
   let _ : Thread.t =
     Thread.create (fun () ->
         let rec loop () =
@@ -13,27 +16,14 @@ module BEvent = struct
           loop ()
         in loop ()) ()
 
-  let test_msgsize =
-    fun i ->
+  let runtest param =
+    let payload = List.assoc param big_arrays in
     Core.Staged.stage (fun () ->
-        let arr = List.assoc i big_arrays in
-        Event.sync (Event.send ch_arr arr);
+        Event.sync (Event.send ch_arr payload);
         Event.sync (Event.receive ch_unit))
-
-  let runtest cnt =
-    Core.Staged.stage (fun () ->
-        let rec loop cnt =
-          if cnt = 0 then
-            ()
-          else begin
-              Event.sync (Event.send ch_arr default_payload);
-              Event.sync (Event.receive ch_unit);
-              loop (cnt-1)
-            end
-        in loop cnt)
 end
 
-module BEventUntyped = struct
+module BEventUntyped : TEST = struct
   let ch = Event.new_channel ()
   let _:Thread.t =
     Thread.create (fun () ->
@@ -43,27 +33,16 @@ module BEventUntyped = struct
           loop ()
         in loop ()) ()
 
-  let test_msgsize i =
+  let runtest param =
+    let payload = List.assoc param big_arrays in
     Core.Staged.stage (fun () ->
-        let arr = List.assoc i big_arrays in
-        Event.sync (Event.send ch (Obj.repr arr));
-        Event.sync (Event.receive ch))
-
-  let runtest cnt =
-    Core.Staged.stage (fun () ->
-        let rec loop cnt =
-          if cnt=0 then
-            ()
-          else begin
-              Event.sync (Event.send ch (Obj.repr default_payload));
-              let _:Obj.t = Event.sync (Event.receive ch) in
-              loop (cnt-1)
-            end
-        in loop cnt
+        Event.sync (Event.send ch (Obj.repr payload));
+        let _:Obj.t = Event.sync (Event.receive ch) in
+        ()
       )
 end
 
-module BEventCont = struct
+module BEventCont : TEST = struct
   let init_ch = Event.new_channel ()
 
   let _:Thread.t =
@@ -75,36 +54,16 @@ module BEventCont = struct
           loop next
         in loop init_ch) ()
 
-  let test_msgsize =
-    let stored = ref init_ch in
-    fun i ->
-    Core.Staged.stage (fun () ->
-        let ch = !stored in
-        let arr = List.assoc i big_arrays in
-        let next = Event.new_channel () in
-        Event.sync (Event.send ch (arr, `Cont(next)));
-        let ((),`Cont(ch)) = Event.sync (Event.receive next) in
-        stored := ch;
-        ())
-
   let stored = ref init_ch
-  let runtest cnt =
+  let runtest param =
+    let payload = List.assoc param big_arrays in 
     Core.Staged.stage @@
       fun () ->
-      let rec loop ch cnt =
-        if cnt=0 then
-          ch
-        else begin
-            let next = Event.new_channel () in
-            Event.sync (Event.send ch (default_payload, `Cont(next)));
-            let ((),`Cont(ch)) = Event.sync (Event.receive next) in
-            loop ch (cnt-1)
-          end
-      in
       let ch = !stored in
-      let ch = loop ch cnt in
-      stored := ch;
-      ()
+      let next = Event.new_channel () in
+      Event.sync (Event.send ch (payload, `Cont(next)));
+      let ((),`Cont(ch)) = Event.sync (Event.receive next) in
+      stored := ch
 end
 
 module type LWT_CHAN = sig
@@ -138,7 +97,7 @@ module LwtWait : LWT_CHAN = struct
   let receive (t,u_) = t
 end
 
-module BLwtTwoChan(Chan:LWT_CHAN)() = struct
+module BLwtTwoChan(Chan:LWT_CHAN)() : TEST = struct
   let (let/) = Lwt.bind
 
   let ch1 = Chan.create ()
@@ -154,17 +113,6 @@ module BLwtTwoChan(Chan:LWT_CHAN)() = struct
     let/ arr_ = Chan.receive ch1 in
     Chan.send ch2 ()
 
-  let test_msgsize =
-    fun i ->
-    Core.Staged.stage (fun () ->
-        Lwt.async server_step;
-        Lwt_main.run begin
-            let arr = List.assoc i big_arrays in
-            let/ () = Chan.send ch1 arr in
-            Chan.receive ch2
-          end)
-
-
   let server_iter cnt =
     let rec loop cnt =
       if cnt = 0 then
@@ -177,24 +125,17 @@ module BLwtTwoChan(Chan:LWT_CHAN)() = struct
     in
     loop cnt
 
-  let runtest =
-    fun cnt ->
+  let runtest param =
+    let payload = List.assoc param big_arrays in
     Core.Staged.stage (fun () ->
-        Lwt.async (fun () -> server_iter cnt);
+        Lwt.async (fun () -> server_iter 1);
         Lwt_main.run begin
-            let rec loop cnt =
-              if cnt=0 then
-                Lwt.return_unit
-              else
-                let/ () = Chan.send ch1 default_payload in
-                let/ () = Chan.receive ch2 in
-                loop (cnt-1)
-            in
-            loop cnt
+            let/ () = Chan.send ch1 payload in
+            Chan.receive ch2
           end)
 end
 
-module BLwtCont(Chan:LWT_CHAN)() = struct
+module BLwtCont(Chan:LWT_CHAN)() : TEST = struct
   open Chan
   let (let/) = Lwt.bind
 
@@ -218,30 +159,22 @@ module BLwtCont(Chan:LWT_CHAN)() = struct
 
   let iteration_body init =
     let stored = ref init in
-    fun cnt ->
-    let rec loop ch cnt =
-      if cnt=0 then
-        Lwt.return ch
-      else begin
-          let next = create () in
-          let/ () = send ch (default_payload,next) in
-          let/ `Next((),ch) = receive next in
-          loop ch (cnt-1)
-        end
-    in
-    let/ ch = loop !stored cnt in
+    fun param ->
+    let ch = !stored in
+    let payload = List.assoc param big_arrays in
+    let next = create () in
+    let/ () = send ch (payload,next) in
+    let/ `Next((),ch) = receive next in
     stored := ch;
     Lwt.return_unit
 
   let runtest =
-    fun cnt ->
+    fun param ->
     let init = create () in
-    let server_loop = server_loop init in
-    let iteration_body = iteration_body init in
     Core.Staged.stage (fun () ->
-        Lwt.async (fun () -> server_loop cnt);
+        Lwt.async (fun () -> server_loop init 1);
         Lwt_main.run begin
-            iteration_body cnt
+            iteration_body init param
           end)
 
 
@@ -257,24 +190,9 @@ module BLwtCont(Chan:LWT_CHAN)() = struct
     push (Some((),`Cont(next)));
     Lwt.return_unit
 
-  let test_msgsize =
-    let stored = ref (init_st, init_push) in
-    fun i ->
-    Core.Staged.stage @@
-      fun () ->
-      let _, push = !stored in
-      Lwt.async server_step;
-      Lwt_main.run begin
-          let arr = List.assoc i big_arrays in
-          let (st,_) as next = Lwt_stream.create () in
-          push (Some (arr, next));
-          let/ ((),`Cont(next)) = Lwt_stream.next st in
-          stored := next;
-          Lwt.return_unit
-        end
 end
 
-module Make_IPC(M:PERIPHERAL)() = struct
+module Make_IPC(M:PERIPHERAL)() : TEST = struct
   module Dpipe = Common.Make_dpipe(M.Serial)
   module C = M.Serial
 
@@ -292,36 +210,21 @@ module Make_IPC(M:PERIPHERAL)() = struct
           loop ()
         in M.run (loop ())) ()
 
-  let test_msgsize i =
+  let runtest param =
+    let payload = List.assoc param big_arrays in
     Core.Staged.stage @@
       fun () ->
       M.run begin
-          let arr = List.assoc i big_arrays in
-          let/ () = C.output_value ch.Dpipe.me.out arr in
+          let/ () = C.output_value ch.Dpipe.me.out payload in
           let/ () = C.flush ch.Dpipe.me.out in
-          C.input_value ch.Dpipe.me.inp
-      end
-
-  let runtest cnt =
-    Core.Staged.stage @@
-      fun () ->
-      M.run begin
-          let rec loop cnt =
-            if cnt=0 then
-              M.return_unit
-            else
-              let/ () = C.output_value ch.Dpipe.me.out default_payload in
-              let/ () = C.flush ch.Dpipe.me.out in
-              let/ () = C.input_value ch.Dpipe.me.inp in
-              loop (cnt-1)
-          in
-          loop cnt
+          let/ () = C.input_value ch.Dpipe.me.inp in
+          M.return_unit
         end
 
 end
 
 
-module BLwtChannelVectorManual = struct
+module BLwtChannelVectorManual : TEST = struct
   let (let/) = Lwt.bind
 
   let ch1 = Lwt_stream.create ()
@@ -387,24 +290,19 @@ module BLwtChannelVectorManual = struct
     loop epb cnt
 
   let runtest =
-    fun cnt ->
+    fun param ->
+    let payload = List.assoc param big_arrays in
     let epa, epb = create () in
     Core.Staged.stage (fun () ->
-        Lwt.async (fun () -> server_iter epb cnt);
+        Lwt.async (fun () -> server_iter epb 1);
         Lwt_main.run begin
-            let rec loop epa cnt =
-              if cnt=0 then
-                Lwt.return epa
-              else
-                let/ epa = send epa#role_B#ping default_payload in
-                let/ `pong((), epa) = receive epa#role_B in
-                loop epa (cnt-1)
-            in
-            loop epa cnt
+            let/ epa = send epa#role_B#ping payload in
+            let/ `pong((), epa) = receive epa#role_B in
+            Lwt.return_unit
           end)
 end
 
-module BLwtChannelVectorManualDyncheckClosure = struct
+module BLwtChannelVectorManualDyncheckClosure : TEST = struct
   let (let/) = Lwt.bind
 
   let ch1 = Lwt_stream.create ()
@@ -462,24 +360,19 @@ module BLwtChannelVectorManualDyncheckClosure = struct
     loop epb cnt
 
   let runtest =
-    fun cnt ->
+    fun param ->
+    let payload = List.assoc param big_arrays in
     let epa, epb = create () in
     Core.Staged.stage (fun () ->
-        Lwt.async (fun () -> server_iter epb cnt);
+        Lwt.async (fun () -> server_iter epb 1);
         Lwt_main.run begin
-            let rec loop epa cnt =
-              if cnt=0 then
-                Lwt.return epa
-              else
-                let/ epa = send epa#role_B#ping default_payload in
-                let/ `pong((), epa) = receive epa#role_B in
-                loop epa (cnt-1)
-            in
-            loop epa cnt
+            let/ epa = send epa#role_B#ping payload in
+            let/ `pong((), epa) = receive epa#role_B in
+            Lwt.return_unit
           end)
 end
 
-module BLwtChannelVectorManualLessWrap = struct
+module BLwtChannelVectorManualLessWrap : TEST = struct
   let (let/) = Lwt.bind
 
   let ch1 = Lwt_stream.create ()
@@ -555,29 +448,24 @@ module BLwtChannelVectorManualLessWrap = struct
     loop epb cnt
 
   let runtest =
-    fun cnt ->
+    fun param ->
+    let payload = List.assoc param big_arrays in
     let epa, epb = create () in
     Core.Staged.stage (fun () ->
-        Lwt.async (fun () -> server_iter epb cnt);
+        Lwt.async (fun () -> server_iter epb 1);
         Lwt_main.run begin
-            let rec loop epa cnt =
-              if cnt=0 then
-                Lwt.return epa
-              else
-                let/ epa = send epa#role_B#ping default_payload in
-                (* let/ epa = send epa default_payload in *)
-                (* let/ `pong((), epa) = receive epa#role_B in *)
-                (* let inp, epa = receive epa in *)
-                let inp, epa = receive epa#role_B in
-                let/ () = inp in
-                loop epa (cnt-1)
-            in
-            loop epa cnt
+            let/ epa = send epa#role_B#ping payload in
+            (* let/ epa = send epa default_payload in *)
+            (* let/ `pong((), epa) = receive epa#role_B in *)
+            (* let inp, epa = receive epa in *)
+            let inp, epa = receive epa#role_B in
+            let/ () = inp in
+            Lwt.return_unit
           end)
 end
 
 
-module BLwtChannelVectorManualLessWrap1_5 = struct
+module BLwtChannelVectorManualLessWrap1_5 : TEST = struct
   let (let/) = Lwt.bind
 
   let ch1 = Lwt_stream.create ()
@@ -653,28 +541,22 @@ module BLwtChannelVectorManualLessWrap1_5 = struct
     loop epb cnt
 
   let runtest =
-    fun cnt ->
+    fun param ->
+    let payload = List.assoc param big_arrays in
     let epa, epb = create () in
     Core.Staged.stage (fun () ->
-        Lwt.async (fun () -> server_iter epb cnt);
+        Lwt.async (fun () -> server_iter epb 1);
         Lwt_main.run begin
-            let rec loop epa cnt =
-              if cnt=0 then
-                Lwt.return epa
-              else
-                let/ epa = send epa#role_B#ping default_payload in
-                (* let/ epa = send epa default_payload in *)
-                (* let/ `pong((), epa) = receive epa#role_B in *)
-                (* let inp, epa = receive epa in *)
-                let inp, epa = receive epa#role_B in
-                let/ () = inp in
-                loop epa (cnt-1)
-            in
-            loop epa cnt
+            let/ epa = send epa#role_B#ping payload in
+            (* let/ epa = send epa default_payload in *)
+            (* let/ `pong((), epa) = receive epa#role_B in *)
+            (* let inp, epa = receive epa in *)
+            let inp, epa = receive epa#role_B in
+            inp
           end)
 end
 
-module BLwtChannelVectorManualLessWrap2 = struct
+module BLwtChannelVectorManualLessWrap2 : TEST = struct
   let (let/) = Lwt.bind
 
   let ch1 = Lwt_stream.create ()
@@ -739,29 +621,24 @@ module BLwtChannelVectorManualLessWrap2 = struct
     loop epb cnt
 
   let runtest =
-    fun cnt ->
+    fun param ->
+    let payload = List.assoc param big_arrays in
     let epa, epb = create () in
     Core.Staged.stage (fun () ->
-        Lwt.async (fun () -> server_iter epb cnt);
+        Lwt.async (fun () -> server_iter epb 1);
         Lwt_main.run begin
-            let rec loop epa cnt =
-              if cnt=0 then
-                Lwt.return epa
-              else
-                (* let/ epa = send epa#role_B#ping default_payload in *)
-                let/ epa = send epa default_payload in
-                let/ `pong((), epa) = receive epa in
-                (* let/ `pong((), epa) = receive epa#role_B in *)
-                (* let inp, epa = receive epa in *)
-                (* let inp, epa = receive epa#role_B in *)
-                (* let/ () = inp in *)
-                loop epa (cnt-1)
-            in
-            loop epa cnt
+            (* let/ epa = send epa#role_B#ping default_payload in *)
+            let/ epa = send epa payload in
+            let/ `pong((), epa) = receive epa in
+            (* let/ `pong((), epa) = receive epa#role_B in *)
+            (* let inp, epa = receive epa in *)
+            (* let inp, epa = receive epa#role_B in *)
+            (* let/ () = inp in *)
+            Lwt.return_unit
           end)
 end
 
-module BLwtChannelVectorManualLessWrap3 = struct
+module BLwtChannelVectorManualLessWrap3 : TEST = struct
   let (let/) = Lwt.bind
 
   let ch1 = Lwt_stream.create ()
@@ -826,24 +703,18 @@ module BLwtChannelVectorManualLessWrap3 = struct
     loop epb cnt
 
   let runtest =
-    fun cnt ->
+    fun param ->
+    let payload = List.assoc param big_arrays in
     let epa, epb = create () in
     Core.Staged.stage (fun () ->
-        Lwt.async (fun () -> server_iter epb cnt);
+        Lwt.async (fun () -> server_iter epb 1);
         Lwt_main.run begin
-            let rec loop epa cnt =
-              if cnt=0 then
-                Lwt.return epa
-              else
-                (* let/ epa = send epa#role_B#ping default_payload in *)
-                let/ epa = send epa default_payload in
-                (* let/ `pong((), epa) = receive epa in *)
-                (* let/ `pong((), epa) = receive epa#role_B in *)
-                let inp, epa = receive epa in
-                (* let inp, epa = receive epa#role_B in *)
-                let/ () = inp in
-                loop epa (cnt-1)
-            in
-            loop epa cnt
+            (* let/ epa = send epa#role_B#ping default_payload in *)
+            let/ epa = send epa payload in
+            (* let/ `pong((), epa) = receive epa in *)
+            (* let/ `pong((), epa) = receive epa#role_B in *)
+            let inp, epa = receive epa in
+            (* let inp, epa = receive epa#role_B in *)
+            inp
           end)
 end

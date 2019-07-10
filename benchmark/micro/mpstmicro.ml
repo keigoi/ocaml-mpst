@@ -1,62 +1,8 @@
 open Util
-
+open Testbase
 open Mpst.M
 open Mpst.M.Base
 module ML = Mpst_lwt.M
-
-module type TESTBED = sig
-  type +'a monad 
-  val server_step : unit -> unit monad
-  val client_step : int -> (unit -> unit monad) Core.Staged.t
-end
-module type TEST = sig
-  val runtest_repeat : count:int -> param:int -> (unit -> unit) Core.Staged.t
-  val runtest : int -> (unit -> unit) Core.Staged.t
-end
-
-module MakeTestBase
-         (Test:TESTBED)
-         (M:PERIPHERAL with type 'a t = 'a Test.monad)
-         (Med:MEDIUM)
-         ()
-       : TEST
-  = struct
-
-  let loop f =
-    fun cnt ->
-    let rec loop cnt =
-      if cnt = Some 0 then
-        M.return ()
-      else
-        M.bind (f ()) @@ fun () ->
-        (loop[@tailcall]) (Mpst.M.Common.map_option (fun x->x-1) cnt)
-    in
-    loop cnt
-
-  let runtest_repeat ~count ~param =
-    Core.Staged.stage
-      (fun () ->
-        if Med.medium = `IPCProcess then begin
-            (* counterpart runs in another proess *)
-          end else if M.is_direct then begin
-            (* counterpart runs in another thread *)
-          end else begin
-            (* run here -- lwt thread seems to be better run in same Lwt_main.run *)
-            M.async (fun () -> loop Test.server_step (Some count))
-          end;
-        M.run (loop (Core.Staged.unstage (Test.client_step param)) (Some count))
-      )
-
-  let runtest param = runtest_repeat ~count:1 ~param
-
-  (* start server thread *)
-  let () =
-    if Med.medium = `IPCProcess then begin
-        fork (fun () -> M.run (loop Test.server_step None)) ();
-      end else if M.is_direct then begin
-        thread (fun () -> M.run (loop Test.server_step None)) ();
-      end
-end
 
 module MakeDyn
          (D:DYNCHECK)
@@ -100,10 +46,11 @@ module MakeDyn
       sb_stored := sb;
       M.return_unit
 
-    let client_step _ =
+    let client_step param =
+      let payload = List.assoc param big_arrays in
       Core.Staged.stage @@ fun () ->
       let sa = !sa_stored in
-      let/ sa = send sa#role_B#ping default_payload in
+      let/ sa = send sa#role_B#ping payload in
       let/ `pong((),sa) = receive sa#role_B in
       sa_stored := sa;
       M.return_unit
@@ -157,13 +104,14 @@ module MakeStatic
         )}
       )
 
-    let client_step _ =
+    let client_step param =
+      let payload = List.assoc param big_arrays in
       Core.Staged.stage
         (M.Linocaml.run'
            (fun () ->
              let open M.Linocaml in
              let/ () = put_linval s !stored_sa in
-             let%lin #s = s <@ send (fun x->x#role_B#ping) default_payload in
+             let%lin #s = s <@ send (fun x->x#role_B#ping) payload in
              let%lin `pong({Linocaml.data=()},#s) = s <@ receive (fun x->x#role_B) in
              {__m=(fun pre ->
                 stored_sa := (Linocaml.lens_get s pre).__lin;
@@ -200,10 +148,11 @@ module BRefImpl : TEST
       let/ sb = send sb#role_A#pong () in
       stored_sb := sb
 
-    let client_step _param =
+    let client_step param =
+      let payload = List.assoc param big_arrays in
       Core.Staged.stage (fun () ->
           let sa = !stored_sa in
-          let/ sa = send sa#role_B#ping default_payload in
+          let/ sa = send sa#role_B#ping payload in
           let/ `pong((), sa) = receive sa#role_B in
           stored_sa := sa
         )

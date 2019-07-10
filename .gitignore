@@ -34,3 +34,5 @@ setup.log
 *~
 .DS_Store
 a.out
+dune-workspace
+ppx_tools/ppx_tools.install

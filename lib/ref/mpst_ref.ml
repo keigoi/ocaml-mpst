@@ -559,7 +559,7 @@ module Global
  *   (\** forces delayed merges. *\)
  *   val gen : 'a Seq.t -> 'a Seq.t
  * 
- *   val get_ep : (_, _, 'ep, _, 'g, _) role -> 'g Seq.t -> 'ep
+ *   val get_ch : (_, _, 'ep, _, 'g, _) role -> 'g Seq.t -> 'ep
  * end *)
   = struct
   include Inp
@@ -601,7 +601,7 @@ module Global
     Seq.force_all g;
     g
     
-  let get_ep r g =
+  let get_ch r g =
     EP.fresh (Seq.lens_get r.role_index g)
 end
 
@@ -719,7 +719,7 @@ include Util
  *       (a, (a --> b) left @@ finish)
  *       (a, (a --> b) right @@ finish)
  * 
- *   let ea, eb = get_ep a g, get_ep b g
+ *   let ea, eb = get_ch a g, get_ch b g
  * 
  *   (\* role B *\)
  *   let (_:Thread.t) =

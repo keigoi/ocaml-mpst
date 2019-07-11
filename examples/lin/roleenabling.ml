@@ -60,11 +60,11 @@ let () =
   Random.self_init ();
   Linocaml.run' (fun () ->
       let%lin #g = gen roleenabling in
-      let%lin #g,#s1 = get_ep a @> g in
-      let%lin #g,#s2 = get_ep b @> g in
+      let%lin #g,#s1 = get_ch a @> g in
+      let%lin #g,#s2 = get_ch b @> g in
       thread_create s1 tA () >>
       thread_create s2 tB () >>
-      let%lin #g,#s = get_ep c @> g in
+      let%lin #g,#s = get_ch c @> g in
       tC () >>= fun () ->
       degen @> g >>
       return ()

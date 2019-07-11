@@ -4,9 +4,9 @@ let loop0 =
   print_endline"loop0";
   let g = gen @@ fix (fun t -> (a --> b) msg @@ t) in
   print_endline"loop0 epp a";
-  let _ = get_ep a g in
+  let _ = get_ch a g in
   print_endline"loop0 epp b";
-  let _ = get_ep b g in
+  let _ = get_ch b g in
   print_endline"loop0 done";
   ()
 
@@ -43,11 +43,11 @@ let () =
   let () = print_endline "loop1" in
   let g = gen @@ loop1 () in
   let () = print_endline "global combinator generated" in
-  let ea = get_ep a g in
+  let ea = get_ch a g in
   print_endline "epp a done";
-  let eb = get_ep b g in
+  let eb = get_ch b g in
   print_endline "epp b done";
-  let ec = get_ep c g in
+  let ec = get_ch c g in
   print_endline "epp c done";
   ignore (Thread.create (fun () ->
               tA ea (fun ea -> close ea)
@@ -73,11 +73,11 @@ let () =
   let () = print_endline "loop2" in
   let g = gen @@ loop2 () in
   print_endline "loop2 global done";
-  let ea = get_ep a g in
+  let ea = get_ch a g in
   print_endline "epp a done";
-  let eb = get_ep b g in
+  let eb = get_ch b g in
   print_endline "epp b done";
-  let ec = get_ep c g in
+  let ec = get_ch c g in
   print_endline "epp c done";
   ignore (Thread.create (fun () ->
               let rec loop ea =
@@ -113,7 +113,7 @@ let test1 =
             (a --> b) msg @@ t)
     in
     print_endline"test1";
-    ignore (get_ep c g);
+    ignore (get_ch c g);
     print_endline"test1 done"
 
 let test2 =
@@ -126,9 +126,9 @@ let test2 =
         (a, (a --> b) right @@ finish))
   in
   print_endline "test2 epp-a";
-  ignore (get_ep a g);
+  ignore (get_ch a g);
   print_endline "test2 epp-a done";
-  ignore (get_ep b g);
+  ignore (get_ch b g);
   print_endline "test2 done";
   ()
 
@@ -142,9 +142,9 @@ let test3 =
           (a, (a --> b) left @@ u)
           (a, t)))
   in
-  ignore (get_ep a g);
+  ignore (get_ch a g);
   print_endline "test3 epp-a done";
-  ignore (get_ep b g);
+  ignore (get_ch b g);
   print_endline "test3 done";
   ()
 

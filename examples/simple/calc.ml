@@ -41,8 +41,8 @@ let () =
   ;
   ()
   (* let g = gen @@ calc in
-   * let ec = get_ep cli g in
-   * let es = get_ep srv g in
+   * let ec = get_ch cli g in
+   * let es = get_ch srv g in
    * List.iter Thread.join [Thread.create tCli ec; Thread.create tSrv es] *)
 
 (* custom label declaration *)
@@ -91,6 +91,6 @@ let tSrv2 es =
 
 let () =
   let calc2 = gen @@ calc2 () in
-  let ec = get_ep cli calc2 and es = get_ep srv calc2 in
+  let ec = get_ch cli calc2 and es = get_ch srv calc2 in
   ignore @@ Thread.create tSrv2 es;
   tCli ec

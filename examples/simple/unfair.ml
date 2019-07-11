@@ -17,13 +17,13 @@ let unfair () =
 let () =
   let g = unfair ()
   in
-  let ea = get_ep a g in
+  let ea = get_ch a g in
   print_endline"projected on a";
-  let eb = get_ep b g in
+  let eb = get_ch b g in
   print_endline"projected on b";
-  let ec = get_ep c g in
+  let ec = get_ch c g in
   print_endline"projected on c";
-  let _ = get_ep d g in
+  let _ = get_ch d g in
   print_endline"projected on d";
   let ta = Thread.create (fun () ->
                let ea = send ea#role_B#right () in

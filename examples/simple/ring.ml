@@ -9,11 +9,11 @@ let ring =
         (c --> a) msg finish
 let () = print_endline "global combinator finished"
 
-let ea = get_ep a ring
+let ea = get_ch a ring
 let () = print_endline "EPP A finished"
-and eb = get_ep b ring
+and eb = get_ch b ring
 let () = print_endline "EPP B finished"
-and ec = get_ep c ring
+and ec = get_ch c ring
 let () = print_endline "EPP C finished"
 
 let tA = Thread.create (fun () ->

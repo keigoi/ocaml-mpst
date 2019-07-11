@@ -16,11 +16,11 @@ let prot =
               (b --> c) right @@ finish))
 
 let () = print_endline "global defined"
-let ea = get_ep a prot
+let ea = get_ch a prot
 let () = print_endline "EPP a done"
-let eb = get_ep b prot
+let eb = get_ch b prot
 let () = print_endline "EPP b done"
-let ec = get_ep c prot
+let ec = get_ch c prot
 let () = print_endline "EPP c done"
     
 let tA = Thread.create (fun () ->

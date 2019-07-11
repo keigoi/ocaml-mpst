@@ -998,7 +998,7 @@ module OAuth_paper = struct
   let thread f = ignore (Thread.create f ())
   let () =
     thread (fun () ->
-      let ep = get_ep s oAuth in
+      let ep = get_ch s oAuth in
       if true then begin
         let ep = send (ep#role_C#login) "asdf" in
         let `auth((), ep) = receive (ep#role_A) in
@@ -1008,7 +1008,7 @@ module OAuth_paper = struct
         close ep
       end);
     thread (fun () ->
-      let ep = get_ep c oAuth in
+      let ep = get_ch c oAuth in
       match receive (ep#role_S) with
       | `login((_x:string), ep) ->
          let ep = send (ep#role_A#password) 123 in
@@ -1016,7 +1016,7 @@ module OAuth_paper = struct
       | `cancel((), ep) ->
          let ep = send (ep#role_A#quit) () in
          close ep);
-    let ep = get_ep a oAuth in
+    let ep = get_ch a oAuth in
     match receive (ep#role_C) with
     | `password((_i:int),ep) ->
        let ep = send (ep#role_S#auth) () in

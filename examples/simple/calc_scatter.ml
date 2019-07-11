@@ -72,8 +72,8 @@ let tSrv ew =
 
 let () =
   let g = gen_mult_ipc [1;100] calc in
-  let ec = get_ep cli g
-  and ess = get_ep_list srv g
+  let ec = get_ch cli g
+  and ess = get_ch_list srv g
   in
   let ts = [tCli ec] @ (List.map (fun es -> tSrv es) ess)
   in

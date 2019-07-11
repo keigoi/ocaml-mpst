@@ -70,7 +70,7 @@ let server (fd_cli : Lwt_unix.file_descr) (fd_fwd : Lwt_unix.file_descr) =
   
   let rec loop () =
     (* get a new session endpoint *)
-    let s = get_ep srv (dns ())
+    let s = get_ch srv (dns ())
     in
     
     let/ `query(query, s) = receive (s fd_cli)#role_Cli

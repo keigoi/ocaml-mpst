@@ -34,7 +34,7 @@ module MakeDyn
      *)
     let sa_stored, sb_stored =
       let g = gen_with_kinds [Med.medium;Med.medium;] prot in
-      ref (Global.get_ep a g), ref (Global.get_ep b g)
+      ref (Global.get_ch a g), ref (Global.get_ch b g)
 
     let (let/) = M.bind
 
@@ -85,7 +85,7 @@ module MakeStatic
 
     let stored_sa, stored_sb =
       let g = raw_gen_with_kinds [Med.medium;Med.medium;] prot in
-      ref (Global.raw_get_ep a g), ref (Global.raw_get_ep b g)
+      ref (Global.raw_get_ch a g), ref (Global.raw_get_ch b g)
 
     let (let/) = M.Linocaml.(>>=)
 
@@ -138,7 +138,7 @@ module BRefImpl : TEST
 
     let stored_sa, stored_sb =
       let g = gen prot in
-      ref (Global.get_ep a g), ref (Global.get_ep b g)
+      ref (Global.get_ch a g), ref (Global.get_ch b g)
 
     let (let/) m f = f m
 

@@ -101,7 +101,7 @@
  *   
  * let tPro (\* ep *\) rect planes =
  *   let g = polyclip () in
- *   let ep = get_ep p g in
+ *   let ep = get_ch p g in
  *   (\* let ep = send (ep#role_R#plane) rect in *\)
  *   let rec loop (\* ep *\) points =
  *     match points with
@@ -141,9 +141,9 @@
  * 
  * (\* let () =
  *  *   let g = polyclip () in
- *  *   let ep = get_ep p g
- *  *   (\\* and er = get_ep r g
- *  *    * and ec = get_ep c g *\\)
+ *  *   let ep = get_ch p g
+ *  *   (\\* and er = get_ch r g
+ *  *    * and ec = get_ch c g *\\)
  *  *   in
  *  *   (\\* ignore @@ Thread.create tSrv2 es; *\\)
  *  *   tPro ep (0,0,0,0) [(0,0)] *\) *)

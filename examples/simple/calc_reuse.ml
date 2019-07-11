@@ -47,8 +47,8 @@ let tSrv' es =
 
 let () =
   let g = gen @@ calc' () in
-  let ec = get_ep cli g
-  and es = get_ep srv g
+  let ec = get_ch cli g
+  and es = get_ch srv g
   in
   List.iter Thread.join [Thread.create tCli ec; Thread.create tSrv' es]
 
@@ -93,7 +93,7 @@ let tSrv2' es =
 
 let () =
   let g = gen @@ calc2' () in
-  let ec = get_ep cli g and es = get_ep srv g
+  let ec = get_ch cli g and es = get_ch srv g
   in List.iter Thread.join [Thread.create tCli ec; Thread.create tSrv2' es]
 
 let tCli2 ec =
@@ -110,5 +110,5 @@ let tCli2 ec =
 
 let () =
   let g = gen @@ calc2' () in
-  let ec = get_ep cli g and es = get_ep srv g
+  let ec = get_ch cli g and es = get_ch srv g
   in List.iter Thread.join [Thread.create tCli2 ec; Thread.create tSrv2' es]

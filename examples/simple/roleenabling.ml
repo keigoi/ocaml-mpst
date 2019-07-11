@@ -11,9 +11,9 @@ let roleenabling =
         (c --> b) msg @@
         (b --> c) right @@ finish)
 
-let ea = get_ep a roleenabling
-and eb = get_ep b roleenabling
-and ec = get_ep c roleenabling
+let ea = get_ch a roleenabling
+and eb = get_ch b roleenabling
+and ec = get_ch c roleenabling
     
 let tA = Thread.create (fun () ->
   print_endline "A start";

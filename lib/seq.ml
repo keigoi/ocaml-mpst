@@ -87,7 +87,7 @@ let rec partial_force : type x. x t lazy_t list -> x t -> x t =
   | SeqRecVars ds ->
      (* A choice between recursion variables -- do not try to resolve.
       * (will happen at after c of fix (fun t -> choice (a->b)t (a->b)t))
-      * Mergeable.resolve_merge will resolve it later during get_ep
+      * Mergeable.resolve_merge will resolve it later during get_ch
       *)
      SeqRecVars ds
   | SeqCons(hd,tl) ->

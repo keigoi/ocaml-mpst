@@ -41,4 +41,4 @@ let rec tC s =
 
 let () =
   let g = gen_mult [1;10;1] (prot ()) in
-  Lwt_main.run (Lwt.join [tA (get_ep a g) 0; Lwt.join (tB (get_ep_list b g)); tC (get_ep c g)])
+  Lwt_main.run (Lwt.join [tA (get_ch a g) 0; Lwt.join (tB (get_ch_list b g)); tC (get_ch c g)])

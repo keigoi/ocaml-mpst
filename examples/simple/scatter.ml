@@ -19,7 +19,7 @@ let prot =
 
 let pa, pb, pc =
   let g = gen_mult [1;10;1] prot in
-  get_ep a g, get_ep_list b g, get_ep c g
+  get_ch a g, get_ch_list b g, get_ch c g
 
 let a : [`A] = `A
 let b : [`B] = `B

@@ -430,7 +430,7 @@ module Make
     let me = Seq.int_of_lens r.role_index in
     M.bind (sync_all_ me m.connect_sync m.start_sync env) (fun () ->
     (* get my ep *)
-    let ep = get_ep r g in
+    let ep = get_ch r g in
     m.seq_in_process <- None;
     Mutex.unlock m.accept_lock;
     let prop = Table.get env.props (Seq.int_of_lens r.role_index) in
@@ -442,7 +442,7 @@ module Make
     M.bind (EV.sync (EV.receive c)) (fun env ->
         let prop = Table.get env.props role in
         let g = match m.seq_in_process with Some (_,g) -> g | None -> assert false in
-        let ep = get_ep r g in
+        let ep = get_ch r g in
         M.bind (EV.sync (EV.send (EV.flip_channel m.start_sync) ())) (fun () ->
         M.return (ep, prop)))
 
@@ -484,5 +484,5 @@ module Make
         ('obj,'var,('v Lin.lin list * 'epA) Out.out Lin.lin, 'v Lin.lin * 'epB Lin.lin) label =
     fun l _ -> l
 
-  let prot a g () = get_ep a (gen g)
+  let prot a g () = get_ch a (gen g)
 end

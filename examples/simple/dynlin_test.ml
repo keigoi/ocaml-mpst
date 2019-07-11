@@ -15,8 +15,8 @@ let mustfail name f =
        
 let () =
   let shot = gen @@ (a --> b) msg @@ finish in
-  let ea = get_ep a shot in
-  let eb = get_ep b shot in
+  let ea = get_ch a shot in
+  let eb = get_ch b shot in
   let t = Thread.create (fun () ->
                 let `msg(_,_) = receive eb#role_A in
                 mustfail "shot:epb" (fun () -> receive eb#role_A)) ()
@@ -33,8 +33,8 @@ let () =
       (a, (a --> b) left @@ finish)
       (a, (a --> b) right @@ finish)
   in
-  let ea = get_ep a bra in
-  let eb = get_ep b bra in
+  let ea = get_ch a bra in
+  let eb = get_ch b bra in
   print_endline "test2 start";
   let t = Thread.create (fun () ->
                 let _ = send ea#role_B#left () in

@@ -682,7 +682,7 @@ module Global
  *   (\** forces delayed merges. *\)
  *   val gen : 'a Seq.t -> 'a Seq.t
  * 
- *   val get_ep :
+ *   val get_ch :
  *     (_, _, (vec_all_empty -> 'ep) * _ * 'xs * _, _*_*_*_) role -> 'xs Seq.t -> 'ep
  * end *)
   = struct
@@ -805,7 +805,7 @@ module Global
 
   let gen g = Seq.partial_force g
 
-  let get_ep (Role r) g =
+  let get_ch (Role r) g =
     Mergeable.generate (Seq.lens_get r.role_index g) HList.vec_all_empty
 end
   

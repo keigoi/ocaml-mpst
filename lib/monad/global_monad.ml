@@ -43,7 +43,7 @@ module Make
   let degen : (([`cons of Mpst.close * 't] as 't) Seq.t lin, unit, unit data) L.monad =
     {L.__m=(fun _ -> M.return ((), {Linocaml.data=()}))}
 
-  let raw_get_ep = get_ep
+  let raw_get_ch = get_ch
 
   let mclose =
     Mergeable.make
@@ -51,7 +51,7 @@ module Make
       ~mergefun:(fun _ _ -> Mpst.Close)
       ~value:[Mpst.M.Nocheck.Nodyncheck.unrestricted Mpst.Close]
 
-  let get_ep r =
+  let get_ch r =
     let open Linocaml in
     let open L in
     {__m=(fun lpre ->

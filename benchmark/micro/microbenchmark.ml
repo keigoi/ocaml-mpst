@@ -5,18 +5,39 @@ open Mpstmicro
 
 let run f = Core.Staged.unstage (f (List.nth array_sizes 0))
 
+let chvec_counts = [1;10;100]
 (* let array_sizes = [List.nth array_sizes (List.length array_sizes -1)] *)
 
 let lwt_ideal =
-  Test.create ~name:"lwt-OCaml_ideal" (let module M = BLwtTwoChan(LwtStream)() in run M.runtest)
+  Test.create_indexed ~args:chvec_counts ~name:"lwt-OCaml_ideal" (let module M = BLwtTwoChan(LwtStream)() in M.runtest)
+
 let lwt_cps =
   Test.create ~name:"lwt-OCaml_cps" (let module M = BLwtCont(LwtStream)() in run M.runtest)
 
+let lwt_ideal_opt =
+  Test.create_indexed ~args:chvec_counts ~name:"lwt_opt-OCaml_ideal" (let module M = BLwtTwoChan(LwtOptStream)() in M.runtest)
+
+let lwt_cps_opt =
+  Test.create ~name:"lwt_opt-OCaml_cps" (let module M = BLwtCont(LwtOptStream)() in run M.runtest)
+
+let ev_cps =    
+  Test.create ~name:"ev-OCaml_cps" @@ run BEventCont.runtest
+
+let ev_ideal =
+  Test.create ~name:"ev-OCaml_ideal" @@ run BEvent.runtest
+
 let lwt_mvar_ideal =
-  Test.create ~name:"lwt_mvar-OCaml_ideal" (let module M = BLwtTwoChan(LwtMVar)() in run M.runtest)
-  
+  Test.create_indexed ~args:chvec_counts ~name:"lwt_mvar-OCaml_ideal" (let module M = BLwtTwoChan(LwtMVar)() in M.runtest)  
+let lwt_bstream_ideal =
+  Test.create ~name:"lwt_bstream-OCaml_ideal" (let module M = BLwtTwoChan(LwtBoundedStream)() in run M.runtest)
+let lwt_wake_ideal =
+  Test.create ~name:"lwt_wake-OCaml_ideal" (let module M = BLwtTwoChan(LwtWait)() in run M.runtest)
 let lwt_mvar_cps =      
   Test.create ~name:"lwt_mvar-OCaml_cps" (let module M = BLwtCont(LwtMVar)() in run M.runtest)
+let lwt_bstream_cps =
+  Test.create ~name:"lwt_bstream-OCaml_cps" (let module M = BLwtCont(LwtBoundedStream)() in run M.runtest)
+let lwt_wake_cps =
+  Test.create ~name:"lwt_wake-OCaml_cps" (let module M = BLwtCont(LwtWait)() in run M.runtest)
 
 let test_lwt =
   Core_bench.Bench.Test.(
@@ -25,16 +46,18 @@ let test_lwt =
         create ~name:"lwt-mpst_dynamic" (let module M = MakeDyn(DynCheckMutex)(LwtMonad)(Shmem)() in run M.runtest);
         create ~name:"lwt-mpst_static" (let module M = MakeStatic(LinLwtMonad)(Shmem)() in run M.runtest);
         lwt_ideal;
+        lwt_ideal_opt;
         (* For Lwt, CPS is slower than two_channel communication (around 5 %)
          * (It seems that Lwt_mvar is the fastest in CPS_style communication _ as for Lwt version 4.2.1.
          *  Note that MVars are 1_bounded; hence- they are not suitable for chvec MPST implementation)
          *)
         lwt_cps;
-        create ~name:"lwt(bstream)-OCaml_cps" (let module M = BLwtCont(LwtBoundedStream)() in run M.runtest);
-        (* create ~name:"lwt(wake)-OCaml_cps" (let module M = BLwtCont(LwtWait)() in run M.runtest); *)
+        lwt_cps_opt;
 
         lwt_mvar_ideal;
         lwt_mvar_cps;
+        lwt_bstream_cps;
+        (* lwt_wake_cps; *)
 
         (* Chcek why it exactly is slow. Closures around endpoints incur a huge cost (~ 20 %) in a tight loop.
          * Nano_mutex does not cause much slow down.  *)
@@ -67,13 +90,13 @@ let test_ev =
         create ~name:"ev-mpst_dynamic" (let module M = MakeDyn(DynCheckMutex)(Direct)(Shmem)() in run M.runtest);
         create ~name:"ev-mpst_static" @@ (let module M = MakeStatic(LinDirect)(Shmem)() in run M.runtest);
         create ~name:"ev-mpst_ref" @@ run BRefImpl.runtest;
-        create ~name:"ev-OCaml_ideal" @@ run BEvent.runtest;
+        ev_ideal;
 
         (* Here, we compare continuation_passing style vs. channel_vector based communication.
          * For Event module, differences are almost negligible (CPS is around 1 % slower), but apparently CPS allocates
          * more words than two_channel communication.
          *)
-        create ~name:"ev-OCaml_cps" @@ run BEventCont.runtest;
+        ev_cps
       ])
 
 let test_lwt_ipc =
@@ -120,14 +143,5 @@ let () =
    * Gc.set { gc with Gc.minor_heap_size = gc.Gc.minor_heap_size * 2 }; *)
   Core.Command.run @@
     Core_bench.Bench.make_command
-      [lwt_ideal; lwt_cps;
-       lwt_mvar_ideal; lwt_mvar_cps
-      ]
-      (* test_iteration *)
-      (* (test_ipc @ test_lwt_ipc) *)
-      (* Core_bench.Bench.Test.(
-       * [
-       *   create_indexed ~args:array_sizes ~name:"lwt_ipc-OCaml_ideal" (let module M = Make_IPC(LwtMonad)() in M.runtest);
-       *   create_indexed ~args:array_sizes ~name:"ipc-OCaml_ideal" (let module M = Make_IPC(Direct)() in M.runtest);
-       * ]) *)
+      test_iteration
       

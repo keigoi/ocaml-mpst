@@ -18,7 +18,7 @@ let big_arrays =
 
 let iteration_counts =
   [1; 100; 1000; 10000]
-(* let default_payload = snd @@ List.nth big_arrays 1 *)
+let default_payload = snd @@ List.nth big_arrays 1
 
 
 module type PERIPHERAL = sig

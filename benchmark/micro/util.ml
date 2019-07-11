@@ -79,9 +79,9 @@ end
  * end *)
 
 let ping_or_fini =
-  {obj_merge=(fun l r -> object method ping=l#ping method fini=r#fini end);
-   obj_splitL=(fun lr -> (lr :> <ping : _>));
-   obj_splitR=(fun lr -> (lr :> <fini : _>));
+  {disj_merge=(fun l r -> object method ping=l#ping method fini=r#fini end);
+   disj_splitL=(fun lr -> (lr :> <ping : _>));
+   disj_splitR=(fun lr -> (lr :> <fini : _>));
   }
 
 module type DYNCHECK = sig

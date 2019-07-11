@@ -421,9 +421,9 @@ module SupplierInfo_microservice = struct
  * } *)
   (* XXX non-directed chocie *)
   let to_requestor_or_suppliersvc =
-    {obj_merge=(fun l r -> object method role_Request=l#role_Request method role_Supply=r#role_Supply end);
-     obj_splitL=(fun lr -> (lr :> <role_Request : _>));
-     obj_splitR=(fun lr -> (lr :> <role_Supply : _>))}
+    {disj_merge=(fun l r -> object method role_Request=l#role_Request method role_Supply=r#role_Supply end);
+     disj_splitL=(fun lr -> (lr :> <role_Request : _>));
+     disj_splitR=(fun lr -> (lr :> <role_Supply : _>))}
 
   let suppinfo () =
     choice_at authorisesvc (to_requestor_or_suppliersvc)
@@ -463,9 +463,9 @@ module SupplierInfo_microservice = struct
 
   (* XXX non-directed chocie *)
   let to_requestor_or_contractsvc =
-    {obj_merge=(fun l r -> object method role_Request=l#role_Request method role_Contract=r#role_Contract end);
-     obj_splitL=(fun lr -> (lr :> <role_Request : _>));
-     obj_splitR=(fun lr -> (lr :> <role_Contract : _>))}
+    {disj_merge=(fun l r -> object method role_Request=l#role_Request method role_Contract=r#role_Contract end);
+     disj_splitL=(fun lr -> (lr :> <role_Request : _>));
+     disj_splitR=(fun lr -> (lr :> <role_Contract : _>))}
 
   let contractinfo () =
     choice_at authorisesvc to_requestor_or_contractsvc

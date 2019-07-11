@@ -29,7 +29,7 @@ module Make(EP:S.ENDPOINT) : sig
 
   val make : hook:hook -> mergefun:('a -> 'a -> 'a) -> value:'a ep list -> 'a t
   val make_recvar : 'a t lazy_t -> 'a t
-  val make_obj_merge : ('lr,'l,'r) Base.obj_merge -> 'l t -> 'r t -> 'lr t
+  val make_disj_merge : ('lr,'l,'r) Base.disj_merge -> 'l t -> 'r t -> 'lr t
   val make_merge : 'a t -> 'a t -> 'a t
   val make_merge_list : 'a t list -> 'a t
   val wrap_label : (< .. > as 'l, 'v) Base.method_ -> 'v t -> 'l t
@@ -50,5 +50,5 @@ end
  * val merge_all : 'a t list -> 'a t
  * val out : 'a t -> 'a list
  * val wrap_obj : (< .. > as 'o, 'v) Base.method_ -> 'v t -> 'o t
- * val disjoint_merge : ('lr, 'l, 'r) Base.obj_merge -> 'l t -> 'r t -> 'lr t
+ * val disjoint_merge : ('lr, 'l, 'r) Base.disj_merge -> 'l t -> 'r t -> 'lr t
  * end *)

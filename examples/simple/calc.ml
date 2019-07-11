@@ -53,11 +53,11 @@ let current =
 
 (* merger *)
 let compute_result_or_current =
-  {obj_merge=(fun l r ->
+  {disj_merge=(fun l r ->
     object method compute=l#compute method result=l#result
       method current=r#current end);
-   obj_splitL=(fun lr-> (lr :> <compute:_; result:_>));
-   obj_splitR=(fun lr-> (lr :> <current:_>));
+   disj_splitL=(fun lr-> (lr :> <compute:_; result:_>));
+   disj_splitR=(fun lr-> (lr :> <current:_>));
   }
 
 let calc2 () =

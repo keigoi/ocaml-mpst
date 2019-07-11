@@ -64,7 +64,7 @@ let munit =
 
 let choice_at : 'ep 'ep_l 'ep_r 'g0_l 'g0_r 'g1 'g2.
                   (_, _, unit, (< .. > as 'ep), 'g1 Seq.t, 'g2 Seq.t) role ->
-                ('ep, < .. > as 'ep_l, < .. > as 'ep_r) obj_merge ->
+                ('ep, < .. > as 'ep_l, < .. > as 'ep_r) disj_merge ->
                 (_, _, 'ep_l, unit, 'g0_l Seq.t, 'g1 Seq.t) role * ('e,'g0_l) t ->
                 (_, _, 'ep_r, unit, 'g0_r Seq.t, 'g1 Seq.t) role * ('e,'g0_r) t ->
                 ('e,'g2) t
@@ -78,7 +78,7 @@ let choice_at : 'ep 'ep_l 'ep_r 'g0_l 'g0_r 'g1 'g2.
         Seq.put r'.role_index g0left munit,
         Seq.put r''.role_index g0right munit in
       let g1 = Seq.seq_merge g1left g1right in
-      let ep = Mergeable.make_obj_merge merge epL epR
+      let ep = Mergeable.make_disj_merge merge epL epR
       in
       let g2 = Seq.put r.role_index g1 ep
       in

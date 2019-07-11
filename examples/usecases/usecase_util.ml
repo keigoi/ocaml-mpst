@@ -31,9 +31,9 @@ let date =
    var=(fun v -> `date(v))}
 
 let ok_or_quit =
-  {obj_merge=(fun l r -> object method ok=l#ok method quit=r#quit end);
-   obj_splitL=(fun lr -> (lr :> <ok : _>));
-   obj_splitR=(fun lr -> (lr :> <quit : _>));
+  {disj_merge=(fun l r -> object method ok=l#ok method quit=r#quit end);
+   disj_splitL=(fun lr -> (lr :> <ok : _>));
+   disj_splitR=(fun lr -> (lr :> <quit : _>));
   }
 
 let sum =
@@ -52,15 +52,15 @@ let result =
    var=(fun v -> `result(v))}
 
 let sum_or_multiply =
-  {obj_merge=(fun l r -> object method sum=l#sum method multiply=r#multiply end);
-   obj_splitL=(fun lr -> (lr :> <sum : _>));
-   obj_splitR=(fun lr -> (lr :> <multiply : _>));
+  {disj_merge=(fun l r -> object method sum=l#sum method multiply=r#multiply end);
+   disj_splitL=(fun lr -> (lr :> <sum : _>));
+   disj_splitR=(fun lr -> (lr :> <multiply : _>));
   }
 
 let sum_multiply_or_quit =
-  {obj_merge=(fun l r -> object method sum=l#sum method multiply=l#multiply method quit=r#quit end);
-   obj_splitL=(fun lr -> (lr :> <sum : _; multiply: _>));
-   obj_splitR=(fun lr -> (lr :> <quit : _>));
+  {disj_merge=(fun l r -> object method sum=l#sum method multiply=l#multiply method quit=r#quit end);
+   disj_splitL=(fun lr -> (lr :> <sum : _; multiply: _>));
+   disj_splitR=(fun lr -> (lr :> <quit : _>));
   }
 
 let fibonacci =
@@ -74,9 +74,9 @@ let stop =
    var=(fun v -> `stop(v))}
 
 let fibonacci_or_stop =
-  {obj_merge=(fun l r -> object method fibonacci=l#fibonacci method stop=r#stop end);
-   obj_splitL=(fun lr -> (lr :> <fibonacci : _>));
-   obj_splitR=(fun lr -> (lr :> <stop : _>));
+  {disj_merge=(fun l r -> object method fibonacci=l#fibonacci method stop=r#stop end);
+   disj_splitL=(fun lr -> (lr :> <fibonacci : _>));
+   disj_splitR=(fun lr -> (lr :> <stop : _>));
   }
 
 let is_above =
@@ -125,27 +125,27 @@ let plane =
    var=(fun v -> `plane(v))}
 
 let bothin_or_bothout =
-  {obj_merge=(fun l r -> object method both_in=l#both_in method both_out=r#both_out end);
-   obj_splitL=(fun lr -> (lr :> <both_in : _>));
-   obj_splitR=(fun lr -> (lr :> <both_out : _>));
+  {disj_merge=(fun l r -> object method both_in=l#both_in method both_out=r#both_out end);
+   disj_splitL=(fun lr -> (lr :> <both_in : _>));
+   disj_splitR=(fun lr -> (lr :> <both_out : _>));
   }
 
 let bothin_bothout_or_intersect =
-  {obj_merge=(fun l r -> object method both_in=l#both_in method both_out=l#both_out method intersect=r#intersect end);
-   obj_splitL=(fun lr -> (lr :> <both_in : _; both_out: _>));
-   obj_splitR=(fun lr -> (lr :> <intersect : _>));
+  {disj_merge=(fun l r -> object method both_in=l#both_in method both_out=l#both_out method intersect=r#intersect end);
+   disj_splitL=(fun lr -> (lr :> <both_in : _; both_out: _>));
+   disj_splitR=(fun lr -> (lr :> <intersect : _>));
   }
 
 let secout_or_secin =
-  {obj_merge=(fun l r -> object method sec_out=l#sec_out method sec_in=r#sec_in end);
-   obj_splitL=(fun lr -> (lr :> <sec_out : _>));
-   obj_splitR=(fun lr -> (lr :> <sec_in : _>));
+  {disj_merge=(fun l r -> object method sec_out=l#sec_out method sec_in=r#sec_in end);
+   disj_splitL=(fun lr -> (lr :> <sec_out : _>));
+   disj_splitR=(fun lr -> (lr :> <sec_in : _>));
   }
 
 let isabove_or_close =
-  {obj_merge=(fun l r -> object method is_above=l#is_above method close=r#close end);
-   obj_splitL=(fun lr -> (lr :> <is_above : _>));
-   obj_splitR=(fun lr -> (lr :> <close : _>));
+  {disj_merge=(fun l r -> object method is_above=l#is_above method close=r#close end);
+   disj_splitL=(fun lr -> (lr :> <is_above : _>));
+   disj_splitR=(fun lr -> (lr :> <close : _>));
   }
 
 let propose =
@@ -169,15 +169,15 @@ let reject =
    var=(fun v -> `reject(v))}
 
 let accpt_reject_or_propose =
-  {obj_merge=(fun l r -> object method accpt=l#accpt method reject=l#reject method propose=r#propose end);
-   obj_splitL=(fun lr -> (lr :> <accpt : _; reject: _>));
-   obj_splitR=(fun lr -> (lr :> <propose : _>));
+  {disj_merge=(fun l r -> object method accpt=l#accpt method reject=l#reject method propose=r#propose end);
+   disj_splitL=(fun lr -> (lr :> <accpt : _; reject: _>));
+   disj_splitR=(fun lr -> (lr :> <propose : _>));
   }
 
 let accpt_or_reject =
-  {obj_merge=(fun l r -> object method accpt=l#accpt method reject=r#reject end);
-   obj_splitL=(fun lr -> (lr :> <accpt : _>));
-   obj_splitR=(fun lr -> (lr :> <reject : _>));
+  {disj_merge=(fun l r -> object method accpt=l#accpt method reject=r#reject end);
+   disj_splitL=(fun lr -> (lr :> <accpt : _>));
+   disj_splitR=(fun lr -> (lr :> <reject : _>));
   }
 
 let authenticate =
@@ -196,15 +196,15 @@ let no =
    var=(fun v -> `no(v))}
 
 let ok_or_reject =
-  {obj_merge=(fun l r -> object method ok=l#ok method reject=r#reject end);
-   obj_splitL=(fun lr -> (lr :> <ok : _>));
-   obj_splitR=(fun lr -> (lr :> <reject : _>));
+  {disj_merge=(fun l r -> object method ok=l#ok method reject=r#reject end);
+   disj_splitL=(fun lr -> (lr :> <ok : _>));
+   disj_splitR=(fun lr -> (lr :> <reject : _>));
   }
 
 let yes_or_no =
-  {obj_merge=(fun l r -> object method yes=l#yes method no=r#no end);
-   obj_splitL=(fun lr -> (lr :> <yes : _>));
-   obj_splitR=(fun lr -> (lr :> <no : _>));
+  {disj_merge=(fun l r -> object method yes=l#yes method no=r#no end);
+   disj_splitL=(fun lr -> (lr :> <yes : _>));
+   disj_splitR=(fun lr -> (lr :> <no : _>));
   }
 
 let query =
@@ -233,9 +233,9 @@ let ack =
    var=(fun v -> `ack(v))}
 
 let query_or_yes_no =
-  {obj_merge=(fun l r -> object method query=l#query method yes=r#yes method no=r#no end);
-   obj_splitL=(fun lr -> (lr :> <query : _>));
-   obj_splitR=(fun lr -> (lr :> <yes : _; no : _>));
+  {disj_merge=(fun l r -> object method query=l#query method yes=r#yes method no=r#no end);
+   disj_splitL=(fun lr -> (lr :> <query : _>));
+   disj_splitR=(fun lr -> (lr :> <yes : _; no : _>));
   }
 
 let bye =
@@ -299,15 +299,15 @@ let filtered =
    var=(fun v -> `filtered(v))}
 
 let getsuppliers_or_getcontracts =
-  {obj_merge=(fun l r -> object method getsuppliers=l#getsuppliers method getcontracts=r#getcontracts end);
-   obj_splitL=(fun lr -> (lr :> <getsuppliers : _>));
-   obj_splitR=(fun lr -> (lr :> <getcontracts : _>));
+  {disj_merge=(fun l r -> object method getsuppliers=l#getsuppliers method getcontracts=r#getcontracts end);
+   disj_splitL=(fun lr -> (lr :> <getsuppliers : _>));
+   disj_splitR=(fun lr -> (lr :> <getcontracts : _>));
   }
 
 let loginfailure_or_loginsuccess =
-  {obj_merge=(fun l r -> object method loginfailure=l#loginfailure method loginsuccess=r#loginsuccess end);
-   obj_splitL=(fun lr -> (lr :> <loginfailure : _>));
-   obj_splitR=(fun lr -> (lr :> <loginsuccess : _>));
+  {disj_merge=(fun l r -> object method loginfailure=l#loginfailure method loginsuccess=r#loginsuccess end);
+   disj_splitL=(fun lr -> (lr :> <loginfailure : _>));
+   disj_splitR=(fun lr -> (lr :> <loginsuccess : _>));
   }
 
 let ehlo =
@@ -386,57 +386,57 @@ let mailbody =
    var=(fun v -> `mailbody(v))}
 
 let starttls_or_quit =
-  {obj_merge=(fun l r -> object method starttls=l#starttls method quit=r#quit end);
-   obj_splitL=(fun lr -> (lr :> <starttls : _>));
-   obj_splitR=(fun lr -> (lr :> <quit : _>));
+  {disj_merge=(fun l r -> object method starttls=l#starttls method quit=r#quit end);
+   disj_splitL=(fun lr -> (lr :> <starttls : _>));
+   disj_splitR=(fun lr -> (lr :> <quit : _>));
   }
 
 let ehlo_or_quit =
-  {obj_merge=(fun l r -> object method ehlo=l#ehlo method quit=r#quit end);
-   obj_splitL=(fun lr -> (lr :> <ehlo : _>));
-   obj_splitR=(fun lr -> (lr :> <quit : _>));
+  {disj_merge=(fun l r -> object method ehlo=l#ehlo method quit=r#quit end);
+   disj_splitL=(fun lr -> (lr :> <ehlo : _>));
+   disj_splitR=(fun lr -> (lr :> <quit : _>));
   }
 
 let mail_or_quit =
-  {obj_merge=(fun l r -> object method mail=l#mail method quit=r#quit end);
-   obj_splitL=(fun lr -> (lr :> <mail : _>));
-   obj_splitR=(fun lr -> (lr :> <quit : _>));
+  {disj_merge=(fun l r -> object method mail=l#mail method quit=r#quit end);
+   disj_splitL=(fun lr -> (lr :> <mail : _>));
+   disj_splitR=(fun lr -> (lr :> <quit : _>));
   }
 
 let _501_or_250 =
-  {obj_merge=(fun l r -> object method _501=l#_501 method _250=r#_250 end);
-   obj_splitL=(fun lr -> (lr :> <_501 : _>));
-   obj_splitR=(fun lr -> (lr :> <_250 : _>));
+  {disj_merge=(fun l r -> object method _501=l#_501 method _250=r#_250 end);
+   disj_splitL=(fun lr -> (lr :> <_501 : _>));
+   disj_splitR=(fun lr -> (lr :> <_250 : _>));
   }
 
 let rcpt_or_data =
-  {obj_merge=(fun l r -> object method rcpt=l#rcpt method data=r#data end);
-   obj_splitL=(fun lr -> (lr :> <rcpt : _>));
-   obj_splitR=(fun lr -> (lr :> <data : _>));
+  {disj_merge=(fun l r -> object method rcpt=l#rcpt method data=r#data end);
+   disj_splitL=(fun lr -> (lr :> <rcpt : _>));
+   disj_splitR=(fun lr -> (lr :> <data : _>));
   }
 
 let auth_or_quit =
-  {obj_merge=(fun l r -> object method auth=l#auth method quit=r#quit end);
-   obj_splitL=(fun lr -> (lr :> <auth : _>));
-   obj_splitR=(fun lr -> (lr :> <quit : _>));
+  {disj_merge=(fun l r -> object method auth=l#auth method quit=r#quit end);
+   disj_splitL=(fun lr -> (lr :> <auth : _>));
+   disj_splitR=(fun lr -> (lr :> <quit : _>));
   }
 
 let _235_or_535 =
-  {obj_merge=(fun l r -> object method _235=l#_235 method _535=r#_535 end);
-   obj_splitL=(fun lr -> (lr :> <_235 : _>));
-   obj_splitR=(fun lr -> (lr :> <_535 : _>));
+  {disj_merge=(fun l r -> object method _235=l#_235 method _535=r#_535 end);
+   disj_splitL=(fun lr -> (lr :> <_235 : _>));
+   disj_splitR=(fun lr -> (lr :> <_535 : _>));
   }
 
 let _250d_or_250 =
-  {obj_merge=(fun l r -> object method _250d=l#_250d method _250=r#_250 end);
-   obj_splitL=(fun lr -> (lr :> <_250d : _>));
-   obj_splitR=(fun lr -> (lr :> <_250 : _>));
+  {disj_merge=(fun l r -> object method _250d=l#_250d method _250=r#_250 end);
+   disj_splitL=(fun lr -> (lr :> <_250d : _>));
+   disj_splitR=(fun lr -> (lr :> <_250 : _>));
   }
 
 let _250d_250_or_220 =
-  {obj_merge=(fun l r -> object method _250d=l#_250d method _250=l#_250 method _220=r#_220 end);
-   obj_splitL=(fun lr -> (lr :> <_250d : _; _250 : _>));
-   obj_splitR=(fun lr -> (lr :> <_220 : _>));
+  {disj_merge=(fun l r -> object method _250d=l#_250d method _250=l#_250 method _220=r#_220 end);
+   disj_splitL=(fun lr -> (lr :> <_250d : _; _250 : _>));
+   disj_splitR=(fun lr -> (lr :> <_220 : _>));
   }
 
 let full =
@@ -475,9 +475,9 @@ let pay =
    var=(fun v -> `pay(v))}
 
 let full_or_seat =
-  {obj_merge=(fun l r -> object method full=l#full method seat=r#seat end);
-   obj_splitL=(fun lr -> (lr :> <full : _>));
-   obj_splitR=(fun lr -> (lr :> <seat : _>));
+  {disj_merge=(fun l r -> object method full=l#full method seat=r#seat end);
+   disj_splitL=(fun lr -> (lr :> <full : _>));
+   disj_splitR=(fun lr -> (lr :> <seat : _>));
   }
 
 let deleg_customer =
@@ -501,9 +501,9 @@ let started_smoking =
    var=(fun v -> `started_smoking(v))}
 
 let start_smoking_or_exit =
-  {obj_merge=(fun l r -> object method start_smoking=l#start_smoking method exit=r#exit end);
-   obj_splitL=(fun lr -> (lr :> <start_smoking : _>));
-   obj_splitR=(fun lr -> (lr :> <exit : _>));
+  {disj_merge=(fun l r -> object method start_smoking=l#start_smoking method exit=r#exit end);
+   disj_splitL=(fun lr -> (lr :> <start_smoking : _>));
+   disj_splitR=(fun lr -> (lr :> <exit : _>));
   }
 
 let playAsA =
@@ -522,15 +522,15 @@ let playAsC =
    var=(fun v -> `playAsC(v))}
 
 let playAsA_playAsB_or_playAsC =
-  {obj_merge=(fun l r -> object method playAsA=l#playAsA method playAsB=l#playAsB method playAsC=r#playAsC end);
-   obj_splitL=(fun lr -> (lr :> <playAsA : _; playAsB : _>));
-   obj_splitR=(fun lr -> (lr :> <playAsC : _>));
+  {disj_merge=(fun l r -> object method playAsA=l#playAsA method playAsB=l#playAsB method playAsC=r#playAsC end);
+   disj_splitL=(fun lr -> (lr :> <playAsA : _; playAsB : _>));
+   disj_splitR=(fun lr -> (lr :> <playAsC : _>));
   }
 
 let playAsA_or_playAsB =
-  {obj_merge=(fun l r -> object method playAsA=l#playAsA method playAsB=r#playAsB end);
-   obj_splitL=(fun lr -> (lr :> <playAsA : _;>));
-   obj_splitR=(fun lr -> (lr :> <playAsB : _>));
+  {disj_merge=(fun l r -> object method playAsA=l#playAsA method playAsB=r#playAsB end);
+   disj_splitL=(fun lr -> (lr :> <playAsA : _;>));
+   disj_splitR=(fun lr -> (lr :> <playAsB : _>));
   }
 
 let map =
@@ -554,15 +554,15 @@ let done_ =
    var=(fun v -> `done_(v))}
 
 let work_or_stop =
-  {obj_merge=(fun l r -> object method work=l#work method stop=r#stop end);
-   obj_splitL=(fun lr -> (lr :> <work : _;>));
-   obj_splitR=(fun lr -> (lr :> <stop : _>));
+  {disj_merge=(fun l r -> object method work=l#work method stop=r#stop end);
+   disj_splitL=(fun lr -> (lr :> <work : _;>));
+   disj_splitR=(fun lr -> (lr :> <stop : _>));
   }
 
 let result_or_done =
-  {obj_merge=(fun l r -> object method result=l#result method done_=r#done_ end);
-   obj_splitL=(fun lr -> (lr :> <result : _;>));
-   obj_splitR=(fun lr -> (lr :> <done_ : _>));
+  {disj_merge=(fun l r -> object method result=l#result method done_=r#done_ end);
+   disj_splitL=(fun lr -> (lr :> <result : _;>));
+   disj_splitR=(fun lr -> (lr :> <done_ : _>));
   }
 
 let knock =
@@ -616,13 +616,13 @@ let quit =
    var=(fun v -> `quit(v))}
 
 let login_or_cancel =
-  {obj_merge=(fun l r -> object method login=l#login method cancel=r#cancel end);
-   obj_splitL=(fun lr -> (lr :> <login : _;>));
-   obj_splitR=(fun lr -> (lr :> <cancel : _>));
+  {disj_merge=(fun l r -> object method login=l#login method cancel=r#cancel end);
+   disj_splitL=(fun lr -> (lr :> <login : _;>));
+   disj_splitR=(fun lr -> (lr :> <cancel : _>));
   }
 
 let auth_or_again =
-  {obj_merge=(fun l r -> object method auth=l#auth method again=r#again end);
-   obj_splitL=(fun lr -> (lr :> <auth : _;>));
-   obj_splitR=(fun lr -> (lr :> <again : _>));
+  {disj_merge=(fun l r -> object method auth=l#auth method again=r#again end);
+   disj_splitL=(fun lr -> (lr :> <auth : _;>));
+   disj_splitR=(fun lr -> (lr :> <again : _>));
   }

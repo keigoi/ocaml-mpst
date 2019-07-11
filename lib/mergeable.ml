@@ -27,7 +27,7 @@ module Make(EP:S.ENDPOINT) = struct
   and 'a single =
     | Val    : 'a body * hook -> 'a single
     | RecVar : 'a t lazy_t * 'a cache -> 'a single
-    | DisjMerge   : 'l t * 'r t * ('lr,'l,'r) obj_merge * 'lr cache -> 'lr single
+    | DisjMerge   : 'l t * 'r t * ('lr,'l,'r) disj_merge * 'lr cache -> 'lr single
   and 'a body =
     {mergefun: 'a -> 'a -> 'a;
      value: 'a ep list}
@@ -43,16 +43,16 @@ module Make(EP:S.ENDPOINT) = struct
      hook)
 
   let disj_merge_body
-      : 'lr 'l 'r. ('lr,'l,'r) obj_merge -> 'l body * hook -> 'r body * hook -> 'lr body * hook =
+      : 'lr 'l 'r. ('lr,'l,'r) disj_merge -> 'l body * hook -> 'r body * hook -> 'lr body * hook =
     fun mrg (bl,hl) (br,hr) ->
     let mergefun lr1 lr2 =
-      mrg.obj_merge
-        (bl.mergefun (mrg.obj_splitL lr1) (mrg.obj_splitL lr2))
-        (br.mergefun (mrg.obj_splitR lr1) (mrg.obj_splitR lr2))
+      mrg.disj_merge
+        (bl.mergefun (mrg.disj_splitL lr1) (mrg.disj_splitL lr2))
+        (br.mergefun (mrg.disj_splitR lr1) (mrg.disj_splitR lr2))
     in
     let value =
       (* we can only choose one of them -- distribute the linearity flag among merged objects *)
-      EP.map2 mrg.obj_merge bl.value br.value
+      EP.map2 mrg.disj_merge bl.value br.value
     in
     {value; mergefun},lazy (Lazy.force hl; Lazy.force hr)
 
@@ -143,7 +143,7 @@ module Make(EP:S.ENDPOINT) = struct
     | [] -> failwith "merge_all: empty"
     | m::ms -> List.fold_left make_merge m ms
 
-  let make_obj_merge : 'lr 'l 'r. ('lr,'l,'r) obj_merge -> 'l t -> 'r t -> 'lr t = fun mrg l r ->
+  let make_disj_merge : 'lr 'l 'r. ('lr,'l,'r) disj_merge -> 'l t -> 'r t -> 'lr t = fun mrg l r ->
     match l, r with
     | Single (Val (bl, hl)), Single (Val (br, hr)) ->
        let blr,hlr = disj_merge_body mrg (bl,hl) (br,hr) in
@@ -166,7 +166,7 @@ module Make(EP:S.ENDPOINT) = struct
        Single (Val (body,h))
     | Single (DisjMerge (_,_,_,_)) ->
        assert false
-       (* failwith "wrap_obj_singl: Disj" (\* XXX *\) *)
+       (* failwith "wrap_disj_singl: Disj" (\* XXX *\) *)
     | Single (RecVar (t, _)) ->
        assert false
        (* make_recvar_single (lazy (wrap_label meth (Lazy.force t))) *)

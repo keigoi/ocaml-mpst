@@ -1,8 +1,8 @@
 
-type ('lr, 'l, 'r) obj_merge =
-  {obj_merge: 'l -> 'r -> 'lr;
-   obj_splitL: 'lr -> 'l;
-   obj_splitR: 'lr -> 'r;
+type ('lr, 'l, 'r) disj_merge =
+  {disj_merge: 'l -> 'r -> 'lr;
+   disj_splitL: 'lr -> 'l;
+   disj_splitR: 'lr -> 'r;
   }
 
 type ('la,'va) method_ =

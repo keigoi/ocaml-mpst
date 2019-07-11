@@ -1,7 +1,6 @@
 open Base
 
-module Make(EP:S.ENDPOINT) = struct
-module Mergeable = Mergeable.Make(EP)
+module Make(EP:S.ENDPOINTS) = struct
 module Seq = Seq.Make(EP)
 
 type ('robj,'c,'a,'b,'xs,'ys) role =
@@ -19,68 +18,61 @@ let unglobal_ = function
 let fix : type e g. ((e,g) t -> (e,g) t) -> (e,g) t = fun f ->
   Global (fun e ->
       let rec body =
-        lazy (unglobal_ (f (Global (fun _ -> SeqRecVars [body]))) e)
+        lazy (unglobal_ (f (Global (fun _ -> Seq.recvar body))) e)
       in
       (* A "fail-fast" approach to detect unguarded loops.
        * Seq.partial_force tries to fully evaluate unguarded recursion variables
        * in the body.
        *)
-      Seq.partial_force [body] (Lazy.force body))
+      Seq.resolve_merge (Lazy.force body))
 
 let finish : 'e. ('e, [`cons of close * 'a] as 'a) t =
   Global (fun env ->
-      SeqRepeat(0, (fun i ->
+      Seq.repeat 0 (fun i ->
             let num =
               match Table.get_opt env.props i with
               | Some prop -> prop.multiplicity
               | None -> 1
             in
-            Mergeable.make
-              ~hook:(Lazy.from_val ())
-              ~mergefun:(fun x _ -> x)
-              ~value:(List.init num (fun _ -> EP.make (fun _ -> Close))))))
+            EP.make_simple (List.init num (fun _ -> Close))))
 
 let gen_with_param p g = unglobal_ g p
 
-let get_ch_raw : 'ep 'x2 't 'x3 't 'ep. ('ep, 'x2, 't Seq.t, 'x3) Seq.lens -> 't Seq.t -> 'ep = fun lens g ->
-  let ep = Seq.get lens g in
-  match Mergeable.generate ep with
+let get_ch_raw : 'ep 'x2 't 'x3 't 'ep. ('ep, 'x2, 't, 'x3) Seq.lens -> 't Seq.t -> 'ep = fun lens g ->
+  let ep = Seq.lens_get lens g in
+  match EP.fresh_all ep with
   | [e] -> e
   | [] -> assert false
   | _ -> failwith "get_ch: there are more than one endpoints. use get_ch_list."
 
-let get_ch : ('x0, 'x1, 'ep, 'x2, 't Seq.t, 'x3) role -> 't Seq.t -> 'ep = fun r g ->
+let get_ch : ('x0, 'x1, 'ep, 'x2, 't, 'x3) role -> 't Seq.t -> 'ep = fun r g ->
   get_ch_raw r.role_index g
 
-let get_ch_list : ('x0, 'x1, 'ep, 'x2, 't Seq.t, 'x3) role -> 't Seq.t -> 'ep list = fun r g ->
-  let ep = Seq.get r.role_index g in
-  Mergeable.generate ep
+let get_ch_list : ('x0, 'x1, 'ep, 'x2, 't, 'x3) role -> 't Seq.t -> 'ep list = fun r g ->
+  let ep = Seq.lens_get r.role_index g in
+  EP.fresh_all ep
 
-let munit =
-  Mergeable.make
-    ~hook:(Lazy.from_val ())
-    ~mergefun:(fun _ _ -> ())
-    ~value:[EP.unrestricted ()]
+let munit = EP.make_simple [()]
 
 let choice_at : 'ep 'ep_l 'ep_r 'g0_l 'g0_r 'g1 'g2.
-                  (_, _, unit, (< .. > as 'ep), 'g1 Seq.t, 'g2 Seq.t) role ->
+                  (_, _, unit, (< .. > as 'ep), 'g1, 'g2) role ->
                 ('ep, < .. > as 'ep_l, < .. > as 'ep_r) disj_merge ->
-                (_, _, 'ep_l, unit, 'g0_l Seq.t, 'g1 Seq.t) role * ('e,'g0_l) t ->
-                (_, _, 'ep_r, unit, 'g0_r Seq.t, 'g1 Seq.t) role * ('e,'g0_r) t ->
+                (_, _, 'ep_l, unit, 'g0_l, 'g1) role * ('e,'g0_l) t ->
+                (_, _, 'ep_r, unit, 'g0_r, 'g1) role * ('e,'g0_r) t ->
                 ('e,'g2) t
   = fun r merge (r',Global g0left) (r'',Global g0right) ->
   Global (fun env ->
       let g0left, g0right = g0left env, g0right env in
       let epL, epR =
-        Seq.get r'.role_index g0left,
-        Seq.get r''.role_index g0right in
+        Seq.lens_get r'.role_index g0left,
+        Seq.lens_get r''.role_index g0right in
       let g1left, g1right =
-        Seq.put r'.role_index g0left munit,
-        Seq.put r''.role_index g0right munit in
+        Seq.lens_put r'.role_index g0left munit,
+        Seq.lens_put r''.role_index g0right munit in
       let g1 = Seq.seq_merge g1left g1right in
-      let ep = Mergeable.make_disj_merge merge epL epR
+      let ep = EP.make_disj_merge merge epL epR
       in
-      let g2 = Seq.put r.role_index g1 ep
+      let g2 = Seq.lens_put r.role_index g1 ep
       in
       g2)
 

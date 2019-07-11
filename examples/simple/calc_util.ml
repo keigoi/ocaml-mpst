@@ -1,6 +1,6 @@
 open Mpst
 
-module Make(EP:S.ENDPOINT) = struct
+module Make(EP:S.ENDPOINTS) = struct
 module G = Mpst.Global_common.Make(EP)
 open G
 
@@ -36,4 +36,4 @@ let to_srv m =
    disj_splitR=(fun lr -> object method role_Srv=m.disj_splitR lr#role_Srv end);
   }
 end
-module Dyn = Make(Mpst.Dyncheck)
+module Dyn = Make(Mpst.EP)

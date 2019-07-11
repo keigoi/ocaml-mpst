@@ -2,16 +2,16 @@ open Base
 open Common
 
 module Make
-         (EP:S.ENDPOINT)
+         (EP:S.ENDPOINTS)
+         (StaticLin:S.LIN)
          (M:S.MONAD)
          (EV:S.EVENT with type 'a monad = 'a M.t)
          (C:S.SERIAL with type 'a monad = 'a M.t)
-         (Lin:S.LIN)
   = struct
 
   include Global_common.Make(EP)
 
-  module Out = Out.Make(EP)(EV)
+  module Out = Out.Make (EP)(M)(EV)
   module Inp = Inp.Make(EP)(M)(EV)
 
   module Dpipe = Make_dpipe(C)
@@ -30,156 +30,151 @@ module Make
     | Untyped of tag * (tag * Obj.t) EV.channel list
     | IPC of tag * Dpipe.dpipe list
 
-  let bare_of_chan = function
-    | Bare xs ->
-       BareOutChan xs
-    | Untyped (tag, chs) ->
-       let real_send ch v =
-         EV.sync (EV.send ch (tag, (Obj.repr v)))
-       in
-       BareOutFun (List.map (fun ch -> real_send ch) chs)
-    | IPC (tag, chs) ->
-       let real_out out v =
-         M.bind (C.output_tagged out (tag, (Obj.repr v))) (fun () ->
-         C.flush out)
-       in
-       BareOutFun (List.map (fun {me={out;_};_} -> real_out out) chs)
-
   type 'g global = (epkind, 'g) t
 
-  let make_inp_one chs myidx wrapfun =
-    match List.hd chs with
-    | Bare chs ->
-       let resolve_ch () =
-             (* we must delay this -- chs is a placeholder for channels
-              * which might be "unified" during merge (see out.ml).
-              * if we do not delay, and if the channel unification occurs,
-              * input will block indefinitely.
-              *)
-             let ch = List.nth !chs myidx in
-             EV.flip_channel ch
-       in
-       EP.make (fun once -> (* this lambda does NOT delay if linearity check is static *)
-           InpChan (once,
-                    EV.guard (fun () -> (* so, this guard is mandatory *)
-                        EV.wrap (EV.receive (resolve_ch ())) wrapfun)))
-    | Untyped (tag,chs) ->
-       let ch = List.nth chs myidx in
-       let ch = EV.flip_channel ch in
-       EP.make (fun once ->
-           InpFun (once, (fun () -> EV.sync (EV.receive ch)), [(tag, (fun t -> wrapfun (Obj.obj t)))]))
-    | IPC (tag, chs) ->
-       let {me={inp=ch;_};_} = flip_dpipe (List.nth chs myidx) in
-       EP.make (fun once ->
-           InpFun
-             (once, (fun () -> C.input_tagged ch), [(tag, (fun t -> wrapfun (Obj.obj t)))]))
-
-  let make_inp_list chs myidx wrapfun =
+  let make_inp_one chs label cont =
+    let case tag myidx =
+      [(tag, (fun t -> label.var (Obj.obj t, EP.fresh cont myidx)))]
+    in
     match chs with
-    | ((Bare _) :: _) ->
-       let ext = function
-         | Bare chs -> chs
-         | _ -> assert false
+    | Bare(ch) :: _ ->
+       let chs = List.map (function
+                     | Bare(ch) -> ch
+                     | _ -> assert false) chs
        in
-       let resolve_ch () =
-         let chs = List.map ext chs in
-         let chs = List.map (fun chs -> List.nth !chs(*delayed*) myidx) chs in
-         List.map EV.flip_channel chs
+       Inp.create_inp_one chs label cont
+    | Untyped (tag,chs) :: _ ->
+       let inpfun myidx ch =
+         let ch = EV.flip_channel ch in
+         {raw_input=(fun () -> EV.sync (EV.receive ch));
+          cases=case tag myidx
+         }
        in
-       EP.make (fun once -> InpChan (once, EV.guard (fun () -> EV.wrap (EV.receive_list (resolve_ch ())) wrapfun)))
-    | ((Untyped (tag,_)) :: _) ->
-       let ext = function
-         | Untyped (_,chs) -> chs
-         | _ -> assert false
+       Inp.create_inp_fun (List.mapi inpfun chs)
+    | IPC (tag, chs) :: _ ->
+       let inpfun myidx ch =
+         let ch = flip_dpipe ch in
+         {raw_input=(fun () ->
+            M.bind (C.input_tagged ch.me.inp) (fun v ->
+              M.return v));
+          cases=case tag myidx
+         }
        in
-       let chs = List.map ext chs in
-       let chs = List.map (fun chs -> EV.flip_channel (List.nth chs myidx)) chs in
-       EP.make (fun once ->
-           InpFun (once,
-                   (fun () ->
-                     M.bind (EV.sync @@ EV.receive_list chs) @@ fun vs ->
-                     let tag = fst (List.hd vs) in
-                     let vs = List.map snd vs in
-                     M.return (tag, Obj.repr vs)),
-                   [(tag, (fun t -> wrapfun (Obj.obj t)))]))
-    | (IPC (tag,_) :: _) ->
-       let ext = function
-         | IPC (_,chs) -> List.nth chs myidx
-         | _ -> assert false
-       in
-       let chs = List.map ext chs in
-       let chs = List.map flip_dpipe chs in
-       let chs = List.map (fun {me={inp;_};_} -> inp) chs in
-       EP.make (fun once ->
-           InpFun
-             (once,
-              (fun () ->
-                M.bind (C.input_value_list chs) @@ fun vs ->
-                let tag = fst (List.hd vs) in
-                let vs = List.map snd vs in
-                M.return (tag, Obj.repr vs)),
-              [(tag, (fun t -> wrapfun (Obj.obj t)))]))
+       Inp.create_inp_fun (List.mapi inpfun chs)
     | [] ->
-       failwith "no channel"
+       assert false
 
-  let make_recv ~make_inp num_receivers rA lab chs epB =
-    if num_receivers=0 then begin
-        failwith "make_recv: scatter/gather error: number of receivers is zero"
-      end;
-    if List.length chs = 0 then begin
-        failwith "make_recv: scatter/gather error: number of senders is zero"
-      end;
-    let channels =
-      List.init num_receivers (fun myidx ->
-          let wrapfun v = lab.var (v, Lin.mklin (List.nth (Mergeable.generate epB) myidx))
-          in
-          make_inp chs myidx wrapfun)
+  let make_inp_many chs label cont =
+    let case tag myidx =
+      [(tag, (fun t -> label.var (Obj.obj t, EP.fresh cont myidx)))]
     in
-    let hook =
-      lazy begin
-          (* force the following endpoints *)
-          let eps = Mergeable.generate epB in
-          if num_receivers <> List.length eps then begin
-              failwith "make_recv: endpoint count inconsistency"
-            end
-        end
-    in
-    Mergeable.wrap_label rA.role_label
-      (Mergeable.make
-         ~hook
-         ~mergefun:Inp.merge_in
-         ~value:channels)
+    match chs with
+    | Bare(_)::_ ->
+       let chs = List.map (function
+                     | Bare(ch) -> ch
+                     | _ -> assert false) chs
+       in
+       Inp.create_inp_many chs label cont
 
-  let make_out_one (a,b,(c,d)) = Out.Out (a,b,(c,d))
-  let make_out_list (a,b,(c,d)) = Out.OutMany (a,b,(c,d))
+    | Untyped (tag, _) ::_ ->
+       let chss = List.map (function
+                     | Untyped(_,ch) -> ch
+                     | _ -> assert false) chs
+       in
+       let chss = List.map (List.map EV.flip_channel) chss in
+       let inpfun myidx chs =
+         let raw_input () =
+           M.bind (EV.sync @@ EV.receive_list chs) (fun vs ->
+               let tag = fst (List.hd vs) in
+               let vs = List.map snd vs in
+               M.return (tag, Obj.repr vs))
+         in
+         {raw_input;
+          cases=case tag myidx}
+       in
+       Inp.create_inp_fun (List.mapi inpfun chss)
 
-  let make_send ~make_out num_senders rB lab (chs: _ chan list) epA =
-    if num_senders = 0 then begin
-        failwith "make_send: scatter/gather error: number of senders is = 0"
-      end;
-    if List.length chs = 0 then begin
-        failwith "make_send: scatter/gather error: number of senders is = 0"
-      end;
-    assert (List.length chs = num_senders);
-    let epA' =
-      List.init num_senders
-        (fun k ->
-          let ch = bare_of_chan (List.nth chs k) in
-          EP.make (fun once -> Lin.mklin (make_out (once,ch,(k,epA)))))
-    in
-    let hook =
-      lazy begin
-          let eps = Mergeable.generate epA in
-          if num_senders <> List.length eps then
-            failwith "make_send: endpoint count inconsistency"
-        end
-    in
-    Mergeable.wrap_label rB.role_label
-      (Mergeable.wrap_label lab.obj
-         (Mergeable.make
-            ~hook
-            ~mergefun:(fun o1 o2 -> Lin.mklin (Out.merge_out (Lin.unlin o1) (Lin.unlin o2)))
-            ~value:epA'))
+    | IPC (tag, _) :: _ ->
+       let chss = List.map (function
+                     | IPC(_,ch) -> ch
+                     | _ -> assert false) chs
+       in
+       let chss = List.map (List.map flip_dpipe) chss in
+       let chss = List.map (List.map (fun ch -> ch.me.inp)) chss in
+       let inpfun myidx chs =
+         let raw_input () =
+           M.bind (C.input_value_list chs) (fun vs ->
+           let tag = fst (List.hd vs) in
+           let vs = List.map snd vs in
+           M.return (tag, Obj.repr vs))
+         in
+         {raw_input;
+          cases=case tag myidx}
+       in
+       Inp.create_inp_fun (List.mapi inpfun chss)
+    | [] -> assert false
+
+  let make_out_one chs label cont =
+    match chs with
+    | Bare(_)::_ ->
+       let chs = List.map (function
+                     | Bare(ch) -> ch
+                     | _ -> assert false) chs
+       in
+       Out.create_out_one chs label cont
+    | Untyped(tag,_)::_ ->
+       let chs = List.map (function
+                     | Untyped(_,ch) -> List.hd ch
+                     | _ -> assert false) chs
+       in
+       let outfuns =
+         List.map (fun ch v ->
+             EV.sync (EV.send ch (tag, Obj.repr v))
+           ) chs
+       in
+       Out.create_out_fun_one outfuns label cont
+    | IPC(tag,_)::_ ->
+       let chs = List.map (function
+                     | IPC(_,ch) -> List.hd ch
+                     | _ -> assert false) chs
+       in
+       let outfuns =
+         List.map (fun ch v ->
+             M.bind (C.output_tagged ch.me.out (tag, Obj.repr v)) (fun () ->
+             C.flush ch.me.out)
+           ) chs
+       in
+       Out.create_out_fun_one outfuns label cont
+    | [] -> assert false
+
+  let make_out_many chss label cont =
+    match chss with
+    | Bare(ch)::_ ->
+       let chss = List.map (function
+                      | Bare(chs) -> chs
+                      | _ -> assert false) chss
+       in
+       Out.create_out_many chss label cont
+    | Untyped(tag,_)::_ ->
+       let chss = List.map (function
+                      | Untyped(_,ch) -> ch
+                      | _ -> assert false) chss
+       in
+       let real_out ch v =
+         EV.sync (EV.send ch (tag, Obj.repr v))
+       in
+       Out.create_out_fun_many (List.map (List.map real_out) chss) label cont
+    | IPC(tag,_)::_ ->
+       let chss = List.map (function
+                     | IPC(_,ch) -> ch
+                     | _ -> assert false) chss
+       in
+       let real_out ch v =
+         C.output_tagged ch.me.out (tag, Obj.repr v)
+       in
+       Out.create_out_fun_many (List.map (List.map real_out) chss) label cont
+    | [] -> assert false
+    
 
   let update_other_tables flip src_tables src_role other_tables other_role =
     let chss = List.map (fun t -> Table.get t other_role) src_tables in
@@ -275,41 +270,44 @@ module Make
     in
     let chs = generate_channels label arole brole akind bkind acount bcount
     in
-    let epB = Seq.get rB.role_index g0 in
-    let ev  = make_recv bcount ~make_inp rA label chs epB in
-    let g1  = Seq.put rB.role_index g0 ev
+    let epB = Seq.lens_get rB.role_index g0 in
+    let label0 = {label with var =(fun (v,t) -> label.var (v, StaticLin.create_dummy t))} in
+    let ev = make_inp chs label0 epB in
+    let epB = EP.wrap_label rA.role_label ev in
+    let g1  = Seq.lens_put rB.role_index g0 epB
     in
-    let epA = Seq.get rA.role_index g1 in
-    let obj = make_send ~make_out acount rB label chs epA in
-    let g2  = Seq.put rA.role_index g1 obj
+    let epA = Seq.lens_get rA.role_index g1 in
+    let out = make_out chs label epA in
+    let epA = EP.wrap_label rB.role_label out in
+    let g2  = Seq.lens_put rA.role_index g1 epA
     in g2
 
   let ( --> ) : 'roleAobj 'labelvar 'epA 'roleBobj 'g1 'g2 'labelobj 'epB 'g0 'v.
-                (< .. > as 'roleAobj, 'labelvar Inp.inp, 'epA, 'roleBobj, 'g1 Seq.t, 'g2 Seq.t) role ->
-                (< .. > as 'roleBobj, 'labelobj,     'epB, 'roleAobj, 'g0 Seq.t, 'g1 Seq.t) role ->
-                (< .. > as 'labelobj, [> ] as 'labelvar, ('v one * 'epA) Out.out Lin.lin, 'v * 'epB Lin.lin) label ->
+                (< .. > as 'roleAobj, 'labelvar Inp.inp EP.lin, 'epA, 'roleBobj, 'g1, 'g2) role ->
+                (< .. > as 'roleBobj, 'labelobj,     'epB, 'roleAobj, 'g0, 'g1) role ->
+                (< .. > as 'labelobj, [> ] as 'labelvar, ('v one * 'epA) Out.out EP.lin, 'v * 'epB StaticLin.lin) label ->
                 'g0 global -> 'g2 global
     = fun rA rB label (Global g0) ->
     Global (fun env ->
         a2b env ~num_senders:1 ~num_receivers:1 ~make_out:make_out_one ~make_inp:make_inp_one rA rB label (g0 env))
 
   let scatter : 'roleAobj 'labelvar 'epA 'roleBobj 'g1 'g2 'labelobj 'epB 'g0 'v.
-                (< .. > as 'roleAobj, 'labelvar Inp.inp, 'epA, 'roleBobj, 'g1 Seq.t, 'g2 Seq.t) role ->
-                (< .. > as 'roleBobj, 'labelobj,     'epB, 'roleAobj, 'g0 Seq.t, 'g1 Seq.t) role ->
-                (< .. > as 'labelobj, [> ] as 'labelvar, ('v list * 'epA) Out.out Lin.lin, 'v * 'epB Lin.lin) label ->
+                (< .. > as 'roleAobj, 'labelvar Inp.inp EP.lin, 'epA, 'roleBobj, 'g1, 'g2) role ->
+                (< .. > as 'roleBobj, 'labelobj,     'epB, 'roleAobj, 'g0, 'g1) role ->
+                (< .. > as 'labelobj, [> ] as 'labelvar, ('v list * 'epA) Out.out EP.lin, 'v * 'epB StaticLin.lin) label ->
                 'g0 global -> 'g2 global
     = fun rA rB label (Global g0) ->
     Global (fun env ->
-        a2b env ~num_senders:1 ~make_out:make_out_list ~make_inp:make_inp_one rA rB label (g0 env))
+        a2b env ~num_senders:1 ~make_out:make_out_many ~make_inp:make_inp_one rA rB label (g0 env))
 
   let gather : 'roleAobj 'labelvar 'epA 'roleBobj 'g1 'g2 'labelobj 'epB 'g0 'v.
-               (< .. > as 'roleAobj, 'labelvar Inp.inp, 'epA, 'roleBobj, 'g1 Seq.t, 'g2 Seq.t) role ->
-               (< .. > as 'roleBobj, 'labelobj,     'epB, 'roleAobj, 'g0 Seq.t, 'g1 Seq.t) role ->
-               (< .. > as 'labelobj, [> ] as 'labelvar, ('v one * 'epA) Out.out Lin.lin, 'v list * 'epB Lin.lin) label ->
+               (< .. > as 'roleAobj, 'labelvar Inp.inp EP.lin, 'epA, 'roleBobj, 'g1, 'g2) role ->
+               (< .. > as 'roleBobj, 'labelobj,     'epB, 'roleAobj, 'g0, 'g1) role ->
+               (< .. > as 'labelobj, [> ] as 'labelvar, ('v one * 'epA) Out.out EP.lin, 'v list * 'epB StaticLin.lin) label ->
                'g0 global -> 'g2 global
     = fun rA rB label (Global g0) ->
     Global (fun env ->
-        a2b env ~num_receivers:1 ~make_out:make_out_one ~make_inp:make_inp_list rA rB label (g0 env))
+        a2b env ~num_receivers:1 ~make_out:make_out_one ~make_inp:make_inp_many rA rB label (g0 env))
 
   let local _ = EpLocal
 
@@ -473,15 +471,15 @@ module Make
            M.return_unit)
 
   let (>:) :
-        ('obj,'var,('v Lin.lin one * 'epA) Out.out Lin.lin, 'v Lin.lin * 'epB Lin.lin) label ->
+        ('obj,'var,('v StaticLin.lin one * 'epA) Out.out EP.lin, 'v StaticLin.lin * 'epB StaticLin.lin) label ->
         (unit -> 'v) ->
-        ('obj,'var,('v Lin.lin one * 'epA) Out.out Lin.lin, 'v Lin.lin * 'epB Lin.lin) label =
+        ('obj,'var,('v StaticLin.lin one * 'epA) Out.out EP.lin, 'v StaticLin.lin * 'epB StaticLin.lin) label =
     fun l _ -> l
 
   let (>>:) :
-        ('obj,'var,('v Lin.lin list * 'epA) Out.out Lin.lin, 'v Lin.lin * 'epB Lin.lin) label ->
+        ('obj,'var,('v EP.lin list * 'epA) Out.out EP.lin, 'v EP.lin * 'epB StaticLin.lin) label ->
         (unit -> 'v) ->
-        ('obj,'var,('v Lin.lin list * 'epA) Out.out Lin.lin, 'v Lin.lin * 'epB Lin.lin) label =
+        ('obj,'var,('v EP.lin list * 'epA) Out.out EP.lin, 'v EP.lin * 'epB StaticLin.lin) label =
     fun l _ -> l
 
   let prot a g () = get_ch a (gen g)

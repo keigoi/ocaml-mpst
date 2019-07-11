@@ -5,16 +5,15 @@ end
 
 module Global =
   Mpst.Global.Make
-    (Mpst.Dyncheck)
+    (Mpst.EP)
+    (Mpst.Lin.NoCheck)
     (M.P.AsyncMonad)
     (M.P.AsyncEvent)
     (M.P.AsyncSerial)
-    (struct type 'a lin = 'a let mklin x = x let unlin x = x end)
 
 module Local =
   Mpst.Local.Make
-    (Mpst.Dyncheck)
-    (Mpst.LinFlag)
+    (Mpst.EP)
     (M.P.AsyncMonad)
     (M.P.AsyncEvent)
 
@@ -22,7 +21,7 @@ module Default = struct
   include Mpst.Base
   include Global
   include Local
-  include Mpst.Util.Make(Mpst.Dyncheck)
+  include Mpst.Util.Make(Mpst.EP)
 end
 
 include M

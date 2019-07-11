@@ -1,6 +1,6 @@
 open Base
 
-module Make(EP:S.ENDPOINT) = struct
+module Make(EP:S.ENDPOINTS) = struct
 module G = Global_common.Make(EP)
 open G
 

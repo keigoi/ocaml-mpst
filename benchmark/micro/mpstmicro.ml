@@ -5,7 +5,7 @@ open Mpst.M.Base
 module ML = Mpst_lwt.M
 
 module MakeDyn
-         (D:DYNCHECK)
+         (EP:Mpst.S.ENDPOINTS)
          (M:PERIPHERAL)
          (Med:MEDIUM)
          ()
@@ -16,9 +16,14 @@ module MakeDyn
   module Test = struct
     type +'a monad = 'a M.t
 
-    module Local = Local.Make(D.EP)(D.Flag)(M)(M.Event)
-    module Global = Global.Make(D.EP)(M)(M.Event)(M.Serial)(NoLin)
-    module Util = Util.Make(D.EP)
+    (* module EP = Mpst.Endpoints.Make(Mpst.Lin.MakeDynCheckClosure(Mpst.LinFlag.PosixMutexFlag)) *)
+    (* module EP = Mpst.Endpoints.Make(Mpst.Lin.MakeDynCheck(Dyncheck_nanomutex.NanoMutexFlag)) *)
+    (* module EP = Mpst.Endpoints.Make(Mpst.Lin.MakeDynCheckClosure(Dyncheck_nanomutex.NanoMutexFlag)) *)
+    (* module EP = Mpst.Endpoints.Make(Mpst.Lin.NoCheck) *)
+
+    module Local = Local.Make(EP)(M)(M.Event)
+    module Global = Global.Make(EP)(Mpst.Lin.NoCheck)(M)(M.Event)(M.Serial)
+    module Util = Util.Make(EP)
 
     open Global
     open Local
@@ -71,7 +76,7 @@ module MakeStatic
   module Test = struct
     module Local = Mpst_monad.Local_monad.Make(M)(M.Event)(M.Linocaml)
     module Global = Mpst_monad.Global_monad.Make(M)(M.Event)(M.Serial)(M.Linocaml)
-    module Util = Util.Make(Mpst.M.Nocheck.Nodyncheck)
+    module Util = Util.Make(Mpst_monad.Linocaml_lin.EP)
     open Global
     open Local
     open Util

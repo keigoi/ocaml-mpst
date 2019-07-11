@@ -4,32 +4,36 @@ module M = struct
   module S = S
   module Inp = Inp
   module Out = Out
+  module Lin = Lin
   module Table = Table
+  module Endpoints = Endpoints
 
-  module LinFlag : S.DYN_LIN_FLAG = LinFlag
+  module LinFlag = LinFlag
   module Peripheral = Peripheral
   module P = Peripheral
   module Global_common = Global_common
   module Util = Util
-  module NoLin : S.LIN with type 'a lin = 'a = struct
-    type 'a lin = 'a
-    let mklin x = x
-    let unlin x = x
-  end
+  (* module NoLin : S.LIN with type 'a lin = 'a = struct
+   *   type 'a lin = 'a
+   *   let mklin x = x
+   *   let unlin x = x
+   * end *)
 
-  module Dyncheck_ep = Dyncheck_ep
-  module Nocheck = Nocheck
-  module Dyncheck = Dyncheck_ep.Make(LinFlag)
+  (* module Dyncheck_ep = Dyncheck_ep
+   * module Nocheck = Nocheck
+   * module Dyncheck = Dyncheck_ep.Make(LinFlag) *)
+
+  module EP = Endpoints.Make(Lin.DynCheck)
 
   module Global = struct
     module Make = Global.Make
     module Direct =
       Global.Make
-        (Dyncheck)
+        (EP)
+        (Lin.NoCheck)
         (Peripheral.Pure)
         (Peripheral.Event)
         (Peripheral.Serial)
-        (NoLin)
   end
 
   module Local = struct
@@ -38,8 +42,7 @@ module M = struct
     module Make = Local.Make
     module Direct =
       Local.Make
-        (Dyncheck)
-        (LinFlag)
+        (EP)
         (Peripheral.Pure)
         (Peripheral.Event)
   end
@@ -49,7 +52,7 @@ module Default = struct
   include Base
   include M.Global.Direct
   include M.Local.Direct
-  include M.Util.Make(M.Dyncheck)
+  include M.Util.Make(M.EP)
 end
 
 include M

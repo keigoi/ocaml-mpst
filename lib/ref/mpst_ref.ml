@@ -397,22 +397,23 @@ end = struct
 end
 
 module Seq
-(*        : sig
- *   type _ t 
- *   and (_,_,_,_) lens =
- *     Zero : ('a, 'b, [`cons of 'a * 'tl], [`cons of 'b * 'tl]) lens
- *   | Succ : ('a, 'b, 'aa, 'bb) lens -> ('a, 'b, [`cons of 'hd * 'aa], [`cons of 'hd * 'bb]) lens
- * 
- *   exception UnguardedLoopSeq
- * 
- *   val lens_get : ('a, _, 'aa, _) lens -> 'aa t -> 'a EP.t
- *   val lens_put : ('a, 'b, 'aa, 'bb) lens -> 'aa t -> 'b EP.t -> 'bb t
- * 
- *   val seq_merge : 'a t -> 'a t -> 'a t
- *   val recvar : 'a t lazy_t -> 'a t
- *   val all_closed : ([`cons of Close.close * 'a] as 'a) t
- *   val partial_force : 'x t -> 'x t
- * end *)
+       : sig
+  type _ t 
+  and (_,_,_,_) lens =
+    Zero : ('a, 'b, [`cons of 'a * 'tl], [`cons of 'b * 'tl]) lens
+  | Succ : ('a, 'b, 'aa, 'bb) lens -> ('a, 'b, [`cons of 'hd * 'aa], [`cons of 'hd * 'bb]) lens
+
+  exception UnguardedLoopSeq
+
+  val lens_get : ('a, _, 'aa, _) lens -> 'aa t -> 'a EP.t
+  val lens_put : ('a, 'b, 'aa, 'bb) lens -> 'aa t -> 'b EP.t -> 'bb t
+
+  val seq_merge : 'a t -> 'a t -> 'a t
+  val recvar : 'a t lazy_t -> 'a t
+  val all_closed : ([`cons of Close.close * 'a] as 'a) t
+  val force_all : 'x t -> unit
+  val resolve_merge : 'x t -> 'x t
+end
   = struct
   type _ t =
     (* hidden *)

@@ -1,6 +1,6 @@
 open Mpst_monad
 open Linocaml
-module Util = Calc_util.Make(Mpst.M.Nocheck.Nodyncheck)
+module Util = Calc_util.Make(Mpst_monad.Linocaml_lin.EP)
 open Util
 
 let mst = {role_index=Zero;

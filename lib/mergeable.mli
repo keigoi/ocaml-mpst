@@ -22,33 +22,11 @@
  * the all mergings are resolved before actual communication will take place.
  * It is realised by the hooks -- see the implementation of (-->) combinator, for example.
  *)
-module Make(EP:S.ENDPOINT) : sig
-  type 'a ep = 'a EP.t
-  type 'a t
-  and hook = unit lazy_t
-
-  val make : hook:hook -> mergefun:('a -> 'a -> 'a) -> value:'a ep list -> 'a t
-  val make_recvar : 'a t lazy_t -> 'a t
-  val make_disj_merge : ('lr,'l,'r) Base.disj_merge -> 'l t -> 'r t -> 'lr t
-  val make_merge : 'a t -> 'a t -> 'a t
-  val make_merge_list : 'a t list -> 'a t
-  val wrap_label : (< .. > as 'l, 'v) Base.method_ -> 'v t -> 'l t
-  val generate : 'a t -> 'a list
-end
-
-(* type 'a ep = 'a EP.t
- * type 'a t
- * and hook = unit lazy_t
- *
- * exception UnguardedLoop
- *
- * val make : ('a -> 'a -> 'a) -> 'a ep list -> 'a t
- * val make_with_hook : hook -> ('a -> 'a -> 'a) -> 'a ep list -> 'a t
- * val make_no_merge : 'a list -> 'a t
- * val make_recvar : 'a t lazy_t -> 'a t
- * val merge : 'a t -> 'a t -> 'a t
- * val merge_all : 'a t list -> 'a t
- * val out : 'a t -> 'a list
- * val wrap_obj : (< .. > as 'o, 'v) Base.method_ -> 'v t -> 'o t
- * val disjoint_merge : ('lr, 'l, 'r) Base.disj_merge -> 'l t -> 'r t -> 'lr t
- * end *)
+type 'a t
+val make : hook:unit lazy_t -> mergefun:('a -> 'a -> 'a) -> value:'a -> 'a t
+val make_recvar : 'a t lazy_t -> 'a t
+val make_disj_merge : ('lr,'l,'r) Base.disj_merge -> 'l t -> 'r t -> 'lr t
+val make_merge : 'a t -> 'a t -> 'a t
+val make_merge_list : 'a t list -> 'a t
+val map : ('a -> 'b) -> ('b -> 'a) -> 'a t -> 'b t
+val resolve : 'a t -> 'a

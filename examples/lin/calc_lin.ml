@@ -1,6 +1,6 @@
 open Mpst_monad
 open Linocaml
-module Util = Calc_util.Make(Mpst.M.Nocheck.Nodyncheck)
+module Util = Calc_util.Make(Linocaml_lin.EP)
 open Util
 
 type op = Add | Sub | Mul | Div

@@ -41,36 +41,61 @@ module type SERIAL = sig
   val fork_child : (unit -> unit) -> int
 end
 
-module type DYN_LIN_FLAG = sig
+module type FLAG = sig
   type t
-  val create     : unit -> t
-  val use        : t -> unit
-  exception InvalidEndpoint
+  val create : unit -> t
+  val use : t -> unit
 end
 
-module type ENDPOINT = sig
-  type once
-  type 'a t
-  val make : (once -> 'a) -> 'a t
-  val unrestricted : 'a -> 'a t
+module type LIN = sig
+  (** linear type constructor *)
+  type 'a lin
 
-  val generate : 'a t list -> 'a list
-  val map : ('a -> 'b) -> 'a t list -> 'b t list
-  val map2 : ('a -> 'b -> 'c) -> 'a t list -> 'b t list -> 'c t list
+  (** extract the value. raises LinFlag.InvalidEndpoint if the endpoint is already consumed *)
+  val use : 'a lin -> 'a
+
+  (** a generator for linear values *)
+  type 'a gen
+
+  (** create a generator *)
+  val create : 'a -> 'a lin gen
+  val create_nolin : 'a -> 'a gen
+
+  (** create a dummy (for LinOCaml's pattern maching only) *)
+  val create_dummy : 'a -> 'a lin
+
+  (** generate a fresh linear value (possibly wrapped by objects) *)
+  val fresh : 'a gen -> 'a
+
+  val map_gen : ('a -> 'b) -> 'a gen -> 'b gen
+  val merge_gen : ('a -> 'a -> 'a) -> 'a lin gen -> 'a lin gen -> 'a lin gen
+  val lift_disj_merge : ('lr,'l,'r) Base.disj_merge -> ('lr gen, 'l gen, 'r gen) Base.disj_merge
+end
+
+module type ENDPOINTS = sig
+  type 'a lin
+  type 'a t (* = 'a Lin.gen list Mergeable.t *)
+  val use : 'a lin -> 'a
+  val make_lin : hook:unit lazy_t -> mergefun:('a -> 'a -> 'a) -> values:'a list -> 'a lin t
+  val make_simple : 'a list -> 'a t
+  val wrap_label : ('o, 'v) Base.method_ -> 'v t -> 'o t
+  val fresh : 'a t -> int -> 'a
+  val fresh_all : 'a t -> 'a list
+  val force_merge : 'a t -> unit
+
+  val make_recvar : 'a t lazy_t -> 'a t
+  val make_disj_merge : ('lr,'l,'r) Base.disj_merge -> 'l t -> 'r t -> 'lr t
+  val make_merge : 'a t -> 'a t -> 'a t
+  val make_merge_list : 'a t list -> 'a t
 end
 
 module type LOCAL = sig
   type +'a monad
   type 't out
   type 't inp
-  val send : ('t Base.one * 'u) out -> 't -> 'u monad
-  val sendmany : ('t list * 'u) out -> (int -> 't) -> 'u monad
-  val receive : 't inp -> 't monad
+  type 't lin
+  val send : ('t Base.one * 'u) out lin -> 't -> 'u monad
+  val sendmany : ('t list * 'u) out lin -> (int -> 't) -> 'u monad
+  val receive : 't inp lin -> 't monad
   val close : Base.close -> unit
-end
-
-module type LIN = sig
-  type 'a lin
-  val mklin : 'a -> 'a lin
-  val unlin : 'a lin -> 'a
 end

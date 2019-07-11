@@ -1,9 +1,9 @@
 module Pure = struct
   type 'a t = 'a
-  let return a = a
+  external return : 'a -> 'a = "%identity"
+  external bind : 'a -> ('a -> 'b) -> 'b = "%revapply"
+  external map : ('a -> 'b) -> 'a -> 'b = "%apply"
   let return_unit = ()
-  let bind x f = f x
-  let map f x = f x
   let iteriM = List.iteri
   let mapM = List.map
   let async f = ignore (Thread.create f ())

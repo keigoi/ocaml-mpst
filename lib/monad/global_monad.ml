@@ -9,15 +9,11 @@ module Make
   = struct
   include
     Mpst.Global.Make
-      (Mpst.M.Nocheck.Nodyncheck)
+      (Linocaml_lin.EP)
+      (Linocaml_lin.Lin)
       (M)
       (EV)
       (C)
-      (struct
-        type 'a lin = 'a Linocaml.lin
-        let mklin x = {Linocaml.__lin=x}
-        let unlin x = x.Linocaml.__lin
-      end)
 
   let linret f = {L.__m=(fun pre -> M.return (pre, {Linocaml.__lin=f ()}))}
 
@@ -46,18 +42,15 @@ module Make
   let raw_get_ch = get_ch
 
   let mclose =
-    Mergeable.make
-      ~hook:(Lazy.from_val ())
-      ~mergefun:(fun _ _ -> Mpst.Close)
-      ~value:[Mpst.M.Nocheck.Nodyncheck.unrestricted Mpst.Close]
+    Linocaml_lin.EP.make_simple [Mpst.Close]
 
   let get_ch r =
     let open Linocaml in
     let open L in
     {__m=(fun lpre ->
        let g = lpre.__lin in
-       let ep = List.hd @@ Mergeable.generate (Seq.get r.role_index g) in
-       let g' = Seq.put r.role_index g mclose in
+       let ep = List.hd @@ Linocaml_lin.EP.fresh_all (Seq.lens_get r.role_index g) in
+       let g' = Seq.lens_put r.role_index g mclose in
        M.return ((), ({__lin=({__lin=g'},{__lin=ep})})))}
 
   let rec all_empty = `cons((), all_empty)

@@ -1,4 +1,4 @@
-module NanoMutexFlag : Mpst.S.DYN_LIN_FLAG =
+module NanoMutexFlag : Mpst.S.FLAG =
 struct
   type t         = Nano_mutex.t
   exception InvalidEndpoint

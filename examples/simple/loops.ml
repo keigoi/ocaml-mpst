@@ -19,16 +19,25 @@ let loop1 () =
           (a, (a --> b) right @@ (a --> c) msg @@ finish))
 
 
-let tA ea finally =
-  let rec loop () =
+let tA ea =
+  let rec loop ea =
     let ea = send (ea#role_B#left) () in
     let ea = send (ea#role_B#middle) () in
+    print_endline "danger?";
+    let ea = send (ea#role_B#middle) () in
     let ea = send (ea#role_B#left) () in
+    print_endline "danger";
     let ea = send (ea#role_B#right) () in
+    print_endline "danger1";
     let ea = send (ea#role_C#msg) () in
-    finally ea
+    print_endline "danger2";
+    let ea = send (ea#role_B#right) () in
+    print_endline "danger3";
+    let ea = send (ea#role_C#msg) () in
+    print_endline "finally";
+    loop ea
   in
-  loop ()
+  loop ea
 
 let tB eb finally =
   let rec loop eb =
@@ -39,27 +48,27 @@ let tB eb finally =
   in
   loop eb
 
-let () =
-  let () = print_endline "loop1" in
-  let g = gen @@ loop1 () in
-  let () = print_endline "global combinator generated" in
-  let ea = get_ch a g in
-  print_endline "epp a done";
-  let eb = get_ch b g in
-  print_endline "epp b done";
-  let ec = get_ch c g in
-  print_endline "epp c done";
-  ignore (Thread.create (fun () ->
-              tA ea (fun ea -> close ea)
-            ) ());
-  ignore (Thread.create (fun () ->
-              tB eb (fun eb -> close eb)
-            ) ());
-  begin
-    match receive (ec#role_A) with
-    | `msg(_,ec) -> close ec
-  end;
-  print_endline "loop1 done"
+(* let () =
+ *   let () = print_endline "loop1" in
+ *   let g = gen @@ loop1 () in
+ *   let () = print_endline "global combinator generated" in
+ *   let ea = get_ch a g in
+ *   print_endline "epp a done";
+ *   let eb = get_ch b g in
+ *   print_endline "epp b done";
+ *   let ec = get_ch c g in
+ *   print_endline "epp c done";
+ *   ignore (Thread.create (fun () ->
+ *               tA ea (fun ea -> close ea)
+ *             ) ());
+ *   ignore (Thread.create (fun () ->
+ *               tB eb (fun eb -> close eb)
+ *             ) ());
+ *   begin
+ *     match receive (ec#role_A) with
+ *     | `msg(_,ec) -> close ec
+ *   end;
+ *   print_endline "loop1 done" *)
 
 let loop2 () =
   fix (fun t ->
@@ -80,10 +89,11 @@ let () =
   let ec = get_ch c g in
   print_endline "epp c done";
   ignore (Thread.create (fun () ->
-              let rec loop ea =
-                tA ea (fun ea -> loop ea)
-              in
-              loop ea
+              (* let rec loop ea =
+               *   tA ea (fun ea -> loop ea)
+               * in
+               * loop ea *)
+              tA ea
             ) ());
   ignore (Thread.create (fun () ->
               let rec loop eb =

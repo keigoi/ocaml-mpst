@@ -9,13 +9,13 @@ let chvec_counts = [1;10;100]
 (* let array_sizes = [List.nth array_sizes (List.length array_sizes -1)] *)
 
 let lwt_mpst_dynamic =
-  Test.create ~name:"lwt-mpst_dynamic" (let module M = MakeDyn(DynCheckMutex)(LwtMonad)(Shmem)() in run M.runtest)
+  Test.create ~name:"lwt-mpst_dynamic" (let module M = MakeDyn(Mpst.EP)(LwtMonad)(Shmem)() in run M.runtest)
 
 let lwt_mpst_static =
   Test.create ~name:"lwt-mpst_static" (let module M = MakeStatic(LinLwtMonad)(Shmem)() in run M.runtest)
 
 let ev_mpst_dynamic =
-  Test.create ~name:"ev-mpst_dynamic" (let module M = MakeDyn (DynCheckMutex)(Direct)(Shmem)() in run M.runtest)
+  Test.create ~name:"ev-mpst_dynamic" (let module M = MakeDyn (Mpst.EP)(Direct)(Shmem)() in run M.runtest)
 
 let ev_mpst_static =
   Test.create ~name:"ev-mpst_static" @@ (let module M = MakeStatic(LinDirect)(Shmem)() in run M.runtest)
@@ -119,7 +119,7 @@ let test_lwt_ipc =
   let open Core_bench in
   Bench.Test.(
       [
-        create_indexed ~args ~name:"lwt_ipc-mpst_dynamic" (let module M = MakeDyn(DynCheckMutex)(LwtMonad)(IPC)() in M.runtest);
+        create_indexed ~args ~name:"lwt_ipc-mpst_dynamic" (let module M = MakeDyn(Mpst.EP)(LwtMonad)(IPC)() in M.runtest);
         create_indexed ~args ~name:"lwt_ipc-mpst_static" (let module M = MakeStatic(LinLwtMonad)(IPC)() in M.runtest);
         create_indexed ~args ~name:"lwt_ipc-OCaml_ideal" (let module M = Make_IPC(LwtMonad)() in M.runtest);
       ]
@@ -134,7 +134,7 @@ let test_ipc =
         (* Interestingly- when we use Unix pipe, event_based versions are always faster by 2x or more.
          * Also, static (monadic) versions are always faster; it seems that closures are GC'ed during i;o.
          *)
-        create_indexed ~args ~name:"ipc-mpst_dynamic" (let module M = MakeDyn(DynCheckMutex)(Direct)(IPC)() in M.runtest);
+        create_indexed ~args ~name:"ipc-mpst_dynamic" (let module M = MakeDyn(Mpst.EP)(Direct)(IPC)() in M.runtest);
         create_indexed ~args ~name:"ipc-mpst_static" (let module M = MakeStatic(LinDirect)(IPC)() in M.runtest);
         create_indexed ~args ~name:"ipc-OCaml_ideal" (let module M = Make_IPC(Direct)() in M.runtest);
         (* create ~name:"mpst-dynamic/ev(nodyncheck)" (let module M = MakeDyn(NoDynCheckWithClosure)(Direct)(Shmem)() in run M.runtest);

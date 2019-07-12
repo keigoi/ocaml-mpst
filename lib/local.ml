@@ -25,4 +25,4 @@ module Make
   let sendmany = Out_.sendmany
 
   let close _ = ()
-end
+end[@@inline]

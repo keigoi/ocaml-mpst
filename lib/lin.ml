@@ -11,7 +11,7 @@ module MakeDynCheck(Flag:S.FLAG)
      gen_store_ref:once_store ref;
      gen_store_assign:once_store -> unit}
 
-  let use t =
+  let[@inline] use t =
     Flag.use !(!(t.store_ref));
     t.value
 
@@ -25,7 +25,7 @@ module MakeDynCheck(Flag:S.FLAG)
     in
     t
 
-  let create_nolin v = 
+  let create_nolin v =
     {gen_value=v;
      gen_store_ref=ref @@ ref @@ Flag.create ();
      gen_store_assign=(fun _ -> ())}
@@ -55,10 +55,10 @@ module MakeDynCheck(Flag:S.FLAG)
      disj_splitL=(fun lr -> map_gen mrg.disj_splitL lr);
      disj_splitR=(fun lr -> map_gen mrg.disj_splitR lr)}
 
-  let refresh t =
+  let[@inline] refresh t =
     !(t.gen_store_ref) := Flag.create ()
 
-  let fresh t =
+  let[@inline] fresh t =
     refresh t;
     t.gen_value
 end
@@ -68,21 +68,18 @@ module NoCheck : S.LIN with type 'a lin = 'a with type 'a gen = 'a
   type 'a lin = 'a
   type 'a gen = 'a
 
-  let use t = t
+  external use : 'a -> 'a = "%identity"
 
-  let create v = v
-  let create_nolin v = v
-  let create_dummy v = v
+  external create : 'a -> 'a = "%identity"
+  external create_nolin : 'a -> 'a = "%identity"
+  external create_dummy : 'a -> 'a = "%identity"
+  external extract : 'a -> 'a = "%identity"
+  external map_gen : ('a -> 'b) -> 'a -> 'b = "%apply"
+  external refresh : 'a -> 'a = "%identity"
+  external fresh : 'a -> 'a = "%identity"
+  external lift_disj_merge : 'a -> 'a = "%identity"
 
-  let extract v = v
-  let map_gen f x = f x
-
-  let merge_gen f l r = f l r
-
-  let lift_disj_merge mrg = mrg
-  let refresh t = t
-
-  let fresh t = t
+  let[@inline] merge_gen f l r = f l r
 end
 
 module MakeDynCheckClosure(Flag:S.FLAG) : S.LIN

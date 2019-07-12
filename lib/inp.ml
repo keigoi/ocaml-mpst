@@ -30,7 +30,7 @@ end = struct
 
   type 'a inp =
     | InpEv of 'a EV.event
-    | InpFun of 'a inpfun 
+    | InpFun of 'a inpfun
 
   let merge_inp ev1 ev2 =
     match ev1, ev2 with
@@ -47,8 +47,8 @@ end = struct
       ~mergefun:merge_inp
       ~values:
       (List.map (fun f -> InpFun f) fs)
-    
-  let create_inp_ ~recvfun chs label cont =
+
+  let[@inline] create_inp_ ~recvfun chs label cont =
     (* we must guard it -- chs is a placeholder for channels
      * which might be "unified" during merge (see out.ml).
      * if we do not delay, and if the channel unification occurs,
@@ -62,15 +62,15 @@ end = struct
          (fun me ->
            InpEv
              (EV.wrap
-                (EV.guard (fun () -> recvfun me))
-                (fun v -> label.var (v, EP.fresh cont me)))))
+                (EV.guard (fun[@inline] () -> recvfun me))
+                (fun[@inline] v -> label.var (v, EP.fresh cont me)))))
 
-  let create_inp_one chs label cont =
+  let[@inline] create_inp_one chs label cont =
+    let[@inline] receive me =
       assert (List.length chs = 1);
       let chs' = List.hd chs in
       let ch = List.nth !chs' 0 in
       let ch = EV.flip_channel ch in
-    let receive me =
       EV.receive ch
     in
     create_inp_ receive chs label cont
@@ -88,7 +88,7 @@ end = struct
     in
     create_inp_ receive_many chs label cont
 
-  let receive inp =
+  let[@inline] receive inp =
     match EP.use inp with
     | InpEv ev ->
        EV.sync ev
@@ -97,4 +97,4 @@ end = struct
        M.bind (f.raw_input ()) (fun (tag,v) ->
        let alt = List.assoc tag f.cases in
        M.return (alt v))
-end
+end[@@inlined]

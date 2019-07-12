@@ -32,7 +32,7 @@ module Make
 
   type 'g global = (epkind, 'g) t
 
-  let make_inp_one chs label cont =
+  let[@inline] make_inp_one chs label cont =
     let case tag myidx =
       [(tag, (fun t -> label.var (Obj.obj t, EP.fresh cont myidx)))]
     in
@@ -64,7 +64,7 @@ module Make
     | [] ->
        assert false
 
-  let make_inp_many chs label cont =
+  let[@inline] make_inp_many chs label cont =
     let case tag myidx =
       [(tag, (fun t -> label.var (Obj.obj t, EP.fresh cont myidx)))]
     in
@@ -174,7 +174,7 @@ module Make
        in
        Out.create_out_fun_many (List.map (List.map real_out) chss) label cont
     | [] -> assert false
-    
+
 
   let update_other_tables flip src_tables src_role other_tables other_role =
     let chss = List.map (fun t -> Table.get t other_role) src_tables in
@@ -271,7 +271,7 @@ module Make
     let chs = generate_channels label arole brole akind bkind acount bcount
     in
     let epB = Seq.lens_get rB.role_index g0 in
-    let label0 = {label with var =(fun (v,t) -> label.var (v, StaticLin.create_dummy t))} in
+    let label0 = {label with var =(fun[@inline] (v,t) -> label.var (v, StaticLin.create_dummy t))} in
     let ev = make_inp chs label0 epB in
     let epB = EP.wrap_label rA.role_label ev in
     let g1  = Seq.lens_put rB.role_index g0 epB
@@ -483,4 +483,4 @@ module Make
     fun l _ -> l
 
   let prot a g () = get_ch a (gen g)
-end
+end[@@inline]

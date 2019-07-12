@@ -5,12 +5,12 @@ module Lin : Mpst.S.LIN with type 'a lin = 'a Linocaml.lin
 
   open Linocaml
 
-  let use t = t.__lin
+  let[@inline] use t = t.__lin
+  let[@inline] create_dummy v = {__lin=v}
+  external fresh : 'a -> 'a = "%identity"
 
   let create v = {__lin=v}
   let create_nolin v = v
-  let create_dummy v = {__lin=v}
-  let fresh t = t
 
   let map_gen f x = f x
 
@@ -19,6 +19,5 @@ module Lin : Mpst.S.LIN with type 'a lin = 'a Linocaml.lin
   let lift_disj_merge mrg = mrg
 end
 
-module EP : Mpst.S.ENDPOINTS with type 'a lin = 'a Lin.lin =
-  Mpst.Endpoints.Make(Lin)
-
+module EP : Mpst.S.ENDPOINTS with type 'a lin = 'a =
+  Mpst.Endpoints.Make(Mpst.Lin.NoCheck)

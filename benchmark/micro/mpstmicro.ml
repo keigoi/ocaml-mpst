@@ -34,8 +34,8 @@ module MakeDyn
           (a --> b) ping @@
             (b --> a) pong @@ t)
 
-    (** 
-     * pre-allocated channels 
+    (**
+     * pre-allocated channels
      *)
     let sa_stored, sb_stored =
       let g = gen_with_kinds [Med.medium;Med.medium;] prot in
@@ -64,7 +64,7 @@ module MakeDyn
   include MakeTestBase(Test)(M)(Med)()
 
 
-end
+end[@@inline]
 
 module MakeStatic
          (M:PERIPHERAL_LIN)
@@ -98,12 +98,12 @@ module MakeStatic
 
     let server_step =
       M.Linocaml.run'
-      (fun () ->
+      (fun[@inline] () ->
         let open M.Linocaml in
         let/ () = put_linval s !stored_sb in
-        let%lin `ping(_,#s) = s <@ receive (fun x->x#role_A) in
-        let%lin #s = s <@ send (fun x-> x#role_A#pong) () in
-        {__m=(fun pre ->
+        let%lin `ping(_,#s) = s <@ receive (fun[@inline] x->x#role_A) in
+        let%lin #s = s <@ send (fun[@inline] x-> x#role_A#pong) () in
+        {__m=(fun[@inline] pre ->
            stored_sb := (Linocaml.lens_get s pre).__lin;
            M.return (Linocaml.lens_put s pre (), {Linocaml.data=()})
         )}
@@ -113,12 +113,12 @@ module MakeStatic
       let payload = List.assoc param big_arrays in
       Core.Staged.stage
         (M.Linocaml.run'
-           (fun () ->
+           (fun[@inline] () ->
              let open M.Linocaml in
              let/ () = put_linval s !stored_sa in
-             let%lin #s = s <@ send (fun x->x#role_B#ping) payload in
-             let%lin `pong({Linocaml.data=()},#s) = s <@ receive (fun x->x#role_B) in
-             {__m=(fun pre ->
+             let%lin #s = s <@ send (fun[@inline] x->x#role_B#ping) payload in
+             let%lin `pong({Linocaml.data=()},#s) = s <@ receive (fun[@inline] x->x#role_B) in
+             {__m=(fun[@inline] pre ->
                 stored_sa := (Linocaml.lens_get s pre).__lin;
                 M.return (Linocaml.lens_put s pre (), {Linocaml.data=()})
              )}
@@ -127,7 +127,7 @@ module MakeStatic
   end
 
   include MakeTestBase(Test)(M)(Med)()
-end
+end[@@inline]
 
 module BRefImpl : TEST
   = struct

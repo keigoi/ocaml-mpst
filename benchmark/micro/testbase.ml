@@ -5,7 +5,7 @@ open Mpst.M.Base
 let default_buffer_size = Lwt_io.default_buffer_size ()
 
 module type TESTBED = sig
-  type +'a monad 
+  type +'a monad
   val server_step : unit -> unit monad
   val client_step : int -> (unit -> unit monad) Core.Staged.t
 end
@@ -56,4 +56,4 @@ module MakeTestBase
       end else if M.is_direct then begin
         thread (fun () -> M.run (loop Test.server_step None)) ();
       end
-end
+end[@@inline]

@@ -48,7 +48,7 @@ end = struct
        OutMany(b1,i1,EP.make_merge c1 c2)
 
   let create_out_one chss label cont =
-    let out = 
+    let out =
       EP.make_lin
         ~hook:(lazy (EP.force_merge cont))
         ~mergefun:merge_out
@@ -61,7 +61,7 @@ end = struct
     EP.wrap_label label.obj out
 
   let create_out_many chss label cont =
-    let out = 
+    let out =
       EP.make_lin
         ~hook:(lazy (EP.force_merge cont))
         ~mergefun:merge_out
@@ -94,23 +94,23 @@ end = struct
     in
     EP.wrap_label label.obj out
 
-  let send t v =
+  let[@inline] send t v =
     let Out(ch,i,cont) = EP.use t in
     match ch with
     | BareOutChan chs ->
-       (M.bind (EV.sync (EV.send (List.hd !chs) v))) (fun () ->
+       (M.bind (EV.sync (EV.send (List.hd !chs) v))) (fun[@inline] () ->
        M.return (EP.fresh cont i))
     | BareOutFun fs ->
-       M.bind (List.hd fs v) (fun () ->
+       M.bind (List.hd fs v) (fun[@inline] () ->
        M.return @@ EP.fresh cont i)
 
   let sendmany t vf =
     let OutMany(ch,i,cont) = EP.use t in
     match ch with
     | BareOutChan chs ->
-       M.bind (M.iteriM (fun i ch -> EV.sync (EV.send ch (vf i))) !chs) (fun () ->
+       M.bind (M.iteriM (fun[@inline] i ch -> EV.sync (EV.send ch (vf i))) !chs) (fun () ->
        M.return (EP.fresh cont i))
     | BareOutFun fs ->
-       M.bind (M.iteriM (fun i f -> f (vf i)) fs) (fun () ->
+       M.bind (M.iteriM (fun[@inline] i f -> f (vf i)) fs) (fun () ->
        M.return @@ EP.fresh cont i)
-end
+end[@@inlined]

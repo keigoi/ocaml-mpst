@@ -37,13 +37,13 @@ end = struct
 
   type ('p,'q,'a) monad = ('p,'q,'a) L.monad
 
-  let ( @* ) l1 l2 =
+  let[@inline] ( @* ) l1 l2 =
     let open Linocaml in
-    let get p =
+    let[@inline] get p =
       let c,q = lens_get l2 p, lens_put l2 p () in
       let a = lens_get l1 q in
       a,c
-    and put p b =
+    and[@inline] put p b =
       let q = lens_put l2 p () in
       let r = lens_put l1 q b in
       r
@@ -56,27 +56,27 @@ end = struct
   type 't inp = 't Local.inp
   type 't lin_ = 't Linocaml_lin.EP.lin
 
-  let mklin x = Linocaml.({__lin=x})
-  let unlin x = Linocaml.(x.__lin)
+  let[@inline] mklin x = Linocaml.({__lin=x})
+  let[@inline] unlin x = Linocaml.(x.__lin)
 
-  let send sel v =
-    {L.__m=(fun lpre ->
+  let[@inline] send sel v =
+    {L.__m=(fun[@inline] lpre ->
        let ep = Local.send (sel (unlin lpre)) {Linocaml.data=v} in
-       M.map (fun v -> ((), mklin v)) ep)}
+       M.map (fun[@inline] v -> ((), mklin v)) ep)}
 
-  let deleg_send sel =
-    {L.__m=(fun lpre ->
+  let[@inline] deleg_send sel =
+    {L.__m=(fun[@inline] lpre ->
        let subj, obj = lpre in
        let ep = Local.send (sel (unlin subj)) obj in
-       M.map (fun v -> ((), mklin v)) ep)}
+       M.map (fun[@inline] v -> ((), mklin v)) ep)}
 
-  let receive sel =
-    {L.__m=(fun lpre ->
+  let[@inline] receive sel =
+    {L.__m=(fun[@inline] lpre ->
        let ep = Local.receive (sel (unlin lpre)) in
-       M.map (fun v -> ((),mklin v)) ep)}
+       M.map (fun[@inline] v -> ((),mklin v)) ep)}
 
   let close =
-    {L.__m=(fun lpre ->
+    {L.__m=(fun[@inline] lpre ->
        Local.close (unlin lpre);
        M.return ((), {Linocaml.data=()}))}
-end
+end[@@inline]

@@ -4,6 +4,9 @@ struct
   type 'a lin = 'a Lin.lin
   type 'a t = 'a Lin.gen list Mergeable.t
   let use = Lin.use
+  let[@inline] fresh t i =
+    Lin.fresh (List.nth (Mergeable.resolve t) i)
+
   let make_lin ~hook ~mergefun ~values =
     Mergeable.make
       ~hook
@@ -19,8 +22,6 @@ struct
     Mergeable.map (List.map (Lin.map_gen meth.make_obj)) (List.map (Lin.map_gen meth.call_obj)) t
   let force_merge t =
     ignore (Mergeable.resolve t)
-  let fresh t i =
-    Lin.fresh (List.nth (Mergeable.resolve t) i)
   let fresh_all t =
     List.map Lin.fresh (Mergeable.resolve t)
 

@@ -12,13 +12,13 @@ module LwtEvent : Mpst.S.EVENT
     and r2, w1 = Lwt_stream.create ()
     in
     {me={write=w1;read=r1}; othr={write=w2;read=r2}}
-  let receive {me={read}; _} () = Lwt_stream.next read
+  let[@inline] receive {me={read}; _} () = Lwt_stream.next read
   let flip_channel {me=othr; othr=me} = {me; othr}
-  let send {me={write; _}; _} v () = write (Some v); Lwt.return_unit
-  let guard f = f ()
-  let sync f = f ()
-  let choose xs = fun () -> Lwt.choose (List.map (fun f -> f ()) xs)
-  let wrap e f = fun () -> Lwt.map f (e ())
+  let[@inline] send {me={write; _}; _} v () = write (Some v); Lwt.return_unit
+  let[@inline] guard f = f ()
+  let[@inline] sync f = f ()
+  let[@inline] choose xs = fun[@inline] () -> Lwt.choose (List.map (fun[@inline] f -> f ()) xs)
+  let[@inline] wrap e f = fun[@inline] () -> Lwt.map f (e ())
   let always x () = Lwt.return x
   let receive_list chs () =
     Lwt_list.map_p (fun {me={read;_};_} ->
@@ -42,7 +42,7 @@ module LwtSerial : Mpst.S.SERIAL
   let input_tagged =
     input_value
   let output_value ch v =
-    (* use Stdlib.output_value. 
+    (* use Stdlib.output_value.
      * Lwt_io.write_value is much slower, as it writes to an intermediate buffer *)
     Lwt_preemptive.detach (fun () ->
                   Stdlib.output_value ch v;

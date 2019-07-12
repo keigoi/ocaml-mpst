@@ -80,4 +80,4 @@ module Make
        M.bind (connect sh r) (fun ep ->
        M.return (lpre, {Linocaml.__lin=ep}))
     )}
-end
+end[@@inline]

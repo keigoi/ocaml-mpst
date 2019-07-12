@@ -21,12 +21,6 @@ let forward_port = 53
   $ host www.google.com 127.0.0.1
  *)
 
-module Roles = struct
-  type cli = Cli
-  type srv = Srv
-  type oth = Oth
-end
-
 let dns () =
   (cli -!-> srv) query @@ (* DNS query from a client *)
   choice_req_at srv (to_fwd query_or_dummy) (* do I have an entry for the query?  *)
@@ -67,20 +61,20 @@ let server (fd_cli : Lwt_unix.file_descr) (fd_fwd : Lwt_unix.file_descr) =
   in
   let fd_fwd = create_resolver_fd ~fd:fd_fwd ~peer_addr:fwd_addr in
   let fd_cli = create_listener_fd ~fd:fd_cli in
-  
+
   let rec loop () =
     (* get a new session endpoint *)
     let s = get_ch srv (dns ())
     in
-    
+
     let/ `query(query, s) = receive (s fd_cli)#role_Cli
     in
-    
+
     begin match query.questions with
     | ({Dns.Packet.q_class = Q_IN; q_type = Q_A; _} as question) :: _ ->
-       
+
        let/ answer = lookup question in
-       
+
        begin match answer with
        | Some answer ->
           let/ s = (s fd_fwd)#role_Fwd#dummy () in (* no effect *)

@@ -57,7 +57,7 @@ module AsyncSerial : Mpst.S.SERIAL with type 'a monad = 'a Async.Deferred.t = st
     Async_unix.Writer.flushed
   let input_value_list chs =
     Deferred.List.map chs input_value
-  let fork_child =
+  let fork_child _ =
     (* TODO: use async-parallel?? *)
     failwith "not implemented"
 end

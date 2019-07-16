@@ -366,6 +366,16 @@ module Make
       (mkparams_mult ps)
       g
 
+type 'a ty = Ty__ of (unit -> 'a StaticLin.lin)
+
+let get_ty_ : ('x0, 'x1, 'ep StaticLin.lin, 'x2, 't, 'x3) role -> 't Seq.t -> 'ep ty =
+  fun r g ->
+  Ty__ (fun () -> get_ch r g)
+
+let get_ty : ('x0, 'x1, 'ep StaticLin.lin, 'x2, 't, 'x3) role -> 't global -> 'ep ty =
+  fun r g ->
+  get_ty_ r (gen g)
+
   type _ shared =
     Shared :
       {global: [`cons of 'ep * 'tl] global;

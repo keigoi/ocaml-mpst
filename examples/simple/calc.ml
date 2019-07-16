@@ -11,8 +11,9 @@ let calc =
                  (srv --> cli) answer @@
                  finish))
 
-let tCli ec =
-  let ec = send ec#role_Srv#compute (Add, 20) in
+let tCli (ec: 'ec) =
+  let _ : 'ec ty = get_ty cli calc
+  in  let ec = send ec#role_Srv#compute (Add, 20) in
   let ec = send ec#role_Srv#compute (Sub, 45) in
   let ec = send ec#role_Srv#compute (Mul, 10) in
   let ec = send ec#role_Srv#result () in
@@ -22,7 +23,8 @@ let tCli ec =
   Printf.printf "Answer: %d\n" ans
 
 let tSrv es =
-  let rec loop acc es =
+  let _ : 'es ty = get_ty srv calc in
+  let rec loop acc (es : 'es) =
     match receive es#role_Cli with
     | `compute((sym,num), es) ->
       let op = match sym with
@@ -44,53 +46,3 @@ let () =
    * let ec = get_ch cli g in
    * let es = get_ch srv g in
    * List.iter Thread.join [Thread.create tCli ec; Thread.create tSrv es] *)
-
-(* custom label declaration *)
-let current =
-  {obj={make_obj=(fun v-> object method current=v end);
-        call_obj=(fun o->o#current)};
-   var=(fun v -> `current(v))}
-
-(* merger *)
-let compute_result_or_current =
-  {disj_merge=(fun l r ->
-    object method compute=l#compute method result=l#result
-      method current=r#current end);
-   disj_splitL=(fun lr-> (lr :> <compute:_; result:_>));
-   disj_splitR=(fun lr-> (lr :> <current:_>));
-  }
-
-let calc2 () =
-  fix (fun t ->
-    choice_at cli (to_srv compute_result_or_current)
-       (cli, choice_at cli (to_srv compute_or_result)
-             (cli, (cli --> srv) compute @@
-                   t)
-             (cli, (cli --> srv) result @@
-                   (srv --> cli) answer @@
-                   finish))
-       (cli, (cli --> srv) current @@
-             (srv --> cli) answer @@
-             t))
-
-let tSrv2 es =
-  let rec loop acc es =
-    match receive es#role_Cli with
-    | `compute((sym,num), es) ->
-      let op = match sym with
-        | Add -> (+)   | Sub -> (-)
-        | Mul -> ( * ) | Div -> (/)
-      in loop (op acc num) es
-    | `result((), es) ->
-      let es = send (es#role_Cli#answer) acc in
-      close es
-    | `current((), es) ->
-      let es = send (es#role_Cli#answer) acc in
-      loop acc es
-  in loop 0 es
-
-let () =
-  let calc2 = gen @@ calc2 () in
-  let ec = get_ch cli calc2 and es = get_ch srv calc2 in
-  ignore @@ Thread.create tSrv2 es;
-  tCli ec

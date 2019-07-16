@@ -24,6 +24,8 @@ module Make
   let raw_gen_with_kinds = gen_with_kinds
   let raw_gen_with_kinds_mult = gen_with_kinds_mult
 
+  let gen_raw g = gen g
+
   let gen g = linret (fun () -> gen g)
 
   let gen_ipc g = linret (fun () -> gen_ipc g)

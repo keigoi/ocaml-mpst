@@ -33,14 +33,19 @@ let t1 : unit Lwt.t =
       Printf.printf "received: %d\n" x;
       if x = 0 then begin
           sendmany s#role_B#left (fun _ -> ()) >>= fun s ->
+          print_endline "sent left";
           receive s#role_B >>= fun (`msg(str,s)) ->
+          print_endline "received";
           str |> List.iter (Printf.printf "A) B says: %s\n");
           close s;
           return ()
         end else begin
           sendmany s#role_B#right (fun _ -> ()) >>= fun s ->
+          print_endline "sent right";
           receive s#role_B >>= fun (`msg(xs,s)) ->
+          print_endline "received1";
           receive s#role_C >>= fun (`msg(str,s)) ->
+          print_endline "received2";
           List.iteri (fun i x -> Printf.printf "A) B(%d) says: %d, C says: %s\n" i x str) xs;
           close s;
           return ()
@@ -53,6 +58,7 @@ let t1 : unit Lwt.t =
 let t2 : unit Lwt.t list =
   pb |>
   List.mapi begin fun i s ->
+  Printf.printf "B(%d): waiting.\n" i;
   receive s#role_A >>= begin
       function
       | `left(_,s) ->

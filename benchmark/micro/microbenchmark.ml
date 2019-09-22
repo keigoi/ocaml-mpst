@@ -5,7 +5,8 @@ open Mpstmicro
 
 let run f = Core.Staged.unstage (f (List.nth array_sizes 0))
 
-let chvec_counts = [1;10;100]
+let chvec_counts = [1]
+(* let chvec_counts = [1;10;100] *)
 (* let array_sizes = [List.nth array_sizes (List.length array_sizes -1)] *)
 
 let lwt_mpst_dynamic =
@@ -19,7 +20,7 @@ let ev_mpst_dynamic =
 
 let ev_mpst_static =
   Test.create ~name:"ev-mpst_static" @@ (let module M = MakeStatic(LinDirect)(Shmem)() in run M.runtest)
-  
+
 let ev_mpst_ref =
   Test.create ~name:"ev-mpst_ref" @@ run BRefImpl.runtest
 
@@ -35,19 +36,19 @@ let lwt_ideal_opt =
 let lwt_cps_opt =
   Test.create ~name:"lwt_opt-OCaml_cps" (let module M = BLwtCont(LwtOptStream)() in run M.runtest)
 
-let ev_cps =    
+let ev_cps =
   Test.create ~name:"ev-OCaml_cps" @@ run BEventCont.runtest
 
 let ev_ideal =
   Test.create ~name:"ev-OCaml_ideal" @@ run BEvent.runtest
 
 let lwt_mvar_ideal =
-  Test.create_indexed ~args:chvec_counts ~name:"lwt_mvar-OCaml_ideal" (let module M = BLwtTwoChan(LwtMVar)() in M.runtest)  
+  Test.create_indexed ~args:chvec_counts ~name:"lwt_mvar-OCaml_ideal" (let module M = BLwtTwoChan(LwtMVar)() in M.runtest)
 let lwt_bstream_ideal =
   Test.create ~name:"lwt_bstream-OCaml_ideal" (let module M = BLwtTwoChan(LwtBoundedStream)() in run M.runtest)
 let lwt_wake_ideal =
   Test.create ~name:"lwt_wake-OCaml_ideal" (let module M = BLwtTwoChan(LwtWait)() in run M.runtest)
-let lwt_mvar_cps =      
+let lwt_mvar_cps =
   Test.create ~name:"lwt_mvar-OCaml_cps" (let module M = BLwtCont(LwtMVar)() in run M.runtest)
 let lwt_bstream_cps =
   Test.create ~name:"lwt_bstream-OCaml_cps" (let module M = BLwtCont(LwtBoundedStream)() in run M.runtest)
@@ -60,34 +61,32 @@ let test_lwt =
         (* Lwt is far more faster than Event. Static version is slower; In such a tight loop- cost for monadic closures seems relatively high. *)
         lwt_mpst_dynamic;
         lwt_mpst_static;
-        lwt_ideal;
+        (* lwt_ideal; *)
         lwt_ideal_opt;
         (* For Lwt, CPS is slower than two_channel communication (around 5 %)
          * (It seems that Lwt_mvar is the fastest in CPS_style communication _ as for Lwt version 4.2.1.
          *  Note that MVars are 1_bounded; hence- they are not suitable for chvec MPST implementation)
          *)
-        (* lwt_cps;
-         * lwt_cps_opt;
-         * lwt_mvar_ideal;
+        (* lwt_cps; *)
+        lwt_cps_opt;
+        (* lwt_mvar_ideal;
          * lwt_mvar_cps;
-         * lwt_bstream_cps;
-         * (\* lwt_wake_cps; *\) *)
+         * lwt_bstream_cps; *)
+        (* lwt_wake_cps; *)
 
         (* Chcek why it exactly is slow. Closures around endpoints incur a huge cost (~ 20 %) in a tight loop.
          * Nano_mutex does not cause much slow down.  *)
-        (* create ~name:"lwt_nodyncheck-mpst_dynamic" (let module M = MakeDyn(NoDynCheckWithClosure)(LwtMonad)(Shmem)() in run M.runtest);
-         * create ~name:"lwt_nodyncheck-noclosure-mpst_dynamic" (let module M = MakeDyn(NoDynCheck)(LwtMonad)(Shmem)() in run M.runtest);
-         * (\* channel vector by hand *\)
-         * create ~name:"lwt-OCaml_overhead_closure" @@ run BLwtChannelVectorManualDyncheckClosure.runtest;
-         * create ~name:"lwt-OCaml_overhead" @@ run BLwtChannelVectorManual.runtest;
-         * (\* less closure- no polyvar wrap (but have object wrap- with extra closures on reception) *\)
-         * create ~name:"lwt-OCaml_less_overhead" @@ run BLwtChannelVectorManualLessWrap.runtest;
-         * (\* less closure- no polyvar wrap (but have object wrap) *\)
-         * create ~name:"lwt-OCaml_less_overhead1_5" @@ run BLwtChannelVectorManualLessWrap1_5.runtest;
-         * (\* no object wrap (but have polyvar wrap) *\)
-         * create ~name:"lwt-OCaml_less_overhead2" @@ run BLwtChannelVectorManualLessWrap2.runtest;
-         * (\* almost same as twochan *\)
-         * create ~name:"lwt-OCaml_less_overhead3" @@ run BLwtChannelVectorManualLessWrap3.runtest; *)
+        create ~name:"lwt_opt_nodyncheck-mpst_dynamic" (let module M = MakeDyn(Mpst.Endpoints.Make(Mpst.Lin.NoCheck))(LwtMonad)(Shmem)() in run M.runtest);
+        (* channel vector by hand *)
+        create ~name:"lwt_opt-OCaml_overhead" (let module M = BLwtChannelVectorManual(LwtOptStream) in run M.runtest);
+        (* less closure- no polyvar wrap (but have object wrap- with extra closures on reception) *)
+        create ~name:"lwt_opt-OCaml_less_overhead" (let module M = BLwtChannelVectorManualLessWrap(LwtOptStream) in run M.runtest);
+        (* less closure- no polyvar wrap (but have object wrap) *)
+        create ~name:"lwt_opt-OCaml_less_overhead1_5" (let module M = BLwtChannelVectorManualLessWrap1_5(LwtOptStream) in run M.runtest);
+        (* no object wrap (but have polyvar wrap) *)
+        create ~name:"lwt_opt-OCaml_less_overhead2" (let module M = BLwtChannelVectorManualLessWrap2(LwtOptStream) in run M.runtest);
+        (* almost same as twochan *)
+        create ~name:"lwt_opt-OCaml_less_overhead3" (let module M = BLwtChannelVectorManualLessWrap3(LwtOptStream) in run M.runtest);
       ]
   )
 
@@ -124,7 +123,7 @@ let test_lwt_ipc =
         create_indexed ~args ~name:"lwt_ipc-OCaml_ideal" (let module M = Make_IPC(LwtMonad)() in M.runtest);
       ]
   )
-    
+
 let test_ipc =
   let args = array_sizes in
   let open Core in
@@ -147,11 +146,18 @@ let test_iteration =
 
 (* let () =
  *   Lwt_engine.set (new Lwt_engine.libev ~backend:Lwt_engine.Ev_backend.poll ()) *)
-  
+
 let () =
   (* let gc = Gc.get() in
    * Gc.set { gc with Gc.minor_heap_size = gc.Gc.minor_heap_size * 2 }; *)
   Core.Command.run @@
     Core_bench.Bench.make_command
-      test_iteration
-      
+      (test_lwt)
+      (* (test_ev) *)
+      (* [lwt_mpst_static] *)
+      (* [ev_mpst_static; ev_ideal; lwt_mpst_static; lwt_ideal] *)
+      (* [ev_mpst_dynamic; ev_mpst_static; lwt_mpst_dynamic; lwt_mpst_static] *)
+      (* [lwt_mpst_static] *)
+      (* [lwt_mpst_dynamic; lwt_mpst_static; lwt_ideal] *)
+      (* (test_ev @ test_lwt) *)
+      (* test_iteration *)

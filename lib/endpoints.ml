@@ -36,4 +36,4 @@ struct
 
   let make_disj_merge mrg =
     Mergeable.make_disj_merge (lift_disj_merge_list @@ Lin.lift_disj_merge mrg)
-end
+end[@@inline]

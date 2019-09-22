@@ -4,25 +4,25 @@ module LwtEvent : Mpst.S.EVENT
   = struct
   type 'a monad = 'a Lwt.t
   type 'a event = unit -> 'a Lwt.t
-  type 'a st = {write: 'a option -> unit; read:'a Lwt_stream.t}
+  type 'a st = 'a Lwt_stream_opt.t
   type 'a channel = {me:'a st; othr:'a st}
 
   let new_channel () =
-    let r1, w2 = Lwt_stream.create ()
-    and r2, w1 = Lwt_stream.create ()
+    let ch1 = Lwt_stream_opt.create ()
+    and ch2 = Lwt_stream_opt.create ()
     in
-    {me={write=w1;read=r1}; othr={write=w2;read=r2}}
-  let[@inline] receive {me={read}; _} () = Lwt_stream.next read
+    {me=ch1; othr=ch2}
+  let[@inline] receive {me; _} () = Lwt_stream_opt.receive me
   let flip_channel {me=othr; othr=me} = {me; othr}
-  let[@inline] send {me={write; _}; _} v () = write (Some v); Lwt.return_unit
+  let[@inline] send {othr; _} v () = Lwt_stream_opt.send othr v
   let[@inline] guard f = f ()
   let[@inline] sync f = f ()
   let[@inline] choose xs = fun[@inline] () -> Lwt.choose (List.map (fun[@inline] f -> f ()) xs)
   let[@inline] wrap e f = fun[@inline] () -> Lwt.map f (e ())
   let always x () = Lwt.return x
   let receive_list chs () =
-    Lwt_list.map_p (fun {me={read;_};_} ->
-        let x = Lwt_stream.next read in
+    Lwt_list.map_p (fun {me;_} ->
+        let x = Lwt_stream_opt.receive me in
         x
       ) chs
 end

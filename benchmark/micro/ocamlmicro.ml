@@ -58,7 +58,7 @@ module BEventCont : TEST = struct
 
   let stored = ref init_ch
   let runtest param =
-    let payload = List.assoc param big_arrays in 
+    let payload = List.assoc param big_arrays in
     Core.Staged.stage @@
       fun () ->
       let ch = !stored in
@@ -139,7 +139,7 @@ module LwtOptStream : LWT_CHAN = struct
     begin match t.node.data with
     | None ->
        t.node.data <- Some v
-    | _ -> 
+    | _ ->
        enqueue' (Some v) t.last
     end;
     if t.push_waiting then begin
@@ -177,7 +177,7 @@ module BLwtTwoChan(Chan:LWT_CHAN)() : TEST = struct
       if cnt = 0 then
         head
       else
-        let ch1 = Chan.create () 
+        let ch1 = Chan.create ()
         and ch2 = Chan.create ()
         in
         lazy (Seq((ch1,ch2), loop head (cnt-1)))
@@ -214,7 +214,7 @@ module BLwtTwoChan(Chan:LWT_CHAN)() : TEST = struct
     let/ `Next(()) = Chan.receive ch2 in
     stored := Lazy.force cont;
     Lwt.return_unit
-    
+
   let runtest param =
     let chvec = pingpong param in
     let server_step = server_step chvec in
@@ -298,13 +298,13 @@ module Make_IPC(M:PERIPHERAL)() : TEST = struct
 end
 
 
-module BLwtChannelVectorManual : TEST = struct
+module BLwtChannelVectorManual(Chan:LWT_CHAN) : TEST = struct
   let (let/) = Lwt.bind
 
-  let ch1 = Lwt_stream.create ()
-  let ch2 = Lwt_stream.create ()
-  let raw_receive (st,_) = Lwt_stream.next st
-  let raw_send (_,push) v = push (Some v); Lwt.return_unit
+  let ch1 = Chan.create ()
+  let ch2 = Chan.create ()
+  let raw_receive = Chan.receive
+  let raw_send = Chan.send
   (* let ch1 = Lwt_mvar.create_empty ()
    * let ch2 = Lwt_mvar.create_empty ()
    * let receive m = Lwt_mvar.take m
@@ -376,83 +376,13 @@ module BLwtChannelVectorManual : TEST = struct
           end)
 end
 
-module BLwtChannelVectorManualDyncheckClosure : TEST = struct
+module BLwtChannelVectorManualLessWrap(Chan:LWT_CHAN) : TEST = struct
   let (let/) = Lwt.bind
 
-  let ch1 = Lwt_stream.create ()
-  let ch2 = Lwt_stream.create ()
-  let raw_receive (st,_) = Lwt_stream.next st
-  let raw_send (_,push) v = push (Some v); Lwt.return_unit
-  (* let ch1 = Lwt_mvar.create_empty ()
-   * let ch2 = Lwt_mvar.create_empty ()
-   * let receive m = Lwt_mvar.take m
-   * let send m v = Lwt_mvar.put m v *)
-
-  let create () =
-    let rec epa () =
-          object method role_B =
-              object method ping =
-                  (ch1, epa1 ())
-              end
-          end
-    and epa1 () =
-          object method role_B =
-              fun () -> Lwt.map (fun v -> `pong(v, epa ())) (raw_receive ch2)
-          end
-    in
-    let rec epb () =
-          object method role_A =
-              fun () -> Lwt.map (fun v -> `ping(v, epb1 ())) (raw_receive ch1)
-          end
-    and epb1 () =
-          object method role_A =
-              object method pong =
-                  (ch2, epb ())
-              end
-          end
-    in
-    epa (), epb ()
-
-  let send (ch,cont) v =
-    let/ () = raw_send ch v in
-    Lwt.return cont
-
-  let receive ep = ep ()
-
-
-
-  let server_iter epb cnt =
-    let rec loop epb cnt =
-      if cnt = 0 then
-        Lwt.return epb
-      else begin
-          let/ `ping(_arr, epb) = receive epb#role_A in
-          let/ epb = send epb#role_A#pong () in
-          loop epb (cnt-1)
-        end
-    in
-    loop epb cnt
-
-  let runtest =
-    fun param ->
-    let payload = List.assoc param big_arrays in
-    let epa, epb = create () in
-    Core.Staged.stage (fun () ->
-        Lwt.async (fun () -> server_iter epb 1);
-        Lwt_main.run begin
-            let/ epa = send epa#role_B#ping payload in
-            let/ `pong((), epa) = receive epa#role_B in
-            Lwt.return_unit
-          end)
-end
-
-module BLwtChannelVectorManualLessWrap : TEST = struct
-  let (let/) = Lwt.bind
-
-  let ch1 = Lwt_stream.create ()
-  let ch2 = Lwt_stream.create ()
-  let raw_receive (st,_) = Lwt_stream.next st
-  let raw_send (_,push) v = push (Some v); Lwt.return_unit
+  let ch1 = Chan.create ()
+  let ch2 = Chan.create ()
+  let raw_receive = Chan.receive
+  let raw_send = Chan.send
   (* let ch1 = Lwt_mvar.create_empty ()
    * let ch2 = Lwt_mvar.create_empty ()
    * let receive m = Lwt_mvar.take m
@@ -539,13 +469,13 @@ module BLwtChannelVectorManualLessWrap : TEST = struct
 end
 
 
-module BLwtChannelVectorManualLessWrap1_5 : TEST = struct
+module BLwtChannelVectorManualLessWrap1_5(Chan:LWT_CHAN) : TEST = struct
   let (let/) = Lwt.bind
 
-  let ch1 = Lwt_stream.create ()
-  let ch2 = Lwt_stream.create ()
-  let raw_receive (st,_) = Lwt_stream.next st
-  let raw_send (_,push) v = push (Some v); Lwt.return_unit
+  let ch1 = Chan.create ()
+  let ch2 = Chan.create ()
+  let raw_receive = Chan.receive
+  let raw_send = Chan.send
   (* let ch1 = Lwt_mvar.create_empty ()
    * let ch2 = Lwt_mvar.create_empty ()
    * let receive m = Lwt_mvar.take m
@@ -630,13 +560,13 @@ module BLwtChannelVectorManualLessWrap1_5 : TEST = struct
           end)
 end
 
-module BLwtChannelVectorManualLessWrap2 : TEST = struct
+module BLwtChannelVectorManualLessWrap2(Chan:LWT_CHAN) : TEST = struct
   let (let/) = Lwt.bind
 
-  let ch1 = Lwt_stream.create ()
-  let ch2 = Lwt_stream.create ()
-  let raw_receive (st,_) = Lwt_stream.next st
-  let raw_send (_,push) v = push (Some v); Lwt.return_unit
+  let ch1 = Chan.create ()
+  let ch2 = Chan.create ()
+  let raw_receive = Chan.receive
+  let raw_send = Chan.send
   (* let ch1 = Lwt_mvar.create_empty ()
    * let ch2 = Lwt_mvar.create_empty ()
    * let receive m = Lwt_mvar.take m
@@ -712,13 +642,14 @@ module BLwtChannelVectorManualLessWrap2 : TEST = struct
           end)
 end
 
-module BLwtChannelVectorManualLessWrap3 : TEST = struct
+module BLwtChannelVectorManualLessWrap3(Chan:LWT_CHAN) : TEST = struct
+
   let (let/) = Lwt.bind
 
-  let ch1 = Lwt_stream.create ()
-  let ch2 = Lwt_stream.create ()
-  let raw_receive (st,_) = Lwt_stream.next st
-  let raw_send (_,push) v = push (Some v); Lwt.return_unit
+  let ch1 = Chan.create ()
+  let ch2 = Chan.create ()
+  let raw_receive = Chan.receive
+  let raw_send = Chan.send
   (* let ch1 = Lwt_mvar.create_empty ()
    * let ch2 = Lwt_mvar.create_empty ()
    * let receive m = Lwt_mvar.take m

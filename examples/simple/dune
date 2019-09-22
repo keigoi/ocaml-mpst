@@ -19,6 +19,20 @@
   (libraries ocaml-mpst calc_util))
 
 (executable
+ (name calc_lwt)
+  (public_name calc_mpst_simple_lwt)
+  (modules calc_lwt)
+  (flags ("-g" "-short-paths"))
+  (libraries ocaml-mpst.lwt calc_util))
+
+(executable
+ (name calc_base)
+  (public_name calc_base_mpst_simple)
+  (modules calc_base)
+  (flags ("-g" "-short-paths"))
+  (libraries ocaml-mpst calc_util))
+
+(executable
  (name calc_reuse)
   (public_name calc_reuse_mpst_simple)
   (modules calc_reuse)

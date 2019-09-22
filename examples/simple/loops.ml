@@ -205,3 +205,21 @@ let test6 =
   with
     Mpst.Seq.UnguardedLoopSeq ->
     print_endline "exception correctly occurred"
+
+let test7 =
+  try
+    print_endline "test7";
+    let g =
+      gen @@
+      choice_at a (to_b left_or_right)
+        (a, (a --> b) left @@ (b --> c) left finish)
+        (a, (a --> b) right @@ fix (fun x -> (b --> c) right (closed a x)))
+    in
+    ignore (get_ch a g);
+    ignore (get_ch b g);
+    ignore (get_ch c g);
+    ()
+  with
+    Mpst.Seq.UnguardedLoopSeq ->
+    print_endline "unexpected"
+    

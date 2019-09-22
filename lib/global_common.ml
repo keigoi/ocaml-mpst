@@ -26,15 +26,25 @@ let fix : type e g. ((e,g) t -> (e,g) t) -> (e,g) t = fun f ->
        *)
       Seq.resolve_merge (Lazy.force body))
 
+let mkclose env i =
+  let num =
+    match Table.get_opt env.props i with
+    | Some prop -> prop.multiplicity
+    | None -> 1
+  in
+  EP.make_simple (List.init num (fun _ -> Close))  
+  
 let finish : 'e. ('e, [`cons of close * 'a] as 'a) t =
   Global (fun env ->
-      Seq.repeat 0 (fun i ->
-            let num =
-              match Table.get_opt env.props i with
-              | Some prop -> prop.multiplicity
-              | None -> 1
-            in
-            EP.make_simple (List.init num (fun _ -> Close))))
+      Seq.repeat 0 (mkclose env))
+
+let closed : 'e 'g. (_, _, close, close, 'g, 'g) role -> ('e,'g) t -> ('e,'g) t
+  = fun r (Global g) ->
+  Global (fun env ->
+      let g = g env in
+      let close = mkclose env (Seq.int_of_lens r.role_index) in
+      let g' = Seq.lens_put r.role_index g close in
+      g')
 
 let gen_with_param p g = unglobal_ g p
 
@@ -54,7 +64,7 @@ let get_ch_list : ('x0, 'x1, 'ep, 'x2, 't, 'x3) role -> 't Seq.t -> 'ep list = f
 
 let munit = EP.make_simple [()]
 
-let choice_at : 'ep 'ep_l 'ep_r 'g0_l 'g0_r 'g1 'g2.
+let choice_at : 'e 'ep 'ep_l 'ep_r 'g0_l 'g0_r 'g1 'g2.
                   (_, _, unit, (< .. > as 'ep), 'g1, 'g2) role ->
                 ('ep, < .. > as 'ep_l, < .. > as 'ep_r) disj_merge ->
                 (_, _, 'ep_l, unit, 'g0_l, 'g1) role * ('e,'g0_l) t ->

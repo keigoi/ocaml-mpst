@@ -16,9 +16,9 @@
  * Mergeables can be "delayed" by using `Mergeable.make_recvar`. Delayed mergeables are used
  * to encode recursive endpoints. Merging delayed mergeable will also generate a delayed
  * mergeable.
- * A delayed mergeable are forced when it is actually extracted by `Mergeable.out`.
+ * A delayed mergeable is forced when it is actually extracted by `Mergeable.resolve`.
  *
- * In ocaml-mpst, call of `Mergeable.out` is chained during "get_ep" phase to ensure that
+ * In ocaml-mpst, call of `Mergeable.resolve` is chained during "get_ch" phase to ensure that
  * the all mergings are resolved before actual communication will take place.
  * It is realised by the hooks -- see the implementation of (-->) combinator, for example.
  *)

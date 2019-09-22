@@ -21,10 +21,6 @@ let pa, pb, pc =
   let g = gen_mult [1;10;1] prot in
   get_ch a g, get_ch_list b g, get_ch c g
 
-let a : [`A] = `A
-let b : [`B] = `B
-let c : [`C] = `C
-
 (* participant A *)
 let t1 : unit Lwt.t =
   let s = pa in

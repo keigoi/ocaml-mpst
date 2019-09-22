@@ -101,3 +101,16 @@
   (modules deleg)
   (flags ("-g" "-short-paths"))
   (libraries ocaml-mpst calc_util))
+
+(library
+ (name toy_oauth_util)
+  (modules toy_oauth_util)
+  (flags ("-g" "-short-paths"))
+  (libraries ocaml-mpst))
+
+(executable
+ (name toy_oauth)
+  (public_name toy_oauth)
+  (modules toy_oauth)
+  (flags ("-g" "-short-paths"))
+  (libraries ocaml-mpst toy_oauth_util))

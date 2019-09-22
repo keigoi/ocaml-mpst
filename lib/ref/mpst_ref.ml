@@ -45,13 +45,13 @@ end
 end
 
 
-(** Linear types *)
-module Lin
+(** DynLinear types *)
+module DynLin
 (*        : sig
  *   (\** linear type constructor *\)
  *   type 'a lin
  * 
- *   (\** extract the value. raises LinFlag.InvalidEndpoint if the endpoint is already consumed *\)
+ *   (\** extract the value. raises DynLinFlag.InvalidEndpoint if the endpoint is already consumed *\)
  *   val use : 'a lin -> 'a
  * 
  *   (\** a generator for linear values *\)
@@ -299,12 +299,12 @@ module Mergeable
        Lazy.force d
 end
 
-(** EP: The endpoint type. An endpoint is a mergeable, linear channel.
+(** DynEP: The endpoint type. An endpoint is a mergeable, linear channel.
   *)   
-module EP
+module DynEP
 (*        : sig
- *   type 'a t (\* = 'a Lin.gen Mergeable.t *\)
- *   val make_lin : hook:unit lazy_t -> mergefun:('a -> 'a -> 'a) -> value:'a -> 'a Lin.lin t
+ *   type 'a t (\* = 'a DynLin.gen Mergeable.t *\)
+ *   val make_lin : hook:unit lazy_t -> mergefun:('a -> 'a -> 'a) -> value:'a -> 'a DynLin.lin t
  *   val make_simple : 'a -> 'a t
  *   val wrap_label : ('o, 'v) method_ -> 'v t -> 'o t
  *   val fresh : 'a t -> 'a
@@ -316,84 +316,84 @@ module EP
  *   val make_merge_list : 'a t list -> 'a t
  * end *)
   = struct
-  type 'a t = 'a Lin.gen Mergeable.t
+  type 'a t = 'a DynLin.gen Mergeable.t
   let make_lin ~hook ~mergefun ~value =
     Mergeable.make
       ~hook
-      ~mergefun:(Lin.merge_gen mergefun)
-      ~value:(Lin.create value)
+      ~mergefun:(DynLin.merge_gen mergefun)
+      ~value:(DynLin.create value)
   let make_simple v =
-    let v = Lin.create_nolin v in
+    let v = DynLin.create_nolin v in
     Mergeable.make
       ~hook:(Lazy.from_val ())
       ~mergefun:(fun _ _ -> v)
       ~value:v
   let wrap_label meth t =
-    Mergeable.map (Lin.map_gen meth.make_obj) (Lin.map_gen meth.call_obj) t
+    Mergeable.map (DynLin.map_gen meth.make_obj) (DynLin.map_gen meth.call_obj) t
   let force_merge t =
     ignore (Mergeable.resolve t)
   let fresh t =
-    Lin.fresh @@ Mergeable.resolve t
+    DynLin.fresh @@ Mergeable.resolve t
 
   let make_recvar = Mergeable.make_recvar
   let make_merge = Mergeable.make_merge
   let make_merge_list = Mergeable.make_merge_list
 
-  let make_disj_merge mrg = Mergeable.make_disj_merge (Lin.lift_disj_merge mrg)
+  let make_disj_merge mrg = Mergeable.make_disj_merge (DynLin.lift_disj_merge mrg)
 end
     
 module Inp : sig
   type 'a inp
-  val receive : 'a inp Lin.lin -> 'a
-  val create_inp : 'v Event.channel ref -> (_,[>] as 'var,_,'v * 't) label -> 't EP.t -> 'var inp Lin.lin EP.t
+  val receive : 'a inp DynLin.lin -> 'a
+  val create_inp : 'v Event.channel ref -> (_,[>] as 'var,_,'v * 't) label -> 't DynEP.t -> 'var inp DynLin.lin DynEP.t
 end = struct
   type 'a inp = 'a Event.event
   let receive ev =
-    Event.sync (Lin.use ev)
+    Event.sync (DynLin.use ev)
   let merge_inp ev1 ev2 =
     Event.choose [ev1; ev2]
   let create_inp ch label cont =
-    EP.make_lin
-      ~hook:(lazy (EP.force_merge cont))
+    DynEP.make_lin
+      ~hook:(lazy (DynEP.force_merge cont))
       ~mergefun:merge_inp
       ~value:
          (Event.wrap
            (Event.guard (fun () -> Event.receive !ch)) (* dereference of ch is delayed by this Event.guard *)
-           (fun v -> label.var (v, EP.fresh cont)))
+           (fun v -> label.var (v, DynEP.fresh cont)))
 end
 
 module Out : sig
   type ('v, 't) out
-  val send : ('v, 't) out Lin.lin -> 'v -> 't
-  val create_out : 'v Event.channel ref -> (< .. > as 'obj, _, ('v, 't) out Lin.lin, _) label -> 't EP.t -> 'obj EP.t
+  val send : ('v, 't) out DynLin.lin -> 'v -> 't
+  val create_out : 'v Event.channel ref -> (< .. > as 'obj, _, ('v, 't) out DynLin.lin, _) label -> 't DynEP.t -> 'obj DynEP.t
 end = struct
-  type ('v, 'u) out = 'v Event.channel ref * 'u EP.t
+  type ('v, 'u) out = 'v Event.channel ref * 'u DynEP.t
   let send t v =
-    let (ch,cont) = Lin.use t in
+    let (ch,cont) = DynLin.use t in
     Event.sync (Event.send !ch v);
-    EP.fresh cont
+    DynEP.fresh cont
   let merge_out (ch1,cont1) (ch2,cont2) =
     ch1 := !ch2;
-    (ch1, EP.make_merge cont1 cont2)
+    (ch1, DynEP.make_merge cont1 cont2)
   let create_out ch label cont =
     let out = 
-      EP.make_lin
-        ~hook:(lazy (EP.force_merge cont))
+      DynEP.make_lin
+        ~hook:(lazy (DynEP.force_merge cont))
         ~mergefun:merge_out
         ~value:(ch,cont)
     in
-    EP.wrap_label label.obj out
+    DynEP.wrap_label label.obj out
 end
 
 module Close : sig
   type close
   val close : close -> unit
-  val mclose : close EP.t
+  val mclose : close DynEP.t
 end = struct
   type close = unit
   let close _ = ()
   let mclose =
-    EP.make_simple ()
+    DynEP.make_simple ()
 end
 
 module Seq
@@ -405,8 +405,8 @@ module Seq
 
   exception UnguardedLoopSeq
 
-  val lens_get : ('a, _, 'aa, _) lens -> 'aa t -> 'a EP.t
-  val lens_put : ('a, 'b, 'aa, 'bb) lens -> 'aa t -> 'b EP.t -> 'bb t
+  val lens_get : ('a, _, 'aa, _) lens -> 'aa t -> 'a DynEP.t
+  val lens_put : ('a, 'b, 'aa, 'bb) lens -> 'aa t -> 'b DynEP.t -> 'bb t
 
   val seq_merge : 'a t -> 'a t -> 'a t
   val recvar : 'a t lazy_t -> 'a t
@@ -417,7 +417,7 @@ end
   = struct
   type _ t =
     (* hidden *)
-  | SeqCons : 'hd EP.t * 'tl t -> [`cons of 'hd * 'tl] t
+  | SeqCons : 'hd DynEP.t * 'tl t -> [`cons of 'hd * 'tl] t
   | SeqFinish : ([`cons of Close.close * 'a] as 'a) t
   | SeqRecVars : 'a t lazy_t list -> 'a t
   | SeqBottom : 'a t
@@ -430,14 +430,14 @@ end
   let all_closed = SeqFinish
   let recvar l = SeqRecVars [l]
 
-  let rec seq_head : type hd tl. [`cons of hd * tl] t -> hd EP.t =
+  let rec seq_head : type hd tl. [`cons of hd * tl] t -> hd DynEP.t =
     function
     | SeqCons(hd,_) -> hd
-    | SeqRecVars ds -> EP.make_merge_list (List.map seqvar_head ds)
+    | SeqRecVars ds -> DynEP.make_merge_list (List.map seqvar_head ds)
     | SeqFinish -> Close.mclose
     | SeqBottom -> raise UnguardedLoopSeq
-  and seqvar_head : type hd tl. [`cons of hd * tl] t lazy_t -> hd EP.t = fun d ->
-    EP.make_recvar (lazy (seq_head (Lazy.force d)))
+  and seqvar_head : type hd tl. [`cons of hd * tl] t lazy_t -> hd DynEP.t = fun d ->
+    DynEP.make_recvar (lazy (seq_head (Lazy.force d)))
 
   let rec seq_tail : type hd tl. [`cons of hd * tl] t -> tl t =
     function
@@ -448,12 +448,12 @@ end
   and seqvar_tail : type hd tl. [`cons of hd * tl] t lazy_t -> tl t lazy_t = fun d ->
     lazy (seq_tail (Lazy.force d))
 
-  let rec lens_get : type a b xs ys. (a, b, xs, ys) lens -> xs t -> a EP.t = fun ln xs ->
+  let rec lens_get : type a b xs ys. (a, b, xs, ys) lens -> xs t -> a DynEP.t = fun ln xs ->
     match ln with
     | Zero -> seq_head xs
     | Succ ln' -> lens_get ln' (seq_tail xs)
 
-  let rec lens_put : type a b xs ys. (a,b,xs,ys) lens -> xs t -> b EP.t -> ys t =
+  let rec lens_put : type a b xs ys. (a,b,xs,ys) lens -> xs t -> b DynEP.t -> ys t =
     fun ln xs b ->
     match ln with
     | Zero -> SeqCons(b, seq_tail xs)
@@ -462,7 +462,7 @@ end
   let rec seq_merge : type x. x t -> x t -> x t = fun l r ->
     match l,r with
     | SeqCons(_,_), _ ->
-       let hd = EP.make_merge (seq_head l) (seq_head r) in
+       let hd = DynEP.make_merge (seq_head l) (seq_head r) in
        let tl = seq_merge (seq_tail l) (seq_tail r) in
        SeqCons(hd, tl)
     | _, SeqCons(_,_) -> seq_merge r l
@@ -509,7 +509,7 @@ end
 
   let rec force_all : type x. x t -> unit = function
     | SeqCons(hd,tl) ->
-       EP.force_merge hd;
+       DynEP.force_merge hd;
        force_all tl
     | SeqRecVars [] -> assert false
     | SeqRecVars ((d::ds) as dss) ->
@@ -523,11 +523,11 @@ module Local : sig
   type 'a inp = 'a Inp.inp
   type ('v, 't) out = ('v, 't) Out.out
   type close = Close.close
-  val receive : 'a inp Lin.lin -> 'a
-  val send : ('v, 't) out Lin.lin -> 'v -> 't
+  val receive : 'a inp DynLin.lin -> 'a
+  val send : ('v, 't) out DynLin.lin -> 'v -> 't
   val close : close -> unit
 end  = struct
-  type 'a lin = 'a Lin.lin
+  type 'a lin = 'a DynLin.lin
   include Inp
   include Out
   include Close
@@ -553,9 +553,9 @@ module Global
  *     (_, _, 'r, close, 'g2, 'g12) role * 'g2 Seq.t -> 'g3 Seq.t
  * 
  *   val ( --> ) :
- *     (< .. > as 'rA, ([>  ] as 'var) inp EP.lin, 'epA, 'rB, 'g1, 'g2) role ->
+ *     (< .. > as 'rA, ([>  ] as 'var) inp DynEP.lin, 'epA, 'rB, 'g1, 'g2) role ->
  *     (< .. > as 'rB, < .. > as 'obj, 'epB, 'rA, 'g0, 'g1) role ->
- *     ('obj, 'var, ('v, 'epA) out EP.lin, 'v * 'epB) label -> 'g0 Seq.t -> 'g2 Seq.t
+ *     ('obj, 'var, ('v, 'epA) out DynEP.lin, 'v * 'epB) label -> 'g0 Seq.t -> 'g2 Seq.t
  * 
  *   (\** forces delayed merges. *\)
  *   val gen : 'a Seq.t -> 'a Seq.t
@@ -581,7 +581,7 @@ module Global
   let choice_at rA0 mrg (rA1,g1) (rA2,g2) =
     let epA1, epA2 = Seq.lens_get rA1.role_index g1, Seq.lens_get rA2.role_index g2 in
     let g1, g2 = Seq.lens_put rA1.role_index g1 Close.mclose, Seq.lens_put rA2.role_index g2 Close.mclose in
-    let epA = EP.make_disj_merge mrg epA1 epA2 in
+    let epA = DynEP.make_disj_merge mrg epA1 epA2 in
     let g = Seq.seq_merge g1 g2 in
     let g = Seq.lens_put rA0.role_index g epA in
     g
@@ -590,11 +590,11 @@ module Global
     let ch = ref (Event.new_channel ()) in
     let epB = Seq.lens_get rB.role_index g in
     let epB = create_inp ch label epB in
-    let epB = EP.wrap_label rA.role_label epB in
+    let epB = DynEP.wrap_label rA.role_label epB in
     let g = Seq.lens_put rB.role_index g epB in
     let epA = Seq.lens_get rA.role_index g in
     let epA = create_out ch label epA in
-    let epA = EP.wrap_label rB.role_label epA in
+    let epA = DynEP.wrap_label rB.role_label epA in
     Seq.lens_put rA.role_index g epA
 
 
@@ -603,7 +603,7 @@ module Global
     g
     
   let get_ch r g =
-    EP.fresh (Seq.lens_get r.role_index g)
+    DynEP.fresh (Seq.lens_get r.role_index g)
 end
 
 module Util = struct

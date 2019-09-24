@@ -1,5 +1,9 @@
 # OCaml-MPST
 
+## Presentation
+
+* [Slides presented at PLAS Group Seminar at University of Kent](https://www.slideshare.net/keigoi/ocamlmpst-global-protocol-combinators-175519214)
+
 ## Build
 
 * Install OPAM

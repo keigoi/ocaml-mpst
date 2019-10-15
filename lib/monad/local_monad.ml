@@ -10,7 +10,6 @@ module Make
 
   type 't out = 't Mpst.Local.Make(Linocaml_lin.EP)(M)(EV).out
   type 't inp = 't Mpst.Local.Make(Linocaml_lin.EP)(M)(EV).inp
-  type 't lin_ = 't Linocaml_lin.EP.lin
 
   val ( @* ) :
     ('a,'b,'q,'r) Linocaml.lens
@@ -18,16 +17,16 @@ module Make
     -> ('a * 'c,'b,'p,'r) Linocaml.lens
 
   val send :
-    ((< .. > as 'ep) -> ('t data Mpst.one * 'u) out lin_)
+    ((< .. > as 'ep) -> ('t data Mpst.one * 'u) out)
     -> 't
     -> ('ep lin, unit, 'u lin) monad
 
   val deleg_send :
-    ((< .. > as 'ep) -> ('t lin Mpst.one * 'u) out lin_)
+    ((< .. > as 'ep) -> ('t lin Mpst.one * 'u) out)
     -> ('ep lin * 't lin, unit, 'u lin) monad
 
   val receive :
-    ((< .. > as 'ep) -> 't inp lin_)
+    ((< .. > as 'ep) -> 't inp)
     -> ('ep lin,unit,'t lin) monad
 
   val close :
@@ -54,7 +53,6 @@ end = struct
 
   type 't out = 't Local.out
   type 't inp = 't Local.inp
-  type 't lin_ = 't Linocaml_lin.EP.lin
 
   let[@inline] mklin x = Linocaml.({__lin=x})
   let[@inline] unlin x = Linocaml.(x.__lin)

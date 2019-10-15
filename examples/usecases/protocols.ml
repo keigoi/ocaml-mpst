@@ -33,7 +33,7 @@ module TwoBuyer = struct
   let to_s mrg = to_ mrg s s s
 
   let choose () =
-    choice_at b (to_a ok_or_quit)
+    choice_at b (to_a ok_or_quit)  (* full merge on s *)
     (b, (b --> a) ok @@
         (b --> s) ok @@
         (s --> b) date @@
@@ -156,7 +156,7 @@ module SH = struct
           (r --> p) res @@
             (p --> r) is_above @@
               (r --> p) res @@
-                choice_at p (to_r bothin_bothout_or_intersect)
+                choice_at p (to_r bothin_bothout_or_intersect) (* full merge on c (both_in/sec_out/sec_in)*)
                   (p, choice_at p (to_r bothin_or_bothout)
                         (p, (p --> r) both_in @@
                               (p --> c) both_in @@
@@ -354,12 +354,12 @@ module TravelAgency = struct
 
   let g () =
     fix (fun t ->
-        choice_at c (to_a query_or_yes_no)
+        choice_at c (to_a query_or_yes_no) (* full merging on s: dummy or yes *)
           (c, (c --> a) query @@
                 (a --> c) quote @@
                   (a --> s) dummy @@
                     t)
-          (c, choice_at c (to_a yes_or_no)
+          (c, choice_at c (to_a yes_or_no) (* full merging on s again: yes or no*)
                 (c, (c --> a) yes @@
                       (a --> s) yes @@
                         (c --> s) payment @@
@@ -426,7 +426,7 @@ module SupplierInfo_microservice = struct
      disj_splitR=(fun lr -> (lr :> <role_Supply : _>))}
 
   let suppinfo () =
-    choice_at authorisesvc (to_requestor_or_suppliersvc)
+    choice_at authorisesvc (to_requestor_or_suppliersvc) (* uses nondirected output *)
       (authorisesvc, (authorisesvc --> requestor) deny @@
                        (* dummy sending due to lack of explicit connection handling  *)
                        (authorisesvc --> suppliersvc) dummy @@
@@ -784,7 +784,6 @@ module SleepingBarber = struct
         (customer --> barber) pay @@
           finish
 
-
   let g () =
     fix (fun t ->
         choice_at shop (to_customer full_or_seat)
@@ -970,7 +969,7 @@ module OAuth_paper = struct
     (s --> c) login @@ (c --> a) password @@ (a --> c) auth finish
 
   let oAuth3 () =
-    choice_at s (to_c login_or_cancel)
+    choice_at s (to_c login_or_cancel) (* full merging at a: password or quit *)
       (s, (s --> c) login @@
           fix @@ fun t ->
             (c --> a) password @@
@@ -1023,10 +1022,10 @@ module OAuth_paper = struct
        close ep
     | `quit((), ep) ->
        close ep
-    
-    
+
+
 end
-                       
+
 (*
 < s : [> `login of 'a * < a : < password : ('b one * < a : [> `auth of 'c * close ] inp >) ] >
 

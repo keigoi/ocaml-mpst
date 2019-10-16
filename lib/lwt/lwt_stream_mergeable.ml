@@ -24,11 +24,13 @@ and 't inp_ref = 't inp ref
 and 't out_refs =
   | NoOut : 't out_refs
   | OneOut : 't out_ref -> 't out_refs
-  | BinOut : 'l out_refs * 'r out_refs -> ('l,'r) either out_refs
+  | BinOutEither : 'l out_refs * 'r out_refs -> ('l, 'r) either out_refs
+  | BinOutProd : 'l out_refs * 'r out_refs -> ('l * 'r) out_refs
 and _ inp_refs =
   | NoInp : 't inp_refs
   | OneInp : 't inp_ref -> 't inp_refs
-  | BinInp : 'l inp_refs * 'r inp_refs -> ('l * 'r) inp_refs
+  | BinInpProd : 'l inp_refs * 'r inp_refs -> ('l * 'r) inp_refs
+  | BinInpEither : 'l inp_refs * 'r inp_refs -> ('l, 'r) either inp_refs
 
 let new_node () =
   let rec node = { next = node; data = None } in
@@ -100,42 +102,50 @@ let rec next_rec t =
 let receive_raw t =
   next_rec t
 
-let rec assign_out_ref : type t u. t out_refs -> (t -> u) -> u st -> unit = fun os c st ->
+let rec assign_out_ref : type t u. t out_refs -> (t -> u) -> u st -> unit = fun os f st ->
   match os with
   | NoOut -> ()
-  | OneOut({contents=Out(_,_)} as r) ->
-     r := Out(st,c)
-  | BinOut(l,r) ->
-     assign_out_ref l (fun x -> c (Left x)) st;
-     assign_out_ref r (fun x -> c (Right x)) st
+  | OneOut(r) ->
+     r := Out(st,f)
+  | BinOutEither(l,r) ->
+     assign_out_ref l (fun x -> f (Left x)) st;
+     assign_out_ref r (fun x -> f (Right x)) st
+  | BinOutProd(l,r) ->
+     assign_out_ref l (fun x -> f (x,failwith"")) st; (* TODO *)
+     assign_out_ref r (fun x -> f (failwith"",x)) st (* TODO *)
 
-let merge_inp : 'a. 'a inp_ref -> 'a inp_ref -> 'a inp_ref = fun l r ->
-  let Inp(st1,f1), Inp(st2,f2) = !l, !r in
+let rec assign_inp_ref : type t u. t inp_refs -> (u -> t) -> u st -> unit = fun os f st ->
+  match os with
+  | NoInp -> ()
+  | OneInp (r) ->
+     r := Inp(st,f)
+  | BinInpProd(l,r) ->
+     assign_inp_ref l (fun x -> fst (f x)) st;
+     assign_inp_ref r (fun x -> snd (f x)) st;
+     ()
+  | BinInpEither(l,r) ->
+     assign_inp_ref l (fun x -> match f x with Left x -> x) st; (* TODO *)
+     assign_inp_ref r (fun x -> match f x with Right x -> x) st; (* TODO *)
+     ()
+
+let merge_inp : type t. t inp_ref -> t inp_ref -> t inp_ref = fun ({contents=(Inp(st1,f1))} as l) ({contents=(Inp(st2,f2))} as r) ->
   let st = create_raw () in
-  assign_out_ref st1.out_refs (fun x -> Left x) st;
-  assign_out_ref st2.out_refs (fun x -> Right x) st;
-  st.out_refs <- BinOut (st1.out_refs,st2.out_refs);
+  st.out_refs <- BinOutEither (st1.out_refs, st2.out_refs);
+  st.inp_refs <- BinInpEither (st1.inp_refs, st2.inp_refs);
+  assign_inp_ref st.inp_refs (fun x -> x) st;
+  assign_out_ref st.out_refs (fun x -> x) st;
   let i = Inp(st, (function Left x -> f1 x | Right x -> f2 x)) in
   l := i;
   r := i;
   l
 
-let rec assign_inp_ref : type t u. t inp_refs -> (u -> t) -> u st -> unit = fun os c st ->
-  match os with
-  | NoInp -> ()
-  | OneInp ({contents=Inp(_,_)} as r) ->
-     r := Inp(st,c)
-  | BinInp(l,r) ->
-     assign_inp_ref l (fun x -> fst (c x)) st;
-     assign_inp_ref r (fun x -> snd (c x)) st;
-     ()
-
 let merge_out : type t. t out_ref -> t out_ref -> t out_ref = fun ll rr ->
   let Out(sl,fl),Out(sr,fr) = !ll, !rr in
   let st = create_raw () in
-  assign_inp_ref sl.inp_refs (fun (x,_) -> x) st;
-  assign_inp_ref sr.inp_refs (fun (_,x) -> x) st;
-  st.inp_refs <- BinInp(sl.inp_refs, sr.inp_refs);
+  st.inp_refs <- BinInpProd(sl.inp_refs, sr.inp_refs);
+  st.out_refs <- BinOutProd(sl.out_refs, sr.out_refs);
+  assign_out_ref st.out_refs (fun x -> x) st;
+  assign_inp_ref st.inp_refs (fun x -> x) st;
   let o = Out(st,(fun x -> (fl x, fr x))) in
   ll := o;
   rr := o;

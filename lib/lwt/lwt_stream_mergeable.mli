@@ -3,7 +3,7 @@ type +'a inp
 type 'a out_ref
 type 'a inp_ref
 
-val create : unit -> 'a out_ref * 'a inp_ref
+val create_with : wrap_inp:('a -> 'b) -> 'a out_ref * 'b inp_ref
 val send : 'a out -> 'a -> unit Lwt.t
 val receive : 'a inp -> 'a Lwt.t
 val merge_inp : 'a inp_ref -> 'a inp_ref -> 'a inp_ref

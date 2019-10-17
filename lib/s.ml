@@ -16,10 +16,10 @@ module type EVENT = sig
   val new_channel : unit -> 'a channel
   val flip_channel : 'a channel -> 'a channel
   val receive : 'a channel -> 'a event
+  val receive_list : 'a channel list -> 'a list event
   val send : 'a channel -> 'a -> unit event
   val guard : (unit -> 'a event) -> 'a event
   val always : 'a -> 'a event
-  val receive_list : 'a channel list -> 'a list event
 
   (* needs refactoring *)
   type 'a inp
@@ -27,6 +27,7 @@ module type EVENT = sig
   val receive_inp : 'a inp -> 'a event
   val merge_inp : 'a inp -> 'a inp -> 'a inp
   val wrap_inp : 'a inp -> ('a -> 'b) -> 'b inp
+  val receive_list_inp : 'a channel list -> 'a list inp
 
   type +'a monad
   val sync : 'a event -> 'a monad

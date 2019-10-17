@@ -64,55 +64,55 @@ module Make
     | [] ->
        assert false
 
-  (* let[@inline] make_inp_many chs label cont =
-   *   let case tag myidx =
-   *     [(tag, (fun t -> label.var (Obj.obj t, EP.fresh cont myidx)))]
-   *   in
-   *   match chs with
-   *   | Bare(_)::_ ->
-   *      let chs = List.map (function
-   *                    | Bare(ch) -> ch
-   *                    | _ -> assert false) chs
-   *      in
-   *      Inp.create_inp_many chs label cont
-   * 
-   *   | Untyped (tag, _) ::_ ->
-   *      let chss = List.map (function
-   *                    | Untyped(_,ch) -> ch
-   *                    | _ -> assert false) chs
-   *      in
-   *      let chss = List.map (List.map EV.flip_channel) chss in
-   *      let inpfun myidx chs =
-   *        let raw_input () =
-   *          M.bind (EV.sync @@ EV.receive_list chs) (fun vs ->
-   *              let tag = fst (List.hd vs) in
-   *              let vs = List.map snd vs in
-   *              M.return (tag, Obj.repr vs))
-   *        in
-   *        {raw_input;
-   *         cases=case tag myidx}
-   *      in
-   *      Inp.create_inp_fun (List.mapi inpfun chss)
-   * 
-   *   | IPC (tag, _) :: _ ->
-   *      let chss = List.map (function
-   *                    | IPC(_,ch) -> ch
-   *                    | _ -> assert false) chs
-   *      in
-   *      let chss = List.map (List.map flip_dpipe) chss in
-   *      let chss = List.map (List.map (fun ch -> ch.me.inp)) chss in
-   *      let inpfun myidx chs =
-   *        let raw_input () =
-   *          M.bind (C.input_value_list chs) (fun vs ->
-   *          let tag = fst (List.hd vs) in
-   *          let vs = List.map snd vs in
-   *          M.return (tag, Obj.repr vs))
-   *        in
-   *        {raw_input;
-   *         cases=case tag myidx}
-   *      in
-   *      Inp.create_inp_fun (List.mapi inpfun chss)
-   *   | [] -> assert false *)
+  let[@inline] make_inp_many chs label cont =
+    let case tag myidx =
+      [(tag, (fun t -> label.var (Obj.obj t, EP.fresh cont myidx)))]
+    in
+    match chs with
+    | Bare(_)::_ ->
+       let chs = List.map (function
+                     | Bare(ch) -> ch
+                     | _ -> assert false) chs
+       in
+       Inp.create_inp_many chs label cont
+
+    | Untyped (tag, _) ::_ ->
+       let chss = List.map (function
+                     | Untyped(_,ch) -> ch
+                     | _ -> assert false) chs
+       in
+       let chss = List.map (List.map EV.flip_channel) chss in
+       let inpfun myidx chs =
+         let raw_input () =
+           M.bind (EV.sync @@ EV.receive_list chs) (fun vs ->
+               let tag = fst (List.hd vs) in
+               let vs = List.map snd vs in
+               M.return (tag, Obj.repr vs))
+         in
+         {raw_input;
+          cases=case tag myidx}
+       in
+       Inp.create_inp_fun (List.mapi inpfun chss)
+
+    | IPC (tag, _) :: _ ->
+       let chss = List.map (function
+                     | IPC(_,ch) -> ch
+                     | _ -> assert false) chs
+       in
+       let chss = List.map (List.map flip_dpipe) chss in
+       let chss = List.map (List.map (fun ch -> ch.me.inp)) chss in
+       let inpfun myidx chs =
+         let raw_input () =
+           M.bind (C.input_value_list chs) (fun vs ->
+           let tag = fst (List.hd vs) in
+           let vs = List.map snd vs in
+           M.return (tag, Obj.repr vs))
+         in
+         {raw_input;
+          cases=case tag myidx}
+       in
+       Inp.create_inp_fun (List.mapi inpfun chss)
+    | [] -> assert false
 
   let make_out_one chs label cont =
     match chs with
@@ -300,14 +300,14 @@ module Make
     Global (fun env ->
         a2b env ~num_senders:1 ~make_out:make_out_many ~make_inp:make_inp_one rA rB label (g0 env))
 
-  (* let gather : 'roleAobj 'labelvar 'epA 'roleBobj 'g1 'g2 'labelobj 'epB 'g0 'v.
-   *              (< .. > as 'roleAobj, 'labelvar Inp.inp EP.lin, 'epA, 'roleBobj, 'g1, 'g2) role ->
-   *              (< .. > as 'roleBobj, 'labelobj,     'epB, 'roleAobj, 'g0, 'g1) role ->
-   *              (< .. > as 'labelobj, [> ] as 'labelvar, ('v one * 'epA) Out.out EP.lin, 'v list * 'epB StaticLin.lin) label ->
-   *              'g0 global -> 'g2 global
-   *   = fun rA rB label (Global g0) ->
-   *   Global (fun env ->
-   *       a2b env ~num_receivers:1 ~make_out:make_out_one ~make_inp:make_inp_many rA rB label (g0 env)) *)
+  let gather : 'roleAobj 'labelvar 'epA 'roleBobj 'g1 'g2 'labelobj 'epB 'g0 'v.
+               (< .. > as 'roleAobj, 'labelvar Inp.inp EP.lin, 'epA, 'roleBobj, 'g1, 'g2) role ->
+               (< .. > as 'roleBobj, 'labelobj,     'epB, 'roleAobj, 'g0, 'g1) role ->
+               (< .. > as 'labelobj, [> ] as 'labelvar, ('v one * 'epA) Out.out EP.lin, 'v list * 'epB StaticLin.lin) label ->
+               'g0 global -> 'g2 global
+    = fun rA rB label (Global g0) ->
+    Global (fun env ->
+        a2b env ~num_receivers:1 ~make_out:make_out_one ~make_inp:make_inp_many rA rB label (g0 env))
 
   let local _ = EpLocal
 

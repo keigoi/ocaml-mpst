@@ -35,6 +35,7 @@ module AsyncEvent : Mpst.S.EVENT
   let receive_inp x = x
   let merge_inp x y () = Deferred.any [x (); y ()]
   let wrap_inp = wrap
+  let receive_list_inp = receive_list
 end
 
 module AsyncSerial : Mpst.S.SERIAL with type 'a monad = 'a Async.Deferred.t = struct

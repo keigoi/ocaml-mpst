@@ -14,9 +14,9 @@ module Make(EP:S.ENDPOINTS)(M:S.MONAD)(EV:S.EVENT with type 'a monad = 'a M.t) :
     'v EV.channel list ref list ->
     (_,[>] as 'var,_,'v * 't) label -> 't EP.t -> 'var inp EP.lin EP.t
 
-  (* val create_inp_many :
-   *   'v EV.channel list ref list ->
-   *   (_,[>] as 'var,_,'v list * 't) label -> 't EP.t -> 'var inp EP.lin EP.t *)
+  val create_inp_many :
+    'v EV.channel list ref list ->
+    (_,[>] as 'var,_,'v list * 't) label -> 't EP.t -> 'var inp EP.lin EP.t
 
   val create_inp_fun :
     'var inpfun list -> 'var inp EP.lin EP.t
@@ -75,18 +75,18 @@ end = struct
     in
     create_inp_ receive chs label cont
 
-  (* let create_inp_many chs label cont =
-   *   let receive_many me =
-   *     (\* again, delay this *\)
-   *     let chs =
-   *       List.map (fun chs ->
-   *           let ch = List.nth !chs me in
-   *           EV.flip_channel ch)
-   *         chs
-   *     in
-   *     List.map EV.receive_list chs
-   *   in
-   *   create_inp_ receive_many chs label cont *)
+  let create_inp_many chs label cont =
+    let receive_many me =
+      (* again, delay this *)
+      let chs =
+        List.map (fun chs ->
+            let ch = List.nth !chs me in
+            EV.flip_channel ch)
+          chs
+      in
+      EV.receive_list_inp chs
+    in
+    create_inp_ receive_many chs label cont
 
   let[@inline] receive inp =
     match EP.use inp with

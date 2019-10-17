@@ -30,6 +30,7 @@ module Event : S.EVENT
   let receive_inp x = x
   let merge_inp x y = Event.choose [x;y]
   let wrap_inp = Event.wrap
+  let receive_list_inp = receive_list
 end
 module Serial : S.SERIAL
        with type 'a monad = 'a and type in_channel = Stdlib.in_channel and type out_channel=Stdlib.out_channel

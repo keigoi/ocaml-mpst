@@ -53,7 +53,7 @@ let send t v =
     end;
   Lwt.return_unit
 
-let rec next_rec t =
+let rec next_rec ~f t =
   let open Lwt in
   match t.node.data with
   | None ->
@@ -61,7 +61,7 @@ let rec next_rec t =
      t.push_waiting <- true;
      Lwt.on_cancel t.push_signal (fun _ -> print_endline "cancelled");
      Lwt.protected t.push_signal >>= fun () ->
-     next_rec t
+     next_rec ~f t
      (* begin match t.node.data with
       * | None ->
       *    print_endline "fail";
@@ -71,10 +71,18 @@ let rec next_rec t =
       *    Lwt.return x
       * end *)
   | Some x ->
-     print_endline "Some";
-     t.node.data <- None;
-     t.node <- t.node.next;
-     Lwt.return x
+     match f x with
+     | Some x -> 
+        print_endline "Received";
+        t.node.data <- None;
+        t.node <- t.node.next;
+        Lwt.return x
+     | None ->
+        print_endline "Retry";
+        next_rec ~f t
 
 let receive t =
-  next_rec t
+  next_rec ~f:(fun x -> Some x) t
+
+let receive_wrap ~f t =
+  next_rec ~f t

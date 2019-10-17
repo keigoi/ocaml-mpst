@@ -1,7 +1,7 @@
 type 'a out
 type 'a inp
 
-val create_with : wrap_inp:('a -> 'b) -> 'a out * 'b inp
+val create_with : wrap:('a -> 'b) -> 'a out * 'b inp
 val create : unit -> 'a out * 'a inp
 
 val merge_inp : 'a inp -> 'a inp -> 'a inp

@@ -9,10 +9,10 @@ type 't st = {
   }
 and 't out_refs = 't wrap_out list
 and 't inp_refs = 't wrap_inp list
-and _ wrap_out = WrapOut : 'u out_ref * ('u -> 't) -> 't wrap_out
-and _ wrap_inp = WrapInp : 'u inp_ref * ('t -> 'u option) -> 't wrap_inp
-and 't out_ref = 't out_ ref
-and 't inp_ref = 't inp_ ref
+and _ wrap_out = WrapOut : 'u out * ('u -> 't) -> 't wrap_out
+and _ wrap_inp = WrapInp : 'u inp * ('t -> 'u option) -> 't wrap_inp
+and 't out = 't out_ ref
+and 't inp = 't inp_ ref
 and -'t out_ = Out_ : 'u st * ('t -> 'u) -> 't out_
 and +'t inp_ = Inp_ : 'u st * ('u -> 't option) -> 't inp_
 
@@ -42,22 +42,22 @@ let create_raw () =
   in
   t
 
-let rec assign_out_ref : type t u. t out_refs -> (t -> u) -> u st -> unit = fun os f st ->
+let rec assign_out : type t u. t out_refs -> (t -> u) -> u st -> unit = fun os f st ->
   match os with
   | [] ->
      ()
   | WrapOut (r,f0) :: rs ->
      r := Out_(st, (fun x -> f (f0 x)));
-     assign_out_ref rs f st;
+     assign_out rs f st;
      ()
 
-let rec assign_inp_ref : type t u. t inp_refs -> (u -> t option) -> u st -> unit = fun rs f st ->
+let rec assign_inp : type t u. t inp_refs -> (u -> t option) -> u st -> unit = fun rs f st ->
   match rs with
   | [] ->
      ()
   | WrapInp (r,g0) :: rs ->
      r := Inp_(st, (fun x -> join_option g0 (f x)));
-     assign_inp_ref rs f st;
+     assign_inp rs f st;
      ()
 
 let wrap_out : type t u. (t -> u) -> t wrap_out -> u wrap_out =
@@ -92,7 +92,7 @@ let snd_prod = function
   | Both(_,x) -> Some x
 
 (** Merge two streams into one, via input endpoint  *)
-let merge_inp : type t. t inp_ref -> t inp_ref -> t inp_ref = fun ll rr ->
+let merge_inp : type t. t inp -> t inp -> t inp = fun ll rr ->
   let Inp_(sl,fl),Inp_(sr,fr) = !ll, !rr in
   (* Creating the underlying stream. 
      The "protocol" is that, the output values are transformed to
@@ -112,8 +112,8 @@ let merge_inp : type t. t inp_ref -> t inp_ref -> t inp_ref = fun ll rr ->
   sr.inp_refs <- [];
   sr.out_refs <- [];
   (* update each reference to point to this stream  *)
-  assign_inp_ref st.inp_refs (fun x -> Some x) st;
-  assign_out_ref st.out_refs (fun x -> x) st;
+  assign_inp st.inp_refs (fun x -> Some x) st;
+  assign_out st.out_refs (fun x -> x) st;
   (* update l and r *)
   let i = Inp_(st, orelse (compose_opt fl from_left) (compose_opt fr from_right)) in
   ll := i;
@@ -121,7 +121,7 @@ let merge_inp : type t. t inp_ref -> t inp_ref -> t inp_ref = fun ll rr ->
   ll
 
 (** Merge two streams into one via output endpoint  *)
-let merge_out : type t. t out_ref -> t out_ref -> t out_ref = fun ll rr ->
+let merge_out : type t. t out -> t out -> t out = fun ll rr ->
   let Out_(sl,fl),Out_(sr,fr) = !ll, !rr in
   (* The underlying protocol is ('a,'b) prod which conveys:
      (1) FstOnly(x) delivers x to ll only,
@@ -139,34 +139,32 @@ let merge_out : type t. t out_ref -> t out_ref -> t out_ref = fun ll rr ->
   sl.out_refs <- [];
   sr.inp_refs <- [];
   sr.out_refs <- [];
-  assign_out_ref st.out_refs (fun x -> x) st;
-  assign_inp_ref st.inp_refs (fun x -> Some x) st;
+  assign_out st.out_refs (fun x -> x) st;
+  assign_inp st.inp_refs (fun x -> Some x) st;
   let o = Out_(st,(fun x -> Both(fl x, fr x))) in
   ll := o;
   rr := o;
   ll
 
+let wrap_inp {contents=Inp_(st,f)} g =
+  let g = (fun x -> Some (g x)) in
+  let r = ref (Inp_(st, compose_opt g f)) in
+  st.inp_refs <- WrapInp(r,compose_opt g f) :: st.inp_refs;
+  r
+
 let create_with ~wrap_inp =
   let st1 = create_raw () in
-  let out_ref = ref (Out_(st1,(fun x -> x))) in
-  let inp_ref = ref (Inp_(st1,(fun x -> Some(wrap_inp(x))))) in
-  st1.out_refs <- [WrapOut(out_ref, (fun x -> x))];
-  st1.inp_refs <- [WrapInp(inp_ref, (fun x -> Some(wrap_inp(x))))];
-  out_ref, inp_ref
+  let out = ref (Out_(st1,(fun x -> x))) in
+  let inp = ref (Inp_(st1,(fun x -> Some(wrap_inp(x))))) in
+  st1.out_refs <- [WrapOut(out, (fun x -> x))];
+  st1.inp_refs <- [WrapInp(inp, (fun x -> Some(wrap_inp(x))))];
+  out, inp
 
-type -'t out = Out : 'u Lwt_stream_opt.t * ('t -> 'u) -> 't out
-and +'t inp = Inp : 'u Lwt_stream_opt.t * ('u -> 't option) -> 't inp
+let create () =
+  create_with ~wrap_inp:(fun x -> x)
 
-let get_out : 'a. 'a out_ref -> 'a out =
-  fun {contents=(Out_(st,f))} ->
-  Out(st.stream,f)
+let send {contents=Out_(st,f)} v =
+  Lwt_stream_opt.send st.stream (f v)
 
-let get_inp : 'a. 'a inp_ref -> 'a inp =
-  fun {contents=(Inp_(st,f))} ->
-  Inp(st.stream,f)
-
-let send (Out(st,f)) v =
-  Lwt_stream_opt.send st (f v)
-
-let receive (Inp(st,f)) =
-  Lwt_stream_opt.receive_wrap ~f st
+let receive {contents=Inp_(st,f)} =
+  Lwt_stream_opt.receive_wrap ~f st.stream

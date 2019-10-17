@@ -43,7 +43,7 @@ let send t v =
      enqueue' (Some v) t.last
   end;
   if t.push_waiting then begin
-      print_endline "found waitor";
+      (* print_endline "found waitor"; *)
       t.push_waiting <- false;
       let old_push_signal_resolver = t.push_signal_resolver in
       let new_waiter, new_push_signal_resolver = Lwt.wait () in
@@ -57,9 +57,9 @@ let rec next_rec ~f t =
   let open Lwt in
   match t.node.data with
   | None ->
-     print_endline "None";
+     (* print_endline "None"; *)
      t.push_waiting <- true;
-     Lwt.on_cancel t.push_signal (fun _ -> print_endline "cancelled");
+     (* Lwt.on_cancel t.push_signal (fun _ -> print_endline "cancelled"); *)
      Lwt.protected t.push_signal >>= fun () ->
      next_rec ~f t
      (* begin match t.node.data with
@@ -73,12 +73,12 @@ let rec next_rec ~f t =
   | Some x ->
      match f x with
      | Some x -> 
-        print_endline "Received";
+        (* print_endline "Received"; *)
         t.node.data <- None;
         t.node <- t.node.next;
         Lwt.return x
      | None ->
-        print_endline "Retry";
+        (* print_endline "Retry"; *)
         next_rec ~f t
 
 let receive t =

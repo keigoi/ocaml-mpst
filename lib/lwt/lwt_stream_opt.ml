@@ -31,15 +31,18 @@ let create () =
 let enqueue' e last =
   let node = !last
   and new_last = new_node () in
-  node.data <- e;
+  assert (node.data <> None);
+  new_last.data <- e;
   node.next <- new_last;
   last := new_last
 
 let send t v =
   begin match t.node.data with
   | None ->
+     (* print_endline "stream: None"; *)
      t.node.data <- Some v
   | _ ->
+     (* print_endline "stream: enq"; *)
      enqueue' (Some v) t.last
   end;
   if t.push_waiting then begin

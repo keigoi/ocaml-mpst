@@ -1,6 +1,9 @@
 open Mpst_lwt
 open Calc_util.Dyn
-let (let/) = Lwt.bind
+let (let/) m f =
+  Lwt.bind (Lwt_unix.sleep (Random.float 0.2)) (fun () ->
+  Lwt.bind m f)
+let (let*) = Lwt.bind
 
 type op = Add | Sub | Mul | Div
 (* let calc =
@@ -13,15 +16,19 @@ type op = Add | Sub | Mul | Div
  *                  finish)) *)
 
 let tCli ec =
+  print_endline "sending +20";
   let/ ec = send ec#role_Srv#compute (Add, 20) in
+  print_endline "sending -45";
   let/ ec = send ec#role_Srv#compute (Sub, 45) in
+  print_endline "sending *10";
   let/ ec = send ec#role_Srv#compute (Mul, 10) in
+  print_endline "sending result";
   let/ ec = send ec#role_Srv#result () in
   print_endline "client waiting";
   let/ `answer(ans, ec) = receive ec#role_Srv in
   close ec;
   (* outputs "Answer: -250" (= (20 - 45) * 10) *)
-  Printf.printf "Answer: %d\n" ans;
+  Printf.printf "/ / / / / Answer: %d\n" ans;
   Lwt.return_unit
 
 let tSrv es =
@@ -66,12 +73,12 @@ let compute_result_or_current =
 let calc2 () =
   fix (fun t ->
     choice_at cli (to_srv compute_result_or_current)
-       (cli, choice_at cli (to_srv compute_or_result)
-             (cli, (cli --> srv) compute @@
-                   t)
+       (cli, choice_at cli (to_srv result_or_compute)
              (cli, (cli --> srv) result @@
                    (srv --> cli) answer @@
-                   finish))
+                   finish)
+             (cli, (cli --> srv) compute @@
+                   t))
        (cli, (cli --> srv) current @@
              (srv --> cli) answer @@
              t))
@@ -80,7 +87,7 @@ let tSrv2 es =
   let rec loop acc es =
     print_endline "server waiting";
     let/ var = receive es#role_Cli in
-    print_endline "received";
+    print_endline "server received";
     match var with
     | `compute((sym,num), es) ->
       let op = match sym with
@@ -97,6 +104,7 @@ let tSrv2 es =
   in loop 0 es
 
 let () =
+  Random.self_init ();
   let calc2 = gen @@ calc2 () in
   let ec = get_ch cli calc2 and es = get_ch srv calc2 in
   Lwt_main.run @@ Lwt.join [tSrv2 es; tCli ec]

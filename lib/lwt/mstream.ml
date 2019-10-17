@@ -33,6 +33,10 @@ let compose_opt f g x =
   | Some x -> f x
   | None -> None
 
+let[@inline] debug str f x =
+  (* print_endline str; *)
+  f x
+
 let create_raw () =
   let t = {
       stream = Lwt_stream_opt.create ();
@@ -101,11 +105,11 @@ let merge_inp : type t. t inp -> t inp -> t inp = fun ll rr ->
   let st : (_,_) either st = create_raw () in
   (* merge in/out references pointed by l/r *)
   st.out_refs <-
-    List.map (wrap_out in_left) sl.out_refs @
-    List.map (wrap_out in_right) sr.out_refs;
+    List.map (wrap_out (debug "merge_inp in_left" @@ in_left)) sl.out_refs @
+    List.map (wrap_out (debug "merge_inp in_right" @@ in_right)) sr.out_refs;
   st.inp_refs <-
-    List.map (wrap_inp from_left) sl.inp_refs @
-    List.map (wrap_inp from_right) sr.inp_refs;
+    List.map (wrap_inp (debug "merge_inp from_left" @@ from_left)) sl.inp_refs @
+    List.map (wrap_inp (debug "merge_inp from_right" @@ from_right)) sr.inp_refs;
   (* below is not necessary. here, this just explicitly discards sl and sr *)
   sl.inp_refs <- [];
   sl.out_refs <- [];
@@ -115,7 +119,7 @@ let merge_inp : type t. t inp -> t inp -> t inp = fun ll rr ->
   assign_inp st.inp_refs (fun x -> Some x) st;
   assign_out st.out_refs (fun x -> x) st;
   (* update l and r *)
-  let i = Inp_(st, orelse (compose_opt fl from_left) (compose_opt fr from_right)) in
+  let i = Inp_(st, orelse (debug "merge_inp left" @@ compose_opt fl from_left) (debug "merge_inp right" @@ compose_opt fr from_right)) in
   ll := i;
   rr := i;
   ll
@@ -148,8 +152,8 @@ let merge_out : type t. t out -> t out -> t out = fun ll rr ->
 
 let wrap_inp {contents=Inp_(st,f)} g =
   let g = (fun x -> Some (g x)) in
-  let r = ref (Inp_(st, compose_opt g f)) in
-  st.inp_refs <- WrapInp(r,compose_opt g f) :: st.inp_refs;
+  let r = ref (Inp_(st, debug "wrap_inp 1" @@ compose_opt g f)) in
+  st.inp_refs <- WrapInp(r,debug "wrap_inp 2" @@ compose_opt g f) :: st.inp_refs;
   r
 
 let create_with ~wrap_inp =

@@ -18,10 +18,15 @@ module type EVENT = sig
   val receive : 'a channel -> 'a event
   val send : 'a channel -> 'a -> unit event
   val guard : (unit -> 'a event) -> 'a event
-  val choose : 'a event list -> 'a event
-  val wrap : 'a event -> ('a -> 'b) -> 'b event
   val always : 'a -> 'a event
   val receive_list : 'a channel list -> 'a list event
+
+  (* needs refactoring *)
+  type 'a inp
+  val inp : 'a channel -> 'a inp
+  val receive_inp : 'a inp -> 'a event
+  val merge_inp : 'a inp -> 'a inp -> 'a inp
+  val wrap_inp : 'a inp -> ('a -> 'b) -> 'b inp
 
   type +'a monad
   val sync : 'a event -> 'a monad

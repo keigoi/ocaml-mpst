@@ -23,6 +23,13 @@ module Event : S.EVENT
        Event.wrap (Event.receive ch)
          (fun v ->
            v :: List.map (fun ch -> Event.sync @@ Event.receive ch) chs)
+
+  (* needs refactoring *)
+  type 'a inp = 'a event
+  let inp = Event.receive
+  let receive_inp x = x
+  let merge_inp x y = Event.choose [x;y]
+  let wrap_inp = Event.wrap
 end
 module Serial : S.SERIAL
        with type 'a monad = 'a and type in_channel = Stdlib.in_channel and type out_channel=Stdlib.out_channel

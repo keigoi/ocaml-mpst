@@ -4,27 +4,32 @@ module LwtEvent : Mpst.S.EVENT
   = struct
   type 'a monad = 'a Lwt.t
   type 'a event = unit -> 'a Lwt.t
-  type 'a st = 'a Lwt_stream_opt.t
+  type 'a st = 'a Mstream.out * 'a Mstream.inp
   type 'a channel = {me:'a st; othr:'a st}
 
   let new_channel () =
-    let ch1 = Lwt_stream_opt.create ()
-    and ch2 = Lwt_stream_opt.create ()
+    let ch1 = Mstream.create ()
+    and ch2 = Mstream.create ()
     in
     {me=ch1; othr=ch2}
-  let[@inline] receive {me; _} () = Lwt_stream_opt.receive me
+  let[@inline] receive {me=(_,inp); _} () = Mstream.receive inp
   let flip_channel {me=othr; othr=me} = {me; othr}
-  let[@inline] send {othr; _} v () = Lwt_stream_opt.send othr v
+  let[@inline] send {othr=(out,_); _} v () = Mstream.send out v
   let[@inline] guard f = f ()
   let[@inline] sync f = f ()
-  let[@inline] choose xs = fun[@inline] () -> Lwt.choose (List.map (fun[@inline] f -> f ()) xs)
-  let[@inline] wrap e f = fun[@inline] () -> Lwt.map f (e ())
   let always x () = Lwt.return x
   let receive_list chs () =
-    Lwt_list.map_p (fun {me;_} ->
-        let x = Lwt_stream_opt.receive me in
+    Lwt_list.map_p (fun {me=(_,inp);_} ->
+        let x = Mstream.receive inp in
         x
       ) chs
+
+  (* needs refactoring *)
+  type 'a inp = 'a Mstream.inp
+  let[@inline] inp {me=(_,inp); _} = inp
+  let[@inline] receive_inp inp () = Mstream.receive inp
+  let merge_inp = Mstream.merge_inp
+  let wrap_inp = Mstream.wrap_inp
 end
 
 

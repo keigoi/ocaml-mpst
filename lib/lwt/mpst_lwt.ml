@@ -1,7 +1,7 @@
 module M = struct
   module Peripheral = Peripheral
   module P = Peripheral
-  module Lwt_stream_opt = Lwt_stream_opt
+  module Mstream = Mstream
 end
 
 module Global =

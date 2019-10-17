@@ -28,6 +28,13 @@ module AsyncEvent : Mpst.S.EVENT
   let always x () = Deferred.return x
   let receive_list chs () =
     Deferred.List.map chs (fun ch -> receive ch ())
+
+  (* needs refactoring *)
+  type 'a inp = 'a event
+  let inp ch = receive ch
+  let receive_inp x = x
+  let merge_inp x y () = Deferred.any [x (); y ()]
+  let wrap_inp = wrap
 end
 
 module AsyncSerial : Mpst.S.SERIAL with type 'a monad = 'a Async.Deferred.t = struct

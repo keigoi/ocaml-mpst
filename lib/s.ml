@@ -1,3 +1,4 @@
+open Base
 
 module type MONAD = sig
   type +'a t
@@ -16,18 +17,21 @@ module type EVENT = sig
   val new_channel : unit -> 'a channel
   val flip_channel : 'a channel -> 'a channel
   val receive : 'a channel -> 'a event
-  val receive_list : 'a channel list -> 'a list event
   val send : 'a channel -> 'a -> unit event
-  val guard : (unit -> 'a event) -> 'a event
-  val always : 'a -> 'a event
 
-  (* needs refactoring *)
+  type 'a st
   type 'a inp
-  val inp : 'a channel -> 'a inp
-  val receive_inp : 'a inp -> 'a event
+  type 'a out
+  val create_st : num:int -> 'a st
+  val wrap : 'a st -> ('a -> 'b) -> 'a one out * 'b one inp
+  val wrap_scatter : 'a st -> ('a -> 'b) -> 'a list out * 'b one inp list
+  val wrap_gather : 'a st -> ('a list -> 'b) -> 'a one out list * 'b list inp
+
+  val send_st : 'a one out -> 'a -> unit event
+  val receive_st : 'a one inp -> 'a event
+
+  val merge_out : 'a out -> 'a out -> 'a out
   val merge_inp : 'a inp -> 'a inp -> 'a inp
-  val wrap_inp : 'a inp -> ('a -> 'b) -> 'b inp
-  val receive_list_inp : 'a channel list -> 'a list inp
 
   type +'a monad
   val sync : 'a event -> 'a monad
@@ -100,8 +104,8 @@ module type LOCAL = sig
   type 't out
   type 't inp
   type 't lin
-  val send : ('t Base.one * 'u) out lin -> 't -> 'u monad
-  val sendmany : ('t list * 'u) out lin -> (int -> 't) -> 'u monad
+  val send : ('t * 'u) out lin -> 't -> 'u monad
+  (* val sendmany : ('t list * 'u) out lin -> (int -> 't) -> 'u monad *)
   val receive : 't inp lin -> 't monad
   val close : Base.close -> unit
 end

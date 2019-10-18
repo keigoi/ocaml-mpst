@@ -4,7 +4,7 @@ module LwtEvent : Mpst.S.EVENT
   = struct
   type 'a monad = 'a Lwt.t
   type 'a event = unit -> 'a Lwt.t
-  type 'a st = 'a Mstream.out * 'a Mstream.inp
+  type 'a st = 'a Mstream.one Mstream.out * 'a Mstream.one Mstream.inp
   type 'a channel = {me:'a st; othr:'a st}
 
   let new_channel () =
@@ -20,7 +20,7 @@ module LwtEvent : Mpst.S.EVENT
   let always x () = Lwt.return x
 
   (* needs refactoring *)
-  type 'a inp = 'a Mstream.inp
+  type 'a inp = 'a Mstream.one Mstream.inp
   let[@inline] inp {me=(_,inp); _} = inp
   let[@inline] receive_inp inp () = Mstream.receive inp
   let merge_inp = Mstream.merge_inp

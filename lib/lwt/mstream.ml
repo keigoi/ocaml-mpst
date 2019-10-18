@@ -2,22 +2,32 @@
  * (1) optimized for unbounded buffering
  * (2) mergeable on both input and output send
  *)
+type 'a one = 'a Mpst.Base.one
 type 't st = {
-    stream : 't Lwt_stream_opt.t;
+    stream : 't Lwt_stream_opt.t list;
     mutable out_refs : 't out_refs;
     mutable inp_refs : 't inp_refs
   }
 and 't out_refs = 't wrap_out list
 and 't inp_refs = 't wrap_inp list
-and _ wrap_out = WrapOut : 'u out * ('u -> 't) -> 't wrap_out
-and _ wrap_inp = WrapInp : 'u inp * ('t -> 'u option) -> 't wrap_inp
+and _ wrap_out =
+  |  WrapOut : 'u one out * ('u -> 't) -> 't wrap_out
+  |  WrapOutMany : 'u list out * ('u -> 't) -> 't wrap_out
+and _ wrap_inp =
+  |  WrapInp : 'u one inp * ('t -> 'u option) -> 't wrap_inp
+  |  WrapInpMany : 'u list inp * ('t -> 'v option) * ('v list -> 'u) -> 't wrap_inp
 and 't out = 't out_ ref
 and 't inp = 't inp_ ref
 and 't out_ =
-  Out_ : 'u st * ('t -> 'u) * 't out list -> 't out_
+  Out_ : int * 'u st * ('t -> 'u) * 't one out list -> 't one out_
+| OutMany_ : 'u st * ('t -> 'u) * 't list out list -> 't list out_
 and 't inp_ =
-  Inp_ : 'u st * ('u -> 't option) * 't inp list -> 't inp_
+  Inp_ : int * 'u st * ('u -> 't option) * 't one inp list -> 't one inp_
+| InpMany_ : 'u st * ('u -> 'v option) * ('v list -> 't) * 't list inp list -> 't list inp_
 
+let len st = List.length st.stream
+
+let id x = x
 let join_option f m0 =
   match m0 with
   | Some x -> f x
@@ -40,9 +50,9 @@ let[@inline] debug str f x =
   (* print_endline str; *)
   f x
 
-let create_raw () =
+let create_raw n =
   let t = {
-      stream = Lwt_stream_opt.create ();
+      stream = List.init n (fun _ -> Lwt_stream_opt.create ());
       out_refs = [];
       inp_refs = [];
     }
@@ -50,18 +60,34 @@ let create_raw () =
   t
 
 let update_out_ref : type t u. u st -> (t -> u) -> t wrap_out -> u wrap_out =
-  fun st f (WrapOut({contents=Out_(_,_,rs)} as r,out)) ->
-    let o = Out_(st, (fun x -> f (out x)), rs) in
+  fun st f w ->
+  match w with
+  | WrapOut({contents=Out_(i,_,_,rs)} as r,out) ->
+    let o = Out_(i,st, (fun x -> f (out x)), rs) in
     List.iter (fun r -> r := o) rs;
     r := o;
     WrapOut(r,(fun x -> f (out x)))
+  | WrapOutMany({contents=OutMany_(_,_,rs)} as r,out) ->
+    let o = OutMany_(st, (fun x -> f (out x)), rs) in
+    List.iter (fun r -> r := o) rs;
+    r := o;
+    WrapOutMany(r,(fun x -> f (out x)))
 
 let update_inp_ref : type t u. u st -> (u -> t option) -> t wrap_inp -> u wrap_inp =
-  fun st g (WrapInp({contents=Inp_(_,_,rs)} as r,in_)) ->
-  let i = Inp_(st, (fun x -> join_option in_ (g x)), rs) in
-  List.iter (fun r -> r := i) rs;
-  r := i;
-  WrapInp(r,(fun x -> join_option in_ (g x)))
+  fun st g w ->
+  match w with
+  | (WrapInp({contents=Inp_(i,_,_,rs)} as r,in_)) ->
+     let g x = join_option in_ (g x) in
+     let i = Inp_(i,st,g,rs) in
+     List.iter (fun r -> r := i) rs;
+     r := i;
+     WrapInp(r,g)
+  | (WrapInpMany({contents=InpMany_(_,_,_,rs)} as r,in1,in2)) ->
+     let g x = join_option in1 (g x) in
+     let i = InpMany_(st, g, in2, rs) in
+     List.iter (fun r -> r := i) rs;
+     r := i;
+     WrapInpMany(r, g, in2)
 
 (* auxiliary data types for "internal protocol" *)
 type ('a, 'b) either = Left of 'a | Right of 'b
@@ -94,7 +120,9 @@ let from_right = function Right x -> Some x | _ -> None
  *   st *)
 
 let merge_st_either : type t u. t st -> u st -> (t,u) either st = fun sl sr ->
-  let st : (_,_) either st = create_raw () in
+  let n = len sl in
+  assert (n = len sr);
+  let st : (_,_) either st = create_raw n in
   (* merge in/out references pointing to sl/sr *)
   (* and update each reference to point to this stream  *)
   st.out_refs <-
@@ -122,7 +150,9 @@ let merge_st_either : type t u. t st -> u st -> (t,u) either st = fun sl sr ->
        Similarly, SndOnly will block ll.
  *)
 let merge_st_prod : type t u. t st -> u st -> (t,u) prod st = fun sl sr ->
-  let st : (_,_) prod st = create_raw () in
+  let n = len sl in
+  assert (n = len sr);
+  let st : (_,_) prod st = create_raw n in
   st.out_refs <- (* possibly dangerous, but actually safe (see merge_inp) *)
     List.map (update_out_ref st in_fstonly) sl.out_refs @
     List.map (update_out_ref st in_sndonly) sr.out_refs;
@@ -135,10 +165,26 @@ let merge_st_prod : type t u. t st -> u st -> (t,u) prod st = fun sl sr ->
   sr.out_refs <- [];
   st
 
+let fromleftX = function
+  | Left x -> x
+  | Right _ -> failwith "impossible: fromleftX: possible scatter/gather bug?"
+
+let fromrightX = function
+  | Right x -> x
+  | Left _ -> failwith "impossible: fromrightX: possible scatter/gather bug?"
+
+let fixeither fl fr = function
+  | [] -> failwith "impossible: fixeither: possible scatter/gather bug"
+  | Left x::xs ->
+     fl (x::List.map fromleftX xs)
+  | Right x::xs ->
+     fr (x::List.map fromrightX xs)
+
 (** Merge two streams into one, via input endpoint  *)
 let merge_inp : type t. t inp -> t inp -> t inp = fun ll rr ->
   match !ll,!rr with
-  | Inp_(sl,fl,ls),Inp_(sr,fr,rs) ->
+  | Inp_(i,sl,fl,ls),Inp_(i_,sr,fr,rs) ->
+     assert (i=i_);
      (* The following wrongly wires ll and rr, as Left(x) and Right(x) are 
         delivered only to ll or rr respectively. 
         (i.e. other side will block.)
@@ -149,14 +195,23 @@ let merge_inp : type t. t inp -> t inp -> t inp = fun ll rr ->
      (* Gather all `t inp`s *)
      let is = ll::rr::(List.append ls rs) in
      (* and update to the desired ones *)
-     let i = Inp_(st, flr, is) in
+     let i = Inp_(i,st, flr, is) in
+     List.iter (fun r0 -> r0 := i) is;
+     ll
+  | InpMany_(sl,fl,fl2,ls),InpMany_(sr,fr,fr2,rs) ->
+     let st : (_,_) either st = merge_st_either sl sr in
+     let flr = function Left x -> map_option in_left (fl x) | Right x -> map_option in_right (fr x) in
+     let is = ll::rr::(List.append ls rs) in
+     (** assuming all senders agree, we map all payloads on either fl or fr only  *)
+     let i = InpMany_(st, flr, fixeither fl2 fr2, is) in
      List.iter (fun r0 -> r0 := i) is;
      ll
 
 (** Merge two streams into one via output endpoint  *)
 let merge_out : type t. t out -> t out -> t out = fun ll rr ->
   match !ll,!rr with
-  | Out_(sl,fl,ls),Out_(sr,fr,rs) ->
+  | Out_(i,sl,fl,ls),Out_(i_,sr,fr,rs) ->
+     assert (i=i_);
      (* The underlying protocol is ('a,'b) prod which conveys:
         (1) FstOnly(x) delivers x to ll only,
         (2) SndOnly(x) delivers x to rr only, or
@@ -170,31 +225,58 @@ let merge_out : type t. t out -> t out -> t out = fun ll rr ->
      (* Here, we gather all `t out`s in one place *)
      let os = ll::rr::(List.append ls rs) in
      (* and put the correct wrapper which delivers `Both`. *)
-     let o = Out_(st, flr, os) in
+     let o = Out_(i,st, flr, os) in
+     List.iter (fun r0 -> r0 := o) os;
+     ll
+  | OutMany_(sl,fl,ls),OutMany_(sr,fr,rs) ->
+     let st : (_,_) prod st = merge_st_prod sl sr in
+     let flr = fun x -> Both(fl x, fr x) in
+     let os = ll::rr::(List.append ls rs) in
+     let o = OutMany_(st, flr, os) in
      List.iter (fun r0 -> r0 := o) os;
      ll
 
 let wrap_inp {contents=i} g =
   let g = (fun x -> Some (g x)) in
   match i with
-  | Inp_(st,f,rs) ->
-     let r = ref (Inp_(st, compose_opt g f, [])) in
+  | Inp_(i,st,f,rs) ->
+     let r = ref (Inp_(i,st, compose_opt g f, [])) in
      st.inp_refs <- WrapInp(r, compose_opt g f) :: st.inp_refs;
      r
 
-let create_with ~wrap =
-  let st1 = create_raw () in
-  let out = ref (Out_(st1,wrap,[])) in
-  let inp = ref (Inp_(st1,(fun x -> Some x),[])) in
-  st1.out_refs <- [WrapOut(out, wrap)];
-  st1.inp_refs <- [WrapInp(inp, (fun x -> Some x))];
+let wrap st f =
+  let out = ref (Out_(0,st,f,[])) in
+  let inp = ref (Inp_(0,st,(fun x -> Some x),[])) in
+  st.out_refs <- [WrapOut(out, f)];
+  st.inp_refs <- [WrapInp(inp, (fun x -> Some x))];
   out, inp
 
-let create () =
-  create_with ~wrap:(fun x -> x)
+let wrap_scatter st f =
+  let outs = List.init (List.length st.stream) (fun i -> ref (Out_(i,st,id,[]))) in
+  let inp = ref (InpMany_(st,(fun x -> Some x),f,[])) in
+  st.out_refs <- List.map (fun o -> WrapOut(o, id)) outs;
+  st.inp_refs <- [WrapInpMany(inp, (fun x -> Some x),f)];
+  outs, inp
 
-let send {contents=Out_(st,f,_)} v =
-  Lwt_stream_opt.send st.stream (f v)
+(* let create () =
+ *   create_with ~wrap:(fun x -> x) *)
 
-let receive {contents=Inp_(st,f,_)} =
-  Lwt_stream_opt.receive_wrap ~f st.stream
+let send o v =
+  match o with
+  | {contents=Out_(i,st,f,_)} ->
+     Lwt_stream_opt.send (List.nth st.stream i) (f v) (* fixme use lazy?? *)
+
+let send_many o vs =
+  match o with
+  | {contents=OutMany_(st,f,_)} ->
+     Lwt_list.iter_p
+       (fun (st,v) -> Lwt_stream_opt.send st v)
+       (List.map2 (fun x y -> (x,y)) st.stream (List.map f vs))
+
+let receive = function
+  | {contents=Inp_(i,st,f,_)} ->
+     Lwt_stream_opt.receive_wrap ~f (List.nth st.stream i)
+
+let receive_many = function
+  | {contents=InpMany_(st,f,g,_)} ->
+     Lwt.map g @@ Lwt_list.map_p (Lwt_stream_opt.receive_wrap ~f) st.stream

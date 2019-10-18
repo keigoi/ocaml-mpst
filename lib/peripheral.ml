@@ -1,3 +1,4 @@
+open Base
 module Pure = struct
   type 'a t = 'a
   external return : 'a -> 'a = "%identity"
@@ -15,7 +16,26 @@ module Event : S.EVENT
   include Event
   type 'a monad = 'a
   let flip_channel x = x
-  (* XXX a dumb implementation of receiving from multiple channels  *)
+
+  type 'a st = 'a Event.channel list
+  type 'a inp =
+    | InpOne : 'a Event.event -> 'a one inp
+    | InpMany : 'a Event.event -> 'a list inp 
+  type 'a out =
+    | OutOne : 'a Event.channel ref -> 'a one out
+    | OutMany : 'a Event.channel list ref -> 'a list out
+  let create_st ~num = List.init num (fun _ -> Event.new_channel ())
+  let wrap chs f =
+    let r = ref @@ List.hd chs in
+    (OutOne r, InpOne (Event.wrap (Event.guard (fun () -> Event.receive (!r))) f))
+  let wrap_scatter chs f =
+    let r = ref chs in
+    (OutMany r,
+     List.init
+       (List.length chs)
+       (fun i ->
+         InpOne
+           (Event.wrap (Event.guard (fun () -> Event.receive (List.nth (!r) i))) f)))
   let receive_list = function
     | [] ->
        Event.always []
@@ -23,14 +43,31 @@ module Event : S.EVENT
        Event.wrap (Event.receive ch)
          (fun v ->
            v :: List.map (fun ch -> Event.sync @@ Event.receive ch) chs)
-
-  (* needs refactoring *)
-  type 'a inp = 'a event
-  let inp = Event.receive
-  let receive_inp x = x
-  let merge_inp x y = Event.choose [x;y]
-  let wrap_inp = Event.wrap
-  let receive_list_inp = receive_list
+  let wrap_gather chs f =
+    let rs = List.map (fun ch -> ref ch) chs in
+    let g =
+      Event.guard (fun () ->
+          let chs = List.map (fun r -> !r) rs in
+          receive_list chs)
+    in
+    (List.map (fun r -> OutOne r) rs,
+     InpMany (Event.wrap g f))
+  let merge_inp : type t. t inp -> t inp -> t inp = fun i1 i2 ->
+    match i1,i2 with
+    | InpOne(ev1),InpOne(ev2) ->
+       InpOne(Event.choose [ev1; ev2])
+    | InpMany(ev1),InpMany(ev2) ->
+       InpMany(Event.choose [ev1; ev2])
+  let merge_out : type t. t out -> t out -> t out = fun r1 r2 ->
+    match r1,r2 with
+    | OutOne(r1),OutOne(r2) ->
+       r1 := !r2;
+       OutOne(r1)
+    | OutMany(r1),OutMany(r2) ->
+       r1 := !r2;
+       OutMany(r1)
+  let send_st (OutOne r) v = Event.send !r v
+  let receive_st (InpOne ev) = ev
 end
 module Serial : S.SERIAL
        with type 'a monad = 'a and type in_channel = Stdlib.in_channel and type out_channel=Stdlib.out_channel

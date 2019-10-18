@@ -29,6 +29,7 @@ module type EVENT = sig
 
   val send_st : 'a one out -> 'a -> unit event
   val receive_st : 'a one inp -> 'a event
+  val receivemany_st : 'a list inp -> 'a event
 
   val merge_out : 'a out -> 'a out -> 'a out
   val merge_inp : 'a inp -> 'a inp -> 'a inp
@@ -104,7 +105,7 @@ module type LOCAL = sig
   type 't out
   type 't inp
   type 't lin
-  val send : ('t * 'u) out lin -> 't -> 'u monad
+  val send : ('t one * 'u) out lin -> 't -> 'u monad
   (* val sendmany : ('t list * 'u) out lin -> (int -> 't) -> 'u monad *)
   val receive : 't inp lin -> 't monad
   val close : Base.close -> unit

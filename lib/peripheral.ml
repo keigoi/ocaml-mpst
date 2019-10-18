@@ -68,6 +68,7 @@ module Event : S.EVENT
        OutMany(r1)
   let send_st (OutOne r) v = Event.send !r v
   let receive_st (InpOne ev) = ev
+  let receivemany_st (InpMany ev) = ev
 end
 module Serial : S.SERIAL
        with type 'a monad = 'a and type in_channel = Stdlib.in_channel and type out_channel=Stdlib.out_channel

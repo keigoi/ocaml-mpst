@@ -7,9 +7,13 @@ type ('robj,'c,'a,'b,'xs,'ys) role =
   {role_label: ('robj,'c) method_;
    role_index: ('a,'b,'xs,'ys) Seq.lens}
 
-type 'k prop = {multiplicity:int; epkind:'k}
+type 'k role_metainfo =
+    {rm_index:int;
+     rm_kind:'k;
+     rm_size:int}
+(* type 'k prop = {multiplicity:int; epkind:'k} *)
 
-type 'k env = {props: 'k prop Table.t; default:int -> 'k}
+type 'k env = {metainfo: 'k role_metainfo Table.t; default:int -> 'k}
 
 type ('k, 'g) t = Global of ('k env -> 'g Seq.t)
 let unglobal_ = function
@@ -28,8 +32,8 @@ let fix : type e g. ((e,g) t -> (e,g) t) -> (e,g) t = fun f ->
 
 let mkclose env i =
   let num =
-    match Table.get_opt env.props i with
-    | Some prop -> prop.multiplicity
+    match Table.get_opt env.metainfo i with
+    | Some prop -> prop.rm_size
     | None -> 1
   in
   EP.make_simple (List.init num (fun _ -> Close))  

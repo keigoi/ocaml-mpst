@@ -69,7 +69,7 @@ end = struct
     let[@inline] receive me =
       assert (List.length chs = 1);
       let chs' = List.hd chs in
-      let ch = List.nth !chs' 0 in
+      let ch = List.nth !chs' me in
       let ch = EV.flip_channel ch in
       EV.inp ch
     in

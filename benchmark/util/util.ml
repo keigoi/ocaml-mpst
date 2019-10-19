@@ -74,9 +74,9 @@ end
 module IPC = struct
   let medium = `IPCProcess
 end
-(* module Untyped = struct
- *   let medium = `Untyped
- * end *)
+module Untyped = struct
+  let medium = `Untyped
+end
 
 let ping_or_fini =
   {disj_merge=(fun l r -> object method ping=l#ping method fini=r#fini end);

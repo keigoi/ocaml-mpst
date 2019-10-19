@@ -4,4 +4,4 @@
  (preprocess (pps linocaml.ppx))
  (ocamlopt_flags -O3)
  (flags ("-rectypes" "-short-paths"))
- (libraries core_bench ocaml-mpst.monad ocaml-mpst.lwt ocaml-mpst.monad.lwt ocaml-mpst.ref core.nano_mutex))
+ (libraries bench_util core_bench ocaml-mpst.monad ocaml-mpst.lwt ocaml-mpst.monad.lwt ocaml-mpst.ref core.nano_mutex))

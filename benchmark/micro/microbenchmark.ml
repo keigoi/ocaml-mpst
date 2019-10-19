@@ -1,5 +1,5 @@
 open Core_bench.Bench
-open Util
+open Bench_util.Util
 open Ocamlmicro
 open Mpstmicro
 

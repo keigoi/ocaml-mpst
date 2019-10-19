@@ -1,5 +1,5 @@
-open Util
-open Testbase
+open Bench_util.Util
+open Bench_util.Testbase
 
 module Base =  Mpst.M.Base
 module Common = Mpst.M.Common

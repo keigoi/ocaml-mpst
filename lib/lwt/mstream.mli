@@ -16,7 +16,7 @@ val send : 'a one out -> 'a -> unit Lwt.t
 val receive : 'a one inp -> 'a Lwt.t
 
 (** scatter/gather *)
-val wrap_scatter : 'a st -> ('a -> 'b) -> 'a list out * 'b one inp list
+val wrap_scatter : 'a st -> (int -> 'a -> 'b) -> 'a list out * 'b one inp list
 val wrap_gather : 'a st -> ('a list -> 'b) -> 'a one out list * 'b list inp
 
 val send_many : 'a list out -> (int -> 'a) -> unit Lwt.t

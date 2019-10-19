@@ -254,14 +254,14 @@ let wrap st f =
   out, inp
 
 let wrap_scatter st f =
-  let f x = Some (f x) in
+  let f i x = Some (f i x) in
   let out = ref (OutMany_(st,id,[])) in
   let inps =
     List.init (List.length st.stream)
-      (fun i -> ref (Inp_(0,st,f,[])))
+      (fun i -> ref (Inp_(0,st,f i,[])))
   in
   st.out_refs <- [WrapOutMany(out, id)];
-  st.inp_refs <- List.map (fun i -> WrapInp(i, f)) inps;
+  st.inp_refs <- List.mapi (fun i inp -> WrapInp(inp, f i)) inps;
   out, inps
 
 let wrap_gather st f =

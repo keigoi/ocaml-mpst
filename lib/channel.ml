@@ -96,7 +96,7 @@ module Make
   let generate ~from_info ~to_info =
     match from_info.rm_kind, to_info.rm_kind with
     | EpLocal, EpLocal ->
-       failwith ""
+       ChVec(EV.create_st (max from_info.rm_size to_info.rm_size))
     | EpDpipe _, _ | _, EpDpipe _ ->
        dpipe @@
          generate_channels
@@ -179,7 +179,7 @@ module Make
     | ChVec(ch) ->
        let out,inp =
          EV.wrap_scatter ch
-           (fun v -> label.var (v, StaticLin.create_dummy @@ EP.fresh conts_to 0))
+           (fun i v -> label.var (v, StaticLin.create_dummy @@ EP.fresh conts_to i))
        in
        (Out.BareOutChanMany(out),
         Inp.make_inp inp)

@@ -39,7 +39,7 @@ module Event : S.EVENT
        (List.length chs)
        (fun i ->
          InpOne
-           (Event.wrap (Event.guard (fun () -> Event.receive (List.nth (!r) i))) f)))
+           (Event.wrap (Event.guard (fun () -> Event.receive (List.nth (!r) i))) (f i))))
 
   let receive_list = function
     | [] ->

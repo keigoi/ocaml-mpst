@@ -24,7 +24,7 @@ module type EVENT = sig
   type 'a out
   val create_st : num:int -> 'a st
   val wrap : 'a st -> ('a -> 'b) -> 'a one out * 'b one inp
-  val wrap_scatter : 'a st -> ('a -> 'b) -> 'a list out * 'b one inp list
+  val wrap_scatter : 'a st -> (int -> 'a -> 'b) -> 'a list out * 'b one inp list
   val wrap_gather : 'a st -> ('a list -> 'b) -> 'a one out list * 'b list inp
 
   val send_st : 'a one out -> 'a -> unit event

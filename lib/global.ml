@@ -152,18 +152,17 @@ let get_ty : ('x0, 'x1, 'ep StaticLin.lin, 'x2, 't, 'x3) role -> 't global -> 'e
       {global: [`cons of 'ep * 'tl] global;
        kinds: kind list option;
        accept_lock: Mutex.t; (* FIXME: parameterise over other lock types? *)
-       connect_sync: epkind env EV.channel list;
+       connect_sync: (epkind env * [`cons of 'ep * 'tl] Seq.t) EV.channel list;
        start_sync: unit EV.channel;
-       mutable seq_in_process: (epkind env * [`cons of 'ep * 'tl] Seq.t) option;
       } -> [`cons of 'ep * 'tl] shared
 
 
-  let rec sync_all_ except_me connect_sync start_sync env =
+  let rec sync_all_ myroleid connect_sync start_sync env =
     M.iteriM (fun i c ->
-        if i=except_me then begin
-          M.return_unit
+        if i=myroleid then begin
+            M.return_unit
           end else begin
-          M.bind (EV.sync (EV.send c env)) (fun () ->
+            M.bind (EV.sync (EV.send c env)) (fun () ->
               EV.sync (EV.receive start_sync))
           end
       )
@@ -171,17 +170,12 @@ let get_ty : ('x0, 'x1, 'ep StaticLin.lin, 'x2, 't, 'x3) role -> 't global -> 'e
 
 
   let init_seq_ (Shared m) =
-    match m.seq_in_process with
-    | Some (env,g) ->
-       env,g
-    | None ->
        let env =
          match m.kinds with
          | Some kinds -> mkparams kinds
          | None -> {metainfo=Table.create (); default=local}
        in
        let g = gen_with_param env m.global in
-       m.seq_in_process <- Some (env,g);
        env,g
 
   let create_shared ?kinds global =
@@ -199,18 +193,16 @@ let get_ty : ('x0, 'x1, 'ep StaticLin.lin, 'x2, 't, 'x3) role -> 't global -> 'e
        kinds;
        accept_lock;
        connect_sync;
-       start_sync=EV.new_channel ();
-       seq_in_process=Some (env,seq)}
+       start_sync=EV.new_channel ();}
 
   let accept_ (Shared m) r =
     Mutex.lock m.accept_lock;
     let env, g = init_seq_ (Shared m) in
     (* sync with all threads *)
     let me = Seq.int_of_lens r.role_index in
-    M.bind (sync_all_ me m.connect_sync m.start_sync env) (fun () ->
+    M.bind (sync_all_ me m.connect_sync m.start_sync (env,g)) (fun () ->
     (* get my ep *)
     let ep = get_ch r g in
-    m.seq_in_process <- None;
     Mutex.unlock m.accept_lock;
     let prop = Table.get env.metainfo (Seq.int_of_lens r.role_index) in
     M.return (ep, prop))
@@ -218,9 +210,8 @@ let get_ty : ('x0, 'x1, 'ep StaticLin.lin, 'x2, 't, 'x3) role -> 't global -> 'e
   let connect_ (Shared m) r =
     let role = Seq.int_of_lens r.role_index in
     let c = EV.flip_channel (List.nth m.connect_sync role) in
-    M.bind (EV.sync (EV.receive c)) (fun env ->
+    M.bind (EV.sync (EV.receive c)) (fun (env,g) ->
         let prop = Table.get env.metainfo role in
-        let g = match m.seq_in_process with Some (_,g) -> g | None -> assert false in
         let ep = get_ch r g in
         M.bind (EV.sync (EV.send (EV.flip_channel m.start_sync) ())) (fun () ->
         M.return (ep, prop)))

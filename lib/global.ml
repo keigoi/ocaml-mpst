@@ -9,7 +9,7 @@ module Make
          (C:S.SERIAL with type 'a monad = 'a M.t)
   = struct
 
-
+  include Global_common.Make(EP)
   include Channel.Make(EP)(StaticLin)(M)(EV)(C)
 
   type 'g global = (epkind, 'g) t

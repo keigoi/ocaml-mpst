@@ -8,14 +8,10 @@ module Make
          (EV:S.EVENT with type 'a monad = 'a M.t)
          (C:S.SERIAL with type 'a monad = 'a M.t)
   = struct
-  include Global_common.Make(EP)
+
   module Out = Out.Make(EP)(M)(EV)
   module Inp = Inp.Make(EP)(StaticLin)(M)(EV)
   module Dpipe = Make_dpipe(C)
-
-  (* open Out
-   * open Inp
-   * open Dpipe *)
 
   type epkind =
     EpLocal

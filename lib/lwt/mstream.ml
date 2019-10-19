@@ -1,9 +1,11 @@
 (* An lwt stream that is 
  * (1) optimized for unbounded buffering
  * (2) mergeable on both input and output send
+ * (3) supports scatter/gather
  *)
 type 'a one = 'a Mpst.Base.one
 type 't st = {
+    id: string;
     stream : 't Lwt_stream_opt.t list;
     mutable out_refs : 't out_refs;
     mutable inp_refs : 't inp_refs
@@ -22,7 +24,7 @@ and 't out_ =
   Out_ : int * 'u st * ('t -> 'u) * 't one out list -> 't one out_
 | OutMany_ : 'u st * ('t -> 'u) * 't list out list -> 't list out_
 and 't inp_ =
-  Inp_ : int * 'u st * ('u -> 't option) * 't one inp list -> 't one inp_
+  Inp_ : int * 'u st * ('u -> 't option) list * 't one inp list -> 't one inp_
 | InpMany_ : 'u st * ('u -> 'v option) * ('v list -> 't) * 't list inp list -> 't list inp_
 
 let len st = List.length st.stream
@@ -51,8 +53,20 @@ let[@inline] debug str f x =
   (* print_endline str; *)
   f x
 
+let[@inline] debug_ str =
+  (* print_endline str; *)
+  ()
+
+let makeid =
+  let c = ref 0 in
+  fun () ->
+  let i = !c in
+  c := i+1; (* XXX must be atomic *)
+  i
+
 let create_raw n =
   let t = {
+      id=string_of_int (makeid());
       stream = List.init n (fun _ -> Lwt_stream_opt.create ());
       out_refs = [];
       inp_refs = [];
@@ -64,24 +78,32 @@ let update_out_ref : type t u. u st -> (t -> u) -> t wrap_out -> u wrap_out =
   fun st f w ->
   match w with
   | WrapOut({contents=Out_(i,_,_,rs)} as r,out) ->
-    let o = Out_(i,st, (fun x -> f (out x)), rs) in
-    List.iter (fun r -> r := o) rs;
-    r := o;
-    WrapOut(r,(fun x -> f (out x)))
-  | WrapOutMany({contents=OutMany_(_,_,rs)} as r,out) ->
-    let o = OutMany_(st, (fun x -> f (out x)), rs) in
-    List.iter (fun r -> r := o) rs;
-    r := o;
-    WrapOutMany(r,(fun x -> f (out x)))
+     let f = fun x -> f (out x) in
+     r := Out_(i, st, f, rs);
+     List.iter
+       (fun ({contents=Out_(idx,_,_,rs)} as r) -> r := Out_(idx,st,f,rs))
+       rs;
+     WrapOut(r,f)
+  | WrapOutMany({contents=OutMany_(st0,f0,rs)} as r,out) ->
+     let o = OutMany_(st, (fun x -> f (out x)), rs) in
+     List.iter (fun r -> r := o) rs;
+     r := o;
+     WrapOutMany(r,(fun x -> f (out x)))
 
 let update_inp_ref : type t u. u st -> (u -> t option) -> t wrap_inp -> u wrap_inp =
   fun st g w ->
   match w with
   | (WrapInp({contents=Inp_(i,_,_,rs)} as r,in_)) ->
-     let g x = join_option in_ (g x) in
-     let i = Inp_(i,st,g,rs) in
-     List.iter (fun r -> r := i) rs;
-     r := i;
+     let size = List.length st.stream in
+     let g = fun x -> join_option in_ (g x) in
+     let gs =
+       List.init size (fun _ -> g)
+     in
+     r := Inp_(i,st,gs,rs);
+     List.iter
+       (fun ({contents=Inp_(i,_,_,rs)} as r) ->
+         r := Inp_(i,st,gs,rs))
+       rs;
      WrapInp(r,g)
   | (WrapInpMany({contents=InpMany_(_,_,_,rs)} as r,in1,in2)) ->
      let g x = join_option in1 (g x) in
@@ -110,16 +132,6 @@ let in_sndonly x = SndOnly(x)
 let from_left = function Left x -> Some x | _ -> None
 let from_right = function Right x -> Some x | _ -> None
 
-(* let merge_st : type t. t st -> t st -> t st = fun sl sr ->
- *   let st = create_raw () in
- *   st.out_refs <- List.map (update_out_ref st (fun x -> x)) (sl.out_refs @ sr.out_refs);
- *   st.inp_refs <- List.map (update_inp_ref st (fun x -> Some x)) (sl.inp_refs @ sr.inp_refs);
- *   sl.inp_refs <- [];
- *   sl.out_refs <- [];
- *   sr.inp_refs <- [];
- *   sr.out_refs <- [];
- *   st *)
-
 let merge_st_either : type t u. t st -> u st -> (t,u) either st = fun sl sr ->
   let n = len sl in
   assert (n = len sr);
@@ -127,7 +139,8 @@ let merge_st_either : type t u. t st -> u st -> (t,u) either st = fun sl sr ->
   (* merge in/out references pointing to sl/sr *)
   (* and update each reference to point to this stream  *)
   st.out_refs <-
-    List.map (update_out_ref st in_left) sl.out_refs @ List.map (update_out_ref st in_right) sr.out_refs;
+    List.map (update_out_ref st in_left) sl.out_refs @
+      List.map (update_out_ref st in_right) sr.out_refs;
   (* this part is potentially dangerous, but actually safe for our purpose 
      since these are anyway overwritten later by merge_inp *)
   st.inp_refs <-
@@ -184,7 +197,9 @@ let fixeither fl fr = function
 (** Merge two streams into one, via input endpoint  *)
 let merge_inp : type t. t inp -> t inp -> t inp = fun ll rr ->
   match !ll,!rr with
-  | Inp_(i,sl,fl,ls),Inp_(i_,sr,fr,rs) ->
+  | Inp_(_,sl,_,_),Inp_(_,sr,_,_) when sl.id=sr.id ->
+     ll
+  | Inp_(i,sl,fls,ls),Inp_(i_,sr,frs,rs) ->
      assert (i=i_);
      (* The following wrongly wires ll and rr, as Left(x) and Right(x) are 
         delivered only to ll or rr respectively. 
@@ -192,25 +207,36 @@ let merge_inp : type t. t inp -> t inp -> t inp = fun ll rr ->
         This is fixed right after this.
       *)
      let st : (_,_) either st = merge_st_either sl sr in
-     let flr = function Left x -> fl x|Right x -> fr x in
+     let flrs =
+       List.map2
+         (fun fl fr -> function Left x -> fl x|Right x -> fr x)
+         fls frs
+     in
      (* Gather all `t inp`s *)
      let is = ll::rr::(List.append ls rs) in
      (* and update to the desired ones *)
-     let i = Inp_(i,st, flr, is) in
-     List.iter (fun r0 -> r0 := i) is;
+     List.iter
+       (fun ({contents=Inp_(idx,_,_,is)} as r0) ->
+         r0 := Inp_(idx,st,flrs,is))
+       is;
      ll
   | InpMany_(sl,fl,fl2,ls),InpMany_(sr,fr,fr2,rs) ->
      let st : (_,_) either st = merge_st_either sl sr in
-     let flr = function Left x -> map_option in_left (fl x) | Right x -> map_option in_right (fr x) in
+     let flr = function
+         Left x -> map_option in_left (fl x)
+       | Right x -> map_option in_right (fr x) in
      let is = ll::rr::(List.append ls rs) in
      (** assuming all senders agree, we map all payloads on either fl or fr only  *)
-     let i = InpMany_(st, flr, fixeither fl2 fr2, is) in
-     List.iter (fun r0 -> r0 := i) is;
+     List.iter
+       (fun ({contents=InpMany_(_,_,_,is)} as r0) -> r0 := InpMany_(st,flr,fixeither fl2 fr2, is))
+       is;
      ll
 
 (** Merge two streams into one via output endpoint  *)
 let merge_out : type t. t out -> t out -> t out = fun ll rr ->
   match !ll,!rr with
+  | Out_(_,sl,_,_),Out_(_,sr,_,_) when sl.id=sr.id ->
+     ll
   | Out_(i,sl,fl,ls),Out_(i_,sr,fr,rs) ->
      assert (i=i_);
      (* The underlying protocol is ('a,'b) prod which conveys:
@@ -226,46 +252,49 @@ let merge_out : type t. t out -> t out -> t out = fun ll rr ->
      (* Here, we gather all `t out`s in one place *)
      let os = ll::rr::(List.append ls rs) in
      (* and put the correct wrapper which delivers `Both`. *)
-     let o = Out_(i,st, flr, os) in
-     List.iter (fun r0 -> r0 := o) os;
+     List.iter
+       (fun ({contents=Out_(idx,_,_,os)} as r0) -> r0 := Out_(idx,st,flr,os))
+       os;
      ll
   | OutMany_(sl,fl,ls),OutMany_(sr,fr,rs) ->
      let st : (_,_) prod st = merge_st_prod sl sr in
      let flr = fun x -> Both(fl x, fr x) in
      let os = ll::rr::(List.append ls rs) in
-     let o = OutMany_(st, flr, os) in
-     List.iter (fun r0 -> r0 := o) os;
+     List.iter
+       (fun ({contents=OutMany_(_,_,os)} as r0) -> r0 := OutMany_(st,flr,os))
+       os;
      ll
 
-let wrap_inp {contents=i} g =
-  let g = (fun x -> Some (g x)) in
-  match i with
-  | Inp_(i,st,f,rs) ->
-     let r = ref (Inp_(i,st, compose_opt g f, [])) in
-     st.inp_refs <- WrapInp(r, compose_opt g f) :: st.inp_refs;
-     r
-
 let wrap st f =
+  assert (List.length st.stream = 1);
   let f x = Some (f x) in
   let out = ref (Out_(0,st,id,[])) in
-  let inp = ref (Inp_(0,st,f,[])) in
+  let inp = ref (Inp_(0,st,[f],[])) in
   st.out_refs <- [WrapOut(out, id)];
   st.inp_refs <- [WrapInp(inp, f)];
   out, inp
 
 let wrap_scatter st f =
-  let f i x = Some (f i x) in
+  let size = List.length st.stream in
+  let f = (fun i x -> Some (f i x)) in
+  let fs = List.init size f in
   let out = ref (OutMany_(st,id,[])) in
   let inps =
-    List.init (List.length st.stream)
-      (fun i -> ref (Inp_(0,st,f i,[])))
+    List.init size
+      (fun i -> ref (Inp_(i,st,fs,[])))
   in
+  List.iteri (fun i ({contents=Inp_(idx,st,f,_)} as r) ->
+      r := Inp_(idx,st,f, List.filter (fun r' -> r != r') inps)
+    ) inps;
   st.out_refs <- [WrapOutMany(out, id)];
   st.inp_refs <- List.mapi (fun i inp -> WrapInp(inp, f i)) inps;
   out, inps
 
 let wrap_gather st f =
   let outs = List.init (List.length st.stream) (fun i -> ref (Out_(i,st,id,[]))) in
+  List.iteri (fun i ({contents=Out_(idx,st,f,_)}as r) ->
+      r := Out_(idx,st,f, List.filter (fun r' -> r != r') outs);
+    ) outs;
   let inp = ref (InpMany_(st,in_some,f,[])) in
   st.out_refs <- List.map (fun o -> WrapOut(o, id)) outs;
   st.inp_refs <- [WrapInpMany(inp, in_some,f)];
@@ -280,7 +309,8 @@ let create_one () =
 let send o v =
   match o with
   | {contents=Out_(i,st,f,_)} ->
-     Lwt_stream_opt.send (List.nth st.stream i) (f v) (* fixme use lazy?? *)
+     (* FIXME replace List.nth with lazy?? *)
+     Lwt_stream_opt.send (List.nth st.stream i) (f v)
 
 let send_many o vf =
   match o with
@@ -290,9 +320,11 @@ let send_many o vf =
        st.stream
 
 let receive = function
-  | {contents=Inp_(i,st,f,_)} ->
-     Lwt_stream_opt.receive_wrap ~f (List.nth st.stream i)
+  | {contents=Inp_(i,st,fs,_)} ->
+      (* FIXME replace List.nth with lazy?? *)
+     Lwt_stream_opt.receive_wrap ~f:(List.nth fs i) (List.nth st.stream i)
 
 let receive_many = function
   | {contents=InpMany_(st,f,g,_)} ->
-     Lwt.map g @@ Lwt_list.map_p (Lwt_stream_opt.receive_wrap ~f) st.stream
+     Lwt.map g @@ Lwt_list.map_p (fun st -> Lwt_stream_opt.receive_wrap st ~f) st.stream
+

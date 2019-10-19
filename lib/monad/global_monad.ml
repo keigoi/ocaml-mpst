@@ -44,7 +44,7 @@ module Make
   let raw_get_ch = get_ch
 
   let mclose =
-    Linocaml_lin.EP.make_simple [Mpst.Close]
+    Linocaml_lin.EP.make_simple [Close (fun () -> ())]
 
   let get_ch r =
     let open Linocaml in

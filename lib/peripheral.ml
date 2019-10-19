@@ -115,6 +115,9 @@ module Serial : S.SERIAL
     in
     loop chs
 
+  let close_in = close_in
+  let close_out = close_out
+
   let fork_child f =
     let pid = Unix.fork () in
     if pid = 0 then begin

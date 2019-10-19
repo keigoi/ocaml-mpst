@@ -69,6 +69,9 @@ module LwtSerial : Mpst.S.SERIAL
              loop (v::acc) chs)
     in loop [] chs
 
+  let close_in = Lwt_io.close
+  let close_out ch = close_out ch; Lwt.return_unit
+
   let fork_child f =
     let pid = Lwt_unix.fork () in
     if pid = 0 then begin

@@ -11,7 +11,7 @@ module Make
 
   module Out = Out.Make(EP)(M)(EV)
   module Inp = Inp.Make(EP)(StaticLin)(M)(EV)
-  module Dpipe = Make_dpipe(C)
+  module Dpipe = Make_dpipe(M)(C)
 
   type epkind =
     EpLocal

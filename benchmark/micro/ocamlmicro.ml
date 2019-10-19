@@ -266,7 +266,7 @@ module BLwtCont(Chan:LWT_CHAN)() : TEST = struct
 end
 
 module Make_IPC(M:PERIPHERAL)() : TEST = struct
-  module Dpipe = Common.Make_dpipe(M.Serial)
+  module Dpipe = Common.Make_dpipe(M)(M.Serial)
   module C = M.Serial
 
   let ch = Dpipe.new_dpipe ()

@@ -25,7 +25,7 @@ module type PERIPHERAL = sig
   include S.MONAD
   val run : 'a t -> 'a
   val is_direct : bool
-
+  val sleep : float -> unit t
   module Event : S.EVENT with type 'a monad = 'a t
   module Serial : S.SERIAL with type 'a monad = 'a t
 end
@@ -35,6 +35,7 @@ module Direct : PERIPHERAL with type 'a t = 'a  = struct
   include P.Pure
   let run x = x
   let is_direct = true
+  let sleep = Unix.sleepf
   module Event = P.Event
   module Serial = P.Serial
 end
@@ -42,6 +43,7 @@ module LwtMonad : PERIPHERAL with type 'a t = 'a Lwt.t = struct
   include ML.P.Lwt
   let run = Lwt_main.run
   let is_direct = false
+  let sleep = Lwt_unix.sleep
   module Event = ML.P.LwtEvent
   module Serial = ML.P.LwtSerial
 end

@@ -38,7 +38,7 @@ let atomic =
     Mutex.unlock m;
     raise e
 
-module Make_dpipe(C:S.SERIAL) = struct
+module Make_dpipe(M:S.MONAD)(C:S.SERIAL with type 'a monad = 'a M.t) = struct
 
   type pipe = {inp: C.in_channel; out: C.out_channel}
   type dpipe = {me:pipe; othr:pipe}
@@ -51,4 +51,8 @@ module Make_dpipe(C:S.SERIAL) = struct
 
   let flip_dpipe {me=othr;othr=me} =
     {me;othr}
+
+  let close_dpipe dp =
+    M.bind (C.close_in dp.me.inp) (fun () ->
+        C.close_out dp.me.out)
 end

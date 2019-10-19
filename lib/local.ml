@@ -25,5 +25,5 @@ module Make
   let send = Out_.send
   let sendmany = Out_.sendmany
 
-  let close _ = ()
+  let close (Close f) = f ()
 end[@@inline]

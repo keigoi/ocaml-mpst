@@ -51,3 +51,8 @@ let rec get_or_add t idx default =
 
 let size t =
   Array.length t.table
+
+let to_list t =
+  List.fold_left (fun xs -> function
+      | Some x -> x::xs
+      | None -> xs) [] (Array.to_list t.table)

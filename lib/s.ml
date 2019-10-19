@@ -48,6 +48,8 @@ module type SERIAL = sig
   val input_tagged : in_channel -> (Base.tag * Obj.t) monad
   val input_value : in_channel -> 'v monad
   val input_value_list : in_channel list -> 'v list monad
+  val close_out : out_channel -> unit monad
+  val close_in : in_channel -> unit monad
   val flush : out_channel -> unit monad
   val pipe : unit -> (in_channel * out_channel)
   val fork_child : (unit -> unit) -> int

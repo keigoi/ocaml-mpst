@@ -33,6 +33,36 @@ module Make
     {rm_index; rm_kind; rm_size}
 
 
+  let mkclose env role =
+    let num =
+      match Table.get_opt env.metainfo role with
+      | Some prop -> prop.rm_size
+      | None -> 1
+    in
+    EP.make_simple
+      (List.init num (fun i ->
+           Close (fun () ->
+               match Table.get_opt env.metainfo role with
+               | Some {rm_kind=EpDpipe table;_} ->
+                  let chss = Table.to_list (List.nth table i) in
+                  let chss = List.concat chss in
+                  M.async (fun () ->
+                      M.iteriM (fun _ c -> Dpipe.close_dpipe c) chss)
+               | _ -> ())))
+
+    
+  let finish : (epkind, [`cons of close * 'a] as 'a) t =
+    Global (fun env ->
+        Seq.repeat 0 (mkclose env))
+
+  let closed : 'g. (_, _, close, close, 'g, 'g) role -> (epkind,'g) t -> (epkind,'g) t
+    = fun r (Global g) ->
+    Global (fun env ->
+        let g = g env in
+        let close = mkclose env (Seq.int_of_lens r.role_index) in
+        let g' = Seq.lens_put r.role_index g close in
+        g')
+
   let a2b env ?num_senders ?num_receivers ~gen ~make_out = fun rA rB label g0 ->
     let from_info = make_metainfo ?size:num_senders env rA in
     let to_info = make_metainfo ?size:num_receivers env rB in

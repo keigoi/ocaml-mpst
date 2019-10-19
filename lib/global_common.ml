@@ -1,6 +1,5 @@
 open Base
 open Common
-
 module Make(EP:S.ENDPOINTS) = struct
 module Seq = Seq.Make(EP)
 
@@ -20,26 +19,6 @@ let fix : type e g. ((e,g) t -> (e,g) t) -> (e,g) t = fun f ->
        * in the body.
        *)
       Seq.resolve_merge (Lazy.force body))
-
-let mkclose env i =
-  let num =
-    match Table.get_opt env.metainfo i with
-    | Some prop -> prop.rm_size
-    | None -> 1
-  in
-  EP.make_simple (List.init num (fun _ -> Close))  
-  
-let finish : 'e. ('e, [`cons of close * 'a] as 'a) t =
-  Global (fun env ->
-      Seq.repeat 0 (mkclose env))
-
-let closed : 'e 'g. (_, _, close, close, 'g, 'g) role -> ('e,'g) t -> ('e,'g) t
-  = fun r (Global g) ->
-  Global (fun env ->
-      let g = g env in
-      let close = mkclose env (Seq.int_of_lens r.role_index) in
-      let g' = Seq.lens_put r.role_index g close in
-      g')
 
 let gen_with_param p g = unglobal_ g p
 

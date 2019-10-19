@@ -81,8 +81,9 @@ let rec next_rec ~f t =
         t.node <- t.node.next;
         Lwt.return x
      | None ->
-        (* print_endline "Retry"; *)
-        next_rec ~f t
+        failwith "lwt_stream_opt: TODO"
+        (*TODO*)
+        (* next_rec ~f t *)
 
 let receive t =
   next_rec ~f:(fun x -> Some x) t

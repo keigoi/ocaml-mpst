@@ -35,20 +35,6 @@ module LwtEvent : Mpst.S.EVENT
 
   let merge_out = Mstream.merge_out
   let merge_inp = Mstream.merge_inp
-
-  (* (\* needs refactoring *\)
-   * type 'a inp = 'a Mstream.one Mstream.inp
-   * let[@inline] inp {me=(_,inp); _} = inp
-   * let[@inline] receive_inp inp () = Mstream.receive inp
-   * let merge_inp = Mstream.merge_inp
-   * let wrap_inp = Mstream.wrap_inp
-   * let receive_list chs () =
-   *   Lwt_list.map_p (fun {me=(_,inp);_} ->
-   *       let x = Mstream.receive inp in
-   *       x
-   *     ) chs
-   * let receive_list_inp chs =
-   *   failwith "receive_list_inp (lwt/peripheral.ml): not implemented" *)
 end
 
 

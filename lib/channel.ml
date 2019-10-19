@@ -194,11 +194,11 @@ module Make
     let chss = generate ~from_info ~to_info in
     match chss with
     | ChVec(ch) ->
-       let out,inp =
+       let outs,inp =
          EV.wrap_gather ch
            (fun v -> label.var (v, StaticLin.create_dummy @@ EP.fresh conts_to 0))
        in
-       (List.map (fun v -> Out.BareOutChanOne(v)) out,
+       (List.map (fun v -> Out.BareOutChanOne(v)) outs,
         Inp.make_inpmany inp)
     | Untyped(chss) ->
        let chs = List.map List.hd chss in

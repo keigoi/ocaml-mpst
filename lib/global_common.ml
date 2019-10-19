@@ -4,10 +4,6 @@ open Common
 module Make(EP:S.ENDPOINTS) = struct
 module Seq = Seq.Make(EP)
 
-type ('robj,'c,'a,'b,'xs,'ys) role =
-  {role_label: ('robj,'c) method_;
-   role_index: ('a,'b,'xs,'ys) Seq.lens}
-
 type 'k env = {metainfo: 'k role_metainfo Table.t; default:int -> 'k}
 
 type ('k, 'g) t = Global of ('k env -> 'g Seq.t)
@@ -47,7 +43,7 @@ let closed : 'e 'g. (_, _, close, close, 'g, 'g) role -> ('e,'g) t -> ('e,'g) t
 
 let gen_with_param p g = unglobal_ g p
 
-let get_ch_raw : 'ep 'x2 't 'x3 't 'ep. ('ep, 'x2, 't, 'x3) Seq.lens -> 't Seq.t -> 'ep = fun lens g ->
+let get_ch_raw : 'ep 'x2 't 'x3 't 'ep. ('ep, 'x2, 't, 'x3) lens -> 't Seq.t -> 'ep = fun lens g ->
   let ep = Seq.lens_get lens g in
   match EP.fresh_all ep with
   | [e] -> e

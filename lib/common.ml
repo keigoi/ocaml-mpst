@@ -38,11 +38,6 @@ let atomic =
     Mutex.unlock m;
     raise e
 
-type 'k role_metainfo =
-  {rm_index:int;
-   rm_kind:'k;
-   rm_size:int}
-
 module Make_dpipe(C:S.SERIAL) = struct
 
   type pipe = {inp: C.in_channel; out: C.out_channel}

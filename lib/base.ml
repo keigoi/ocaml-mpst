@@ -13,6 +13,19 @@ type ('la,'lb,'va,'vb) label =
   {obj: ('la, 'va) method_;
    var: 'vb -> 'lb}
 
+type 'k role_metainfo =
+  {rm_index:int;
+   rm_kind:'k;
+   rm_size:int}
+
+type (_,_,_,_) lens =
+  Zero : ('a, 'b, [`cons of 'a * 'tl], [`cons of 'b * 'tl]) lens
+| Succ : ('a, 'b, 'aa, 'bb) lens -> ('a, 'b, [`cons of 'hd * 'aa], [`cons of 'hd * 'bb]) lens
+
+type ('robj,'c,'a,'b,'xs,'ys) role =
+  {role_label: ('robj,'c) method_;
+   role_index: ('a,'b,'xs,'ys) lens}
+
 type close = Close
 
 type 'a one = One__

@@ -1,3 +1,4 @@
+open Base
 module Make(EP:S.ENDPOINTS) = struct
 
   type _ t =
@@ -6,10 +7,6 @@ module Make(EP:S.ENDPOINTS) = struct
     | SeqRepeat : int * (int -> 'a EP.t) -> ([`cons of 'a * 'tl] as 'tl) t
     | SeqRecVars : 'a t lazy_t list -> 'a t
     | SeqBottom : 'a t
-
-  type (_,_,_,_) lens =
-    Zero : ('a, 'b, [`cons of 'a * 'tl], [`cons of 'b * 'tl]) lens
-  | Succ : ('a, 'b, 'aa, 'bb) lens -> ('a, 'b, [`cons of 'hd * 'aa], [`cons of 'hd * 'bb]) lens
 
   exception UnguardedLoopSeq
 

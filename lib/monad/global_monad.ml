@@ -1,6 +1,6 @@
 type 'a lin = 'a Linocaml.lin
 type 'a data = 'a Linocaml.data
-
+open Mpst.Base
 module Make
          (M:Mpst.S.MONAD)
          (EV:Mpst.S.EVENT with type 'a monad = 'a M.t)

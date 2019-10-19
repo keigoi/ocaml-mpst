@@ -8,8 +8,8 @@ module Make
 
   type ('p,'q,'a) monad = ('p,'q,'a) L.monad
 
-  type 't out = 't Mpst.Local.Make(Linocaml_lin.EP)(M)(EV).out
-  type 't inp = 't Mpst.Local.Make(Linocaml_lin.EP)(M)(EV).inp
+  type 't out = 't Mpst.Local.Make(Linocaml_lin.EP)(Linocaml_lin.Lin)(M)(EV).out
+  type 't inp = 't Mpst.Local.Make(Linocaml_lin.EP)(Linocaml_lin.Lin)(M)(EV).inp
 
   val ( @* ) :
     ('a,'b,'q,'r) Linocaml.lens
@@ -49,7 +49,7 @@ end = struct
     in
     Other(get,put)
 
-  module Local = Mpst.Local.Make(Linocaml_lin.EP)(M)(EV)
+  module Local = Mpst.Local.Make(Linocaml_lin.EP)(Linocaml_lin.Lin)(M)(EV)
 
   type 't out = 't Local.out
   type 't inp = 't Local.inp

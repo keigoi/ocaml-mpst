@@ -6,36 +6,44 @@ module AsyncEvent : Mpst.S.EVENT
   open Async
   type 'a monad = 'a Deferred.t
   type 'a event = unit -> 'a Deferred.t
-  type 'a st = {read: 'a Pipe.Reader.t; write: 'a Pipe.Writer.t}
-  type 'a channel = {me:'a st; othr:'a st}
+  type 'a stream = {read: 'a Pipe.Reader.t; write: 'a Pipe.Writer.t}
+  type 'a channel = {me:'a stream; othr:'a stream}
 
   let new_channel () =
     let r1, w2 = Pipe.create ()
     and r2, w1 = Pipe.create ()
     in
     {me={write=w1;read=r1}; othr={write=w2;read=r2}}
+
   let receive {me={read}; _} () =
     Deferred.map (Pipe.read read) (function
     | `Ok(v) -> v
     | `Eof -> failwith "mpst_async: pipe eof")
+
   let flip_channel {me=othr; othr=me} = {me; othr}
+
   let send {me={write; _}; _} v () =
     Pipe.write write v
-  let guard f = f ()
-  let sync f = f ()
-  let choose xs = fun () -> Deferred.any (List.map (fun f -> f ()) xs)
-  let wrap e f () = Deferred.map ~f (e ())
-  let always x () = Deferred.return x
-  let receive_list chs () =
-    Deferred.List.map chs (fun ch -> receive ch ())
 
-  (* needs refactoring *)
-  type 'a inp = 'a event
-  let inp ch = receive ch
-  let receive_inp x = x
-  let merge_inp x y () = Deferred.any [x (); y ()]
-  let wrap_inp = wrap
-  let receive_list_inp = receive_list
+  type 'a st = St__ of 'a
+  type 'a inp = Inp__ of 'a
+  type 'a out = Out__ of 'a
+
+  let fail () = failwith "async peripheral: not implemented"
+  let create_st ~num = fail ()
+  let wrap st f = fail ()
+  let wrap_scatter st f = fail ()
+  let wrap_gather st f = fail ()
+
+  let send_st out v = fail ()
+  let sendmany_st outs f = fail ()
+  let receive_st inp = fail ()
+  let receivemany_st inps = fail ()
+
+  let merge_out o1 o2 = fail ()
+  let merge_inp i1 i2 = fail ()
+
+  let sync f = f ()
 end
 
 module AsyncSerial : Mpst.S.SERIAL with type 'a monad = 'a Async.Deferred.t = struct

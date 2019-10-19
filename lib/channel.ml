@@ -108,42 +108,52 @@ module Make
            ~newch:EV.new_channel ~flipch:EV.flip_channel ~tablefun:untyped_table
            ~from_info ~to_info
 
-  let make_wrapper_untyped label cont idx =
-    let tag = make_tag label.var in
-    [(tag, (fun t -> label.var (Obj.obj t, StaticLin.create_dummy @@ EP.fresh cont idx)))]
+  let receive_dpipe ch () =
+    C.input_tagged ch.Dpipe.me.inp
+    
+  let receive_untyped ch () =
+      EV.sync (EV.receive ch)
 
-  let wrap_dpipe label chs conts =
+  let send_dpipe ch tag v =
+    M.bind (C.output_tagged ch.Dpipe.me.out (tag, Obj.repr v))
+      (fun () -> C.flush ch.me.out)
+    
+  let send_untyped ch tag v =
+    EV.sync (EV.send ch (tag, Obj.repr v))
+
+  let wrap_one label f conts =
     let tag = make_tag label.var in
-    let makefun ch = (fun () -> C.input_tagged ch.Dpipe.me.inp) in
     Inp.make_inpfun
       label
-      (tag, List.map makefun chs)
+      (tag, [f])
       conts
-    
-  let wrap_untyped label chs conts =
+
+  let wrap_ones label fs conts =
     let tag = make_tag label.var in
-    let makefun ch = (fun () -> EV.sync (EV.receive ch)) in
     Inp.make_inpfun
       label
-      (tag, List.map makefun chs)
+      (tag, fs)
       conts
 
-  let outfun_dpipe label chss =
+  let wrap_many label fs conts =
     let tag = make_tag label.var in
-    let make ch =
-      fun v ->
-      M.bind (C.output_tagged ch.Dpipe.me.out (tag, Obj.repr v))
-        (fun () -> C.flush ch.me.out)
-    in
-    List.map (fun chs -> Out.BareOutFun(List.map make chs)) chss
+    Inp.make_inpfunmany
+      label
+      (tag, fs)
+      conts
 
-  let outfun_untyped label chss =
+  let bareout_one label f =
     let tag = make_tag label.var in
-    let make ch =
-      fun v -> EV.sync (EV.send ch (tag, Obj.repr v))
-    in
-    List.map (fun chs -> Out.BareOutFun(List.map make chs)) chss
-    
+    Out.BareOutFun([f tag])
+
+  let bareout_ones label fs =
+    let tag = make_tag label.var in
+    List.map (fun f -> Out.BareOutFun([f tag])) fs
+
+  let bareout_many label fs =
+    let tag = make_tag label.var in
+    Out.BareOutFun(List.map (fun f -> f tag) fs)
+
   let generate_one label conts_to from_info to_info =
     let chss = generate ~from_info ~to_info in
     match chss with
@@ -152,16 +162,16 @@ module Make
          EV.wrap ch
            (fun v -> label.var (v, StaticLin.create_dummy  @@ EP.fresh conts_to 0))
        in
-       ([Out.BareOutChanOne(out)],
+       (Out.BareOutChanOne(out),
         Inp.make_inp [inp])
     | Untyped(chss) ->
        let chss' = flip_all EV.flip_channel chss in
-       (outfun_untyped label chss,
-        wrap_untyped label (List.hd chss') conts_to)
+       (bareout_one label (send_untyped @@ List.hd @@ List.hd chss),
+        wrap_one label (receive_untyped @@ List.hd @@ List.hd chss') conts_to)
     | Dpipe(chss) ->
        let chss' = flip_all Dpipe.flip_dpipe chss in
-       (outfun_dpipe label chss,
-        wrap_dpipe label (List.hd chss') conts_to)
+       (bareout_one label (send_dpipe @@ List.hd @@ List.hd chss),
+        wrap_one label (receive_dpipe @@ List.hd @@ List.hd chss') conts_to)
 
   let generate_scatter label conts_to from_info to_info =
     let chss = generate ~from_info ~to_info in
@@ -174,13 +184,15 @@ module Make
        (Out.BareOutChanMany(out),
         Inp.make_inp inp)
     | Untyped(chss) ->
-       let chss' = flip_all EV.flip_channel chss in
-       (List.hd (outfun_untyped label chss),
-        wrap_untyped label (List.map List.hd chss') conts_to)
+       let chs = List.hd chss in
+       let chs' = List.map List.hd @@ flip_all EV.flip_channel chss in
+       (bareout_many label (List.map send_untyped chs),
+        wrap_ones label (List.map receive_untyped chs') conts_to)
     | Dpipe(chss) ->
-       let chss' = flip_all Dpipe.flip_dpipe chss in
-       (List.hd @@ outfun_dpipe label chss,
-        wrap_dpipe label (List.map List.hd chss') conts_to)
+       let chs = List.hd chss in
+       let chs' = List.map List.hd @@ flip_all Dpipe.flip_dpipe chss in
+       (bareout_many label (List.map send_dpipe chs),
+        wrap_ones label (List.map receive_dpipe chs') conts_to)
 
   let generate_gather label conts_to from_info to_info =
     let chss = generate ~from_info ~to_info in
@@ -193,13 +205,13 @@ module Make
        (List.map (fun v -> Out.BareOutChanOne(v)) out,
         Inp.make_inpmany inp)
     | Untyped(chss) ->
-       let chss' = flip_all EV.flip_channel chss in
-       (outfun_untyped label chss,
-        failwith "")
-        (* wrap_untyped label (List.hd chss') conts_to) *)
+       let chs = List.map List.hd chss in
+       let chs' = List.hd @@ flip_all EV.flip_channel chss in
+       (bareout_ones label (List.map send_untyped chs),
+        wrap_many label (List.map receive_untyped chs') conts_to)
     | Dpipe(chss) ->
-       let chss' = flip_all Dpipe.flip_dpipe chss in
-       (outfun_dpipe label chss,
-        failwith "")
-        (* wrap_dpipe label (List.hd chss') conts_to) *)
+       let chs = List.map List.hd chss in
+       let chs' = List.hd @@ flip_all Dpipe.flip_dpipe chss in
+       (bareout_ones label (List.map send_dpipe chs),
+        wrap_many label (List.map receive_dpipe chs') conts_to)
 end

@@ -24,10 +24,14 @@ module Event : S.EVENT
   type 'a out =
     | OutOne : 'a Event.channel ref -> 'a one out
     | OutMany : 'a Event.channel list ref -> 'a list out
-  let create_st ~num = List.init num (fun _ -> Event.new_channel ())
+
+  let create_st ~num =
+    List.init num (fun _ -> Event.new_channel ())
+                     
   let wrap chs f =
     let r = ref @@ List.hd chs in
     (OutOne r, InpOne (Event.wrap (Event.guard (fun () -> Event.receive (!r))) f))
+
   let wrap_scatter chs f =
     let r = ref chs in
     (OutMany r,
@@ -36,6 +40,7 @@ module Event : S.EVENT
        (fun i ->
          InpOne
            (Event.wrap (Event.guard (fun () -> Event.receive (List.nth (!r) i))) f)))
+
   let receive_list = function
     | [] ->
        Event.always []
@@ -43,6 +48,7 @@ module Event : S.EVENT
        Event.wrap (Event.receive ch)
          (fun v ->
            v :: List.map (fun ch -> Event.sync @@ Event.receive ch) chs)
+
   let wrap_gather chs f =
     let rs = List.map (fun ch -> ref ch) chs in
     let g =
@@ -52,12 +58,14 @@ module Event : S.EVENT
     in
     (List.map (fun r -> OutOne r) rs,
      InpMany (Event.wrap g f))
+
   let merge_inp : type t. t inp -> t inp -> t inp = fun i1 i2 ->
     match i1,i2 with
     | InpOne(ev1),InpOne(ev2) ->
        InpOne(Event.choose [ev1; ev2])
     | InpMany(ev1),InpMany(ev2) ->
        InpMany(Event.choose [ev1; ev2])
+
   let merge_out : type t. t out -> t out -> t out = fun r1 r2 ->
     match r1,r2 with
     | OutOne(r1),OutOne(r2) ->
@@ -66,8 +74,19 @@ module Event : S.EVENT
     | OutMany(r1),OutMany(r2) ->
        r1 := !r2;
        OutMany(r1)
+
   let send_st (OutOne r) v = Event.send !r v
+
+  let sendmany_st (OutMany {contents=cs}) vf =
+    Event.wrap
+      (Event.send (List.hd cs) (vf 0))
+      (fun () ->
+        List.iteri
+          (fun i c -> Event.sync (Event.send c (vf (i+1))))
+          (List.tl cs))
+
   let receive_st (InpOne ev) = ev
+
   let receivemany_st (InpMany ev) = ev
 end
 module Serial : S.SERIAL

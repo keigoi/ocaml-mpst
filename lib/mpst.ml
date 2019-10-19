@@ -43,6 +43,7 @@ module M = struct
     module Direct =
       Local.Make
         (EP)
+        (Lin.NoCheck)
         (Peripheral.Pure)
         (Peripheral.Event)
   end

@@ -28,15 +28,16 @@ end = struct
   type 'var varfun =
     VarFun : 'cont EP.t * (Obj.t * 'cont EP.t -> 'var) -> 'var varfun
 
-  type 'var inpfun = {
-      raw_input_fun : unit -> (tag * Obj.t) M.t;
+  type ('v,'var) inpfun = {
+      raw_input_fun : unit -> (tag * 'v) M.t;
       wrappers : (tag * 'var varfun) list;
     }
 
   type 'a inp =
     | InpChanOne of 'a one EV.inp
     | InpChanMany of 'a list EV.inp
-    | InpFun of 'a inpfun
+    | InpFun of (Obj.t,'a) inpfun
+    | InpFunMany of (Obj.t list,'a) inpfun
 
   let merge_inp inp1 inp2 =
     match inp1, inp2 with
@@ -67,24 +68,30 @@ end = struct
            InpFun(inpfun))
          fs)
 
-  let make_inpfun label (tag,fs) conts =
+  let receive_list fs () =
+    M.bind
+      (List.hd fs ())
+      (fun (tag,v) ->
+        M.bind
+          (M.mapM (fun f -> f ()) (List.tl fs))
+          (fun vs ->
+            let vs = List.map snd vs in
+            M.return (tag, List.map Obj.repr vs)))
+
+  let make_inpfunmany label (tag,fs) conts =
+    let inpfun =
+      {raw_input_fun = receive_list fs;
+       wrappers=
+         [(tag,
+           VarFun (conts, 
+                   (fun (v,conts) ->
+                     label.var (Obj.obj v, StaticLin.create_dummy @@ EP.fresh conts 0))))]
+      }
+    in
     EP.make_lin
       ~hook:(Lazy.from_val ()) (* FIXME force continuation *)
       ~mergefun:merge_inp
-      ~values:
-      (List.mapi
-         (fun idx f ->
-           let inpfun =
-             {raw_input_fun = f;
-              wrappers=
-                [(tag,
-                  VarFun (conts, 
-                          (fun (v,conts) ->
-                            label.var (Obj.obj v, StaticLin.create_dummy @@ EP.fresh conts idx))))]
-             }
-           in
-           InpFun(inpfun))
-         fs)
+      ~values:[InpFunMany(inpfun)]
 
   let make_inp is =
     EP.make_lin

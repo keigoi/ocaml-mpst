@@ -28,6 +28,7 @@ module type EVENT = sig
   val wrap_gather : 'a st -> ('a list -> 'b) -> 'a one out list * 'b list inp
 
   val send_st : 'a one out -> 'a -> unit event
+  val sendmany_st : 'a list out -> (int -> 'a) -> unit event
   val receive_st : 'a one inp -> 'a event
   val receivemany_st : 'a list inp -> 'a event
 

@@ -54,7 +54,7 @@ module Make
                 'g0 global -> 'g2 global
     = fun rA rB label (Global g0) ->
     Global (fun env ->
-        a2b ~gen:generate_one ~make_out:Out.make_out
+        a2b ~gen:generate_one ~make_out:Out.make_out_single
           env rA rB label (g0 env)
       )
 
@@ -98,33 +98,33 @@ module Make
       {metainfo=Table.create (); default=ipc} g
 
   let gen_mult ps g =
-    let ps = List.map (fun cnt -> {rm_size=cnt;rm_kind=EpLocal}) ps in
+    let ps = List.mapi (fun i cnt -> {rm_index=i;rm_size=cnt;rm_kind=EpLocal}) ps in
     gen_with_param
       {metainfo=Table.create_from ps; default=local}
       g
 
   let gen_mult_ipc ps g =
-    let ps = List.map (fun cnt -> {rm_size=cnt;rm_kind=ipc cnt}) ps in
+    let ps = List.mapi (fun i cnt -> {rm_index=i;rm_size=cnt;rm_kind=ipc cnt}) ps in
     gen_with_param
       {metainfo=Table.create_from ps; default=ipc}
       g
 
   type kind = [`Local | `IPCProcess | `Untyped]
-  let rm_kind_of_kind = function
-    | `Local -> fun i -> {rm_size=i; rm_kind=EpLocal}
-    | `IPCProcess -> fun i -> {rm_size=i; rm_kind=ipc i}
-    | `Untyped -> fun i -> {rm_size=i; rm_kind=untyped i}
+  let rm_kind_of_kind ~rm_index ~rm_size = function
+    | `Local -> {rm_kind=EpLocal; rm_size; rm_index}
+    | `IPCProcess -> {rm_kind=ipc rm_size; rm_size; rm_index}
+    | `Untyped -> {rm_kind=untyped rm_size; rm_size; rm_index}
 
   let mkparams ps =
     {metainfo =
        Table.create_from
-         (List.map (fun k -> rm_kind_of_kind k 1) ps);
+         (List.mapi (fun rm_index k -> rm_kind_of_kind ~rm_index ~rm_size:1 k) ps);
      default=local}
 
   let mkparams_mult ps =
     {metainfo =
        Table.create_from
-         (List.map (fun (k,p) -> rm_kind_of_kind k p) ps);
+         (List.mapi (fun rm_index (k,rm_size) -> rm_kind_of_kind ~rm_index ~rm_size k) ps);
      default=local}
 
   let gen_with_kinds ps g =

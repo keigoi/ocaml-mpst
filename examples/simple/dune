@@ -44,6 +44,13 @@
   (public_name calc_scatter)
   (modules calc_scatter)
   (flags ("-g" "-short-paths"))
+  (libraries ocaml-mpst ocaml-mpst.async calc_util))
+
+(executable
+ (name calc_scatter_lwt)
+  (public_name calc_scatter_lwt)
+  (modules calc_scatter_lwt)
+  (flags ("-g" "-short-paths"))
   (libraries ocaml-mpst.lwt ocaml-mpst.async calc_util))
 
 (executable

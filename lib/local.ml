@@ -23,7 +23,7 @@ module Make
   type 't inp = 't Inp_.inp
   let receive inp = Inp_.receive (EP.use inp)
   let send = Out_.send
-  (* let sendmany = Out_.sendmany *)
+  let sendmany = Out_.sendmany
 
   let close _ = ()
 end[@@inline]

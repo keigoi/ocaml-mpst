@@ -25,12 +25,12 @@ module Make(EP:S.ENDPOINTS)(StaticLin:S.LIN)(M:S.MONAD)(EV:S.EVENT with type 'a 
 end = struct
 
   type raw_input_fun = unit -> (tag * Obj.t) M.t
-  type 'var varfun =
-    VarFun : 'cont EP.t * (Obj.t * 'cont EP.t -> 'var) -> 'var varfun
+  type ('v,'var) varfun =
+    VarFun : 'cont EP.t * ('v * 'cont EP.t -> 'var) -> ('v,'var) varfun
 
   type ('v,'var) inpfun = {
       raw_input_fun : unit -> (tag * 'v) M.t;
-      wrappers : (tag * 'var varfun) list;
+      wrappers : (tag * ('v,'var) varfun) list;
     }
 
   type 'a inp =
@@ -85,7 +85,7 @@ end = struct
          [(tag,
            VarFun (conts, 
                    (fun (v,conts) ->
-                     label.var (Obj.obj v, StaticLin.create_dummy @@ EP.fresh conts 0))))]
+                     label.var (List.map Obj.obj v, StaticLin.create_dummy @@ EP.fresh conts 0))))]
       }
     in
     EP.make_lin
@@ -111,6 +111,11 @@ end = struct
     | InpChanMany inp ->
        EV.sync (EV.receivemany_st inp)
     | InpFun f ->
+       (* receive tag(s) *)
+       M.bind (f.raw_input_fun ()) (fun (tag,v) ->
+       let (VarFun(cont,f)) = List.assoc tag f.wrappers in
+       M.return (f (v,cont)))
+    | InpFunMany f ->
        (* receive tag(s) *)
        M.bind (f.raw_input_fun ()) (fun (tag,v) ->
        let (VarFun(cont,f)) = List.assoc tag f.wrappers in

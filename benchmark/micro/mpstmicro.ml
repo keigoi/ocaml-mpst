@@ -21,7 +21,7 @@ module MakeDyn
     (* module EP = Mpst.Endpoints.Make(Mpst.Lin.MakeDynCheckClosure(Dyncheck_nanomutex.NanoMutexFlag)) *)
     (* module EP = Mpst.Endpoints.Make(Mpst.Lin.NoCheck) *)
 
-    module Local = Local.Make(EP)(M)(M.Event)
+    module Local = Local.Make(EP)(Mpst.Lin.NoCheck)(M)(M.Event)
     module Global = Global.Make(EP)(Mpst.Lin.NoCheck)(M)(M.Event)(M.Serial)
     module Util = Util.Make(EP)
 

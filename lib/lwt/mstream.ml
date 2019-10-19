@@ -28,6 +28,7 @@ and 't inp_ =
 let len st = List.length st.stream
 
 let id x = x
+let in_some x = Some(x)
 let join_option f m0 =
   match m0 with
   | Some x -> f x
@@ -245,33 +246,48 @@ let wrap_inp {contents=i} g =
      r
 
 let wrap st f =
-  let out = ref (Out_(0,st,f,[])) in
-  let inp = ref (Inp_(0,st,(fun x -> Some x),[])) in
-  st.out_refs <- [WrapOut(out, f)];
-  st.inp_refs <- [WrapInp(inp, (fun x -> Some x))];
+  let f x = Some (f x) in
+  let out = ref (Out_(0,st,id,[])) in
+  let inp = ref (Inp_(0,st,f,[])) in
+  st.out_refs <- [WrapOut(out, id)];
+  st.inp_refs <- [WrapInp(inp, f)];
   out, inp
 
 let wrap_scatter st f =
+  let f x = Some (f x) in
+  let out = ref (OutMany_(st,id,[])) in
+  let inps =
+    List.init (List.length st.stream)
+      (fun i -> ref (Inp_(0,st,f,[])))
+  in
+  st.out_refs <- [WrapOutMany(out, id)];
+  st.inp_refs <- List.map (fun i -> WrapInp(i, f)) inps;
+  out, inps
+
+let wrap_gather st f =
   let outs = List.init (List.length st.stream) (fun i -> ref (Out_(i,st,id,[]))) in
-  let inp = ref (InpMany_(st,(fun x -> Some x),f,[])) in
+  let inp = ref (InpMany_(st,in_some,f,[])) in
   st.out_refs <- List.map (fun o -> WrapOut(o, id)) outs;
-  st.inp_refs <- [WrapInpMany(inp, (fun x -> Some x),f)];
+  st.inp_refs <- [WrapInpMany(inp, in_some,f)];
   outs, inp
 
-(* let create () =
- *   create_with ~wrap:(fun x -> x) *)
+let create ~num =
+  create_raw num
+
+let create_one () =
+  wrap (create_raw 1) id
 
 let send o v =
   match o with
   | {contents=Out_(i,st,f,_)} ->
      Lwt_stream_opt.send (List.nth st.stream i) (f v) (* fixme use lazy?? *)
 
-let send_many o vs =
+let send_many o vf =
   match o with
   | {contents=OutMany_(st,f,_)} ->
-     Lwt_list.iter_p
-       (fun (st,v) -> Lwt_stream_opt.send st v)
-       (List.map2 (fun x y -> (x,y)) st.stream (List.map f vs))
+     Lwt_list.iteri_p
+       (fun i st -> Lwt_stream_opt.send st (f (vf i)))
+       st.stream
 
 let receive = function
   | {contents=Inp_(i,st,f,_)} ->

@@ -21,6 +21,11 @@ module Make
     -> 't
     -> ('ep lin, unit, 'u lin) monad
 
+  val sendmany :
+    ((< .. > as 'ep) -> ('t data list * 'u) out)
+    -> (int -> 't)
+    -> ('ep lin, unit, 'u lin) monad
+
   val deleg_send :
     ((< .. > as 'ep) -> ('t lin Mpst.one * 'u) out)
     -> ('ep lin * 't lin, unit, 'u lin) monad
@@ -60,6 +65,11 @@ end = struct
   let[@inline] send sel v =
     {L.__m=(fun[@inline] lpre ->
        let ep = Local.send (sel (unlin lpre)) {Linocaml.data=v} in
+       M.map (fun[@inline] v -> ((), mklin v)) ep)}
+
+  let[@inline] sendmany sel vf =
+    {L.__m=(fun[@inline] lpre ->
+       let ep = Local.sendmany (sel (unlin lpre)) (fun i->{Linocaml.data=vf i}) in
        M.map (fun[@inline] v -> ((), mklin v)) ep)}
 
   let[@inline] deleg_send sel =

@@ -107,7 +107,7 @@ module type LOCAL = sig
   type 't inp
   type 't lin
   val send : ('t one * 'u) out lin -> 't -> 'u monad
-  (* val sendmany : ('t list * 'u) out lin -> (int -> 't) -> 'u monad *)
+  val sendmany : ('t list * 'u) out lin -> (int -> 't) -> 'u monad
   val receive : 't inp lin -> 't monad
   val close : Base.close -> unit
 end

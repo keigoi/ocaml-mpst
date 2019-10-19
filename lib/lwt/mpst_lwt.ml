@@ -15,6 +15,7 @@ module Global =
 module Local =
   Mpst.Local.Make
     (Mpst.EP)
+    (Mpst.Lin.NoCheck)
     (M.Peripheral.Lwt)
     (M.Peripheral.LwtEvent)
 

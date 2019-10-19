@@ -1,37 +1,54 @@
+open Mpst.Base
 module LwtEvent : Mpst.S.EVENT
        with type 'a monad = 'a Lwt.t
        with type 'a event = unit -> 'a Lwt.t
   = struct
   type 'a monad = 'a Lwt.t
   type 'a event = unit -> 'a Lwt.t
-  type 'a st = 'a Mstream.one Mstream.out * 'a Mstream.one Mstream.inp
-  type 'a channel = {me:'a st; othr:'a st}
+  type 'a stream = 'a one Mstream.out * 'a one Mstream.inp
+  type 'a channel = {me:'a stream; othr:'a stream}
 
   let new_channel () =
-    let ch1 = Mstream.create ()
-    and ch2 = Mstream.create ()
+    let ch1 = Mstream.create_one ()
+    and ch2 = Mstream.create_one ()
     in
     {me=ch1; othr=ch2}
   let[@inline] receive {me=(_,inp); _} () = Mstream.receive inp
   let flip_channel {me=othr; othr=me} = {me; othr}
   let[@inline] send {othr=(out,_); _} v () = Mstream.send out v
-  let[@inline] guard f = f ()
-  let[@inline] sync f = f ()
-  let always x () = Lwt.return x
 
-  (* needs refactoring *)
-  type 'a inp = 'a Mstream.one Mstream.inp
-  let[@inline] inp {me=(_,inp); _} = inp
-  let[@inline] receive_inp inp () = Mstream.receive inp
+  let[@inline] sync f = f ()
+
+  type 'a st = 'a Mstream.st
+  type 'a inp = 'a Mstream.inp
+  type 'a out = 'a Mstream.out
+
+  let create_st = Mstream.create
+  let wrap = Mstream.wrap
+  let wrap_scatter = Mstream.wrap_scatter
+  let wrap_gather = Mstream.wrap_gather
+
+  let[@inline] send_st out v () = Mstream.send out v
+  let[@inline] sendmany_st out v () = Mstream.send_many out v
+  let[@inline] receive_st inp () = Mstream.receive inp
+  let[@inline] receivemany_st inp () = Mstream.receive_many inp
+
+  let merge_out = Mstream.merge_out
   let merge_inp = Mstream.merge_inp
-  let wrap_inp = Mstream.wrap_inp
-  let receive_list chs () =
-    Lwt_list.map_p (fun {me=(_,inp);_} ->
-        let x = Mstream.receive inp in
-        x
-      ) chs
-  let receive_list_inp chs =
-    failwith "receive_list_inp (lwt/peripheral.ml): not implemented"
+
+  (* (\* needs refactoring *\)
+   * type 'a inp = 'a Mstream.one Mstream.inp
+   * let[@inline] inp {me=(_,inp); _} = inp
+   * let[@inline] receive_inp inp () = Mstream.receive inp
+   * let merge_inp = Mstream.merge_inp
+   * let wrap_inp = Mstream.wrap_inp
+   * let receive_list chs () =
+   *   Lwt_list.map_p (fun {me=(_,inp);_} ->
+   *       let x = Mstream.receive inp in
+   *       x
+   *     ) chs
+   * let receive_list_inp chs =
+   *   failwith "receive_list_inp (lwt/peripheral.ml): not implemented" *)
 end
 
 

@@ -1,5 +1,4 @@
 open Ast_global
-open Epp
 
 let mktab cnt =
   let rec loop acc cnt =
@@ -183,20 +182,20 @@ class ocamlmpst =
         ^ ")\n"
   end
 
-let rec get_roles = function
+let rec get_roles_ = function
   | Seq(_,f,t,_,cont) ->
-     add f @@ add t @@ get_roles cont
+     add f @@ add t @@ get_roles_ cont
   | Choice(r,cont1,cont2) ->
-     add r (add_all (get_roles cont1) (get_roles cont2))
+     add r (add_all (get_roles_ cont1) (get_roles_ cont2))
   | Guard _ -> []
   | Goto _ -> []
   | Finish -> []
 
-let rec get_labels = function
+let rec get_labels_ = function
   | Seq(_,_,_,l,cont) ->
-     add l @@ get_labels cont
+     add l @@ get_labels_ cont
   | Choice(_,cont1,cont2) ->
-     add_all (get_labels cont1) (get_labels cont2)
+     add_all (get_labels_ cont1) (get_labels_ cont2)
   | Guard _ -> []
   | Goto _ -> []
   | Finish -> []
@@ -204,8 +203,8 @@ let rec get_labels = function
 let string_of_global (syn:syntax) g =
   let env = make_protocol_env g in
   let gs = List.map fst env in
-  let roles = List.concat (List.map get_roles gs) in
-  let labels = List.concat (List.map get_labels gs) in
+  let roles = List.concat (List.map get_roles_ gs) in
+  let labels = List.concat (List.map get_labels_ gs) in
   syn#set_roles roles;
   let body_all, merges =
     List.fold_left (fun (str,merges) (g, var) ->
@@ -217,3 +216,14 @@ let string_of_global (syn:syntax) g =
 
 let print_global syn g =
   print_endline (string_of_global syn g)
+
+  
+let get_roles g =
+  let env = make_protocol_env g in
+  let gs = List.map fst env in
+  List.concat (List.map get_roles_ gs)
+  
+let get_labels g =
+  let env = make_protocol_env g in
+  let gs = List.map fst env in
+  List.concat (List.map get_labels_ gs)

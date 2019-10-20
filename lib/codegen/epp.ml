@@ -10,21 +10,23 @@ type terminal =
   Finished
 | Looping of string
 
-let assoc r (cs,t) =
+type locals = Locals of (string * local) list * terminal
+
+let get r (Locals(cs,t)) =
   match (List.assoc_opt r cs, t) with
   | Some c, _ -> c
   | None, Finished -> Close
   | None, Looping(var) -> Loop(var)
 
-let take r ((cs,t) as ls) =
-  (assoc r ls, (List.filter (fun (r',_) -> r'<>r) cs, t))
+let take r (Locals(cs,t) as ls) =
+  (get r ls, Locals(List.filter (fun (r',_) -> r'<>r) cs, t))
 
 let update r ls f =
-  let c, (cs,t) = take r ls in
-  ((r,f c)::cs, t)
+  let c, Locals(cs,t) = take r ls in
+  Locals((r,f c)::cs, t)
 
-let add r c (cs,t) =
-  ((r,c)::cs, t)
+let add r c (Locals(cs,t)) =
+  Locals((r,c)::cs, t)
 
 let partition br1 br2 =
   let br1dup,br1only =
@@ -45,7 +47,7 @@ let out_merge_ cl cr =
      if d1<>d2 then
        failwith @@ "out_merge: destination roles differ: " ^ d1 ^ ", " ^ d2
      else
-       let (br1only,br1dup,br2dup,br2only) =
+       let (br1only,br1dup,_,br2only) =
          partition br1 br2
        in
        if br1dup<>[] then
@@ -59,7 +61,7 @@ let out_merge cl cr =
   Out(d1, br1 @ br2)
 
 let rec merge_all br1 br2 =
-  List.map2 (fun (l1,c1) (l2,c2) -> (l1,merge c1 c2)) br1 br2
+  List.map2 (fun (l1,c1) (_,c2) -> (l1,merge c1 c2)) br1 br2
 and merge cl cr =
   match cl, cr with
   | Out(d1,br1),Out(d2,br2) ->
@@ -93,20 +95,21 @@ and merge cl cr =
      failwith "not mergeable"
        
     
-let merge_locals (cs1,t1) (cs2,t2) =
+let merge_locals (Locals(cs1,t1)) (Locals(cs2,t2)) =
   if t1<>t2 then
     failwith "branches terminate diferrently"
   else
-    (merge_all cs1 cs2, t1)
+    Locals(merge_all cs1 cs2, t1)
 
 let rec genlocals = function
-  | Finish -> ([],Finished)
+  | Finish -> Locals([],Finished)
   | Seq(Comm, from, to_, l, cont) ->
      let cs = genlocals cont in
      let cs = update from cs (fun c -> Out(to_, [(l, c)])) in
      let cs = update to_ cs (fun c -> Inp(from, [(l, c)])) in
      cs
-  | Goto(var) -> ([],Looping(var))
+  | Goto(var) ->
+     Locals([],Looping(var))
   | Choice(r,gl,gr) ->
      let cl,cr,g = gen_choice r gl gr in
      add r (out_merge cl cr) g
@@ -115,4 +118,5 @@ let rec genlocals = function
 and gen_choice r gl gr =
   let cl, gl = take r (genlocals gl) in
   let cr, gr = take r (genlocals gr) in
-  (cl, cr, merge_locals gl gr)
+  cl, cr, merge_locals gl gr
+

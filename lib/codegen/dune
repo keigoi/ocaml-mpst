@@ -1,6 +1,4 @@
 (library
  (public_name ocaml-mpst.codegen)
  (name codegen)
- (flags ("-g" "-short-paths"))
- (ocamlopt_flags -O3)
  (libraries stdlib-shims))

@@ -37,7 +37,7 @@ module MakeTestBase
   let runtest_repeat ~count ~param =
     Test.setup param;
     if Med.medium = `IPCProcess then begin
-        ignore (M.Serial.fork_child (fun () -> M.run (loop (Test.server_step param) None)));
+        (* ignore (M.Serial.fork_child (fun () -> M.run (loop (Test.server_step param) None))); *)
       end else if M.is_direct then begin
         thread (fun () -> M.run (loop (Test.server_step param) None)) ()
       end else begin

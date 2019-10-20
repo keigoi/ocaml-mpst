@@ -32,94 +32,137 @@ module MakeDyn
 
     let (let/) = M.bind
 
-    let deleg =
-      {obj={make_obj=(fun v -> object method deleg=v end);
-            call_obj=(fun o -> o#deleg)};
-       var=(fun v -> `deleg(v))}
-
-    let ring =
+    let pingpong =
       (a --> b) msg @@
-      (b --> c) msg @@
-      (c --> a) msg @@ finish
-
+      (b --> a) msg @@ finish
+    
     let chameleons =
-      choice_at b (to_a left_or_middle_right)
-        (b, (b --> a) (left >: prot a ring) @@ finish)
-        (b, (choice_at b (to_a middle_or_right)
-               (b, (b --> a) (middle >: prot b ring) @@ finish)
-               (b, (b --> a) (right >: prot c ring) @@ finish)))
-
+      choice_at b (to_a left_or_right)
+        (b, (b --> a) (left >: prot a pingpong) @@ finish)
+        (b, (b --> a) (right >: prot b pingpong) @@ finish)
+    
     let entrypoint =
-      create_shared ~kinds:[Med.medium;Med.medium] chameleons
-
-    let rec start_server () =
-      print_endline "server start.";
+      create_shared ~kinds:[`Local;`Local] chameleons
+    
+    let rec start_server n =
+      if n=0 then M.return_unit else
+      (* print_endline "server start."; *)
       let/ sb1 = accept entrypoint b in
-      print_endline "found client 1.";
+      (* print_endline "found client 1."; *)
       let/ sb2 = accept entrypoint b in
-      print_endline "found client 2.";
-      let/ sb3 = accept entrypoint b in
-      print_endline "found client 3.";
-      let g = gen_with_kinds [Med.medium;Med.medium;] ring in
-      let ta, tb, tc = Global.get_ch a g, Global.get_ch b g, Global.get_ch c g in
+      (* print_endline "found client 2."; *)
+      let g = gen_with_kinds [Med.medium;Med.medium;] pingpong in
+      let ta, tb = Global.get_ch a g, Global.get_ch b g in
       let/ sb1 = send sb1#role_A#left ta in
-      print_endline "left sent.";
-      close sb1;
-      let/ sb2 = send sb2#role_A#middle tb in
-      print_endline "middle sent.";
-      close sb2;
-      let/ sb3 = send sb3#role_A#right tc in
-      print_endline "right sent.";
-      close sb3;
-      start_server ()
-
+      (* print_endline "left sent."; *)
+      let/ () = close sb1 in
+      let/ sb2 = send sb2#role_A#right tb in
+      (* print_endline "middle sent."; *)
+      let/ () = close sb2 in
+      start_server (n-1)
+    
     let start_client i () =
-      let print_endline str =
-        Printf.printf "(%d): %s\n" i str;
-        flush stdout
+      let debug str =
+        (* Printf.printf "(%d): %s\n" i str;
+         * flush stdout; *)
+        ()
       in
-      print_endline "connecting..";
+      debug "connecting..";
+      let/ () = M.sleep (Random.float 0.000_001) in
       let/ sa = connect entrypoint a in
-      print_endline "connected.";
-      let/ sa = begin
-          let/ lab = receive sa#role_B in
-          match lab with
-          | `left(sa2,sa) -> 
-             print_endline "left.";
-             let/ sa2 = send sa2#role_B#msg () in
-             let/ `msg((),sa2) = receive sa2#role_C in
-             close sa2;
-             M.return sa
-          | `middle(sb2,sa) -> 
-             print_endline "middle.";
-             let/ `msg((),sb2) = receive sb2#role_A in
-             let/ sb2 = send sb2#role_C#msg () in
-             close sb2;
-             M.return sa
-          | `right(sc2,sa) -> 
-             print_endline "right.";
-             let/ `msg((),sc2) = receive sc2#role_B in
-             let/ sc2 = send sc2#role_A#msg () in
-             close sc2;
-             M.return sa
-        end
-      in
-      M.return_unit
+      debug "connected.";
+      let/ lab = receive sa#role_B in
+      match lab with
+      | `left(sa2,sa) -> 
+         debug "left.";
+         let/ sa2 = send sa2#role_B#msg () in
+         let/ `msg((),sa2) = receive sa2#role_B in
+         let/ () = close sa2 in
+         close sa
+      | `right(sb2,sa) -> 
+         debug "right.";
+         let/ `msg((),sb2) = receive sb2#role_A in
+         let/ sb2 = send sb2#role_A#msg () in
+         let/ () = close sb2 in
+         close sa
+
+    (* let ring =
+     *   (a --> b) msg @@
+     *   (b --> c) msg @@
+     *   (c --> a) msg @@ finish
+     * 
+     * let chameleons =
+     *   choice_at b (to_a left_or_middle_right)
+     *     (b, (b --> a) (left >: prot a ring) @@ finish)
+     *     (b, (choice_at b (to_a middle_or_right)
+     *            (b, (b --> a) (middle >: prot b ring) @@ finish)
+     *            (b, (b --> a) (right >: prot c ring) @@ finish)))
+     * 
+     * let entrypoint =
+     *   create_shared ~kinds:[`Local;`Local] chameleons
+     * 
+     * let rec start_server i =
+     *   if i=0 then M.return_unit else
+     *   (\* print_endline "server start."; *\)
+     *   let/ sb1 = accept entrypoint b in
+     *   (\* print_endline "found client 1."; *\)
+     *   let/ sb2 = accept entrypoint b in
+     *   (\* print_endline "found client 2."; *\)
+     *   let/ sb3 = accept entrypoint b in
+     *   (\* print_endline "found client 3."; *\)
+     *   let g = gen_with_kinds [Med.medium;Med.medium;Med.medium;] ring in
+     *   let ta, tb, tc = Global.get_ch a g, Global.get_ch b g, Global.get_ch c g in
+     *   let/ sb1 = send sb1#role_A#left ta in
+     *   (\* print_endline "left sent."; *\)
+     *   let/ () = close sb1 in
+     *   let/ sb2 = send sb2#role_A#middle tb in
+     *   (\* print_endline "middle sent."; *\)
+     *   let/ () = close sb2 in
+     *   let/ sb3 = send sb3#role_A#right tc in
+     *   (\* print_endline "right sent."; *\)
+     *   let/ () = close sb3 in
+     *   start_server (i-1)
+     * 
+     * 
+     * let start_client i () =
+     *   let debug str =
+     *     (\* Printf.printf "(%d): %s\n" i str;
+     *      * flush stdout; *\)
+     *     ()
+     *   in
+     *   debug "connecting..";
+     *   let/ sa = connect entrypoint a in
+     *   debug "connected.";
+     *   let/ lab = receive sa#role_B in
+     *   match lab with
+     *   | `left(sa2,sa) -> 
+     *      debug "left.";
+     *      let/ sa2 = send sa2#role_B#msg () in
+     *      let/ `msg((),sa2) = receive sa2#role_C in
+     *      let/ () = close sa2 in
+     *      close sa
+     *   | `middle(sb2,sa) -> 
+     *      debug "middle.";
+     *      let/ `msg((),sb2) = receive sb2#role_A in
+     *      let/ sb2 = send sb2#role_C#msg () in
+     *      let/ () = close sb2 in
+     *      close sa
+     *   | `right(sc2,sa) -> 
+     *      debug "right.";
+     *      let/ `msg((),sc2) = receive sc2#role_B in
+     *      let/ sc2 = send sc2#role_A#msg () in
+     *      let/ () = close sc2 in
+     *      close sa *)
 
     let rec loop f x = M.bind (f x) (fun () -> loop f x)
 
     let setup n =
-      (* print_endline "setup"; *)
-      thread (fun () ->
-          (* print_endline "server thread started"; *)
-          M.run (start_server ())) ();
       let _ : unit list =
         List.init n begin fun i ->
-          thread
+          M.async
             (fun () ->
               (* Printf.printf "thread %d started\n" i; *)
-              M.run (loop (start_client i) ()))
-            ()
+              loop (start_client i) ())
           end
       in
       ()
@@ -129,11 +172,12 @@ module MakeDyn
     let server_step _ _ =
       M.return_unit
 
-    let client_step _ =
+    let client_step n =
       Core.Staged.stage @@
         fun () ->
+      (* print_endline "setup"; *)
+        start_server (n/2)
         (* print_endline "bench thread"; *)
-        start_client (-1) ()
   end
 
   include MakeTestBase(Test)(M)(Med)()

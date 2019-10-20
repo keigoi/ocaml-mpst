@@ -49,26 +49,26 @@ end = struct
        InpFun {f with wrappers = f.wrappers @ g.wrappers}(*TODO merge continuation*)
     | _, _ -> assert false
 
-  let make_inpfun label (tag,fs) conts =
+  let[@inline] make_inpfun label (tag,fs) conts =
     EP.make_lin
       ~hook:(Lazy.from_val ()) (* FIXME force continuation *)
       ~mergefun:merge_inp
       ~values:
       (List.mapi
-         (fun idx f ->
+         (fun[@inline] idx f ->
            let inpfun =
              {raw_input_fun = f;
               wrappers=
                 [(tag,
                   VarFun (conts, 
-                          (fun (v,conts) ->
+                          (fun[@inline] (v,conts) ->
                             label.var (Obj.obj v, StaticLin.create_dummy @@ EP.fresh conts idx))))]
              }
            in
            InpFun(inpfun))
          fs)
 
-  let receive_list fs () =
+  let[@inline] receive_list fs () =
     M.bind
       (List.hd fs ())
       (fun (tag,v) ->
@@ -78,7 +78,7 @@ end = struct
             let vs = List.map snd vs in
             M.return (tag, List.map Obj.repr vs)))
 
-  let make_inpfunmany label (tag,fs) conts =
+  let[@inline] make_inpfunmany label (tag,fs) conts =
     let inpfun =
       {raw_input_fun = receive_list fs;
        wrappers=
@@ -93,13 +93,13 @@ end = struct
       ~mergefun:merge_inp
       ~values:[InpFunMany(inpfun)]
 
-  let make_inp is =
+  let[@inline] make_inp is =
     EP.make_lin
       ~hook:(Lazy.from_val ())
       ~mergefun:merge_inp
-      ~values:(List.map (fun i -> InpChanOne(i)) is)
+      ~values:(List.map (fun[@inline] i -> InpChanOne(i)) is)
     
-  let make_inpmany inp =
+  let[@inline] make_inpmany inp =
     EP.make_lin
       ~hook:(Lazy.from_val ())
       ~mergefun:merge_inp
@@ -112,12 +112,12 @@ end = struct
        EV.sync (EV.receivemany_st inp)
     | InpFun f ->
        (* receive tag(s) *)
-       M.bind (f.raw_input_fun ()) (fun (tag,v) ->
+       M.bind (f.raw_input_fun ()) (fun[@inline] (tag,v) ->
        let (VarFun(cont,f)) = List.assoc tag f.wrappers in
        M.return (f (v,cont)))
     | InpFunMany f ->
        (* receive tag(s) *)
-       M.bind (f.raw_input_fun ()) (fun (tag,v) ->
+       M.bind (f.raw_input_fun ()) (fun[@inline] (tag,v) ->
        let (VarFun(cont,f)) = List.assoc tag f.wrappers in
        M.return (f (v,cont)))
 end[@@inlined]

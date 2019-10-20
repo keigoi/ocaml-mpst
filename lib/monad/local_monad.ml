@@ -10,6 +10,7 @@ module Make
 
   type 't out = 't Mpst.Local.Make(Linocaml_lin.EP)(Linocaml_lin.Lin)(M)(EV).out
   type 't inp = 't Mpst.Local.Make(Linocaml_lin.EP)(Linocaml_lin.Lin)(M)(EV).inp
+  type close = Mpst.Local.Make(Linocaml_lin.EP)(Linocaml_lin.Lin)(M)(EV).close
 
   val ( @* ) :
     ('a,'b,'q,'r) Linocaml.lens
@@ -35,7 +36,7 @@ module Make
     -> ('ep lin,unit,'t lin) monad
 
   val close :
-    (Mpst.close lin,unit,unit data) monad
+    (close lin,unit,unit data) monad
 
 end = struct
 
@@ -58,6 +59,7 @@ end = struct
 
   type 't out = 't Local.out
   type 't inp = 't Local.inp
+  type close = Local.close
 
   let[@inline] mklin x = Linocaml.({__lin=x})
   let[@inline] unlin x = Linocaml.(x.__lin)
@@ -85,6 +87,8 @@ end = struct
 
   let close =
     {L.__m=(fun[@inline] lpre ->
-       Local.close (unlin lpre);
-       M.return ((), {Linocaml.data=()}))}
+       M.map
+         (fun[@inline] () ->  ((), {Linocaml.data=()}))
+         (Local.close (unlin lpre))
+     )}
 end[@@inline]

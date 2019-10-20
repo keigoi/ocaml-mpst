@@ -26,7 +26,7 @@ let tCli ec =
   let/ ec = send ec#role_Srv#result () in
   print_endline "client waiting";
   let/ `answer(ans, ec) = receive ec#role_Srv in
-  close ec;
+  let/ () = close ec in
   (* outputs "Answer: -250" (= (20 - 45) * 10) *)
   Printf.printf "/ / / / / Answer: %d\n" ans;
   Lwt.return_unit
@@ -42,7 +42,7 @@ let tSrv es =
       in loop (op acc num) es
     | `result((), es) ->
       let/ es = send (es#role_Cli#answer) acc in
-      close es;
+      let/ () = close es in
       Lwt.return_unit
   in loop 0 es
 
@@ -96,7 +96,7 @@ let tSrv2 es =
       in loop (op acc num) es
     | `result((), es) ->
       let/ es = send (es#role_Cli#answer) acc in
-      close es;
+      let/ () = close es in
       Lwt.return_unit
     | `current((), es) ->
       let/ es = send (es#role_Cli#answer) acc in

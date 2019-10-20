@@ -38,13 +38,13 @@ module Make
 
   let gen_with_kinds_mult ps g = linret (fun () -> gen_with_kinds_mult ps g)
 
-  let degen : (([`cons of Mpst.close * 't] as 't) Seq.t lin, unit, unit data) L.monad =
+  let degen : (([`cons of close * 't] as 't) Seq.t lin, unit, unit data) L.monad =
     {L.__m=(fun _ -> M.return ((), {Linocaml.data=()}))}
 
   let raw_get_ch = get_ch
 
   let mclose =
-    Linocaml_lin.EP.make_simple [Close (fun () -> ())]
+    Linocaml_lin.EP.make_simple [Mpst.Close.make_close (fun () -> ())]
 
   let get_ch r =
     let open Linocaml in

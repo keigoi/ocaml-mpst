@@ -11,6 +11,7 @@ module Make
 
   module Out = Out.Make(EP)(M)(EV)
   module Inp = Inp.Make(EP)(StaticLin)(M)(EV)
+  module Close = Close.Make(M)
   module Dpipe = Make_dpipe(M)(C)
 
   type epkind =
@@ -89,7 +90,7 @@ module Make
   let untyped x = Untyped(x)
   let dpipe x = Dpipe(x)
 
-  let generate ~from_info ~to_info =
+  let[@inline] generate ~from_info ~to_info =
     match from_info.rm_kind, to_info.rm_kind with
     | EpLocal, EpLocal ->
        ChVec(EV.create_st (max from_info.rm_size to_info.rm_size))
@@ -156,7 +157,7 @@ module Make
     | ChVec(ch) ->
        let out, inp =
          EV.wrap ch
-           (fun v -> label.var (v, StaticLin.create_dummy  @@ EP.fresh conts_to 0))
+           (fun[@inline] v -> label.var (v, StaticLin.create_dummy  @@ EP.fresh conts_to 0))
        in
        (Out.BareOutChanOne(out),
         Inp.make_inp [inp])
@@ -175,7 +176,7 @@ module Make
     | ChVec(ch) ->
        let out,inp =
          EV.wrap_scatter ch
-           (fun i v -> label.var (v, StaticLin.create_dummy @@ EP.fresh conts_to i))
+           (fun[@inline] i v -> label.var (v, StaticLin.create_dummy @@ EP.fresh conts_to i))
        in
        (Out.BareOutChanMany(out),
         Inp.make_inp inp)

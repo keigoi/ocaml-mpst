@@ -54,5 +54,6 @@ module Make_dpipe(M:S.MONAD)(C:S.SERIAL with type 'a monad = 'a M.t) = struct
 
   let close_dpipe dp =
     M.bind (C.close_in dp.me.inp) (fun () ->
-        C.close_out dp.me.out)
+    M.bind (C.close_out dp.me.out) (fun () ->
+    M.return_unit))
 end

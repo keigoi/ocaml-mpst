@@ -13,6 +13,7 @@ module Make
   include Channel.Make(EP)(StaticLin)(M)(EV)(C)
 
   type 'g global = (epkind, 'g) t
+  type close = Close.close
 
   let rm_size {metainfo;_} idx =
     option ~dflt:1 ~f:(fun x -> x.rm_size) (Table.get_opt metainfo idx)
@@ -41,14 +42,13 @@ module Make
     in
     EP.make_simple
       (List.init num (fun i ->
-           Close (fun () ->
+           Close.make_close (fun () ->
                match Table.get_opt env.metainfo role with
                | Some {rm_kind=EpDpipe table;_} ->
                   let chss = Table.to_list (List.nth table i) in
                   let chss = List.concat chss in
-                  M.async (fun () ->
-                      M.iteriM (fun _ c -> Dpipe.close_dpipe c) chss)
-               | _ -> ())))
+                  M.iteriM (fun _ c -> Dpipe.close_dpipe c) chss
+               | _ -> M.return_unit)))
 
     
   let finish : (epkind, [`cons of close * 'a] as 'a) t =

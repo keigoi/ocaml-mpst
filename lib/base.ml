@@ -26,8 +26,6 @@ type ('robj,'c,'a,'b,'xs,'ys) role =
   {role_label: ('robj,'c) method_;
    role_index: ('a,'b,'xs,'ys) lens}
 
-type close = Close of (unit -> unit)
-
 type 'a one = One__
 
 type tag = {tag:Obj.t}

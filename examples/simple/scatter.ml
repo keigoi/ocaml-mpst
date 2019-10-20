@@ -33,8 +33,7 @@ let t1 : unit Lwt.t =
           receive s#role_B >>= fun (`msg(str,s)) ->
           print_endline "received";
           str |> List.iter (Printf.printf "A) B says: %s\n");
-          close s;
-          return ()
+          close s
         end else begin
           sendmany s#role_B#right (fun _ -> ()) >>= fun s ->
           print_endline "sent right";
@@ -43,8 +42,7 @@ let t1 : unit Lwt.t =
           receive s#role_C >>= fun (`msg(str,s)) ->
           print_endline "received2";
           List.iteri (fun i x -> Printf.printf "A) B(%d) says: %d, C says: %s\n" i x str) xs;
-          close s;
-          return ()
+          close s
         end;
     end >>= fun () ->
   print_endline "A finished.";
@@ -61,14 +59,12 @@ let t2 : unit Lwt.t list =
          Printf.printf "B(%d): left.\n" i;
          send s#role_C#right () >>= fun s ->
          send s#role_A#msg (Printf.sprintf "Hooray! %d" i) >>= fun s ->
-         close s;
-         Lwt.return ()
+         close s
       | `right(_,s) ->
          Printf.printf "B(%d): right.\n" i;
          send s#role_A#msg (1234 * (i+1)) >>= fun s ->
          send s#role_C#left () >>= fun s ->
-         close s;
-         Lwt.return ()
+         close s
     end >>= fun () ->
   Printf.printf "B(%d) finished.\n" i;
   Lwt.return ()
@@ -87,12 +83,10 @@ let t3 : unit Lwt.t =
       function
       | `left(_,s) -> begin
           send s#role_A#msg "Hello, A!" >>= fun s ->
-          close s;
-          return ()
+          close s
         end
       | `right(_,s) -> begin
-          close s;
-          return ()
+          close s
         end
     end >>= fun () ->
   print_endline "C finished.";

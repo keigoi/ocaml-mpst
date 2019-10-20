@@ -37,7 +37,7 @@ let tCli ec =
   sendmany ec#role_Srv#compute (const (Mul, 10)) >>= fun ec ->
   sendmany ec#role_Srv#result (const ()) >>= fun ec ->
   receive ec#role_Srv >>= fun (`answer(ans, ec)) ->
-  close ec;
+  close ec >>= fun () ->
   (* outputs "Answer: -250" (= (20 - 45) * 10) *)
   List.iter (fun ans -> Printf.printf "Answer: %d\n" ans) ans;
   return_unit
@@ -66,7 +66,7 @@ let tSrv ew =
       in loop (op acc num) ew
     | `result((), ew) ->
       send ew#role_Cli#answer acc >>= fun ew ->
-      close ew;
+      close ew >>= fun () ->
       return_unit
   in loop 0 ew
 

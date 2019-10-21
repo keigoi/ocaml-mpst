@@ -2,13 +2,12 @@ open Core_bench.Bench
 open Core_bench.Bench.Test
 open Bench_util
 open Bench_util.Util
+open Bare_pingpong_body
 
 (* array size parameters for ipc payloads *)
 let args = array_sizes
 
 let run f = Core.Staged.unstage (f (List.nth array_sizes 0))
-
-open Ocamlmicro
 
 let test_bare_pingpong = [
     create ~name:"ev-OCaml_ideal" @@ run BEvent.runtest;

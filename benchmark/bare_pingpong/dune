@@ -1,6 +1,6 @@
 (executable
- (name microbenchmark)
- (public_name ocaml-mpst.microbenchmark)
+ (name bare_pingpong)
+ (public_name ocaml-mpst.bare_pingpong)
  (preprocess (pps linocaml.ppx))
  (ocamlopt_flags -O3)
  (flags ("-rectypes" "-short-paths"))

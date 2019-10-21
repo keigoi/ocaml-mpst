@@ -13,7 +13,7 @@ module BEvent : TEST = struct
   let _ : Thread.t =
     Thread.create (fun () ->
         let rec loop () =
-          let _ = Event.sync (Event.receive ch_arr) in
+          let `First(_) = Event.sync (Event.wrap (Event.receive ch_arr) (fun x -> `First(x))) in
           Event.sync (Event.send ch_unit ());
           loop ()
         in loop ()) ()
@@ -22,27 +22,48 @@ module BEvent : TEST = struct
     let payload = List.assoc param big_arrays in
     Core.Staged.stage (fun () ->
         Event.sync (Event.send ch_arr payload);
-        Event.sync (Event.receive ch_unit))
+        let `Next(_) = Event.sync (Event.wrap (Event.receive ch_unit) (fun x -> `Next(x))) in
+        ())
 end
 
-module BEventUntyped : TEST = struct
-  let ch = Event.new_channel ()
-  let _:Thread.t =
+module BEvent : TEST = struct
+  let ch_arr = Event.new_channel ()
+  let ch_unit = Event.new_channel ()
+
+  let _ : Thread.t =
     Thread.create (fun () ->
         let rec loop () =
-          let _ = Event.sync (Event.receive ch) in
-          Event.sync (Event.send ch (Obj.repr ()));
+          let `First(_) = Event.sync (Event.wrap (Event.receive ch_arr) (fun x -> `First(x))) in
+          Event.sync (Event.send ch_unit ());
           loop ()
         in loop ()) ()
 
   let runtest param =
     let payload = List.assoc param big_arrays in
     Core.Staged.stage (fun () ->
-        Event.sync (Event.send ch (Obj.repr payload));
-        let _:Obj.t = Event.sync (Event.receive ch) in
-        ()
-      )
+        Event.sync (Event.send ch_arr payload);
+        let `Next(_) = Event.sync (Event.wrap (Event.receive ch_unit) (fun x -> `Next(x))) in
+        ())
 end
+
+(* module BEventUntyped : TEST = struct
+ *   let ch = Event.new_channel ()
+ *   let _:Thread.t =
+ *     Thread.create (fun () ->
+ *         let rec loop () =
+ *           let _ = Event.sync (Event.receive ch) in
+ *           Event.sync (Event.send ch (Obj.repr ()));
+ *           loop ()
+ *         in loop ()) ()
+ * 
+ *   let runtest param =
+ *     let payload = List.assoc param big_arrays in
+ *     Core.Staged.stage (fun () ->
+ *         Event.sync (Event.send ch (Obj.repr payload));
+ *         let _:Obj.t = Event.sync (Event.receive ch) in
+ *         ()
+ *       )
+ * end *)
 
 module BEventCont : TEST = struct
   let init_ch = Event.new_channel ()
@@ -74,6 +95,13 @@ module type LWT_CHAN = sig
   val send : 'a t -> 'a -> unit Lwt.t
   val receive : 'a t -> 'a Lwt.t
 end
+module MpstLwtStream : LWT_CHAN = struct
+  module S = Mpst_lwt.M.Lwt_stream_opt
+  type 'a t = 'a S.t
+  let create () = S.create ()
+  let send t v = S.send t v
+  let receive t = S.receive t
+end
 module LwtBoundedStream : LWT_CHAN = struct
   type 'a t = 'a Lwt_stream.t * 'a Lwt_stream.bounded_push
   let create () = Lwt_stream.create_bounded 1
@@ -91,80 +119,6 @@ module LwtMVar : LWT_CHAN = struct
   let create () = Lwt_mvar.create_empty ()
   let send m v = Lwt_mvar.put m v
   let receive m = Lwt_mvar.take m
-end
-module LwtWait : LWT_CHAN = struct
-  type 'a t = 'a Lwt.t * 'a Lwt.u
-  let create () = Lwt.wait ()
-  let send (t_,u) v = Lwt.wakeup_later u v; Lwt.return_unit
-  let receive (t,u_) = t
-end
-module LwtOptStream : LWT_CHAN = struct
-  type 'a t = {
-      mutable push_signal : unit Lwt.t;
-      mutable push_signal_resolver : unit Lwt.u;
-      mutable push_waiting : bool;
-      mutable node : 'a node;
-      last: 'a node ref
-    }
-  and 'a node = {
-      mutable next : 'a node;
-      mutable data : 'a option
-    }
-
-  let new_node () =
-    let rec node = { next = node; data = None } in
-    node
-
-  let create () =
-    let push_signal, push_signal_resolver = Lwt.wait () in
-    let last = new_node () in
-    let t = {
-        push_signal;
-        push_signal_resolver;
-        push_waiting=false;
-        node = last;
-        last = ref last;
-      }
-    in
-    t
-
-  let enqueue' e last =
-    let node = !last
-    and new_last = new_node () in
-    node.data <- e;
-    node.next <- new_last;
-    last := new_last
-
-  let send t v =
-    begin match t.node.data with
-    | None ->
-       t.node.data <- Some v
-    | _ ->
-       enqueue' (Some v) t.last
-    end;
-    if t.push_waiting then begin
-        t.push_waiting <- false;
-        let old_push_signal_resolver = t.push_signal_resolver in
-        let new_waiter, new_push_signal_resolver = Lwt.wait () in
-        t.push_signal <- new_waiter;
-        t.push_signal_resolver <- new_push_signal_resolver;
-        Lwt.wakeup_later old_push_signal_resolver ()
-      end;
-    Lwt.return_unit
-
-  let rec next_rec t =
-    let open Lwt in
-    match t.node.data with
-    | None ->
-      t.push_waiting <- true;
-      Lwt.protected t.push_signal >>= fun () ->
-      next_rec t
-    | Some x ->
-       t.node.data <- None;
-       t.node <- t.node.next;
-       Lwt.return x
-  let receive t =
-    next_rec t
 end
 
 module BLwtTwoChan(Chan:LWT_CHAN)() : TEST = struct
@@ -198,8 +152,7 @@ module BLwtTwoChan(Chan:LWT_CHAN)() : TEST = struct
     let stored = ref init in
     fun () ->
     let Seq((ch1, ch2), cont) = !stored in
-    (* let/ () = Lwt_unix.yield () in *)
-    let/ arr_ = Chan.receive ch1 in
+    let/ `First(arr_) = Chan.receive ch1 in
     let/ () = Chan.send ch2 (`Next()) in
     stored := Lazy.force cont;
     Lwt.return_unit
@@ -209,8 +162,7 @@ module BLwtTwoChan(Chan:LWT_CHAN)() : TEST = struct
     let payload = default_payload in
     fun () ->
     let Seq((ch1, ch2), cont) = !stored in
-    let/ () = Chan.send ch1 payload in
-    (* let/ () = Lwt_unix.yield () in *)
+    let/ () = Chan.send ch1 (`First(payload)) in
     let/ `Next(()) = Chan.receive ch2 in
     stored := Lazy.force cont;
     Lwt.return_unit
@@ -228,14 +180,11 @@ module BLwtCont(Chan:LWT_CHAN)() : TEST = struct
   open Chan
   let (let/) = Lwt.bind
 
-  (* let init = create () *)
-
   let server_step init =
     let stored = ref init in
     fun () ->
     let ch = !stored in
-    (* let/ () = Lwt_unix.yield() in *)
-    let/ arr_,ch = receive ch in
+    let/ `First(arr_,ch) = receive ch in
     let next = create () in
     let/ () = send ch (`Next((),next)) in
     stored := next;
@@ -247,8 +196,7 @@ module BLwtCont(Chan:LWT_CHAN)() : TEST = struct
     fun () ->
     let ch = !stored in
     let next = create () in
-    let/ () = send ch (payload,next) in
-    (* let/ () = Lwt_unix.yield() in *)
+    let/ () = send ch (`First(payload,next)) in
     let/ `Next((),ch) = receive next in
     stored := ch;
     Lwt.return_unit

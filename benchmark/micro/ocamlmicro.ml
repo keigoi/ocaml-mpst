@@ -4,7 +4,7 @@ open Bench_util.Testbase
 module Base =  Mpst.M.Base
 module Common = Mpst.M.Common
 
-let default_buffer_size = Lwt_io.default_buffer_size ()
+let default_payload = snd @@ List.nth big_arrays 1
 
 module BEvent : TEST = struct
   let ch_arr = Event.new_channel ()

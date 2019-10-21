@@ -39,6 +39,7 @@ module M = struct
   module Local = struct
     module Out = Out
     module Inp = Inp
+    module Close = Close
     module Make = Local.Make
     module Direct =
       Local.Make

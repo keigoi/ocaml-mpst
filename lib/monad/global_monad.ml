@@ -43,16 +43,13 @@ module Make
 
   let raw_get_ch = get_ch
 
-  let mclose =
-    Linocaml_lin.EP.make_simple [Mpst.Close.make_close (fun () -> ())]
-
   let get_ch r =
     let open Linocaml in
     let open L in
     {__m=(fun lpre ->
        let g = lpre.__lin in
        let ep = List.hd @@ Linocaml_lin.EP.fresh_all (Seq.lens_get r.role_index g) in
-       let g' = Seq.lens_put r.role_index g mclose in
+       let g' = Seq.lens_put r.role_index g mkempty in
        M.return ((), ({__lin=({__lin=g'},{__lin=ep})})))}
 
   let rec all_empty = `cons((), all_empty)

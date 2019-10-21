@@ -37,6 +37,7 @@ let test_ev = [
     create ~name:"ev_dynamic" (let module M = MakeDyn(NanoMutexReuseEP)(Direct)(Shmem)() in run M.runtest);
     create ~name:"ev_dynamic_posixmutex" (let module M = MakeDyn(PosixMutexReuseEP)(Direct)(Shmem)() in run M.runtest);
     create ~name:"ev_dynamic_nocheck" (let module M = MakeDyn(NoCheckEP)(Direct)(Shmem)() in run M.runtest);
+    create ~name:"ev_dynamic_untyped" (let module M = MakeDyn(NanoMutexReuseEP)(Direct)(Untyped)() in run M.runtest);
     create ~name:"ev_static" @@ (let module M = MakeStatic(LinDirect)(Shmem)() in run M.runtest);
     create ~name:"ev_ref" @@ run BRefImpl.runtest;
   ]
@@ -47,6 +48,7 @@ let test_lwt = [
     create ~name:"lwt_dynamic_posixmutex" (let module M = MakeDyn(PosixMutexReuseEP)(LwtMonad)(Shmem)() in run M.runtest);
     create ~name:"lwt_dynamic_freshnanomutex" (let module M = MakeDyn(NanoMutexFreshEP)(LwtMonad)(Shmem)() in run M.runtest);
     create ~name:"lwt_dynamic_nocheck" (let module M = MakeDyn(NoCheckEP)(LwtMonad)(Shmem)() in run M.runtest);
+    create ~name:"lwt_dynamic_untyped" (let module M = MakeDyn(NanoMutexReuseEP)(LwtMonad)(Untyped)() in run M.runtest);
     create ~name:"lwt_static" (let module M = MakeStatic(LinLwtMonad)(Shmem)() in run M.runtest);
   ]
 

@@ -85,4 +85,10 @@ module Lwt = struct
   include Lwt
   let mapM = Lwt_list.map_p
   let iteriM = Lwt_list.iteri_p
+  let yield = Lwt_main.yield
+
+  type mutex = Lwt_mutex.t
+  let create_mutex = Lwt_mutex.create
+  let lock = Lwt_mutex.lock
+  let unlock = Lwt_mutex.unlock
 end

@@ -181,7 +181,7 @@ let get_ty : ('x0, 'x1, 'ep StaticLin.lin, 'x2, 't, 'x3) role -> 't global -> 'e
     Shared :
       {global: [`cons of 'ep * 'tl] global;
        kinds: kind list option;
-       accept_lock: Mutex.t; (* FIXME: parameterise over other lock types? *)
+       accept_lock: M.mutex;
        connect_sync: (epkind env * [`cons of 'ep * 'tl] Seq.t) EV.channel list;
        start_sync: unit EV.channel;
       } -> [`cons of 'ep * 'tl] shared
@@ -209,7 +209,7 @@ let get_ty : ('x0, 'x1, 'ep StaticLin.lin, 'x2, 't, 'x3) role -> 't global -> 'e
        env,g
 
   let create_shared ?kinds global =
-    let accept_lock = Mutex.create () in
+    let accept_lock = M.create_mutex () in
     let env =
       match kinds with
       | Some kinds -> mkparams kinds
@@ -226,16 +226,16 @@ let get_ty : ('x0, 'x1, 'ep StaticLin.lin, 'x2, 't, 'x3) role -> 't global -> 'e
        start_sync=EV.new_channel ();}
 
   let accept_ (Shared m) r =
-    Mutex.lock m.accept_lock;
+    M.bind (M.lock m.accept_lock) (fun () ->
     let env, g = init_seq_ (Shared m) in
     (* sync with all threads *)
     let me = Seq.int_of_lens r.role_index in
     M.bind (sync_all_ me m.connect_sync m.start_sync (env,g)) (fun () ->
     (* get my ep *)
     let ep = get_ch r g in
-    Mutex.unlock m.accept_lock;
+    M.unlock m.accept_lock;
     let prop = Table.get env.metainfo (Seq.int_of_lens r.role_index) in
-    M.return (ep, prop))
+    M.return (ep, prop)))
 
   let connect_ (Shared m) r =
     let role = Seq.int_of_lens r.role_index in

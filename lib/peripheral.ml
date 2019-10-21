@@ -7,13 +7,25 @@ module Pure = struct
   let return_unit = ()
   let iteriM = List.iteri
   let mapM = List.map
+  let yield () = ()
   let async f = ignore (Thread.create f ())
+
+  type mutex = Mutex.t
+  let create_mutex = Mutex.create
+  let lock = Mutex.lock
+  let unlock = Mutex.unlock
 end
 module Event : S.EVENT
        with type 'a event = 'a Event.event
        with type 'a monad = 'a
   = struct
-  include Event
+  type 'a event = 'a Event.event
+  type 'a channel = 'a Event.channel
+  let new_channel = Event.new_channel
+  let receive = Event.receive
+  let send = Event.send
+  let sync = Event.sync
+
   type 'a monad = 'a
   let flip_channel x = x
 

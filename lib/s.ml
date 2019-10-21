@@ -9,6 +9,12 @@ module type MONAD = sig
   val iteriM : (int -> 'a -> unit t) -> 'a list -> unit t
   val mapM : ('a -> 'b t) -> 'a list -> 'b list t
   val async : (unit -> 'a t) -> unit
+  val yield : unit -> unit t
+
+  type mutex
+  val create_mutex : unit -> mutex
+  val lock : mutex -> unit t
+  val unlock : mutex -> unit
 end
 
 module type EVENT = sig

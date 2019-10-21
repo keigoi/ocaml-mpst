@@ -16,11 +16,6 @@ module MakeDyn
   module Test = struct
     type +'a monad = 'a M.t
 
-    (* module EP = Mpst.Endpoints.Make(Mpst.Lin.MakeDynCheckClosure(Mpst.LinFlag.PosixMutexFlag)) *)
-    (* module EP = Mpst.Endpoints.Make(Mpst.Lin.MakeDynCheck(Dyncheck_nanomutex.NanoMutexFlag)) *)
-    (* module EP = Mpst.Endpoints.Make(Mpst.Lin.MakeDynCheckClosure(Dyncheck_nanomutex.NanoMutexFlag)) *)
-    (* module EP = Mpst.Endpoints.Make(Mpst.Lin.NoCheck) *)
-
     module Local = Local.Make(EP)(Mpst.Lin.NoCheck)(M)(M.Event)
     module Global = Global.Make(EP)(Mpst.Lin.NoCheck)(M)(M.Event)(M.Serial)
     module Util = Util.Make(EP)

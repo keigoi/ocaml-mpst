@@ -7,29 +7,26 @@ open Pingpong_body
 (* array size parameters for ipc payloads *)
 let args = array_sizes
 
-module ReuseNanoMutexEP =
+module NanoMutexReuseEP =
   Mpst.Endpoints.Make(Mpst.Lin.MakeDynCheck(Bench_util.Dyncheck_nanomutex.NanoMutexFlag))
-(* module ReusePosixMutexEP =
- *   Mpst.Endpoints.Make(Mpst.Lin.MakeDynCheck(Mpst.LinFlag.PosixMutexFlag))
- * module FreshNanoMutexEP =
- *   Mpst.Endpoints.Make(Mpst.Lin.MakeDynCheckClosure(Bench_util.Dyncheck_nanomutex.NanoMutexFlag))
- * module FreshPosixMutexEP =
- *   Mpst.Endpoints.Make(Mpst.Lin.MakeDynCheckClosure(Mpst.LinFlag.PosixMutexFlag)) *)
-
-module FreshNoCheckEP =
+module NanoMutexFreshEP =
+  Mpst.Endpoints.Make(Mpst.Lin.MakeDynCheckClosure(Bench_util.Dyncheck_nanomutex.NanoMutexFlag))
+module PosixMutexReuseEP =
+  Mpst.Endpoints.Make(Mpst.Lin.MakeDynCheck(Mpst.LinFlag.PosixMutexFlag))
+module PosixMutexFreshEP =
   Mpst.Endpoints.Make(Mpst.Lin.MakeDynCheckClosure(Mpst.LinFlag.PosixMutexFlag))
-module ReuseNoCheckEP =
+
+module NoCheckFreshEP =
+  Mpst.Endpoints.Make(Mpst.Lin.MakeDynCheckClosure(Mpst.LinFlag.PosixMutexFlag))
+module NoCheckReuseEP =
   Mpst.Endpoints.Make(Mpst.Lin.MakeDynCheckClosure(Mpst.LinFlag.PosixMutexFlag))
 module NoCheckEP =
   Mpst.Endpoints.Make(Mpst.Lin.NoCheck)
 
-module EP = ReuseNanoMutexEP (* faster than default Mpst.EP *)
+module EP = NanoMutexReuseEP (* faster than default Mpst.EP *)
+(* module EP = PosixMutexReuseEP (\* same as default Mpst.EP *\) *)
           
 let run f = Core.Staged.unstage (f (List.nth array_sizes 0))
-
-let chvec_counts_for_bare_ocaml_check = [1]
-(* let chvec_counts = [1;10;100] *)
-(* let array_sizes = [List.nth array_sizes (List.length array_sizes -1)] *)
 
 let test_ev = [
     (* Comparions between several versions of ocaml-mpst and OCaml's Event module. This will exhibit overheads in the library.
@@ -37,43 +34,40 @@ let test_ev = [
      * 2) Dynamic checkings are removed (and use static checking from Linocaml instead)
      * Linocaml allocates more memory for closures, it does not affect running times.
      *)
-    Test.create ~name:"ev-mpst_dynamic" (let module M = MakeDyn(EP)(Direct)(Shmem)() in run M.runtest);
-    Test.create ~name:"ev-mpst_static" @@ (let module M = MakeStatic(LinDirect)(Shmem)() in run M.runtest);
-    Test.create ~name:"ev-mpst_ref" @@ run BRefImpl.runtest;
+    create ~name:"ev_dynamic" (let module M = MakeDyn(NanoMutexReuseEP)(Direct)(Shmem)() in run M.runtest);
+    create ~name:"ev_dynamic_posixmutex" (let module M = MakeDyn(PosixMutexReuseEP)(Direct)(Shmem)() in run M.runtest);
+    create ~name:"ev_dynamic_nocheck" (let module M = MakeDyn(NoCheckEP)(Direct)(Shmem)() in run M.runtest);
+    create ~name:"ev_static" @@ (let module M = MakeStatic(LinDirect)(Shmem)() in run M.runtest);
+    create ~name:"ev_ref" @@ run BRefImpl.runtest;
   ]
 
 let test_lwt = [
     (* Lwt is far more faster than Event. Static version is slower; In such a tight loop- cost for monadic closures seems relatively high. *)
-    Test.create ~name:"lwt-mpst_dynamic" (let module M = MakeDyn(EP)(LwtMonad)(Shmem)() in run M.runtest);
-    Test.create ~name:"lwt-mpst_static" (let module M = MakeStatic(LinLwtMonad)(Shmem)() in run M.runtest);
+    create ~name:"lwt_dynamic" (let module M = MakeDyn(NanoMutexReuseEP)(LwtMonad)(Shmem)() in run M.runtest);
+    create ~name:"lwt_dynamic_posixmutex" (let module M = MakeDyn(PosixMutexReuseEP)(LwtMonad)(Shmem)() in run M.runtest);
+    create ~name:"lwt_dynamic_freshnanomutex" (let module M = MakeDyn(NanoMutexFreshEP)(LwtMonad)(Shmem)() in run M.runtest);
+    create ~name:"lwt_dynamic_nocheck" (let module M = MakeDyn(NoCheckEP)(LwtMonad)(Shmem)() in run M.runtest);
+    create ~name:"lwt_static" (let module M = MakeStatic(LinLwtMonad)(Shmem)() in run M.runtest);
   ]
 
 let test_lwt_ipc = [
-    create_indexed ~args ~name:"lwt_ipc-mpst_dynamic" (let module M = MakeDyn(EP)(LwtMonad)(IPC)() in M.runtest);
-    create_indexed ~args ~name:"lwt_ipc-mpst_static" (let module M = MakeStatic(LinLwtMonad)(IPC)() in M.runtest);
+    create_indexed ~args ~name:"lwt_ipc_dynamic" (let module M = MakeDyn(EP)(LwtMonad)(IPC)() in M.runtest);
+    create_indexed ~args ~name:"lwt_ipc_static" (let module M = MakeStatic(LinLwtMonad)(IPC)() in M.runtest);
   ]
 
 let test_ipc = [
     (* Interestingly, when we use Unix pipe, event-based versions are always faster by 2x or more.
      * Also, static (monadic) versions are always faster; it seems that closures are GC'ed during i/o.
      *)
-    create_indexed ~args ~name:"ipc-mpst_dynamic" (let module M = MakeDyn(EP)(Direct)(IPC)() in M.runtest);
-    create_indexed ~args ~name:"ipc-mpst_static" (let module M = MakeStatic(LinDirect)(IPC)() in M.runtest);
+    create_indexed ~args ~name:"ipc_dynamic" (let module M = MakeDyn(EP)(Direct)(IPC)() in M.runtest);
+    create_indexed ~args ~name:"ipc_dynamic_posixmutex" (let module M = MakeDyn(PosixMutexReuseEP)(Direct)(IPC)() in M.runtest);
+    create_indexed ~args ~name:"ipc_static" (let module M = MakeStatic(LinDirect)(IPC)() in M.runtest);
   ]
 
-
-let test_ep_closures = [
-    create ~name:"mpst-dynamic/ev(nodyncheck,fresh)" (let module M = MakeDyn(FreshNoCheckEP)(Direct)(Shmem)() in run M.runtest);
-    create ~name:"mpst-dynamic/ev(nodyncheck,reuse)" (let module M = MakeDyn(ReuseNoCheckEP)(Direct)(Shmem)() in run M.runtest);
-    create ~name:"mpst-dynamic/ev(nodyncheck)" (let module M = MakeDyn(NoCheckEP)(Direct)(Shmem)() in run M.runtest);
-    create ~name:"lwt_opt_nodyncheck-mpst_dynamic" (let module M = MakeDyn(NoCheckEP)(LwtMonad)(Shmem)() in run M.runtest);
-  ]
-  
-
-let test_iteration =
+let test_all =
     test_ev @ test_lwt @ test_ipc @ test_lwt_ipc
 
 let () =
   Core.Command.run @@
     Core_bench.Bench.make_command
-      test_iteration
+      test_all

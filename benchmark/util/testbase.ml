@@ -7,7 +7,7 @@ let default_buffer_size = Lwt_io.default_buffer_size ()
 module type TESTBED = sig
   type +'a monad
   val setup : int -> unit
-  val server_step : int -> unit -> unit monad
+  val server_step : unit -> unit -> unit monad
   val client_step : int -> (unit -> unit monad) Core.Staged.t
 end
 module type TEST = sig
@@ -22,47 +22,28 @@ module MakeTestBase
        : TEST
   = struct
 
-  let loop f =
-    fun cnt ->
-    let rec loop cnt =
-      if cnt = Some 0 then begin
-          M.return ()
-        end else begin
-          M.bind (f ()) @@ fun () ->
-          (loop[@tailcall]) (Mpst.M.Common.map_option (fun x->x-1) cnt)
-        end
-    in
-    loop cnt
+  let rec forever f () =
+    M.bind (f ()) @@ fun () ->
+    (forever[@tailcall]) f ()
 
-  let runtest_repeat ~count ~param =
+  let runtest_repeat ~param =
     Test.setup param;
-    if Med.medium = `IPCProcess then begin
-        (* ignore (M.Serial.fork_child (fun () -> M.run (loop (Test.server_step param) None))); *)
-      end else if M.is_direct then begin
-        thread (fun () -> M.run (loop (Test.server_step param) None)) ()
-      end else begin
-        (**)
-      end;
-    let server_step = Test.server_step param in
+    let server_step = Test.server_step () in
     Core.Staged.stage
       (fun () ->
-        if Med.medium = `IPCProcess then begin
-            (**)
-          end else if M.is_direct then begin
-            (**)
-          end else begin
-            M.async (fun () -> loop server_step (Some count))
+        if Med.medium <> `IPCProcess && not M.is_direct then begin
+            M.async (fun () -> server_step ())
           end;
-        M.run (loop (Core.Staged.unstage (Test.client_step param)) (Some count))
+        M.run (Core.Staged.unstage (Test.client_step param) ())
       )
 
-  let runtest param = runtest_repeat ~count:1 ~param
+  let runtest param = runtest_repeat ~param
 
-  (* (\* start server thread *\)
-   * let () =
-   *   if Med.medium = `IPCProcess then begin
-   *       (\* ignore (M.Serial.fork_child (fun () -> M.run (loop Test.server_step None))); *\)
-   *     end else if M.is_direct then begin
-   *       (\* thread (fun () -> M.run (loop Test.server_step None)) (); *\)
-   *     end *)
+  (* start server thread *)
+  let () =
+    if Med.medium = `IPCProcess then begin
+        ignore (M.Serial.fork_child (fun () -> M.run (forever (Test.server_step ()) ())));
+      end else if M.is_direct then begin
+        thread (fun () -> M.run (forever (Test.server_step ()) ())) ()
+      end;
 end[@@inline]

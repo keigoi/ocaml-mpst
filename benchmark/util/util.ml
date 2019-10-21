@@ -6,7 +6,7 @@ let thread f x =
   ignore (Thread.create (fun () ->
               (f x:unit)) ())
 
-let array_sizes = [1; 1000; 100000; 1000000]
+let array_sizes = [1; 1000; 10000; 100000]
 
 (* actual array that is passed around threads/processes *)
 let big_arrays =
@@ -72,34 +72,3 @@ end
 module Untyped = struct
   let medium = `Untyped
 end
-
-let ping_or_fini =
-  {disj_merge=(fun l r -> object method ping=l#ping method fini=r#fini end);
-   disj_splitL=(fun lr -> (lr :> <ping : _>));
-   disj_splitR=(fun lr -> (lr :> <fini : _>));
-  }
-
-(* module type DYNCHECK = sig
- *   module Flag : Mpst.S.FLAG
- *   module EP : Mpst.S.ENDPOINTS with type once = Flag.t
- * end
- * 
- * module DynCheckMutex : DYNCHECK = struct
- *   module Flag = Mpst.M.LinFlag
- *   module EP = Mpst.M.Dyncheck
- * end
- * 
- * module DynCheckNano : DYNCHECK = struct
- *   module Flag = Dyncheck_nanomutex.NanoMutexFlag
- *   module EP = Mpst.M.Dyncheck_ep.Make(Flag)
- * end
- * 
- * module NoDynCheck : DYNCHECK = struct
- *   module Flag = Mpst.M.Nocheck.Noflag
- *   module EP = Mpst.M.Nocheck.Nodyncheck
- * end
- * 
- * module NoDynCheckWithClosure : DYNCHECK = struct
- *   module Flag = Mpst.M.Nocheck.Noflag
- *   module EP = Mpst.M.Dyncheck_ep.Make(Flag)
- * end *)

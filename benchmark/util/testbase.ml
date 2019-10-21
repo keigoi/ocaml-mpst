@@ -35,7 +35,7 @@ module MakeTestBase
 
   let runtest_repeat ~param =
     Test.setup param;
-    (* start_server_threads (); *)
+    start_server_threads ();
     let server_step = Test.server_step () in
     Core.Staged.stage
       (fun () ->
@@ -49,5 +49,5 @@ module MakeTestBase
 
                     
   (* start server threads *)
-  let () = start_server_threads ()
+  (* let () = start_server_threads () *)
 end[@@inline]

@@ -33,6 +33,7 @@ module Make
     let rm_kind = rm_kind env rm_index rm_size in
     {rm_index; rm_kind; rm_size}
 
+  let mkempty = EP.make_simple @@ [Close.make_close (fun () ->M.return_unit)]
 
   let mkclose env role =
     let num =
@@ -50,7 +51,7 @@ module Make
                   M.iteriM (fun _ c -> Dpipe.close_dpipe c) chss
                | _ -> M.return_unit)))
 
-    
+
   let finish : (epkind, [`cons of close * 'a] as 'a) t =
     Global (fun env ->
         Seq.repeat 0 (mkclose env))

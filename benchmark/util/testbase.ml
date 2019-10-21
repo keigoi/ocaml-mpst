@@ -28,7 +28,7 @@ module MakeTestBase
 
   let start_server_threads () =
     if Med.medium = `IPCProcess then begin
-        ignore (M.Serial.fork_child (fun () -> M.run (forever (Test.server_step ()) ())));
+        (* ignore (M.Serial.fork_child (fun () -> M.run (forever (Test.server_step ()) ()))); *)
       end else if M.is_direct then begin
         thread (fun () -> M.run (forever (Test.server_step ()) ())) ()
       end
@@ -47,7 +47,7 @@ module MakeTestBase
 
   let runtest param = runtest_repeat ~param
 
-                    
+
   (* start server threads *)
   (* let () = start_server_threads () *)
 end[@@inline]

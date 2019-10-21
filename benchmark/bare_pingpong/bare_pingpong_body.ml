@@ -26,26 +26,6 @@ module BEvent : TEST = struct
         ())
 end
 
-module BEvent : TEST = struct
-  let ch_arr = Event.new_channel ()
-  let ch_unit = Event.new_channel ()
-
-  let _ : Thread.t =
-    Thread.create (fun () ->
-        let rec loop () =
-          let `First(_) = Event.sync (Event.wrap (Event.receive ch_arr) (fun x -> `First(x))) in
-          Event.sync (Event.send ch_unit ());
-          loop ()
-        in loop ()) ()
-
-  let runtest param =
-    let payload = List.assoc param big_arrays in
-    Core.Staged.stage (fun () ->
-        Event.sync (Event.send ch_arr payload);
-        let `Next(_) = Event.sync (Event.wrap (Event.receive ch_unit) (fun x -> `Next(x))) in
-        ())
-end
-
 (* module BEventUntyped : TEST = struct
  *   let ch = Event.new_channel ()
  *   let _:Thread.t =

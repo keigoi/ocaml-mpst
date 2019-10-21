@@ -4,7 +4,7 @@ open Bench_util
 open Bench_util.Util
 open Npingbody
 
-let nping_num = [750; 500; 100; 20]
+let nping_num = [750; 500; 100; 20; 10; 5; 1]
 
 module NanoMutexReuseEP =
   Mpst.Endpoints.Make(Mpst.Lin.MakeDynCheck(Bench_util.Dyncheck_nanomutex.NanoMutexFlag))

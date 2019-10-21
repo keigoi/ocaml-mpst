@@ -1,6 +1,24 @@
 (executable
  (name chameleons)
+ (modules chameleons)
  (public_name ocaml-mpst.bench.chameleons)
+ (preprocess (pps linocaml.ppx))
+ (ocamlopt_flags -O3)
+ (flags ("-rectypes" "-short-paths"))
+ (libraries chameleons_body bench_util core_bench ocaml-mpst.lwt ocaml-mpst.monad.lwt ocaml-mpst.ref core.nano_mutex))
+
+(executable
+ (name chameleons_pipes)
+ (modules chameleons_pipes)
+ (public_name ocaml-mpst.bench.chameleons_pipes)
+ (preprocess (pps linocaml.ppx))
+ (ocamlopt_flags -O3)
+ (flags ("-rectypes" "-short-paths"))
+ (libraries chameleons_body bench_util core_bench ocaml-mpst.lwt ocaml-mpst.monad.lwt ocaml-mpst.ref core.nano_mutex))
+
+(library
+ (name chameleons_body)
+ (modules chameleons_body)
  (preprocess (pps linocaml.ppx))
  (ocamlopt_flags -O3)
  (flags ("-rectypes" "-short-paths"))

@@ -1,0 +1,1 @@
+./benchmark/name/name.exe +time cycles alloc gc percentage speedup samples -quota 10s (-fork) -sexp >table_sexp.txt

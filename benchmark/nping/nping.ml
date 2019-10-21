@@ -15,10 +15,6 @@ module PosixMutexReuseEP =
 module PosixMutexFreshEP =
   Mpst.Endpoints.Make(Mpst.Lin.MakeDynCheckClosure(Mpst.LinFlag.PosixMutexFlag))
 
-module NoCheckFreshEP =
-  Mpst.Endpoints.Make(Mpst.Lin.MakeDynCheckClosure(Mpst.LinFlag.PosixMutexFlag))
-module NoCheckReuseEP =
-  Mpst.Endpoints.Make(Mpst.Lin.MakeDynCheckClosure(Mpst.LinFlag.PosixMutexFlag))
 module NoCheckEP =
   Mpst.Endpoints.Make(Mpst.Lin.NoCheck)
               

@@ -23,6 +23,7 @@ module type EVENT = sig
   val new_channel : unit -> 'a channel
   val flip_channel : 'a channel -> 'a channel
   val receive : 'a channel -> 'a event
+  val receive_wrap : 'a channel -> ('a -> 'b) -> 'b event
   val send : 'a channel -> 'a -> unit event
 
   type 'a st

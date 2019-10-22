@@ -5,17 +5,18 @@ module LwtEvent : Mpst.S.EVENT
   = struct
   type 'a monad = 'a Lwt.t
   type 'a event = unit -> 'a Lwt.t
-  type 'a stream = 'a one Mstream.out * 'a one Mstream.inp
-  type 'a channel = {me:'a stream; othr:'a stream}
+  type 'a stream = 'a Lwt_stream_opt.t
+  type 'a channel = {write:'a stream; read:'a stream}
 
   let new_channel () =
-    let ch1 = Mstream.create_one ()
-    and ch2 = Mstream.create_one ()
+    let ch1 = Lwt_stream_opt.create ()
+    and ch2 = Lwt_stream_opt.create ()
     in
-    {me=ch1; othr=ch2}
-  let[@inline] receive {me=(_,inp); _} () = Mstream.receive inp
-  let flip_channel {me=othr; othr=me} = {me; othr}
-  let[@inline] send {othr=(out,_); _} v () = Mstream.send out v
+    {write=ch1; read=ch2}
+  let[@inline] receive {read=ch;_} () = Lwt_stream_opt.receive ch
+  let[@inline] receive_wrap {read=ch;_} f () = Lwt_stream_opt.receive_wrap ~f:(fun x -> Some(f x)) ch
+  let flip_channel {write; read} = {write=read; read=write}
+  let[@inline] send {write=ch; _} v () = Lwt_stream_opt.send ch v
 
   let[@inline] sync f = f ()
 

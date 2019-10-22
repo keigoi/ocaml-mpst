@@ -46,9 +46,9 @@ let test_bare_pingpong = [
      * create ~name:"lwt_bstream_bare" (let module M = BLwtTwoChan(LwtBoundedStream)() in run M.runtest);
      * create ~name:"lwt_bstream_bare_cps" (let module M = BLwtCont(LwtBoundedStream)() in run M.runtest); *)
 
-    (* ipc (almost meaningless) *)
-    (* create_indexed ~args ~name:"lwt_ipc-bare_ideal" (let module M = Make_IPC(LwtMonad)() in M.runtest);
-     * create_indexed ~args ~name:"ipc-bare_ideal" (let module M = Make_IPC(Direct)() in M.runtest); *)
+    (* ipc *)
+    create_indexed ~args ~name:"lwt_ipc-bare_ideal" (let module M = Make_IPC(LwtMonad)() in M.runtest);
+    create_indexed ~args ~name:"ipc-bare_ideal" (let module M = Make_IPC(Direct)() in M.runtest);
   ]
 
 let () =

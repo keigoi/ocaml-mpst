@@ -39,6 +39,29 @@ end = struct
     | InpFun of (Obj.t,'a) inpfun
     | InpFunMany of (Obj.t list,'a) inpfun
 
+  (* untyped operation; not for channel vectors *)
+  let ep_magic (cont:'t EP.t) : 'u EP.t =
+    Obj.magic cont
+
+  let merge_wrapper (tagf,VarFun(contf,f)) (tagg,VarFun(contg,g)) =
+    assert (tagf=tagg);
+    (* if polyvar tags are same, we can safely merge them *)
+    let cont = EP.make_merge contf (ep_magic contg) in
+    (tagf, VarFun(cont, f))
+
+  let merge_inpfun f g =
+    let fdup,fonly =
+      List.partition (fun (tagf,f) ->
+          List.exists (fun (tagg,_) -> tagf=tagg) g.wrappers
+        ) f.wrappers
+    in
+    let gdup,gonly =
+      List.partition (fun (tagg,g) ->
+          List.exists (fun (tagf,_) -> tagf=tagg) f.wrappers
+        ) g.wrappers
+    in
+    {f with wrappers=fonly @ gonly @ List.map2 merge_wrapper fdup gdup}
+
   let merge_inp inp1 inp2 =
     match inp1, inp2 with
     | InpChanOne inp1, InpChanOne inp2 ->
@@ -46,7 +69,7 @@ end = struct
     | InpChanMany inp1, InpChanMany inp2 ->
        InpChanMany (EV.merge_inp inp1 inp2)
     | InpFun f, InpFun g ->
-       InpFun {f with wrappers = f.wrappers @ g.wrappers}(*TODO merge continuation*)
+       InpFun (merge_inpfun f g)
     | _, _ -> assert false
 
   let[@inline] make_inpfun label (tag,fs) conts =
@@ -60,8 +83,9 @@ end = struct
              {raw_input_fun = f;
               wrappers=
                 [(tag,
-                  VarFun (conts, 
+                  VarFun (conts,
                           (fun[@inline] (v,conts) ->
+                            (* only for untyped communication; chvec never come here *)
                             label.var (Obj.obj v, StaticLin.create_dummy @@ EP.fresh conts idx))))]
              }
            in
@@ -83,8 +107,9 @@ end = struct
       {raw_input_fun = receive_list fs;
        wrappers=
          [(tag,
-           VarFun (conts, 
+           VarFun (conts,
                    (fun (v,conts) ->
+                     (* only for untyped communication; chvec never come here *)
                      label.var (List.map Obj.obj v, StaticLin.create_dummy @@ EP.fresh conts 0))))]
       }
     in
@@ -98,13 +123,13 @@ end = struct
       ~hook:(Lazy.from_val ())
       ~mergefun:merge_inp
       ~values:(List.map (fun[@inline] i -> InpChanOne(i)) is)
-    
+
   let[@inline] make_inpmany inp =
     EP.make_lin
       ~hook:(Lazy.from_val ())
       ~mergefun:merge_inp
       ~values:[InpChanMany(inp)]
-                       
+
   let[@inline] receive = function
     | InpChanOne inp ->
        EV.sync (EV.receive_st inp)
@@ -113,7 +138,11 @@ end = struct
     | InpFun f ->
        (* receive tag(s) *)
        M.bind (f.raw_input_fun ()) (fun[@inline] (tag,v) ->
-       let (VarFun(cont,f)) = List.assoc tag f.wrappers in
+       let (VarFun(cont,f)) =
+         match f.wrappers with
+         | [wrapper] -> snd wrapper
+         | wrappers -> List.assoc tag f.wrappers
+       in
        M.return (f (v,cont)))
     | InpFunMany f ->
        (* receive tag(s) *)

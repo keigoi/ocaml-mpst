@@ -105,32 +105,29 @@ module Make
            ~newch:EV.new_channel ~flipch:EV.flip_channel ~tablefun:untyped_table
            ~from_info ~to_info
 
-  let receive_dpipe ch () =
+  let[@inline] receive_dpipe ch () =
     C.input_tagged ch.Dpipe.me.inp
 
-  let receive_untyped ch () =
-      EV.sync (EV.receive ch)
-
-  let send_dpipe ch tag v =
+  let[@inline] send_dpipe ch tag v =
     M.bind (C.output_tagged ch.Dpipe.me.out (tag, Obj.repr v))
       (fun () -> C.flush ch.me.out)
 
-  let send_untyped ch tag v =
+  let[@inline] send_untyped ch tag v =
     EV.sync (EV.send ch (tag, Obj.repr v))
 
-  let bareout_one label f =
+  let[@inline] bareout_one label f =
     let tag = make_tag label.var in
     Out.BareOutFun([f tag])
 
-  let bareout_ones label fs =
+  let[@inline] bareout_ones label fs =
     let tag = make_tag label.var in
     List.map (fun f -> Out.BareOutFun([f tag])) fs
 
-  let bareout_many label fs =
+  let[@inline] bareout_many label fs =
     let tag = make_tag label.var in
     Out.BareOutFun(List.map (fun f -> f tag) fs)
 
-  let generate_one label conts_to from_info to_info =
+  let[@inline] generate_one label conts_to from_info to_info =
     let chss = generate ~from_info ~to_info in
     match chss with
     | ChVec(ch) ->
@@ -143,7 +140,7 @@ module Make
     | Untyped(chss) ->
        let chss' = flip_all EV.flip_channel chss in
        (bareout_one label (send_untyped @@ List.hd @@ List.hd chss),
-        Inp.make_inpfun label [receive_untyped @@ List.hd @@ List.hd chss'] conts_to)
+        Inp.make_inp_untyped label [List.hd @@ List.hd chss'] conts_to)
     | Dpipe(chss) ->
        let chss' = flip_all Dpipe.flip_dpipe chss in
        (bareout_one label (send_dpipe @@ List.hd @@ List.hd chss),
@@ -163,7 +160,7 @@ module Make
        let chs = List.hd chss in
        let chs' = List.map List.hd @@ flip_all EV.flip_channel chss in
        (bareout_many label (List.map send_untyped chs),
-        Inp.make_inpfun label (List.map receive_untyped chs') conts_to)
+        Inp.make_inp_untyped label chs' conts_to)
 
     | Dpipe(chss) ->
        let chs = List.hd chss in
@@ -185,7 +182,7 @@ module Make
        let chs = List.map List.hd chss in
        let chs' = List.hd @@ flip_all EV.flip_channel chss in
        (bareout_ones label (List.map send_untyped chs),
-        Inp.make_inpfunmany label (List.map receive_untyped chs') conts_to)
+        Inp.make_inpmany_untyped label chs' conts_to)
     | Dpipe(chss) ->
        let chs = List.map List.hd chss in
        let chs' = List.hd @@ flip_all Dpipe.flip_dpipe chss in

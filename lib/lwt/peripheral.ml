@@ -14,6 +14,7 @@ module LwtEvent : Mpst.S.EVENT
     in
     {write=ch1; read=ch2}
   let[@inline] receive {read=ch;_} () = Lwt_stream_opt.receive ch
+  let[@inline] receive_wrap {read=ch;_} f () = Lwt_stream_opt.receive_wrap ~f:(fun x -> Some(f x)) ch
   let flip_channel {write; read} = {write=read; read=write}
   let[@inline] send {write=ch; _} v () = Lwt_stream_opt.send ch v
 

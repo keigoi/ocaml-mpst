@@ -25,7 +25,7 @@ module NoCheckEP =
 
 module EP = NanoMutexReuseEP (* faster than default Mpst.EP *)
 (* module EP = PosixMutexReuseEP (\* same as default Mpst.EP *\) *)
-          
+
 let run f = Core.Staged.unstage (f (List.nth array_sizes 0))
 
 let test_ev = [
@@ -39,6 +39,7 @@ let test_ev = [
     create ~name:"ev_dynamic_nocheck" (let module M = MakeDyn(NoCheckEP)(Direct)(Shmem)() in run M.runtest);
     create ~name:"ev_dynamic_untyped" (let module M = MakeDyn(NanoMutexReuseEP)(Direct)(Untyped)() in run M.runtest);
     create ~name:"ev_static" @@ (let module M = MakeStatic(LinDirect)(Shmem)() in run M.runtest);
+    create ~name:"ev_static_untyped" @@ (let module M = MakeStatic(LinDirect)(Untyped)() in run M.runtest);
     create ~name:"ev_ref" @@ run BRefImpl.runtest;
   ]
 
@@ -50,6 +51,7 @@ let test_lwt = [
     create ~name:"lwt_dynamic_nocheck" (let module M = MakeDyn(NoCheckEP)(LwtMonad)(Shmem)() in run M.runtest);
     create ~name:"lwt_dynamic_untyped" (let module M = MakeDyn(NanoMutexReuseEP)(LwtMonad)(Untyped)() in run M.runtest);
     create ~name:"lwt_static" (let module M = MakeStatic(LinLwtMonad)(Shmem)() in run M.runtest);
+    create ~name:"lwt_static_untyped" (let module M = MakeStatic(LinLwtMonad)(Untyped)() in run M.runtest);
   ]
 
 let test_lwt_ipc = [

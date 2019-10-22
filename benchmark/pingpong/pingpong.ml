@@ -51,6 +51,7 @@ let test_lwt = [
     create ~name:"lwt_dynamic_posixmutex" (let module M = MakeDyn(PosixMutexReuseEP)(LwtMonad)(Shmem)() in run M.runtest);
     create ~name:"lwt_dynamic_freshnanomutex" (let module M = MakeDyn(NanoMutexFreshEP)(LwtMonad)(Shmem)() in run M.runtest);
     create ~name:"lwt_dynamic_nocheck" (let module M = MakeDyn(NoCheckEP)(LwtMonad)(Shmem)() in run M.runtest);
+    create ~name:"lwt_dynamic_untyped" (let module M = MakeDyn(NanoMutexReuseEP)(LwtMonad)(Untyped)() in run M.runtest);
     create ~name:"lwt_dynamic_fresh_untyped" (let module M = MakeDyn(NanoMutexFreshEP)(LwtMonad)(Untyped)() in run M.runtest);
     create ~name:"lwt_dynamic_nocheck_untyped" (let module M = MakeDyn(NoCheckEP)(LwtMonad)(Untyped)() in run M.runtest);
     create ~name:"lwt_static" (let module M = MakeStatic(LinLwtMonad)(Shmem)() in run M.runtest);
@@ -79,4 +80,5 @@ let test_all =
 let () =
   Core.Command.run @@
     Core_bench.Bench.make_command
-      test_all
+      [    create ~name:"lwt_dynamic_untyped" (let module M = MakeDyn(NanoMutexReuseEP)(LwtMonad)(Untyped)() in run M.runtest);
+]

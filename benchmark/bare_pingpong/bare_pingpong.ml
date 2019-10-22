@@ -15,24 +15,24 @@ let test_bare_pingpong = [
      * For Event module, differences are almost negligible (CPS is around 1 % slower), but apparently CPS allocates
      * more words than two_channel communication.
      *)
-    create ~name:"ev_bare" @@ run BEvent.runtest;
+    create ~name:"ev_bare" @@ run BEventWrap.runtest;
     create ~name:"ev_bare_cps" @@ run BEventCont.runtest;
 
-    create ~name:"lwt_bare" (let module M = BLwtTwoChan(MpstLwtStream)() in run M.runtest);
+    (* if we remove object wrapper around endpoints, it becomes slightly faster*)
+    create ~name:"ev_bare_nowrapper" @@ run BEvent.runtest;
+    
+    create ~name:"lwt_bare" (let module M = BLwtTwoChanWrap() in run M.runtest);
     create ~name:"lwt_bare_cps" (let module M = BLwtCont(MpstLwtStream)() in run M.runtest);
+    create ~name:"lwt_bare_nowrapper" (let module M = BLwtTwoChan(MpstLwtStream)() in run M.runtest);
 
     (* Checking the cause of slowdown. Closures around endpoints incur a huge cost (~ 20 %) in a tight loop.
      * Nano_mutex does not cause much slow down.  *)
     (* channel vector by hand *)
-    (* create ~name:"lwt_bare_mimic-mpst" (let module M = BLwtChannelVectorManual(MpstLwtStream) in run M.runtest); *)
-    (* less closure: no polyvar wrap (but have object wrap- with extra closures on reception) *)
-    (* create ~name:"lwt_bare_less_overhead1" (let module M = BLwtChannelVectorManualLessWrap(MpstLwtStream) in run M.runtest); *)
-    (* less closure: no polyvar wrap (but have object wrap) *)
-    (* create ~name:"lwt_bare_less_overhead2" (let module M = BLwtChannelVectorManualLessWrap1_5(MpstLwtStream) in run M.runtest); *)
-    (* no object wrap (but have polyvar wrap) *)
-    (* create ~name:"lwt_bare_less_overhead3" (let module M = BLwtChannelVectorManualLessWrap2(MpstLwtStream) in run M.runtest); *)
-    (* almost same as twochan *)
-    (* create ~name:"lwt_bare_less_overhead4" (let module M = BLwtChannelVectorManualLessWrap3(MpstLwtStream) in run M.runtest); *)
+    create ~name:"lwt_bare_mimic-mpst" (let module M = BLwtChannelVectorManual() in run M.runtest);
+    create ~name:"lwt_bare_mimic-mpst_noobjwrap" (let module M = BLwtChannelVectorManualNoObjWrap() in run M.runtest);
+    (* create ~name:"lwt_bare_less_overhead2" (let module M = BLwtChannelVectorManualLessWrap2() in run M.runtest);
+     * create ~name:"lwt_bare_less_overhead3" (let module M = BLwtChannelVectorManualLessWrap4() in run M.runtest);
+     * create ~name:"lwt_bare_less_overhead4" (let module M = BLwtChannelVectorManualLessWrap4() in run M.runtest); *)
 
     (* as we optimised Lwt_stream, let's see the speedup from the original one *)
     (* create ~name:"lwt_orig_bare" (let module M = BLwtTwoChan(LwtStream)() in run M.runtest);
@@ -46,9 +46,9 @@ let test_bare_pingpong = [
      * create ~name:"lwt_bstream_bare" (let module M = BLwtTwoChan(LwtBoundedStream)() in run M.runtest);
      * create ~name:"lwt_bstream_bare_cps" (let module M = BLwtCont(LwtBoundedStream)() in run M.runtest); *)
 
-    (* ipc (almost meaningless) *)
-    (* create_indexed ~args ~name:"lwt_ipc-bare_ideal" (let module M = Make_IPC(LwtMonad)() in M.runtest);
-     * create_indexed ~args ~name:"ipc-bare_ideal" (let module M = Make_IPC(Direct)() in M.runtest); *)
+    (* ipc *)
+    create_indexed ~args ~name:"lwt_ipc-bare_ideal" (let module M = Make_IPC(LwtMonad)() in M.runtest);
+    create_indexed ~args ~name:"ipc-bare_ideal" (let module M = Make_IPC(Direct)() in M.runtest);
   ]
 
 let () =

@@ -34,29 +34,30 @@ let test_ev = [
      * 2) Dynamic checkings are removed (and use static checking from Linocaml instead)
      * Linocaml allocates more memory for closures, it does not affect running times.
      *)
-    (* create ~name:"ev_dynamic" (let module M = MakeDyn(NanoMutexReuseEP)(Direct)(Shmem)() in run M.runtest);
-     * create ~name:"ev_dynamic_posixmutex" (let module M = MakeDyn(PosixMutexReuseEP)(Direct)(Shmem)() in run M.runtest);
-     * create ~name:"ev_dynamic_nocheck" (let module M = MakeDyn(NoCheckEP)(Direct)(Shmem)() in run M.runtest);
-     * create ~name:"ev_dynamic_untyped" (let module M = MakeDyn(NanoMutexReuseEP)(Direct)(Untyped)() in run M.runtest); *)
+    create ~name:"ev_dynamic" (let module M = MakeDyn(NanoMutexReuseEP)(Direct)(Shmem)() in run M.runtest);
+    create ~name:"ev_dynamic_posixmutex" (let module M = MakeDyn(PosixMutexReuseEP)(Direct)(Shmem)() in run M.runtest);
+    create ~name:"ev_dynamic_nocheck" (let module M = MakeDyn(NoCheckEP)(Direct)(Shmem)() in run M.runtest);
+    create ~name:"ev_dynamic_untyped" (let module M = MakeDyn(NanoMutexReuseEP)(Direct)(Untyped)() in run M.runtest);
     create ~name:"ev_dynamic_fresh_untyped" (let module M = MakeDyn(NanoMutexFreshEP)(Direct)(Untyped)() in run M.runtest);
     create ~name:"ev_dynamic_nocheck_untyped" (let module M = MakeDyn(NoCheckEP)(Direct)(Untyped)() in run M.runtest);
-    (* create ~name:"ev_static" @@ (let module M = MakeStatic(LinDirect)(Shmem)() in run M.runtest);
-     * create ~name:"ev_static_untyped" @@ (let module M = MakeStatic(LinDirect)(Untyped)() in run M.runtest);
-     * create ~name:"ev_ref" @@ run BRefImpl.runtest; *)
+    create ~name:"ev_static" @@ (let module M = MakeStatic(LinDirect)(Shmem)() in run M.runtest);
+    create ~name:"ev_static_untyped" @@ (let module M = MakeStatic(LinDirect)(Untyped)() in run M.runtest);
+    create ~name:"ev_ref" @@ run BRefImpl.runtest;
   ]
 
 let test_lwt = [
     (* Lwt is far more faster than Event. Static version is slower; In such a tight loop- cost for monadic closures seems relatively high. *)
-    (* create ~name:"lwt_dynamic" (let module M = MakeDyn(NanoMutexReuseEP)(LwtMonad)(Shmem)() in run M.runtest);
-     * create ~name:"lwt_dynamic_posixmutex" (let module M = MakeDyn(PosixMutexReuseEP)(LwtMonad)(Shmem)() in run M.runtest);
-     * create ~name:"lwt_dynamic_freshnanomutex" (let module M = MakeDyn(NanoMutexFreshEP)(LwtMonad)(Shmem)() in run M.runtest);
-     * create ~name:"lwt_dynamic_nocheck" (let module M = MakeDyn(NoCheckEP)(LwtMonad)(Shmem)() in run M.runtest); *)
+    create ~name:"lwt_dynamic" (let module M = MakeDyn(NanoMutexReuseEP)(LwtMonad)(Shmem)() in run M.runtest);
+    create ~name:"lwt_dynamic_posixmutex" (let module M = MakeDyn(PosixMutexReuseEP)(LwtMonad)(Shmem)() in run M.runtest);
+    create ~name:"lwt_dynamic_freshnanomutex" (let module M = MakeDyn(NanoMutexFreshEP)(LwtMonad)(Shmem)() in run M.runtest);
+    create ~name:"lwt_dynamic_nocheck" (let module M = MakeDyn(NoCheckEP)(LwtMonad)(Shmem)() in run M.runtest);
     create ~name:"lwt_dynamic_fresh_untyped" (let module M = MakeDyn(NanoMutexFreshEP)(LwtMonad)(Untyped)() in run M.runtest);
     create ~name:"lwt_dynamic_nocheck_untyped" (let module M = MakeDyn(NoCheckEP)(LwtMonad)(Untyped)() in run M.runtest);
-    (* create ~name:"lwt_static" (let module M = MakeStatic(LinLwtMonad)(Shmem)() in run M.runtest);
-     * create ~name:"lwt_static_untyped" (let module M = MakeStatic(LinLwtMonad)(Untyped)() in run M.runtest); *)
+    create ~name:"lwt_static" (let module M = MakeStatic(LinLwtMonad)(Shmem)() in run M.runtest);
+    create ~name:"lwt_static_untyped" (let module M = MakeStatic(LinLwtMonad)(Untyped)() in run M.runtest);
   ]
 
+(* lwt with one pipe is slower than normal *)
 let test_lwt_ipc = [
     create_indexed ~args ~name:"lwt_ipc_dynamic" (let module M = MakeDyn(EP)(LwtMonad)(IPC)() in M.runtest);
     create_indexed ~args ~name:"lwt_ipc_static" (let module M = MakeStatic(LinLwtMonad)(IPC)() in M.runtest);
@@ -68,6 +69,7 @@ let test_ipc = [
      *)
     create_indexed ~args ~name:"ipc_dynamic" (let module M = MakeDyn(EP)(Direct)(IPC)() in M.runtest);
     create_indexed ~args ~name:"ipc_dynamic_posixmutex" (let module M = MakeDyn(PosixMutexReuseEP)(Direct)(IPC)() in M.runtest);
+    create_indexed ~args ~name:"ipc_dynamic_nocheck" (let module M = MakeDyn(NoCheckEP)(Direct)(IPC)() in M.runtest);
     create_indexed ~args ~name:"ipc_static" (let module M = MakeStatic(LinDirect)(IPC)() in M.runtest);
   ]
 
@@ -77,5 +79,4 @@ let test_all =
 let () =
   Core.Command.run @@
     Core_bench.Bench.make_command
-      (* test_all *)
-      (test_ev @ test_lwt)
+      test_all

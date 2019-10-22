@@ -6,7 +6,7 @@ let thread f x =
   ignore (Thread.create (fun () ->
               (f x:unit)) ())
 
-let array_sizes = [1; 1000; 10000; 100000]
+let array_sizes = [1; 10; 100; 1000; 10000; 100000]
 
 (* actual array that is passed around threads/processes *)
 let big_arrays =

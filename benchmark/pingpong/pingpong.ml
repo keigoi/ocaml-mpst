@@ -75,10 +75,9 @@ let test_ipc = [
   ]
 
 let test_all =
-    test_ev @ test_lwt @ test_ipc @ test_lwt_ipc
+  test_ev @ test_lwt @ test_ipc @ test_lwt_ipc
 
 let () =
   Core.Command.run @@
     Core_bench.Bench.make_command
-      [    create ~name:"lwt_dynamic_untyped" (let module M = MakeDyn(NanoMutexReuseEP)(LwtMonad)(Untyped)() in run M.runtest);
-]
+      test_all

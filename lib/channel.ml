@@ -143,7 +143,7 @@ module Make
     | Untyped(chss) ->
        let chss' = flip_all EV.flip_channel chss in
        (bareout_one label (send_untyped @@ List.hd @@ List.hd chss),
-        Inp.make_inpfun label [receive_untyped @@ List.hd @@ List.hd chss'] conts_to)
+        Inp.make_inp_untyped label [List.hd @@ List.hd chss'] conts_to)
     | Dpipe(chss) ->
        let chss' = flip_all Dpipe.flip_dpipe chss in
        (bareout_one label (send_dpipe @@ List.hd @@ List.hd chss),
@@ -163,7 +163,7 @@ module Make
        let chs = List.hd chss in
        let chs' = List.map List.hd @@ flip_all EV.flip_channel chss in
        (bareout_many label (List.map send_untyped chs),
-        Inp.make_inpfun label (List.map receive_untyped chs') conts_to)
+        Inp.make_inp_untyped label chs' conts_to)
 
     | Dpipe(chss) ->
        let chs = List.hd chss in
@@ -185,7 +185,7 @@ module Make
        let chs = List.map List.hd chss in
        let chs' = List.hd @@ flip_all EV.flip_channel chss in
        (bareout_ones label (List.map send_untyped chs),
-        Inp.make_inpfunmany label (List.map receive_untyped chs') conts_to)
+        Inp.make_inpmany_untyped label chs' conts_to)
     | Dpipe(chss) ->
        let chs = List.map List.hd chss in
        let chs' = List.hd @@ flip_all Dpipe.flip_dpipe chss in

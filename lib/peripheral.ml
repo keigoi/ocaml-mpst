@@ -23,6 +23,7 @@ module Event : S.EVENT
   type 'a channel = 'a Event.channel
   let new_channel = Event.new_channel
   let receive = Event.receive
+  let receive_wrap ch f = Event.wrap (Event.receive ch) f
   let send = Event.send
   let sync = Event.sync
 
@@ -32,14 +33,14 @@ module Event : S.EVENT
   type 'a st = 'a Event.channel list
   type 'a inp =
     | InpOne : 'a Event.event -> 'a one inp
-    | InpMany : 'a Event.event -> 'a list inp 
+    | InpMany : 'a Event.event -> 'a list inp
   type 'a out =
     | OutOne : 'a Event.channel ref -> 'a one out
     | OutMany : 'a Event.channel list ref -> 'a list out
 
   let create_st ~num =
     List.init num (fun _ -> Event.new_channel ())
-                     
+
   let wrap chs f =
     let r = ref @@ List.hd chs in
     (OutOne r, InpOne (Event.wrap (Event.guard (fun () -> Event.receive (!r))) f))

@@ -25,7 +25,7 @@ module NoCheckEP =
 
 module EP = NanoMutexReuseEP (* faster than default Mpst.EP *)
 (* module EP = PosixMutexReuseEP (\* same as default Mpst.EP *\) *)
-          
+
 let run f = Core.Staged.unstage (f (List.nth array_sizes 0))
 
 let test_ev = [
@@ -38,7 +38,10 @@ let test_ev = [
     create ~name:"ev_dynamic_posixmutex" (let module M = MakeDyn(PosixMutexReuseEP)(Direct)(Shmem)() in run M.runtest);
     create ~name:"ev_dynamic_nocheck" (let module M = MakeDyn(NoCheckEP)(Direct)(Shmem)() in run M.runtest);
     create ~name:"ev_dynamic_untyped" (let module M = MakeDyn(NanoMutexReuseEP)(Direct)(Untyped)() in run M.runtest);
+    create ~name:"ev_dynamic_fresh_untyped" (let module M = MakeDyn(NanoMutexFreshEP)(Direct)(Untyped)() in run M.runtest);
+    create ~name:"ev_dynamic_nocheck_untyped" (let module M = MakeDyn(NoCheckEP)(Direct)(Untyped)() in run M.runtest);
     create ~name:"ev_static" @@ (let module M = MakeStatic(LinDirect)(Shmem)() in run M.runtest);
+    create ~name:"ev_static_untyped" @@ (let module M = MakeStatic(LinDirect)(Untyped)() in run M.runtest);
     create ~name:"ev_ref" @@ run BRefImpl.runtest;
   ]
 
@@ -49,9 +52,13 @@ let test_lwt = [
     create ~name:"lwt_dynamic_freshnanomutex" (let module M = MakeDyn(NanoMutexFreshEP)(LwtMonad)(Shmem)() in run M.runtest);
     create ~name:"lwt_dynamic_nocheck" (let module M = MakeDyn(NoCheckEP)(LwtMonad)(Shmem)() in run M.runtest);
     create ~name:"lwt_dynamic_untyped" (let module M = MakeDyn(NanoMutexReuseEP)(LwtMonad)(Untyped)() in run M.runtest);
+    create ~name:"lwt_dynamic_fresh_untyped" (let module M = MakeDyn(NanoMutexFreshEP)(LwtMonad)(Untyped)() in run M.runtest);
+    create ~name:"lwt_dynamic_nocheck_untyped" (let module M = MakeDyn(NoCheckEP)(LwtMonad)(Untyped)() in run M.runtest);
     create ~name:"lwt_static" (let module M = MakeStatic(LinLwtMonad)(Shmem)() in run M.runtest);
+    create ~name:"lwt_static_untyped" (let module M = MakeStatic(LinLwtMonad)(Untyped)() in run M.runtest);
   ]
 
+(* lwt with one pipe is slower than normal *)
 let test_lwt_ipc = [
     create_indexed ~args ~name:"lwt_ipc_dynamic" (let module M = MakeDyn(EP)(LwtMonad)(IPC)() in M.runtest);
     create_indexed ~args ~name:"lwt_ipc_static" (let module M = MakeStatic(LinLwtMonad)(IPC)() in M.runtest);
@@ -63,11 +70,12 @@ let test_ipc = [
      *)
     create_indexed ~args ~name:"ipc_dynamic" (let module M = MakeDyn(EP)(Direct)(IPC)() in M.runtest);
     create_indexed ~args ~name:"ipc_dynamic_posixmutex" (let module M = MakeDyn(PosixMutexReuseEP)(Direct)(IPC)() in M.runtest);
+    create_indexed ~args ~name:"ipc_dynamic_nocheck" (let module M = MakeDyn(NoCheckEP)(Direct)(IPC)() in M.runtest);
     create_indexed ~args ~name:"ipc_static" (let module M = MakeStatic(LinDirect)(IPC)() in M.runtest);
   ]
 
 let test_all =
-    test_ev @ test_lwt @ test_ipc @ test_lwt_ipc
+  test_ev @ test_lwt @ test_ipc @ test_lwt_ipc
 
 let () =
   Core.Command.run @@

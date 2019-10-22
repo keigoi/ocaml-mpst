@@ -105,32 +105,29 @@ module Make
            ~newch:EV.new_channel ~flipch:EV.flip_channel ~tablefun:untyped_table
            ~from_info ~to_info
 
-  let receive_dpipe ch () =
+  let[@inline] receive_dpipe ch () =
     C.input_tagged ch.Dpipe.me.inp
 
-  let receive_untyped ch () =
-      EV.sync (EV.receive ch)
-
-  let send_dpipe ch tag v =
+  let[@inline] send_dpipe ch tag v =
     M.bind (C.output_tagged ch.Dpipe.me.out (tag, Obj.repr v))
       (fun () -> C.flush ch.me.out)
 
-  let send_untyped ch tag v =
+  let[@inline] send_untyped ch tag v =
     EV.sync (EV.send ch (tag, Obj.repr v))
 
-  let bareout_one label f =
+  let[@inline] bareout_one label f =
     let tag = make_tag label.var in
     Out.BareOutFun([f tag])
 
-  let bareout_ones label fs =
+  let[@inline] bareout_ones label fs =
     let tag = make_tag label.var in
     List.map (fun f -> Out.BareOutFun([f tag])) fs
 
-  let bareout_many label fs =
+  let[@inline] bareout_many label fs =
     let tag = make_tag label.var in
     Out.BareOutFun(List.map (fun f -> f tag) fs)
 
-  let generate_one label conts_to from_info to_info =
+  let[@inline] generate_one label conts_to from_info to_info =
     let chss = generate ~from_info ~to_info in
     match chss with
     | ChVec(ch) ->

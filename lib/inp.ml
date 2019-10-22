@@ -101,21 +101,21 @@ end = struct
       ~mergefun:merge_inp
       ~values:[InpChanMany(inp)]
 
-  let wrapper label conts idx =
+  let[@inline] wrapper label conts idx =
     (fun[@inline] (v,conts) ->
       (* only for untyped communication; chvec never come here *)
       label.var (Obj.obj v, StaticLin.create_dummy @@ EP.fresh conts idx))
 
-  let wrapper_many label conts =
+  let[@inline] wrapper_many label conts =
     (fun[@inline] (v,conts) ->
       (* only for untyped communication; chvec never come here *)
       label.var (List.map Obj.obj v, StaticLin.create_dummy @@ EP.fresh conts 0))
 
-  let untypedchans label conts idx ch =
+  let[@inline] untypedchans label conts idx ch =
     let tag = make_tag label.var in
     InpUntypedOne(ch,[(tag, Wrapper(conts, wrapper label conts idx))])
 
-  let untypedmany label conts chs =
+  let[@inline] untypedmany label conts chs =
     let tag = make_tag label.var in
     InpUntypedMany(chs,[(tag, Wrapper(conts, wrapper_many label conts))])
 
@@ -142,8 +142,8 @@ end = struct
       ~values:(List.mapi (inpfuns label conts) fs)
 
   let[@inline] receive_list fs () =
-    M.bind (List.hd fs ()) @@ fun (tag,v) ->
-    M.bind (M.mapM (fun f -> f ()) (List.tl fs)) @@ fun vs ->
+    M.bind (List.hd fs ()) @@ fun[@inline] (tag,v) ->
+    M.bind (M.mapM (fun[@inline] f -> f ()) (List.tl fs)) @@ fun[@inline] vs ->
     let vs = List.map snd vs in
     M.return (tag, List.map Obj.repr (v::vs))
 
@@ -158,7 +158,7 @@ end = struct
       ~values:[inpfunmany label fs conts]
 
 
-  let apply_wrapper wrappers tag v =
+  let[@inline] apply_wrapper wrappers tag v =
     let (Wrapper(cont,f)) =
       match wrappers with
       | [wrapper] -> snd wrapper
@@ -167,8 +167,8 @@ end = struct
     f (v,cont)
 
   let[@inline] receive_chan_list cs =
-    M.bind (EV.sync (EV.receive (List.hd cs))) @@ fun (tag,v) ->
-    M.bind (M.mapM (fun c -> EV.sync (EV.receive c)) (List.tl cs)) @@ fun vs ->
+    M.bind (EV.sync (EV.receive (List.hd cs))) @@ fun[@inline] (tag,v) ->
+    M.bind (M.mapM (fun[@inline] c -> EV.sync (EV.receive c)) (List.tl cs)) @@ fun[@inline] vs ->
     let vs = List.map snd vs in
     M.return (tag, List.map Obj.repr (v::vs))
 

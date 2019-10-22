@@ -2,23 +2,35 @@ open Base
 module Make(EP:S.ENDPOINTS)(StaticLin:S.LIN)(M:S.MONAD)(EV:S.EVENT with type 'a monad = 'a M.t) : sig
   type 'a inp
 
+  val make_inp : 'var one EV.inp list -> 'var inp EP.lin EP.t
+
+  val make_inpmany : 'var list EV.inp -> 'var inp EP.lin EP.t
+
+  (* val make_inp_untyped :
+   *   (_, 'var, _, 'v * 'cont StaticLin.lin) label
+   *   -> tag * raw_input_fun list
+   *   -> 'cont EP.t
+   *   -> 'var inp EP.lin EP.t
+   *
+   * val make_inpmany_untyped :
+   *   (_, 'var, _, 'v * 'cont StaticLin.lin) label
+   *   -> tag * raw_input_fun list
+   *   -> 'cont EP.t
+   *   -> 'var inp EP.lin EP.t *)
+
   type raw_input_fun = unit -> (tag * Obj.t) M.t
 
   val make_inpfun :
-    (_, 'var, _, 'v * 'cont StaticLin.lin) label
-    -> tag * raw_input_fun list
+    (_, [>] as 'var, _, 'v * 'cont StaticLin.lin) label
+    -> raw_input_fun list
     -> 'cont EP.t
     -> 'var inp EP.lin EP.t
 
   val make_inpfunmany :
-    (_, 'var, _, 'v list * 'cont StaticLin.lin) label
-    -> tag * raw_input_fun list
+    (_, [>] as 'var, _, 'v list * 'cont StaticLin.lin) label
+    -> raw_input_fun list
     -> 'cont EP.t
     -> 'var inp EP.lin EP.t
-
-  val make_inp : 'var one EV.inp list -> 'var inp EP.lin EP.t
-
-  val make_inpmany : 'var list EV.inp -> 'var inp EP.lin EP.t
 
   val receive : 'a inp -> 'a M.t
 
@@ -72,7 +84,20 @@ end = struct
        InpFun (merge_inpfun f g)
     | _, _ -> assert false
 
-  let[@inline] make_inpfun label (tag,fs) conts =
+  let[@inline] make_inp is =
+    EP.make_lin
+      ~hook:(Lazy.from_val ())
+      ~mergefun:merge_inp
+      ~values:(List.map (fun[@inline] i -> InpChanOne(i)) is)
+
+  let[@inline] make_inpmany inp =
+    EP.make_lin
+      ~hook:(Lazy.from_val ())
+      ~mergefun:merge_inp
+      ~values:[InpChanMany(inp)]
+
+  let[@inline] make_inpfun label fs conts =
+    let tag = make_tag label.var in
     EP.make_lin
       ~hook:(Lazy.from_val ()) (* FIXME force continuation *)
       ~mergefun:merge_inp
@@ -102,7 +127,8 @@ end = struct
             let vs = List.map snd vs in
             M.return (tag, List.map Obj.repr vs)))
 
-  let[@inline] make_inpfunmany label (tag,fs) conts =
+  let[@inline] make_inpfunmany label fs conts =
+    let tag = make_tag label.var in
     let inpfun =
       {raw_input_fun = receive_list fs;
        wrappers=
@@ -111,24 +137,13 @@ end = struct
                    (fun (v,conts) ->
                      (* only for untyped communication; chvec never come here *)
                      label.var (List.map Obj.obj v, StaticLin.create_dummy @@ EP.fresh conts 0))))]
+
       }
     in
     EP.make_lin
       ~hook:(Lazy.from_val ()) (* FIXME force continuation *)
       ~mergefun:merge_inp
       ~values:[InpFunMany(inpfun)]
-
-  let[@inline] make_inp is =
-    EP.make_lin
-      ~hook:(Lazy.from_val ())
-      ~mergefun:merge_inp
-      ~values:(List.map (fun[@inline] i -> InpChanOne(i)) is)
-
-  let[@inline] make_inpmany inp =
-    EP.make_lin
-      ~hook:(Lazy.from_val ())
-      ~mergefun:merge_inp
-      ~values:[InpChanMany(inp)]
 
   let[@inline] receive = function
     | InpChanOne inp ->

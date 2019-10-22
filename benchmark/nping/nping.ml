@@ -17,7 +17,7 @@ module PosixMutexFreshEP =
 
 module NoCheckEP =
   Mpst.Endpoints.Make(Mpst.Lin.NoCheck)
-              
+
 let run ~name t =
   Test.create_indexed ~args:nping_num ~name t
 
@@ -28,12 +28,12 @@ let test_lwt = [
     run ~name:"lwt_dynamic_nocheck" (let module M = MakeDyn(NoCheckEP)(LwtMonad)(Shmem)() in M.runtest);
 
     run ~name:"lwt_static" (let module M = MakeStatic(LinLwtMonad)(Shmem)() in M.runtest);
-    
+
     run ~name:"lwt_dynamic_untyped" (let module M = MakeDyn(NanoMutexReuseEP)(LwtMonad)(Untyped)() in M.runtest);
     run ~name:"lwt_dynamic_fresh_untyped" (let module M = MakeDyn(NanoMutexFreshEP)(LwtMonad)(Untyped)() in M.runtest);
     run ~name:"lwt_dynamic_nocheck_untyped" (let module M = MakeDyn(NoCheckEP)(LwtMonad)(Untyped)() in M.runtest);
     run ~name:"lwt_static_untyped" (let module M = MakeStatic(LinLwtMonad)(Untyped)() in M.runtest);
-    
+
   ]
 
 let test_ev =      [
@@ -43,7 +43,7 @@ let test_ev =      [
     run ~name:"ev_dynamic_posix" (let module M = MakeDyn (PosixMutexReuseEP)(Direct)(Shmem)() in M.runtest);
     run ~name:"ev_dynamic_nocheck" (let module M = MakeDyn (NoCheckEP)(Direct)(Shmem)() in M.runtest);
     run ~name:"ev_static" @@ (let module M = MakeStatic(LinDirect)(Shmem)() in M.runtest);
-    
+
     (* untyped *)
     run ~name:"ev_dynamic_untyped" (let module M = MakeDyn (NanoMutexReuseEP)(Direct)(Untyped)() in M.runtest);
     run ~name:"ev_dynamic_fresh_untyped" (let module M = MakeDyn (NanoMutexFreshEP)(Direct)(Untyped)() in M.runtest);
@@ -51,6 +51,7 @@ let test_ev =      [
     run ~name:"ev_dynamic_posix_fresh_untyped" (let module M = MakeDyn (PosixMutexFreshEP)(Direct)(Untyped)() in M.runtest);
     run ~name:"ev_dynamic_nocheck_untyped" (let module M = MakeDyn(NoCheckEP)(Direct)(Untyped)() in M.runtest);
     run ~name:"ev_dynamic_static_untyped" @@ (let module M = MakeStatic(LinDirect)(Untyped)() in M.runtest);
+    run ~name:"ev_static_untyped" @@ (let module M = MakeStatic(LinDirect)(Shmem)() in M.runtest);
   ]
 
 let test_ipc = [

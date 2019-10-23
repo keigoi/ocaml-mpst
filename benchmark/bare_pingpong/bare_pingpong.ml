@@ -3,6 +3,7 @@ open Core_bench.Bench.Test
 open Bench_util
 open Bench_util.Util
 open Bare_pingpong_body
+open Dyncheck_nanomutex
 
 (* array size parameters for ipc payloads *)
 let args = array_sizes
@@ -15,15 +16,17 @@ let test_bare_pingpong = [
      * For Event module, differences are almost negligible (CPS is around 1 % slower), but apparently CPS allocates
      * more words than two_channel communication.
      *)
-    create ~name:"ev_bare" @@ run BEventWrap.runtest;
-    create ~name:"ev_bare_cps" @@ run BEventCont.runtest;
+    create ~name:"ev_bare" @@ run BEventIdeal.runtest;
+    create ~name:"ev_bare_cps" @@ (let module M = BEventCPS(NanoMutexFlag) in run M.runtest);
+    create ~name:"ev_bare_cps_nocheck" @@ (let module M = BEventCPS(Mpst.M.LinFlag.NoCheckFlag) in run M.runtest);
 
     (* if we remove object wrapper around endpoints, it becomes slightly faster*)
-    create ~name:"ev_bare_nowrapper" @@ run BEvent.runtest;
-    
-    create ~name:"lwt_bare" (let module M = BLwtTwoChanWrap() in run M.runtest);
-    create ~name:"lwt_bare_cps" (let module M = BLwtCont(MpstLwtStream)() in run M.runtest);
-    create ~name:"lwt_bare_nowrapper" (let module M = BLwtTwoChan(MpstLwtStream)() in run M.runtest);
+    create ~name:"ev_bare_wrapper" @@ run BEventWrap.runtest;
+
+    create ~name:"lwt_bare" (let module M = BLwtWrap() in run M.runtest);
+    create ~name:"lwt_bare_cps" (let module M = BLwtCPS(MpstLwtStream)(NanoMutexFlag)() in run M.runtest);
+    create ~name:"lwt_bare_cps_nocheck" (let module M = BLwtCPS(MpstLwtStream)(Mpst.M.LinFlag.NoCheckFlag)() in run M.runtest);
+    create ~name:"lwt_bare_wrapper" (let module M = BLwtIdeal(MpstLwtStream)() in run M.runtest);
 
     (* Checking the cause of slowdown. Closures around endpoints incur a huge cost (~ 20 %) in a tight loop.
      * Nano_mutex does not cause much slow down.  *)

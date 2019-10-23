@@ -6,7 +6,7 @@ module Common = Mpst.M.Common
 
 let default_payload = snd @@ List.nth big_arrays 1
 
-module BEvent : TEST = struct
+module BEventIdeal : TEST = struct
   let ch_arr = Event.new_channel ()
   let ch_unit = Event.new_channel ()
 
@@ -55,7 +55,7 @@ end
  *           Event.sync (Event.send ch (Obj.repr ()));
  *           loop ()
  *         in loop ()) ()
- * 
+ *
  *   let runtest param =
  *     let payload = List.assoc param big_arrays in
  *     Core.Staged.stage (fun () ->
@@ -65,27 +65,34 @@ end
  *       )
  * end *)
 
-module BEventCont : TEST = struct
-  let init_ch = Event.new_channel ()
+
+module BEventCPS(Flag:Mpst.S.FLAG) : TEST = struct
+
+  let new_channel () =
+    let ch = Event.new_channel () in
+    (Flag.create (), ch), (Flag.create (), ch)
+  let send (lin, ch) v = Flag.use lin; Event.sync (Event.send ch v)
+  let receive (lin, ch) = Flag.use lin; Event.sync (Event.receive ch)
+  let init_srv,init_cli = new_channel ()
 
   let _:Thread.t =
     Thread.create (fun () ->
         let rec loop ch =
-          let arr_, `Cont(ch) = Event.sync (Event.receive ch) in
-          let next = Event.new_channel () in
-          Event.sync (Event.send ch ((),`Cont(next)));
-          loop next
-        in loop init_ch) ()
+          let arr_, `First(ch) = receive ch in
+          let next,next0 = new_channel () in
+          send ch ((),`Next(next));
+          loop next0
+        in loop init_srv) ()
 
-  let stored = ref init_ch
+  let stored = ref init_cli
   let runtest param =
     let payload = List.assoc param big_arrays in
     Core.Staged.stage @@
       fun () ->
       let ch = !stored in
-      let next = Event.new_channel () in
-      Event.sync (Event.send ch (payload, `Cont(next)));
-      let ((),`Cont(ch)) = Event.sync (Event.receive next) in
+      let next,next0 = new_channel () in
+      send ch (payload, `First(next));
+      let ((),`Next(ch)) = receive next0 in
       stored := ch
 end
 
@@ -121,62 +128,36 @@ module LwtMVar : LWT_CHAN = struct
   let receive m = Lwt_mvar.take m
 end
 
-module BLwtTwoChan(Chan:LWT_CHAN)() : TEST = struct
+module BLwtIdeal(Chan:LWT_CHAN)() : TEST = struct
   let (let/) = Lwt.bind
 
   type 'a seq = Seq of 'a * 'a seq lazy_t
 
-  let pingpong cnt =
-    let rec loop head cnt =
-      if cnt = 0 then
-        head
-      else
-        let ch1 = Chan.create ()
-        and ch2 = Chan.create ()
-        in
-        lazy (Seq((ch1,ch2), loop head (cnt-1)))
-    in
-    let rec force_loop cnt v =
-      if cnt = 0 then
-        ()
-      else
-        match v with
-        | lazy (Seq(_,v)) -> force_loop (cnt-1) v
-    in
-    let rec v = lazy (Lazy.force (loop v cnt))
-    in
-    force_loop cnt v;
-    Lazy.force v
+  let ch_arr = Chan.create ()
+  let ch_unit = Chan.create ()
 
-  let server_step init =
-    let stored = ref init in
+  let server_step () =
     fun () ->
-    let Seq((ch1, ch2), cont) = !stored in
-    let/ `First(arr_) = Chan.receive ch1 in
-    let/ () = Chan.send ch2 (`Next()) in
-    stored := Lazy.force cont;
+    let/ arr_ = Chan.receive ch_arr in
+    let/ () = Chan.send ch_unit () in
     Lwt.return_unit
 
-  let client_step init =
-    let stored = ref init in
+  let client_step () =
     let payload = default_payload in
     fun () ->
-    let Seq((ch1, ch2), cont) = !stored in
-    let/ () = Chan.send ch1 (`First(payload)) in
-    let/ `Next(()) = Chan.receive ch2 in
-    stored := Lazy.force cont;
+    let/ () = Chan.send ch_arr payload in
+    let/ () = Chan.receive ch_unit in
     Lwt.return_unit
 
-  let runtest param =
-    let chvec = pingpong param in
-    let server_step = server_step chvec in
-    let client_step = client_step chvec in
+  let runtest _ =
+    let server_step = server_step () in
+    let client_step = client_step () in
     Core.Staged.stage (fun () ->
         Lwt.async server_step;
         Lwt_main.run (client_step ()))
 end
 
-module BLwtTwoChanWrap() : TEST = struct
+module BLwtWrap() : TEST = struct
   module M = Mpst_lwt.M.Mstream
   let (let/) = Lwt.bind
 
@@ -217,8 +198,8 @@ module BLwtTwoChanWrap() : TEST = struct
     stored := (c1,c2);
     Lwt.return_unit
 
-  let runtest param =
-    let s1,c1 = pingpong param in
+  let runtest _ =
+    let s1,c1 = pingpong 1 in
     let server_step = server_step s1 in
     let client_step = client_step c1 in
     Core.Staged.stage (fun () ->
@@ -226,8 +207,14 @@ module BLwtTwoChanWrap() : TEST = struct
         Lwt_main.run (client_step ()))
 end
 
-module BLwtCont(Chan:LWT_CHAN)() : TEST = struct
-  open Chan
+module BLwtCPS(Chan:LWT_CHAN)(Flag:Mpst.S.FLAG)() : TEST = struct
+
+  let create () =
+    let ch = Chan.create () in
+    (Flag.create (), ch), (Flag.create (), ch)
+  let send (lin, ch) v = Flag.use lin; Chan.send ch v
+  let receive (lin, ch) = Flag.use lin; Chan.receive ch
+
   let (let/) = Lwt.bind
 
   let server_step init =
@@ -235,9 +222,9 @@ module BLwtCont(Chan:LWT_CHAN)() : TEST = struct
     fun () ->
     let ch = !stored in
     let/ `First(arr_,ch) = receive ch in
-    let next = create () in
+    let next,next0 = create () in
     let/ () = send ch (`Next((),next)) in
-    stored := next;
+    stored := next0;
     Lwt.return_unit
 
   let client_step param init =
@@ -245,17 +232,17 @@ module BLwtCont(Chan:LWT_CHAN)() : TEST = struct
     let payload = List.assoc param big_arrays in
     fun () ->
     let ch = !stored in
-    let next = create () in
+    let next,next0 = create () in
     let/ () = send ch (`First(payload,next)) in
-    let/ `Next((),ch) = receive next in
+    let/ `Next((),ch) = receive next0 in
     stored := ch;
     Lwt.return_unit
 
   let runtest =
     fun param ->
-    let init = create () in
-    let server_step = server_step init in
-    let client_step = client_step param init in
+    let init_srv,init_cli = create () in
+    let server_step = server_step init_srv in
+    let client_step = client_step param init_cli in
     Core.Staged.stage (fun () ->
         Lwt.async server_step;
         Lwt_main.run (client_step ()))

@@ -75,6 +75,7 @@ let to_ m r1 r2 r3 =
 let to_a m = to_ m a a a
 let to_b m = to_ m b b b
 let to_c m = to_ m c c c
+let to_d m = to_ m d d d
 
 let left_middle_or_right =
   {disj_merge=(fun l r -> object method left=l#left method middle=l#middle method right=r#right end);

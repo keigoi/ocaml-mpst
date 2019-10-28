@@ -2,9 +2,9 @@ open Base
 module Make(EP:S.ENDPOINTS)(StaticLin:S.LIN)(M:S.MONAD)(EV:S.EVENT with type 'a monad = 'a M.t) : sig
   type 'a inp
 
-  val make_inp : 'var one EV.inp list -> 'var inp EP.lin EP.t
+  val make_inp : ?hook:unit Lazy.t -> 'var one EV.inp list -> 'var inp EP.lin EP.t
 
-  val make_inpmany : 'var list EV.inp -> 'var inp EP.lin EP.t
+  val make_inpmany : ?hook:unit Lazy.t -> 'var list EV.inp -> 'var inp EP.lin EP.t
 
   type untyped_chan = (tag * Obj.t) EV.channel
 
@@ -89,15 +89,15 @@ end = struct
        InpFun (i, merge_wrappers f g)
     | _, _ -> assert false
 
-  let[@inline] make_inp is =
+  let[@inline] make_inp ?(hook=(Lazy.from_val ())) is =
     EP.make_lin
-      ~hook:(Lazy.from_val ())
+      ~hook
       ~mergefun:merge_inp
       ~values:(List.map (fun[@inline] i -> InpChanOne(i)) is)
 
-  let[@inline] make_inpmany inp =
+  let[@inline] make_inpmany ?(hook=(Lazy.from_val ())) inp =
     EP.make_lin
-      ~hook:(Lazy.from_val ())
+      ~hook
       ~mergefun:merge_inp
       ~values:[InpChanMany(inp)]
 
@@ -121,13 +121,13 @@ end = struct
 
   let[@inline] make_inp_untyped label chs conts =
     EP.make_lin
-      ~hook:(Lazy.from_val ()) (* FIXME force continuation *)
+      ~hook:(lazy (EP.force_merge conts))
       ~mergefun:merge_inp
       ~values:(List.mapi (untypedchans label conts) chs)
 
   let[@inline] make_inpmany_untyped label chs conts =
     EP.make_lin
-      ~hook:(Lazy.from_val ()) (* FIXME force continuation *)
+      ~hook:(lazy (EP.force_merge conts))
       ~mergefun:merge_inp
       ~values:(List.mapi (untypedchans label conts) chs)
 
@@ -137,7 +137,7 @@ end = struct
 
   let[@inline] make_inpfun label fs conts =
     EP.make_lin
-      ~hook:(Lazy.from_val ()) (* FIXME force continuation *)
+      ~hook:(lazy (EP.force_merge conts))
       ~mergefun:merge_inp
       ~values:(List.mapi (inpfuns label conts) fs)
 
@@ -153,7 +153,7 @@ end = struct
 
   let[@inline] make_inpfunmany label fs conts =
     EP.make_lin
-      ~hook:(Lazy.from_val ()) (* FIXME force continuation *)
+      ~hook:(lazy (EP.force_merge conts))
       ~mergefun:merge_inp
       ~values:[inpfunmany label fs conts]
 

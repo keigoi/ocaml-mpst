@@ -136,7 +136,9 @@ module Make
            (fun[@inline] v -> label.var (v, StaticLin.create_dummy  @@ EP.fresh conts_to 0))
        in
        (Out.BareOutChanOne(out),
-        Inp.make_inp [inp])
+        Inp.make_inp
+          ~hook:(lazy (EP.force_merge conts_to))
+          [inp])
     | Untyped(chss) ->
        let chss' = flip_all EV.flip_channel chss in
        (bareout_one label (send_untyped @@ List.hd @@ List.hd chss),
@@ -177,7 +179,9 @@ module Make
            (fun v -> label.var (v, StaticLin.create_dummy @@ EP.fresh conts_to 0))
        in
        (List.map (fun v -> Out.BareOutChanOne(v)) outs,
-        Inp.make_inpmany inp)
+        Inp.make_inpmany
+          ~hook:(lazy (EP.force_merge conts_to))
+          inp)
     | Untyped(chss) ->
        let chs = List.map List.hd chss in
        let chs' = List.hd @@ flip_all EV.flip_channel chss in

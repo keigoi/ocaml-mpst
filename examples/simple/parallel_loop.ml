@@ -21,33 +21,33 @@ let g =
 let ta i =
   let debug s = Lwt_io.printl ("a) " ^ s) in
   let (ch:'c) = get_ch a g in
-  let rec loop (ea:'c) i =
+  let rec loop (ch:'c) i =
     if i = 0 then
       let/ () = debug "sending right" in
-      let/ ea = send ea#role_B#right () in
+      let/ ch = send ch#role_B#right () in
       let/ () = debug "closing ====" in
-      close ea
+      close ch
     else
       let/ () = debug ("sending left, " ^ string_of_int i) in
-      let/ ea = send ea#role_B#left i in
-      loop ea (i-1)
+      let/ ch = send ch#role_B#left i in
+      loop ch (i-1)
   in
   loop ch i
 
 let tb () =
   let debug s = Lwt_io.printl ("b) " ^ s) in
-  let rec loop (eb:'c) =
+  let rec loop (ch:'c) =
     let/ () = debug "receive" in
-    let/ lab = receive eb#role_A in
+    let/ lab = receive ch#role_A in
     match lab with
-    | `left(i, eb) ->
+    | `left(i, ch) ->
        let/ () = debug ("matched left, "^string_of_int i) in
-       loop eb
-    | `right((), eb) ->
+       loop ch
+    | `right((), ch) ->
        let/ () = debug "matched right" in
-       let/ eb = send eb#role_C#msg "heippa" in
+       let/ ch = send ch#role_C#msg "heippa" in
        let/ () = debug "closing ====" in
-       close eb
+       close ch
   in
   let (ch:'c) = get_ch b g in
   loop ch
@@ -55,36 +55,36 @@ let tb () =
 let tc i =
   let debug s = Lwt_io.printl ("c) " ^ s) in
   let (ch:'c) = get_ch c g in
-  let rec loop (ec:'c) i =
+  let rec loop (ch:'c) i =
     if i = 0 then
       let/ () = debug "sending right" in
-      let/ ec = send ec#role_D#right () in
+      let/ ch = send ch#role_D#right () in
       let/ () = debug "receiving last word from B" in
-      let/ `msg(str,ec) = receive ec#role_B in
+      let/ `msg(str,ch) = receive ch#role_B in
       let/ () = debug ("got: "^str) in
       let/ () = debug "closing ====" in
-      close ec
+      close ch
     else
       let/ () = debug "sending left" in
-      let/ ec = send ec#role_D#left i in
-      loop ec (i-1)
+      let/ ch = send ch#role_D#left i in
+      loop ch (i-1)
   in
   loop ch i
     
-let td ed =
+let td () =
   let debug s = Lwt_io.printl ("d) " ^ s) in
   let (ch:'c) = get_ch d g in
   let/ () = debug "receiving" in
-  let rec loop (ed:'c) =
-    let/ lab = receive ed#role_C in
+  let rec loop (ch:'c) =
+    let/ lab = receive ch#role_C in
     match lab with
-    | `left(i, ed) ->
+    | `left(i, ch) ->
        let/ () = debug ("matched left, " ^ string_of_int i) in
-       loop ed
-    | `right((), ed) ->
+       loop ch
+    | `right((), ch) ->
        let/ () = debug "matched right" in
        let/ () = debug "closing ====" in
-       close ed
+       close ch
   in
   loop ch
 

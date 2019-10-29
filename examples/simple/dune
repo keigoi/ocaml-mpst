@@ -128,3 +128,10 @@
   (modules parallel_loop)
   (flags ("-g" "-short-paths"))
   (libraries ocaml-mpst.lwt))
+
+(executable
+ (name trade)
+  (public_name ocaml-mpst.example.trade_mpst_simple)
+  (modules trade)
+  (flags ("-g" "-short-paths"))
+  (libraries ocaml-mpst.lwt))

@@ -16,14 +16,14 @@ let () =
 (* let x = fix (fun x -> x) *)
 
 let () =
-  let oauth1 () =
+  let oauth2 () =
       choice_at s (to_c login_or_cancel) 
         (s, (s --> c) login @@ (c --> a) password @@ (a --> c) auth finish)
         (s, (s --> c) cancel @@ (c --> a) quit finish)
   in
-  let oauth1' = gen @@ oauth1 ()
+  let oauth2' = gen @@ oauth2 ()
   in
-  let chs, chc, cha = get_ch s oauth1', get_ch c oauth1', get_ch a oauth1'
+  let chs, chc, cha = get_ch s oauth2', get_ch c oauth2', get_ch a oauth2'
   in
   let _thread_c () =
     match receive chc#role_S with
@@ -33,13 +33,20 @@ let () =
        let `auth(b, chc) = receive chc#role_A in
        close chc
   in
-  let oauth2 =
-    gen @@
+  let oauth3 =
       fix (fun x -> 
           choice_at s (to_c login_cancel_or_retry) 
-            (s, oauth1 ())
+            (s, oauth2 ())
             (s, (s --> c) retry @@ (c --> a) retry x))
   in
-  let _chc, _chs = get_ch c oauth2, get_ch s oauth2
+  let oauth3' = gen oauth3 in
+  let _chc, _chs = get_ch c oauth3', get_ch s oauth3'
   in
+  (* let _oauth4 =
+   *   choice_at s (to_c login_cancel_or_retry)
+   *     (s, oauth2 ())
+   *     (s, (s --> a) cancel @@
+   *         (c --> a) quit @@
+   *         finish)
+   * in *)
   ()

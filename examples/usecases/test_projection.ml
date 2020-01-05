@@ -1,5 +1,5 @@
 open Mpst
-open Usecase.Protocols
+open Protocols
 
 let () =
   let open TwoBuyer in

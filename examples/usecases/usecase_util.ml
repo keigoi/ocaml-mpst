@@ -212,11 +212,6 @@ let query =
         call_obj=(fun o -> o#query)};
    var=(fun v -> `query(v))}
 
-let quote =
-  {obj={make_obj=(fun f -> object method quote=f end);
-        call_obj=(fun o -> o#quote)};
-   var=(fun v -> `quote(v))}
-
 let dummy =
   {obj={make_obj=(fun f -> object method dummy=f end);
         call_obj=(fun o -> o#dummy)};
@@ -273,20 +268,10 @@ let deny =
         call_obj=(fun o -> o#deny)};
    var=(fun v -> `deny(v))}
 
-let getsuppliers =
-  {obj={make_obj=(fun f -> object method getsuppliers=f end);
-        call_obj=(fun o -> o#getsuppliers)};
-   var=(fun v -> `getsuppliers(v))}
-
 let suppliers =
   {obj={make_obj=(fun f -> object method suppliers=f end);
         call_obj=(fun o -> o#suppliers)};
    var=(fun v -> `suppliers(v))}
-
-let getcontracts =
-  {obj={make_obj=(fun f -> object method getcontracts=f end);
-        call_obj=(fun o -> o#getcontracts)};
-   var=(fun v -> `getcontracts(v))}
 
 let contracts =
   {obj={make_obj=(fun f -> object method contracts=f end);
@@ -314,11 +299,6 @@ let ehlo =
   {obj={make_obj=(fun f -> object method ehlo=f end);
         call_obj=(fun o -> o#ehlo)};
    var=(fun v -> `ehlo(v))}
-
-let quit =
-  {obj={make_obj=(fun f -> object method quit=f end);
-        call_obj=(fun o -> o#quit)};
-   var=(fun v -> `quit(v))}
 
 let starttls =
   {obj={make_obj=(fun f -> object method starttls=f end);
@@ -543,11 +523,6 @@ let work =
         call_obj=(fun o -> o#work)};
    var=(fun v -> `work(v))}
 
-let result =
-  {obj={make_obj=(fun f -> object method result=f end);
-        call_obj=(fun o -> o#result)};
-   var=(fun v -> `result(v))}
-
 let done_ =
   {obj={make_obj=(fun f -> object method done_=f end);
         call_obj=(fun o -> o#done_)};
@@ -585,20 +560,10 @@ let start =
         call_obj=(fun o -> o#start)};
    var=(fun v -> `start(v))}
 
-let login =
-  {obj={make_obj=(fun f -> object method login=f end);
-        call_obj=(fun o -> o#login)};
-   var=(fun v -> `login(v))}
-
 let password =
   {obj={make_obj=(fun f -> object method password=f end);
         call_obj=(fun o -> o#password)};
    var=(fun v -> `password(v))}
-
-let auth =
-  {obj={make_obj=(fun f -> object method auth=f end);
-        call_obj=(fun o -> o#auth)};
-   var=(fun v -> `auth(v))}
 
 let again =
   {obj={make_obj=(fun f -> object method again=f end);
@@ -609,11 +574,6 @@ let cancel =
   {obj={make_obj=(fun f -> object method cancel=f end);
         call_obj=(fun o -> o#cancel)};
    var=(fun v -> `cancel(v))}
-
-let quit =
-  {obj={make_obj=(fun f -> object method quit=f end);
-        call_obj=(fun o -> o#quit)};
-   var=(fun v -> `quit(v))}
 
 let login_or_cancel =
   {disj_merge=(fun l r -> object method login=l#login method cancel=r#cancel end);

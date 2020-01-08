@@ -1,11 +1,6 @@
 open Mpst
 open Usecase_util
 
-  let c = {role_index=Zero; role_label={make_obj=(fun v -> object method role_C=v end); call_obj=(fun o->o#role_C)}}
-  let p = {role_index=Succ Zero; role_label={make_obj=(fun v -> object method role_P=v end); call_obj=(fun o->o#role_P)}}
-  let to_c m = to_ m c c c
-  let to_p m = to_ m p p p
-
   let g () =
     (c --> p) propose @@
       (fix (fun x ->

@@ -10,7 +10,7 @@ module Calc = Calc
 
 module Fibo = Fibo
 
-module SH = SH
+module Sh = Sh
 
 module SapNego = SapNego
 
@@ -33,6 +33,8 @@ module NQueen = NQueen
 module Santa = Santa
 
 module OAuth = OAuth
+
+module Dnsmini = Dnsmini
 
 module SigSmoker = struct
   (* global protocol CigaretteSmoker ( role Arbiter as A , role Smoker [1.. N ] as S ) {

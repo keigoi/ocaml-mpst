@@ -27,10 +27,6 @@ open Usecase_util
  * }
  *)
 
-  let s = {c with role_label={make_obj=(fun v->object method role_S=v end);
-                              call_obj=(fun o->o#role_S)}}
-  let to_s mrg = to_ mrg s s s
-
   let choose () =
     choice_at b (to_a ok_or_quit)  (* full merge on s *)
     (b, (b --> a) ok @@

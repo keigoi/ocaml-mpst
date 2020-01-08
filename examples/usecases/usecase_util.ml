@@ -1,5 +1,48 @@
 open Mpst
 
+let p = {role_index=Zero; role_label={make_obj=(fun v -> object method role_P=v end); call_obj=(fun o->o#role_P)}}
+let r = {role_index=Succ Zero; role_label={make_obj=(fun v -> object method role_R=v end); call_obj=(fun o->o#role_R)}}
+let s = {c with role_label={make_obj=(fun v->object method role_S=v end); call_obj=(fun o->o#role_S)}}
+let v = {role_index=Succ Zero; role_label={make_obj=(fun v -> object method role_V=v end); call_obj=(fun o->o#role_V)}}
+
+let loginsvc     = {role_index=Zero; role_label={make_obj=(fun v -> object method role_Login=v end); call_obj=(fun o->o#role_Login)}}
+let requestor    = {role_index=Succ Zero; role_label={make_obj=(fun v -> object method role_Request=v end); call_obj=(fun o->o#role_Request)}}
+let authorisesvc = {role_index=Succ (Succ Zero); role_label={make_obj=(fun v -> object method role_Auth=v end); call_obj=(fun o->o#role_Auth)}}
+let filtersvc    = {role_index=Succ (Succ (Succ Zero)); role_label={make_obj=(fun v -> object method role_Filter=v end); call_obj=(fun o->o#role_Filter)}}
+let suppliersvc  = {role_index=Succ (Succ (Succ (Succ Zero))); role_label={make_obj=(fun v -> object method role_Supply=v end); call_obj=(fun o->o#role_Supply)}}
+let contractsvc  = {role_index=Succ (Succ (Succ (Succ (Succ Zero)))); role_label={make_obj=(fun v -> object method role_Contract=v end); call_obj=(fun o->o#role_Contract)}}
+let customer = {role_index=Zero; role_label={make_obj=(fun v -> object method role_Customer=v end); call_obj=(fun o->o#role_Customer)}}
+let shop = {role_index=Succ Zero; role_label={make_obj=(fun v -> object method role_Shop=v end); call_obj=(fun o->o#role_Shop)}}
+let barber = {role_index=Succ (Succ Zero); role_label={make_obj=(fun v -> object method role_Barber=v end); call_obj=(fun o->o#role_Barber)}}
+let srv = {role_index=Zero; role_label={make_obj=(fun v -> object method role_Srv=v end); call_obj=(fun o->o#role_Srv)}}
+let cli = {role_index=Succ Zero; role_label={make_obj=(fun v -> object method role_Cli=v end); call_obj=(fun o->o#role_Cli)}}
+let mst = {role_index=Zero; role_label={make_obj=(fun v -> object method role_Mst=v end); call_obj=(fun o->o#role_Mst)}}
+let wrk = {role_index=Succ Zero; role_label={make_obj=(fun v -> object method role_Wrk=v end); call_obj=(fun o->o#role_Wrk)}}
+let santa = {role_index=Zero; role_label={make_obj=(fun v -> object method role_Santa=v end); call_obj=(fun o->o#role_Santa)}}
+let reindeer = {role_index=Succ Zero; role_label={make_obj=(fun v -> object method role_Reindeer=v end); call_obj=(fun o->o#role_Reindeer)}}
+let elf = {role_index=Succ (Succ Zero); role_label={make_obj=(fun v -> object method role_Elf=v end); call_obj=(fun o->o#role_Elf)}}
+                 
+let to_p m = to_ m p p p
+let to_r m = to_ m r r r
+let to_s m = to_ m s s s
+let to_v m = to_ m v v v
+let to_loginsvc m = to_ m loginsvc loginsvc loginsvc
+let to_requestor m = to_ m requestor requestor requestor
+let to_authorisesvc m = to_ m authorisesvc authorisesvc authorisesvc
+let to_filtersvc m = to_ m filtersvc filtersvc filtersvc
+let to_suppliersvc m = to_ m suppliersvc suppliersvc suppliersvc
+let to_contractsvc m = to_ m contractsvc contractsvc contractsvc
+let to_customer m = to_ m customer customer customer
+let to_shop m = to_ m shop shop shop
+let to_barber m = to_ m barber barber barber
+let to_srv m = to_ m srv srv srv
+let to_cli m = to_ m cli cli cli
+let to_mst m = to_ m mst mst mst
+let to_wrk m = to_ m wrk wrk wrk
+let to_santa m = to_ m santa santa santa
+let to_reindeer m = to_ m reindeer reindeer reindeer
+let to_elf m = to_ m elf elf elf
+
 let title =
   {obj={make_obj=(fun f -> object method title=f end);
         call_obj=(fun o -> o#title)};
@@ -586,3 +629,14 @@ let auth_or_again =
    disj_splitL=(fun lr -> (lr :> <auth : _;>));
    disj_splitR=(fun lr -> (lr :> <again : _>));
   }
+
+let query_or_dummy =
+  {disj_merge=(fun l r -> object method query=l#query method dummy=r#dummy end);
+   disj_splitL=(fun lr -> (lr :> <query : _;>));
+   disj_splitR=(fun lr -> (lr :> <dummy : _>));
+  }
+
+let answer =
+  {obj={make_obj=(fun f -> object method answer=f end);
+        call_obj=(fun o -> o#answer)};
+   var=(fun v -> `answer(v))}

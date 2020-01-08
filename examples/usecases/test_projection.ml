@@ -1,17 +1,16 @@
 open Mpst
 open Protocols
+open Usecase_util
 
 let () =
-  let open TwoBuyer in
   print_endline "TwoBuyer...";
   let g = gen @@ TwoBuyer.g () in
   let _epa = get_ch a g in
   let _epb = get_ch b g in
-  let _epc = get_ch s g in
+  let _epc = get_ch c g in
   print_endline "Done."
 
 let () =
-  (* let open ThreeBuyer in *)
   print_endline "ThreeBuyer...";
   let g = gen @@ ThreeBuyer.g () in
   let _eps = get_ch b g in
@@ -19,7 +18,6 @@ let () =
   print_endline "Done."
 
 let () =
-  (* let open Fibo in *)
   print_endline "Fibo...";
   let g = gen @@ Fibo.g () in
   let _eps = get_ch a g in
@@ -27,16 +25,14 @@ let () =
   print_endline "Done"
 
 let () =
-  let open SH in
   print_endline "SH...";
-  let g = gen @@ SH.g () in
+  let g = gen @@ Sh.g () in
   let _epp = get_ch p g in
   let _epr = get_ch r g in
   let _epc = get_ch c g in
   print_endline "Done"
 
 let () =
-  let open SapNego in
   print_endline "SapNego...";
   let g = gen @@ SapNego.g () in
   let _epp = get_ch p g in
@@ -44,7 +40,6 @@ let () =
   print_endline "Done"
 
 let () =
-  let open SimpleVoting in
   print_endline "SimpleVoting...";
   let g = gen @@ SimpleVoting.g () in
   let _eps = get_ch s g in
@@ -52,7 +47,6 @@ let () =
   print_endline "Done"
 
 let () =
-  let open TravelAgency in
   print_endline "TravelAgency...";
   let g = gen @@ TravelAgency.g () in
   let _epa = get_ch c g in
@@ -61,7 +55,6 @@ let () =
   print_endline "Done"
 
 let () =
-  let open SupplierInfo_microservice in
   print_endline "SupplierInfo_microservice...";
   let g = gen @@ SupplierInfo_microservice.partnership_supplier () in
   let _epl = get_ch loginsvc g in
@@ -73,7 +66,6 @@ let () =
   print_endline "Done"
 
 let () =
-  let open Smtp in
   print_endline "Smtp...";
   let g = gen @@ Smtp.smtp () in
   let _epc = get_ch c g in
@@ -81,7 +73,6 @@ let () =
   print_endline "Done"
 
 let () =
-  let open SleepingBarber in
   print_endline "SleepingBarber...";
   let g = gen @@ SleepingBarber.haircut () in
   let _epc = get_ch customer g in
@@ -101,7 +92,7 @@ let () =
  *   print_endline "Done" *)
 
 let () =
-  let open Game in
+
   print_endline "Game...";
   let g = gen @@ Game.main () in
   let _eps = get_ch srv g in
@@ -113,7 +104,6 @@ let () =
   print_endline "Done"
 
 let () =
-  let open MapReduce in
   print_endline "MapReduce...";
   let g = gen @@ MapReduce.g () in
   let _epm = get_ch mst g in
@@ -121,7 +111,6 @@ let () =
   print_endline "Done"
 
 let () =
-  let open NQueen in
   print_endline "NQueen...";
   let g = gen @@ NQueen.g () in
   let _epm = get_ch mst g in
@@ -132,7 +121,6 @@ let () =
   print_endline "Done"
 
 let () =
-  let open Santa in
   print_endline "Santa...";
   let g = gen @@ Santa.elf_session () in
   let _eps = get_ch santa g in

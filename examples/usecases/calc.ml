@@ -18,11 +18,6 @@ open Usecase_util
  * 	}
  * } *)
 
-  let s = {role_index=Zero; role_label={make_obj=(fun v -> object method role_S=v end); call_obj=(fun o->o#role_S)}}
-  let c = {role_index=Succ Zero; role_label={make_obj=(fun v -> object method role_C=v end); call_obj=(fun o->o#role_C)}}
-  let to_s m = to_ m s s s
-  let to_c m = to_ m c c c
-
   let g () =
     fix (fun loop ->
         choice_at c (to_s sum_multiply_or_quit)

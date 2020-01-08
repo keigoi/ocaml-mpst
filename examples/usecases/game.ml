@@ -40,17 +40,6 @@ open Usecase_util
  * } *)
   (* let main () = *)
 
-  let srv = {role_index=Zero; role_label={make_obj=(fun v -> object method role_Srv=v end); call_obj=(fun o->o#role_Srv)}}
-  let cli = {role_index=Succ Zero; role_label={make_obj=(fun v -> object method role_Cli=v end); call_obj=(fun o->o#role_Cli)}}
-  let a = {role_index=Zero; role_label={make_obj=(fun v -> object method role_A=v end); call_obj=(fun o->o#role_A)}}
-  let b = {role_index=Succ Zero; role_label={make_obj=(fun v -> object method role_B=v end); call_obj=(fun o->o#role_B)}}
-  let c = {role_index=Succ (Succ Zero); role_label={make_obj=(fun v -> object method role_C=v end); call_obj=(fun o->o#role_C)}}
-  let to_a m = to_ m a a a
-  let to_b m = to_ m b b b
-  let to_c m = to_ m c c c
-  let to_srv m = to_ m srv srv srv
-  let to_cli m = to_ m cli cli cli
-
   let game () =
     fix (fun t ->
         choice_at a (to_b left_or_right)

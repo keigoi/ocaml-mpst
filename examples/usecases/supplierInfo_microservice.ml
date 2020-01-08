@@ -1,20 +1,6 @@
 open Mpst
 open Usecase_util
 
-  let loginsvc     = {role_index=Zero; role_label={make_obj=(fun v -> object method role_Login=v end); call_obj=(fun o->o#role_Login)}}
-  let requestor    = {role_index=Succ Zero; role_label={make_obj=(fun v -> object method role_Request=v end); call_obj=(fun o->o#role_Request)}}
-  let authorisesvc = {role_index=Succ (Succ Zero); role_label={make_obj=(fun v -> object method role_Auth=v end); call_obj=(fun o->o#role_Auth)}}
-  let filtersvc    = {role_index=Succ (Succ (Succ Zero)); role_label={make_obj=(fun v -> object method role_Filter=v end); call_obj=(fun o->o#role_Filter)}}
-  let suppliersvc  = {role_index=Succ (Succ (Succ (Succ Zero))); role_label={make_obj=(fun v -> object method role_Supply=v end); call_obj=(fun o->o#role_Supply)}}
-  let contractsvc  = {role_index=Succ (Succ (Succ (Succ (Succ Zero)))); role_label={make_obj=(fun v -> object method role_Contract=v end); call_obj=(fun o->o#role_Contract)}}
-
-  let to_loginsvc m = to_ m loginsvc loginsvc loginsvc
-  let to_requestor m = to_ m requestor requestor requestor
-  let to_authorisesvc m = to_ m authorisesvc authorisesvc authorisesvc
-  let to_filtersvc m = to_ m filtersvc filtersvc filtersvc
-  let to_suppliersvc m = to_ m suppliersvc suppliersvc suppliersvc
-  let to_contractsvc m = to_ m contractsvc contractsvc contractsvc
-
 
 (* aux global protocol FilterInfo<sig Query>
  * (role authorisersvc, role filtersvc) {

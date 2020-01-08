@@ -15,9 +15,19 @@ open Usecase_util
  * 	}
  * } *)
 
+  let twobuyer_choose () =
+    choice_at b (to_a ok_or_quit)  (* full merge on s *)
+    (b, (b --> a) ok @@
+        (b --> s) ok @@
+        (s --> b) date @@
+        finish)
+    (b, (b --> a) quit @@
+        (b --> s) quit @@
+        finish)
+
   let g () =
     (b --> c) msg @@
-    (b --> c) (msg >: (prot b (TwoBuyer.choose ()))) @@
+    (b --> c) (msg >: (prot b (twobuyer_choose ()))) @@
     choice_at c (to_b ok_or_quit)
     (c, (c --> b) ok @@ finish)
     (c, (c --> b) quit @@ finish)

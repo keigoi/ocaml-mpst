@@ -1,11 +1,6 @@
 open Mpst
 open Usecase_util
 
-  let s = {role_index=Zero; role_label={make_obj=(fun v -> object method role_S=v end); call_obj=(fun o->o#role_S)}}
-  let v = {role_index=Succ Zero; role_label={make_obj=(fun v -> object method role_V=v end); call_obj=(fun o->o#role_V)}}
-  let to_s m = to_ m s s s
-  let to_v m = to_ m v v v
-
   let g () =
     choice_at s (to_v ok_or_reject)
       (s, (s --> v) ok @@

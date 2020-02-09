@@ -3,8 +3,6 @@
 ## Presentation
 
 * [Slides presented at PLAS Group Seminar at University of Kent](https://www.slideshare.net/keigoi/ocamlmpst-global-protocol-combinators-175519214)
-* [Accompanying paper](http://www.ct.info.gifu-u.ac.jp/~keigoi/ocaml-mpst-paper-20191211-9f9c9e4.pdf)
-  * Appendix D contains several type-level programming techniques in OCaml which is employed in ocaml-mpst!
 
 ## Build
 

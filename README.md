@@ -2,7 +2,7 @@
 
 ## Lightweight implementation
 
-* A lightweight implementation, [ocaml-mpst-light](https://github.com/keigoi/ocaml-mpst-light/) is available.
+* A lightweight implementation [ocaml-mpst-light](https://github.com/keigoi/ocaml-mpst-light/) is available.
 
 
 ## Try OCaml-MPST [Online](https://keigoi.github.io/ocaml-mpst-light/index.html)!

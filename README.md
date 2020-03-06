@@ -23,7 +23,7 @@
 
 [Try OCaml-MPST Online](https://keigoi.github.io/ocaml-mpst-light/index.html)
 
-## `ocaml-mpst` in a nutshell
+## ocaml-mpst in 5 minutes
 
 1. Write down a **protocol** using  **Global Combinators**. 
 
@@ -31,9 +31,14 @@
 let ring = (a --> b) msg @@ (b --> c) msg @@ (c --> a) finish
 ```
 
---- This is a simple three-party ring-based protocol with _participants_ `A`, `B` and `C`, circulating message with _label_ `msg` in this order.
+  --- This is a simple three-party ring-based protocol with _participants_ `A`, `B` and `C`, circulating messages with _label_ `msg` in this order. 
 
-2. Extract channels (here `sa`, `sb`, and `sc`) from the protocol:
+  * Protocol  `(a --> b) msg` specifies a message with label `msg` is sent from `a` to `b`. Protocols are composed by applying combinator `-->` to existing protocols (possibly via OCaml's function application operator `@@`, as above).
+  * Combinator `finish` denotes termination of a protocol.
+
+(More combinators will be explained later.)
+
+2. Extract channels for each participants (here `sa` for `A`, `sb` for `B`, and `sc` for `C`) from the protocol:
 
 ```ocaml
 let sa = get_ch a ring
@@ -41,7 +46,7 @@ let sb = get_ch b ring
 let sc = get_ch c ring
 ```
 
-3. Run the participants in parallel!
+3. Run threads in parallel, one for each participant!
 
 ```ocaml
 (* Participant A *)
@@ -67,17 +72,18 @@ close sc
 
 It will start two threads behaving as the participant `A` and `B`, then runs `C` in the main thread. 
 
-* Primitive `send s#role_X#msg value` outputs  on channel `s`  to role `X`, with a message label `msg` and  _payload_ value `value`.  It returns a _continuation channel_ which should be re-bound to the same variable s, which will result in `let s = send s#roleX .. in `.
-* Primitive `receive s#role_W` inputs the message from role `W`. The received message will have form ```msg(val, s)`` packed inside a OCaml's _polymorphic variant_ constructor ``msg`, with payload value `val` and continuation channel `s`.
+* Primitive `send s#role_X#msg value` outputs  on channel `s`  to role `X`, with a message label `msg` and  _payload_ value `value`.  Expression `s#role_X#msg` is a standard _method invocation_ syntax of OCaml, chained twice in a row. It returns a _continuation channel_ which should be re-bound to the same variable `s` ensuring linearity, which is why sending is written as `let s = send s#roleX .. in `.
+* Primitive `receive s#role_W` inputs the message from role `W`. The received message will have form ```msg(val, s)`` packed inside a OCaml's _polymorphic variant_ constructor ``msg`, with payload value `val` and continuation channel `s` (again, re-binding existing channel variable `s`).
 * Primitive `close` terminates a communication channel.
 
-The above code is _session-typed_, as prescribed in the protocol `ring`  above. The all communications are deadlock-free, faithful to the protocol, and (OCaml-) type-error free!
+### 
+The above code is _session-typed_, as prescribed in the protocol `ring`  above. The all communications are deadlock-free, faithful to the protocol, and type-error free!
 
 
 Some basic notes:
 
 * In a protocol `(x --> y) msg @@ cont`, `-->` is a 4-ary operator taking an output role  `x`, input role `y`, message label `msg` and continuation `cont`, where `@@` is a function application operator (equivalent to `$` in Haskell).
-* Output expression  `send s#role_X#msgY valZ`  is parsed as `((send (s#role_X#msgY)) valZ)` where s#role_X#msgY is a standard _method invocation_ syntax of OCaml, chained twice in a row. 
+* Output expression  `send s#role_X#msg value`  is parsed as `((send (s#role_X#msg)) value)`.
 
 
 More examples including branching, loops and delegation will come soon!

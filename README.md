@@ -1,8 +1,8 @@
-# OCaml-MPST
+# ocaml-mpst
 
-## Lightweight implementation
+##	NEWS: Lightweight implementation
 
-* A lightweight implementation [ocaml-mpst-light](https://github.com/keigoi/ocaml-mpst-light/) is available.
+* A lightweight implementation [ocaml-mpst-light](https://github.com/keigoi/ocaml-mpst-light/) is available, for understanding the idea of global combinators in detail.
 
 ## What is `ocaml-mpst`?
 

@@ -6,9 +6,10 @@ let compose_method m1 m2 =
   {make_obj=(fun v -> m1.make_obj (m2.make_obj v));
   call_obj=(fun obj -> m2.call_obj @@ m1.call_obj obj)}
 
-(** Type-level indices represented by polymorphic lenses *)
-type ('ts, 't, 'us, 'u) idx =
-  {get: 'ts -> 't; put: 'ts -> 'u -> 'us}
+(** Polymorphic lens; representing type-level indices *)
+type (_,_,_,_) idx =
+  Zero : ('a, 'b, [`cons of 'a * 'tl], [`cons of 'b * 'tl]) idx
+| Succ : ('a, 'b, 'aa, 'bb) idx -> ('a, 'b, [`cons of 'hd * 'aa], [`cons of 'hd * 'bb]) idx
 
 (** Message labels for global combinators. See examples. *)
 type ('obj,'ot,'var,'vt) label =
@@ -32,3 +33,12 @@ type ('lr, 'l, 'r) disj =
   (* constraint 'lr = < .. >
    * constraint 'l = < .. >
    * constraint 'r = < .. > *)
+
+let rec find_physeq : 'a. 'a list -> 'a -> bool = fun xs y ->
+  match xs with
+  | x::xs -> if x==y then true else find_physeq xs y
+  | [] -> false
+
+let rec int_of_lens : type a b c d. (a,b,c,d) idx -> int = function
+  | Zero -> 0
+  | Succ l -> int_of_lens l + 1

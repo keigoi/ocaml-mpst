@@ -11,7 +11,7 @@ val merge_inp : 'a inp -> 'a inp -> 'a inp
 val send : 'a out -> 'a -> unit Lwt.t
 val receive : 'a inp -> 'a Lwt.t
 
-val create_scatter : int -> ('a -> 'b) -> 'a scatter * 'b inp list
+val create_scatter : int -> (int -> 'a -> 'b) -> 'a scatter * 'b inp list
 val merge_scatter : 'a scatter -> 'a scatter -> 'a scatter
 val send_list : 'a scatter -> (int -> 'a) -> unit Lwt.t
 

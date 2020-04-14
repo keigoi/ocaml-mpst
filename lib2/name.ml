@@ -26,8 +26,12 @@ and _ out_ref =
 and _ inp_ref =
     InpRef : 't inp * ('u -> 't option) -> 'u inp_ref
 
-type _ gather_ =
-    Gather : 'u inp list * ('u list -> 'w) -> 'w gather_
+type ('w, 'u) gather0 =
+  {g_inplist : 'u inp list;
+   g_wrap: ('u list -> 'w);
+   g_siblings: 'w gather list}
+and _ gather_ =
+    Gather : ('w, 'u) gather0 -> 'w gather_
 and 'w gather =
   'w gather_ ref
 
@@ -157,8 +161,8 @@ let merge_scatter = fun outLs outRs ->
 
 let merge_gather : type t. t gather -> t gather -> t gather = fun gl gr ->
   match gl, gr with
-  | {contents=Gather(inpsL, wrapL)},
-    {contents=Gather(inpsR, wrapR)} ->
+  | {contents=Gather {g_inplist=inpsL; g_wrap=wrapL; g_siblings=siblingsL}},
+    {contents=Gather {g_inplist=inpsR; g_wrap=wrapR; g_siblings=siblingsR}} ->
     let inps = List.map2 hetero_merge_inp inpsL inpsR in
     let wrap_left = function
       | Left x -> x
@@ -172,9 +176,9 @@ let merge_gather : type t. t gather -> t gather -> t gather = fun gl gr ->
       | Right x::xs -> wrapR @@ x::List.map wrap_right xs
       | [] -> failwith "gather: reception failure: empty"
     in
-    let g = Gather(inps, wrap) in
-    gl := g;
-    gr := g;
+    let siblings = siblingsL @ siblingsR in
+    let g0 = Gather {g_inplist = inps; g_wrap = wrap; g_siblings = siblings} in
+    List.iter (fun g -> g := g0) siblings;
     gl
 
 let create f =
@@ -186,12 +190,13 @@ let create f =
   out, inp
 
 let create_scatter cnt f =
-  let outs, inps = List.split @@ List.init cnt (fun _ -> create f) in
+  let outs, inps = List.split @@ List.init cnt (fun i -> create (f i)) in
   outs, inps
 
 let create_gather cnt (f : 'v list -> 't) =
   let outs, inps = List.split @@ List.init cnt (fun _ -> create id) in
-  outs, ref (Gather(inps, f))
+  let rec gather = {contents=Gather {g_inplist = inps; g_wrap = f; g_siblings = [gather]}} in
+  outs, gather
 
 let send {contents=Out({o_st; o_wrap; _})} v =
   Lwt_stream_opt.send o_st (o_wrap v)
@@ -203,5 +208,5 @@ let send_list outs f =
   Lwt_list.iteri_p (fun i out -> send out (f i)) outs
 
 let receive_list : type t. t gather -> t Lwt.t =
-  function {contents=Gather(inps, wrap)} ->
+  function {contents=Gather{g_inplist = inps; g_wrap = wrap; _}} ->
     Lwt.map wrap (Lwt_list.map_s receive inps)

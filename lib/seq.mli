@@ -2,7 +2,7 @@ open Base
 
 type _ t
 
-type 'a local = 'a Lin.gen Mergeable.t
+type 'a local = 'a DynLin.gen Mergeable.t
 
 (** raised when one tries to extract a value from unguarded loop *)
 exception UnguardedLoopSeq

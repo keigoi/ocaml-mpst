@@ -1,6 +1,6 @@
 open Base
 
-type 't local = 't Lin.gen Mergeable.t
+type 't local = 't DynLin.gen Mergeable.t
 
 exception UnguardedLoopSeq
 

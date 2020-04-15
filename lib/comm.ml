@@ -1,9 +1,10 @@
 open Base
-open Lin
 open Concur_shims
 
 let (let*) = IO.bind
-let ret = IO.return
+
+type 'a lin = 'a DynLin.lin
+type 'a gen = 'a DynLin.gen
 
 module Single : sig
   type ('v, 's) out = ('v Name.out * 's gen Mergeable.t) lin
@@ -44,14 +45,14 @@ end = struct
   let declare_out role label out cont =
     let ch =
       (* <role_rj = <lab = (ch,si) > > *)
-      Lin.wrap role.make_obj @@
-        Lin.wrap label.make_obj @@
-          Lin.declare (out,cont)
+      DynLin.wrap role.make_obj @@
+        DynLin.wrap label.make_obj @@
+          DynLin.declare (out,cont)
     in
     let merge_out (n1,s1') (n2,s2') =
       (Name.merge_out n1 n2, Mergeable.merge s1' s2')
     in
-    let merge_out_lin = Lin.merge merge_out (compose_method role label) in
+    let merge_out_lin = DynLin.merge merge_out (compose_method role label) in
     Mergeable.make
       ~value:ch
       ~cont:cont
@@ -61,10 +62,10 @@ end = struct
   let declare_inp role inp cont =
     let ch =
       (* <role_ri = wrap (receive ch) (λx.`lab(x,sj)) > *)
-      Lin.wrap role.make_obj @@
-        Lin.declare inp
+      DynLin.wrap role.make_obj @@
+        DynLin.declare inp
     in
-    let merge_inp_lin = Lin.merge Name.merge_inp role in
+    let merge_inp_lin = DynLin.merge Name.merge_inp role in
     Mergeable.make
       ~value:ch
       ~cont:cont
@@ -73,21 +74,21 @@ end = struct
 
   let declare_close =
     Mergeable.make
-      ~value:(Lin.declare ())
-      ~mergefun:(fun _ _ -> Lin.declare ())
+      ~value:(DynLin.declare ())
+      ~mergefun:(fun _ _ -> DynLin.declare ())
       ()
 
   let send (out: ('v,'t) out) (v:'v) =
-    let* (n,t) = Lin.use out in
+    let* (n,t) = DynLin.use out in
     let* () = Name.send n v in
-    ret @@ Lin.fresh (Mergeable.resolve t)
+    IO.return @@ DynLin.fresh (Mergeable.resolve t)
 
   let receive (ch: 'var inp) =
-    let* ch = Lin.use ch in
+    let* ch = DynLin.use ch in
     Name.receive ch
 
   let close (ep: unit lin) =
-    Lin.use ep
+    DynLin.use ep
 end
 
 module ScatterGather : sig
@@ -116,14 +117,14 @@ end = struct
   let declare_scatter role label out cont =
     let ch =
       (* <role_rj = <lab = (ch,si) > > *)
-      Lin.wrap role.make_obj @@
-        Lin.wrap label.make_obj @@
-          Lin.declare (out,cont)
+      DynLin.wrap role.make_obj @@
+        DynLin.wrap label.make_obj @@
+          DynLin.declare (out,cont)
     in
     let merge_scatter (n1,s1') (n2,s2') =
       (Name.merge_scatter n1 n2, Mergeable.merge s1' s2')
     in
-    let merge_scatter_lin = Lin.merge merge_scatter (compose_method role label) in
+    let merge_scatter_lin = DynLin.merge merge_scatter (compose_method role label) in
     Mergeable.make
       ~value:ch
       ~cont:cont
@@ -133,10 +134,10 @@ end = struct
   let declare_gather role inp cont =
     let ch =
       (* <role_ri = wrap (receive ch) (λx.`lab(x,sj)) > *)
-      Lin.wrap role.make_obj @@
-        Lin.declare inp
+      DynLin.wrap role.make_obj @@
+        DynLin.declare inp
     in
-    let merge_gather_lin = Lin.merge Name.merge_gather role in
+    let merge_gather_lin = DynLin.merge Name.merge_gather role in
     Mergeable.make
       ~value:ch
       ~cont:cont
@@ -144,12 +145,12 @@ end = struct
       ()
 
   let send_many (scatter: ('v,'t) scatter) f =
-    let* (n,t) = Lin.use scatter in
+    let* (n,t) = DynLin.use scatter in
     let* () = Name.send_many n f in
-    ret @@ Lin.fresh (Mergeable.resolve t)
+    IO.return @@ DynLin.fresh (Mergeable.resolve t)
 
   let receive_many (ch: 'var gather) =
-    let* ch = Lin.use ch in
+    let* ch = DynLin.use ch in
     Name.receive_many ch
 end
 
@@ -164,7 +165,7 @@ type 't global = Env.t -> 't Seq.t
 let (-->) ri rj label (g0 : _ global) : _ global = fun env ->
   let g0 = g0 env in
   let sj' = Seq.get rj.role_index g0 in
-  let out, inp = Name.create (fun x -> label.var (x, Lin.fresh (Mergeable.resolve sj'))) in
+  let out, inp = Name.create (fun x -> label.var (x, DynLin.fresh (Mergeable.resolve sj'))) in
   let sj = declare_inp ri.role_label inp sj' in
   let g1 = Seq.put rj.role_index g0 sj in
   let si' = Seq.get ri.role_index g1 in
@@ -176,7 +177,7 @@ let gather ri rj label (g0 : _ global) : _ global = fun env ->
   let count = Env.rm_size env (int_of_idx ri.role_index) in
   let g0 = g0 env in
   let sj' = Seq.get rj.role_index g0 in
-  let outs, gather = Name.create_gather count (fun x -> label.var (x, Lin.fresh (Mergeable.resolve sj'))) in
+  let outs, gather = Name.create_gather count (fun x -> label.var (x, DynLin.fresh (Mergeable.resolve sj'))) in
   let sj = declare_gather ri.role_label gather sj' in
   let g1 = Seq.put rj.role_index g0 sj in
   let si' = Seq.get_list ~size:count ri.role_index g1 in
@@ -190,7 +191,7 @@ let scatter ri rj label (g0 : _ global) : _ global = fun env ->
   let sj' = Seq.get_list rj.role_index ~size:count g0 in
   let wrap i =
     let sj' = List.nth sj' i in
-    (fun x -> label.var (x, Lin.fresh (Mergeable.resolve sj')))
+    (fun x -> label.var (x, DynLin.fresh (Mergeable.resolve sj')))
   in
   let scatter, inps = Name.create_scatter count wrap in
   let sj = List.map2 (declare_inp ri.role_label) inps sj' in
@@ -201,7 +202,7 @@ let scatter ri rj label (g0 : _ global) : _ global = fun env ->
   g2
 
 let munit =
-  let unit = Lin.declare_unlimited () in
+  let unit = DynLin.declare_unlimited () in
   Mergeable.make ~value:unit ~mergefun:(fun _ _ -> unit) ()
 
 let choice_at
@@ -214,7 +215,7 @@ let choice_at
         Seq.put r'.role_index g0left munit,
         Seq.put r''.role_index g0right munit in
       let g1 = Seq.seq_merge g1left g1right in
-      let disj = Lin.lift_disj disj in (* lift *)
+      let disj = DynLin.lift_disj disj in (* lift *)
       let ep = Mergeable.make_disj disj epL epR
       in
       let g2 = Seq.put r.role_index g1 ep
@@ -292,11 +293,11 @@ let effective_length (_, s) =
   Seq.effective_length s
 
 let get_ch role (_, seq) =
-  Lin.fresh @@ Mergeable.resolve @@ Seq.get role.role_index seq
+  DynLin.fresh @@ Mergeable.resolve @@ Seq.get role.role_index seq
 
 let get_ch_list role (env, seq) =
   let size = Env.rm_size env @@ int_of_idx role.role_index in
-  List.map (fun x -> Lin.fresh @@ Mergeable.resolve x)
+  List.map (fun x -> DynLin.fresh @@ Mergeable.resolve x)
     @@ Seq.get_list ~size role.role_index seq
 
 type 'a ty =

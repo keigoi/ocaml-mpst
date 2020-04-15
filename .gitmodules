@@ -1,6 +1,0 @@
-[submodule "linocaml"]
-	path = linocaml
-	url = https://github.com/keigoi/linocaml.git
-[submodule "ppx_tools"]
-	path = ppx_tools
-	url = https://github.com/ocaml-ppx/ppx_tools.git

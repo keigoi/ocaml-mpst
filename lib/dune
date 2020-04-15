@@ -1,5 +1,6 @@
 (library
- (public_name ocaml-mpst.lib2)
- (name mpst2)
- (ocamlopt_flags -O3)
- (libraries lwt stdlib-shims concur-shims))
+ (public_name ocaml-mpst)
+ (name mpst)
+ (libraries lwt stdlib-shims concur-shims)
+; (ocamlopt_flags -O3)
+ )

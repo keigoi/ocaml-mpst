@@ -111,6 +111,7 @@ let resolve : type x. x t -> x = fun t ->
   let b =
     match t with
     | Value b ->
+      Lazy.force b.hook;
       b
     | RecVar (_,d) ->
       Lazy.force d
@@ -119,7 +120,6 @@ let resolve : type x. x t -> x = fun t ->
     | Merge (_,_,d) ->
       Lazy.force d
   in
-  Lazy.force b.hook;
   b.value
 
 let make ~value ~mergefun ?cont () =

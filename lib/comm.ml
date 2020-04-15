@@ -35,7 +35,7 @@ module Single : sig
   val receive : 'var inp -> 'var Lwt.t
   (** Input a value on a bare channel. *)
 
-  val close : close -> unit
+  val close : close -> unit Lwt.t
   (** Close a channel *)
 
 end = struct
@@ -80,12 +80,12 @@ end = struct
       ()
 
   let send (out: ('v,'t) out) (v:'v) =
-    let (n,t) = Lin.use out in
+    let* (n,t) = Lin.use out in
     let* () = Name.send n v in
     ret @@ resolve t
 
   let receive (ch: 'var inp) =
-    let ch = Lin.use ch in
+    let* ch = Lin.use ch in
     Name.receive ch
 
   let close (ep: unit lin) =
@@ -236,6 +236,7 @@ let choice_at
         Seq.put r'.role_index g0left munit,
         Seq.put r''.role_index g0right munit in
       let g1 = Seq.seq_merge g1left g1right in
+      let disj = Lin.lift_disj disj in (* lift *)
       let ep = Mergeable.make_disj disj epL epR
       in
       let g2 = Seq.put r.role_index g1 ep
@@ -260,3 +261,13 @@ let closed : 'g. (close gen one, close gen one, 'g, 'g, _, _) role -> 'g global 
     let g = g env in
     let g' = Seq.put r.role_index g Single.declare_close in
     g'
+
+let gen_with_param p g = g p
+
+let gen g =
+  gen_with_param
+    {metainfo=Table.create (); default=(fun _ -> EpLocal)}
+    g
+
+let get_ch role g =
+  Lin.fresh @@ Mergeable.resolve @@ Seq.get role.role_index g

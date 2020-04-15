@@ -1,5 +1,9 @@
 (* un-fairness *)
+open Concur_shims
 open Mpst
+open Mpst.Util
+
+let (let*) = IO.bind
 
 let unfair () =
   let g =
@@ -14,7 +18,7 @@ let unfair () =
   in
   g
 
-let () =
+let (_ : unit IO.io) =
   let g = unfair ()
   in
   let ea = get_ch a g in
@@ -26,29 +30,29 @@ let () =
   let _ = get_ch d g in
   print_endline"projected on d";
   let ta = Thread.create (fun () ->
-               let ea = send ea#role_B#right () in
-               let ea = send ea#role_B#right () in
-               let ea = send ea#role_B#right () in
-               let ea = send ea#role_B#right () in
-               let ea = send ea#role_B#left () in
-               let ea = send ea#role_C#left () in
-               close ea
-             )()
+      let* ea = send ea#role_B#right () in
+      let* ea = send ea#role_B#right () in
+      let* ea = send ea#role_B#right () in
+      let* ea = send ea#role_B#right () in
+      let* ea = send ea#role_B#left () in
+      let* ea = send ea#role_C#left () in
+      close ea
+    )()
   and tb = Thread.create (fun () ->
-               let rec loop eb =
-                 match receive eb#role_A with
-                 | `right(_,eb) ->
-                    print_endline "B: right";
-                    loop eb
-                 | `left(_,eb) ->
-                    print_endline "B: left";
-                    close eb
-               in
-               loop eb) ()
+      let rec loop eb =
+        let* var = receive eb#role_A in
+        match var with
+        | `right(_,eb) ->
+          print_endline "B: right";
+          loop eb
+        | `left(_,eb) ->
+          print_endline "B: left";
+          close eb
+      in
+      loop eb) ()
   and tc = Thread.create (fun () ->
-               let `left(_,ec) = receive ec#role_A in
-               print_endline "C: closing";
-               close ec) ()
+      let* `left(_,ec) = receive ec#role_A in
+      print_endline "C: closing";
+      close ec) ()
   in
-  List.iter Thread.join [ta; tb; tc];
-  ()
+  IO_list.iter Thread.join [ta; tb; tc]

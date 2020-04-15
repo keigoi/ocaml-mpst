@@ -1,4 +1,5 @@
 open Mpst
+open Mpst.Util
 open Protocols
 open Usecase_util
 
@@ -26,7 +27,7 @@ let () =
 
 let () =
   print_endline "SH...";
-  let g = gen @@ Sh.g () in
+  let g = gen @@ SH.g () in
   let _epp = get_ch p g in
   let _epr = get_ch r g in
   let _epc = get_ch c g in
@@ -105,16 +106,16 @@ let () =
 
 let () =
   print_endline "MapReduce...";
-  let g = gen @@ MapReduce.g () in
+  let g = gen_mult [0; 10] @@ MapReduce.g () in
   let _epm = get_ch mst g in
-  let _epw = get_ch wrk g in
+  let _epw = get_ch_list wrk g in
   print_endline "Done"
 
 let () =
   print_endline "NQueen...";
-  let g = gen @@ NQueen.g () in
+  let g = gen_mult [0; 10] @@ NQueen.g () in
   let _epm = get_ch mst g in
-  let _epw = get_ch wrk g in
+  let _epw = get_ch_list wrk g in
   let g = gen @@ NQueen.reply () in
   let _epa = get_ch mst g in
   let _epb = get_ch wrk g in
@@ -122,16 +123,16 @@ let () =
 
 let () =
   print_endline "Santa...";
-  let g = gen @@ Santa.elf_session () in
+  let g = gen_mult [0;10;20] @@ Santa.elf_session () in
   let _eps = get_ch santa g in
-  let _epe = get_ch elf g in
-  let g = gen @@ Santa.reindeer_session () in
+  let _epe = get_ch_list elf g in
+  let g = gen_mult [0;10;20] @@ Santa.reindeer_session () in
   let _epe = get_ch santa g in
-  let _epr = get_ch reindeer g in
-  let g = gen @@ Santa.main () in
+  let _epr = get_ch_list reindeer g in
+  let g = gen_mult [0;10;20] @@ Santa.main () in
   let _epa = get_ch santa g in
-  let _epb = get_ch elf g in
-  let _epb = get_ch reindeer g in
+  let _epb = get_ch_list elf g in
+  let _epb = get_ch_list reindeer g in
   print_endline "Done"
 
 let () =

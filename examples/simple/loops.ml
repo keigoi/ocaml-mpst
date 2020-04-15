@@ -1,4 +1,8 @@
+open Concur_shims
 open Mpst
+open Mpst.Util
+
+let (let*) = IO.bind
 
 let loop0 =
   print_endline"loop0";
@@ -21,19 +25,19 @@ let loop1 () =
 
 let tA ea =
   let rec loop ea =
-    let ea = send (ea#role_B#left) () in
-    let ea = send (ea#role_B#middle) () in
+    let* ea = send (ea#role_B#left) () in
+    let* ea = send (ea#role_B#middle) () in
     print_endline "danger?";
-    let ea = send (ea#role_B#middle) () in
-    let ea = send (ea#role_B#left) () in
+    let* ea = send (ea#role_B#middle) () in
+    let* ea = send (ea#role_B#left) () in
     print_endline "danger";
-    let ea = send (ea#role_B#right) () in
+    let* ea = send (ea#role_B#right) () in
     print_endline "danger1";
-    let ea = send (ea#role_C#msg) () in
+    let* ea = send (ea#role_C#msg) () in
     print_endline "danger2";
-    let ea = send (ea#role_B#right) () in
+    let* ea = send (ea#role_B#right) () in
     print_endline "danger3";
-    let ea = send (ea#role_C#msg) () in
+    let* ea = send (ea#role_C#msg) () in
     print_endline "finally";
     loop ea
   in
@@ -41,34 +45,13 @@ let tA ea =
 
 let tB eb finally =
   let rec loop eb =
-    match receive eb#role_A with
+    let* var = receive eb#role_A in
+    match var with
     | `left(_,eb) -> (* print_endline"left";  *)loop eb
     | `middle(_,eb) -> (* print_endline"middle";  *)loop eb
-    | `right(_,eb) -> (* print_endline"right";  *)finally eb
+    | `right(_,eb) -> (* print_endline"right";  *) finally eb
   in
   loop eb
-
-(* let () =
- *   let () = print_endline "loop1" in
- *   let g = gen @@ loop1 () in
- *   let () = print_endline "global combinator generated" in
- *   let ea = get_ch a g in
- *   print_endline "epp a done";
- *   let eb = get_ch b g in
- *   print_endline "epp b done";
- *   let ec = get_ch c g in
- *   print_endline "epp c done";
- *   ignore (Thread.create (fun () ->
- *               tA ea (fun ea -> close ea)
- *             ) ());
- *   ignore (Thread.create (fun () ->
- *               tB eb (fun eb -> close eb)
- *             ) ());
- *   begin
- *     match receive (ec#role_A) with
- *     | `msg(_,ec) -> close ec
- *   end;
- *   print_endline "loop1 done" *)
 
 let loop2 () =
   fix (fun t ->
@@ -104,11 +87,11 @@ let () =
   begin
     let rec loop cnt ec =
       if cnt > 0 then begin
-          match receive (ec#role_A) with
-          | `msg(_,ec) -> loop (cnt-1) ec
-        end
-      else
-        print_endline "interrupt"
+        let* var = receive (ec#role_A) in
+        match var with
+        | `msg(_,ec) -> loop (cnt-1) ec
+      end else
+        IO.printl "interrupt"
     in
     ignore (loop 5 ec)
   end;
@@ -161,7 +144,7 @@ let test3 =
 let test4 =
   print_endline "test4";
   try
-    let bogus = fix (fun t -> fix (fun u -> t)) in
+    let bogus = fix (fun t -> fix (fun _ -> t)) in
     let _g =
       (a --> b) msg @@
         bogus
@@ -184,7 +167,7 @@ let test5 =
     in
     failwith "unexpected (test5)"
   with
-    Mpst.Seq.UnguardedLoopSeq ->
+    UnguardedLoopSeq ->
     print_endline "exception correctly occured"
 
 let test6 =
@@ -203,7 +186,7 @@ let test6 =
     in
     failwith "unexpected (test6)"
   with
-    Mpst.Seq.UnguardedLoopSeq ->
+    UnguardedLoopSeq ->
     print_endline "exception correctly occurred"
 
 let test7 =
@@ -213,13 +196,13 @@ let test7 =
       gen @@
       choice_at a (to_b left_or_right)
         (a, (a --> b) left @@ (b --> c) left finish)
-        (a, (a --> b) right @@ fix (fun x -> (b --> c) right (closed a x)))
+        (a, (a --> b) right @@ fix (fun x -> (b --> c) right (closed_at a x)))
     in
     ignore (get_ch a g);
     ignore (get_ch b g);
     ignore (get_ch c g);
     ()
   with
-    Mpst.Seq.UnguardedLoopSeq ->
+    UnguardedLoopSeq ->
     print_endline "unexpected"
     

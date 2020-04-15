@@ -1,4 +1,5 @@
 open Mpst
+open Mpst.Util
 open Usecase_util
 
  (* global protocol Proto(role C, role B)
@@ -27,7 +28,7 @@ open Usecase_util
 
   let g () =
     (b --> c) msg @@
-    (b --> c) (msg >: (prot b (twobuyer_choose ()))) @@
+    (b --> c) (msg >: (get_ty b (twobuyer_choose ()))) @@
     choice_at c (to_b ok_or_quit)
     (c, (c --> b) ok @@ finish)
     (c, (c --> b) quit @@ finish)

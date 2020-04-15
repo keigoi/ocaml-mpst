@@ -1,14 +1,17 @@
+open Concur_shims
 open Mpst
 open Toy_oauth_util
+
+let (let*) = IO.bind
 
 let () =
   let oauth = gen @@ (s --> c) login @@ (c --> a) password @@ (a --> c) auth finish
   in
-  let chs, chc, cha = get_ch s oauth, get_ch c oauth, get_ch a oauth
+  let _chs, _chc, cha = get_ch s oauth, get_ch c oauth, get_ch a oauth
   in
   let _thread_a () =
-    let `password((p:string), cha) = receive cha#role_C in
-    let cha = send cha#role_C#auth true in
+    let* `password((_:string), cha) = receive cha#role_C in
+    let* cha = send cha#role_C#auth true in
     close cha
   in
   ()
@@ -23,14 +26,17 @@ let () =
   in
   let oauth2' = gen @@ oauth2 ()
   in
-  let chs, chc, cha = get_ch s oauth2', get_ch c oauth2', get_ch a oauth2'
+  let _chs, chc, _cha = get_ch s oauth2', get_ch c oauth2', get_ch a oauth2'
   in
   let _thread_c () =
-    match receive chc#role_S with
-    | `cancel((code:int), chc) -> close (send chc#role_A#quit ())
+    let* var = receive chc#role_S in
+    match var with
+    | `cancel((_:int), chc) ->
+      let* chc = send chc#role_A#quit () in
+      close chc
     | `login((), chc) -> 
-       let chc = send chc#role_A#password "asdf" in
-       let `auth(b, chc) = receive chc#role_A in
+       let* chc = send chc#role_A#password "asdf" in
+       let* `auth(_, chc) = receive chc#role_A in
        close chc
   in
   let oauth3 =

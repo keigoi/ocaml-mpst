@@ -18,5 +18,5 @@ open Usecase_util
           (shop, (shop --> customer) seat @@
                    (barber --> shop) available @@
                      (shop --> customer) ready @@
-                       (shop --> barber) (deleg_customer >:prot barber (haircut ()))   @@
+                       (shop --> barber) (deleg_customer >: get_ty barber (haircut ()))   @@
                            t))

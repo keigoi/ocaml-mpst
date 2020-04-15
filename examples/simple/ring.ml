@@ -1,5 +1,9 @@
 (* simple ring protocol *)
+open Concur_shims
 open Mpst
+open Mpst.Util
+
+let (let*) = IO.bind
 
 let () = print_endline "start"
 let ring =
@@ -16,12 +20,14 @@ let () = print_endline "EPP B finished"
 and ec = get_ch c ring
 let () = print_endline "EPP C finished"
 
-let tA = Thread.create (fun () ->
-  print_endline "A start";
-  let ea = send (ea#role_B#msg) () in
-  let `msg((), ea) = receive (ea#role_C) in
-  print_endline "A done";
-  close ea) ()
+let tA =
+  Thread.create (fun () ->
+      print_endline "A start";
+      let* ea = send (ea#role_B#msg) () in
+      let* `msg((), ea) = receive (ea#role_C) in
+      print_endline "A done";
+      close ea
+    ) ()
 
 (* let tA_bad (_:Obj.t) = Thread.create (fun () ->
  *   let `role_C(`msg((), ea)) = receive ea in
@@ -29,21 +35,25 @@ let tA = Thread.create (fun () ->
  *   print_endline "A done";
  *   close ea) () *)
 
-let tB = Thread.create (fun () ->
-             print_endline "B start";
-             let `msg((), eb) = receive (eb#role_A) in
-             let eb = send (eb#role_C#msg) () in
-             print_endline "B done";
-             close eb) ()
+let tB =
+  Thread.create (fun () ->
+      print_endline "B start";
+      let* `msg((), eb) = receive (eb#role_A) in
+      let* eb = send (eb#role_C#msg) () in
+      print_endline "B done";
+      close eb
+    ) ()
 
-let tC = Thread.create (fun () ->
-             print_endline "C start";
-             let `msg((), ec) = receive (ec#role_B) in
-             let ec = send (ec#role_A#msg) () in
-             print_endline "C done";
-             close ec) ()
+let tC =
+  Thread.create (fun () ->
+      print_endline "C start";
+      let* `msg((), ec) = receive (ec#role_B) in
+      let* ec = send (ec#role_A#msg) () in
+      print_endline "C done";
+      close ec
+    ) ()
 
-let () = List.iter Thread.join [tA; tB; tC]
+let (_ : unit IO.io) = IO_list.iter Thread.join [tA; tB; tC]
 
 (* incompatible branching at C between reception and closing *)
 (* let test =

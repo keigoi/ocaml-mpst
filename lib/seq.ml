@@ -2,6 +2,8 @@ open Base
 
 type 't local = 't Lin.gen Mergeable.t
 
+exception UnguardedLoopSeq
+
 type 'a elem =
     One : 'a local -> 'a one elem
   | List : 'a local list -> 'a list elem
@@ -56,8 +58,6 @@ let rec force_elem : type t. t elem -> unit = function
   | Lazy es ->
     let e = fold_left0 merge_elem (List.map Lazy.force es) in
     force_elem e
-
-exception UnguardedLoopSeq
 
 let recvar l = SeqRecVars [l]
 let repeat i f = SeqRepeat(i,f)

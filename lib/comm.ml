@@ -173,8 +173,7 @@ let (-->) ri rj label (g0 : _ global) : _ global = fun env ->
   g2
 
 let gather ri rj label (g0 : _ global) : _ global = fun env ->
-  let si_info = Table.get env.metainfo (int_of_idx ri.role_index) in
-  let count = si_info.rm_size in
+  let count = Env.rm_size env (int_of_idx ri.role_index) in
   let g0 = g0 env in
   let sj' = Seq.get rj.role_index g0 in
   let outs, gather = Name.create_gather count (fun x -> label.var (x, Lin.fresh (Mergeable.resolve sj'))) in
@@ -186,8 +185,7 @@ let gather ri rj label (g0 : _ global) : _ global = fun env ->
   g2
 
 let scatter ri rj label (g0 : _ global) : _ global = fun env ->
-  let sj_info = Table.get env.metainfo (int_of_idx rj.role_index) in
-  let count = sj_info.rm_size in
+  let count = Env.rm_size env (int_of_idx rj.role_index) in
   let g0 = g0 env in
   let sj' = Seq.get_list rj.role_index ~size:count g0 in
   let wrap i =
@@ -242,9 +240,9 @@ let finish : ([`cons of close one * 'a] as 'a) global = fun _ ->
 let finish_with_multirole :
     at:(close one, close list, [ `cons of close one * 'a ] as 'a, 'g, _, _) role ->
     'g global = fun ~at env ->
-    let info = Table.get env.metainfo (int_of_idx at.role_index) in
-    let g' = Seq.put_list at.role_index finish_seq (List.init info.rm_size (fun _ -> declare_close)) in
-    g'
+  let count = Env.rm_size env (int_of_idx at.role_index) in
+  let g' = Seq.put_list at.role_index finish_seq (List.init count (fun _ -> declare_close)) in
+  g'
 
 let closed_at : 'g. (close one, close one, 'g, 'g, _, _) role -> 'g global -> 'g global
   = fun r g env ->
@@ -252,12 +250,16 @@ let closed_at : 'g. (close one, close one, 'g, 'g, _, _) role -> 'g global -> 'g
     let g' = Seq.put r.role_index g declare_close in
     g'
 
-let closed_list_at : 'g. (close list, close list, 'g, 'g, _, _) role -> 'g global -> 'g global
-  = fun r g env ->
+let closed_list_at_ r g env =
     let g = g env in
-    let info = Table.get env.metainfo (int_of_idx r.role_index) in
-    let g' = Seq.put_list r.role_index g (List.init info.rm_size (fun _ -> declare_close)) in
+    let count = Env.rm_size env (int_of_idx r.role_index) in
+    let g' = Seq.put_list r.role_index g (List.init count (fun _ -> declare_close)) in
     g'
+
+let closed_list_at : 'g. (close list, close list, 'g, 'g, _, _) role -> 'g global -> 'g global
+  = closed_list_at_
+
+let with_multirole ~at = closed_list_at_ at
 
 type 't tup = Env.t * 't Seq.t
 
@@ -293,18 +295,25 @@ let get_ch role (_, seq) =
   Lin.fresh @@ Mergeable.resolve @@ Seq.get role.role_index seq
 
 let get_ch_list role (env, seq) =
-  let idx = int_of_idx role.role_index in
-  let size = (Table.get env.Env.metainfo idx).rm_size in
+  let size = Env.rm_size env @@ int_of_idx role.role_index in
   List.map (fun x -> Lin.fresh @@ Mergeable.resolve x)
     @@ Seq.get_list ~size role.role_index seq
 
-type 'a ty = Ty__ of (unit -> 'a)
+type 'a ty =
+    Ty__ of (unit -> 'a)
+  | TyList__ of (unit -> 'a list)
 
 let get_ty_ = fun r g ->
   Ty__ (fun () -> get_ch r g)
 
 let get_ty = fun r g ->
   get_ty_ r (gen g)
+
+let get_ty_list_ = fun r g ->
+  TyList__ (fun () -> get_ch_list r g)
+
+let get_ty_list = fun r g ->
+  get_ty_list_ r (gen g)
 
 let (>:) l _ = l
 

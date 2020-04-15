@@ -1,7 +1,8 @@
 open Base
 
 type _ t
-type 't local = 't Lin.gen Mergeable.t
+
+type 'a local = 'a Lin.gen Mergeable.t
 
 (** raised when one tries to extract a value from unguarded loop *)
 exception UnguardedLoopSeq

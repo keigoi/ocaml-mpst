@@ -1,4 +1,5 @@
 open Mpst
+open Mpst.Util
 open Usecase_util
 
 let srv     = {role_index=Zero; role_label={make_obj=(fun v -> object method role_S=v end); call_obj=(fun o->o#role_S)}}

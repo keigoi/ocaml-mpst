@@ -8,16 +8,18 @@ let (let*) = IO.bind
 let () = print_endline "dynamic linearity checking"
 
 let mustfail name f =
-  try
+  IO.catch begin fun () ->
     print_endline @@ name^":trying";
     let* _ = f () in
     IO.return @@ failwith (name^":no exception (unexpected)")
-  with
-    InvalidEndpoint ->
-    print_endline (name^":exception correctly occurred")
+      end begin function
+      | InvalidEndpoint ->
+        IO.printl (name^":exception correctly occurred")
+      | exn -> Lwt.fail exn
+    end
     
        
-let () =
+let (_ : unit IO.io) =
   let shot = gen @@ (a --> b) msg @@ finish in
   let ea = get_ch a shot in
   let eb = get_ch b shot in
@@ -25,11 +27,11 @@ let () =
                 let* `msg(_,_) = receive eb#role_A in
                 IO.return @@ mustfail "shot:epb" (fun () -> receive eb#role_A)) ()
   in
-  let _ = send ea#role_B#msg () in
-  Thread.join t;
+  let* _ = send ea#role_B#msg () in
+  let* () = Thread.join t in
   mustfail "shot:epa" (fun () -> send ea#role_B#msg ())
 
-let () =
+let (_ : unit IO.io) =
   print_endline "test2 preparing";
   let bra =
     gen @@
@@ -46,13 +48,13 @@ let () =
                 mustfail "bra:epa" (fun () -> send ea#role_B#right ());
             )()
   in
-  let _ =
-    match receive eb#role_A with
-    | `left((), eb) -> eb
-    | `right((), eb) -> eb
+  let* () =
+    let* var = receive eb#role_A in
+    match var with
+    | `left((), _) -> IO.return ()
+    | `right((), _) -> IO.return ()
   in
-  print_endline "receive successful";
-  mustfail "bra:epb1" (fun () -> receive eb#role_A);
-  Thread.join t;
-  ()
+  let* () = IO.printl "receive successful" in
+  let* () = mustfail "bra:epb1" (fun () -> receive eb#role_A) in
+  Thread.join t
       

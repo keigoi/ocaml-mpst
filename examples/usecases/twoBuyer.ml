@@ -1,4 +1,5 @@
 open Mpst
+open Mpst.Util
 open Usecase_util
 
 (* // 1 = B, 2 = A, 3 = S

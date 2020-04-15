@@ -37,7 +37,7 @@ open Usecase_util
  * } *)
   (* XXX non-directed chocie *)
   let to_requestor_or_suppliersvc =
-    {disj_merge=(fun l r -> object method role_Request=l#role_Request method role_Supply=r#role_Supply end);
+    {disj_concat=(fun l r -> object method role_Request=l#role_Request method role_Supply=r#role_Supply end);
      disj_splitL=(fun lr -> (lr :> <role_Request : _>));
      disj_splitR=(fun lr -> (lr :> <role_Supply : _>))}
 
@@ -79,7 +79,7 @@ open Usecase_util
 
   (* XXX non-directed chocie *)
   let to_requestor_or_contractsvc =
-    {disj_merge=(fun l r -> object method role_Request=l#role_Request method role_Contract=r#role_Contract end);
+    {disj_concat=(fun l r -> object method role_Request=l#role_Request method role_Contract=r#role_Contract end);
      disj_splitL=(fun lr -> (lr :> <role_Request : _>));
      disj_splitR=(fun lr -> (lr :> <role_Contract : _>))}
 

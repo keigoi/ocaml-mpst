@@ -48,6 +48,10 @@ val finish_with_multirole :
   at:(close one, close list, [ `cons of close one * 'a ] as 'a, 'g, _, _) role ->
   'g global
 
+val with_multirole :
+  at:(close one, close list, 'g0, 'g1, 'a, 'b) role ->
+  'g0 global -> 'g1 global
+
 val closed_at :
   (close one, close one, 'g, 'g, 'a, 'b) role ->
   'g global -> 'g global
@@ -71,6 +75,10 @@ type 'a ty
 val get_ty : ('a one, 'b, 'c, 'd, 'e, 'f) role -> 'c global -> 'a ty
 
 val get_ty_ : ('a one, 'b, 'c, 'd, 'e, 'f) role -> 'c tup -> 'a ty
+
+val get_ty_list : ('a list, 'b, 'c, 'd, 'e, 'f) role -> 'c global -> 'a ty
+
+val get_ty_list_ : ('a list, 'b, 'c, 'd, 'e, 'f) role -> 'c tup -> 'a ty
 
 val (>:) :
   ('obj,('v, 'epA) out, 'var, 'v * 'epB) label ->

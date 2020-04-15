@@ -4,6 +4,12 @@ module IO = struct
   let both = Lwt.both
   let return = Lwt.return
   let map = Lwt.map
+  let catch = Lwt.catch
+  let printl = Lwt_io.printl
+  let read_line = Lwt_io.read_line
+  let stdin = Lwt_io.stdin
+  let stdout = Lwt_io.stdout
+  let stderr = Lwt_io.stderr
 end
 
 module IO_list = struct

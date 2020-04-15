@@ -1,5 +1,8 @@
-open Mpst;;
-open Oauth_simple_labels;;
+open Concur_shims
+open Mpst
+open Oauth_simple_labels
+
+let (let*) = IO.bind
 
 module OAuth1 = struct
   let oAuth () =
@@ -7,27 +10,27 @@ module OAuth1 = struct
 
   (* The service process *)
   let srvThread ch =
-  let ch = send ch#role_C#login "Hi" in
-  let `auth(_,ch) = receive ch#role_A in
+  let* ch = send ch#role_C#login "Hi" in
+  let* `auth(_,ch) = receive ch#role_A in
   close ch
 
   (* The client process *)
   let cliThread ch =
-  let `login(x, ch) = receive ch#role_S in
-  let ch = send ch#role_A#pwd "asdf" in
+  let* `login(x, ch) = receive ch#role_S in
+  let* ch = send ch#role_A#pwd "asdf" in
   close ch
 
   (* The authentication process *)
   let authThread ch =
-  let `pwd(code,ch) = receive ch#role_C in
-  let ch = send ch#role_S#auth () in
+  let* `pwd(code,ch) = receive ch#role_C in
+  let* ch = send ch#role_S#auth () in
   close ch
 
   (* First we extract the channel vector for each role and then we start three threads *)
   let start () =
     let g = gen (oAuth ()) in
     let (srvCh, cliCh, authCh) = (get_ch s g, get_ch c g, get_ch a g) in
-    List.iter 
+    IO_list.iter 
       Thread.join 
       [Thread.create srvThread srvCh; Thread.create authThread authCh; Thread.create cliThread cliCh]
 end

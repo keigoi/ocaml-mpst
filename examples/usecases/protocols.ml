@@ -1,5 +1,11 @@
+[@@@ocaml.warning "-49"] (* Suppress warning 49: no cmi file was found in path for module *)
+
+open Concur_shims
 open Mpst
+open Mpst.Util
 open Usecase_util
+
+let (let*) = IO.bind
 
 module TwoBuyer = TwoBuyer
 
@@ -10,7 +16,7 @@ module Calc = Calc
 
 module Fibo = Fibo
 
-module Sh = Sh
+module SH = SH
 
 module SapNego = SapNego
 
@@ -76,57 +82,59 @@ module OAuth_paper = struct
   let oAuth3 () =
     choice_at s (to_c login_or_cancel) (* full merging at a: password or quit *)
       (s, (s --> c) login @@
-          fix @@ fun t ->
-            (c --> a) password @@
-            choice_at a (to_s auth_or_again)
-            (a, (a --> s) auth @@
-                (s --> c) auth @@
-                finish)
-            (a, (a --> s) again @@
-                (s --> c) again @@
-                t))
-      (s, (s --> c) cancel @@
-          (c --> a) quit @@
+       fix @@ fun t ->
+       (c --> a) password @@
+       choice_at a (to_s auth_or_again)
+         (a, (a --> s) auth @@
+          (s --> c) auth @@
           finish)
+         (a, (a --> s) again @@
+          (s --> c) again @@
+          t))
+      (s, (s --> c) cancel @@
+       (c --> a) quit @@
+       finish)
 
   let oAuth = gen @@
     choice_at s (to_c login_or_cancel)
       (s, (s --> c) login @@
-          (c --> a) password @@
-          (a --> s) auth @@
-          finish)
+       (c --> a) password @@
+       (a --> s) auth @@
+       finish)
       (s, (s --> c) cancel @@
-          (c --> a) quit @@
-          finish)
+       (c --> a) quit @@
+       finish)
 
   let thread f = ignore (Thread.create f ())
-  let () =
+  let (_ : unit IO.io) =
     thread (fun () ->
-      let ep = get_ch s oAuth in
-      if true then begin
-        let ep = send (ep#role_C#login) "asdf" in
-        let `auth((), ep) = receive (ep#role_A) in
-        close ep
-      end else begin
-        let ep = send (ep#role_C#cancel) () in
-        close ep
-      end);
+        let ep = get_ch s oAuth in
+        if true then begin
+          let* ep = send (ep#role_C#login) "asdf" in
+          let* `auth((), ep) = receive (ep#role_A) in
+          close ep
+        end else begin
+          let* ep = send (ep#role_C#cancel) () in
+          close ep
+        end);
     thread (fun () ->
-      let ep = get_ch c oAuth in
-      match receive (ep#role_S) with
-      | `login((_x:string), ep) ->
-         let ep = send (ep#role_A#password) 123 in
-         close ep
-      | `cancel((), ep) ->
-         let ep = send (ep#role_A#quit) () in
-         close ep);
+        let ep = get_ch c oAuth in
+        let* var = receive ep#role_S in
+        match var with
+        | `login((_x:string), ep) ->
+          let* ep = send (ep#role_A#password) 123 in
+          close ep
+        | `cancel((), ep) ->
+          let* ep = send (ep#role_A#quit) () in
+          close ep);
     let ep = get_ch a oAuth in
-    match receive (ep#role_C) with
+    let* var = receive ep#role_C in
+    match var with
     | `password((_i:int),ep) ->
-       let ep = send (ep#role_S#auth) () in
-       close ep
+      let* ep = send (ep#role_S#auth) () in
+      close ep
     | `quit((), ep) ->
-       close ep
+      close ep
 
 
 end

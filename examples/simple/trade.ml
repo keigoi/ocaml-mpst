@@ -1,7 +1,11 @@
 (* Trade example from: 	Pierre-Malo Deniélou, Nobuko Yoshida:
  * Multiparty Session Types Meet Communicating Automata. ESOP 2012: 194-213. *)
 
-open Mpst_lwt
+open Concur_shims
+open Mpst
+open Mpst.Util
+
+let (let*) = IO.bind
 
 module Util = struct
   let s = {role_index=Zero;
@@ -30,7 +34,7 @@ module Util = struct
      var=(fun v -> `result v)}
 
   let to_c_or_s =
-    {disj_merge=(fun l r -> object method role_C=l#role_C method role_S=r#role_S end);
+    {disj_concat=(fun l r -> object method role_C=l#role_C method role_S=r#role_S end);
      disj_splitL=(fun lr -> (lr :> <role_C : _>));
      disj_splitR=(fun lr -> (lr :> <role_S : _>))}
 end
@@ -49,63 +53,63 @@ let g =
       finish))
 
 let () = Random.self_init ()
-let (let/) m f = Lwt.bind m (fun x -> Lwt.bind (Lwt_unix.sleep (Random.float 0.1)) (fun () -> f x))
-let return = Lwt.return
+let (let*) m f = IO.bind m (fun x -> IO.bind (Unix.sleepf (Random.float 0.1)) (fun () -> f x))
+let return = IO.return
 
 let ts () =
-  let debug s = Lwt_io.printl ("s) " ^ s) in
+  let debug s = IO.printl ("s) " ^ s) in
   let (ch:'c) = get_ch s g in
   let itemname = "item0" in
-  let/ () = debug @@ "sending item name " ^ itemname ^ " to b" in
-  let/ ch = send ch#role_B#item itemname in
-  let/ () = debug "sent. receiving the final price from b.." in
-  let/ `final(price, ch) = receive ch#role_B in
-  let/ () = debug ("received the final price: " ^ string_of_int price) in
+  let* () = debug @@ "sending item name " ^ itemname ^ " to b" in
+  let* ch = send ch#role_B#item itemname in
+  let* () = debug "sent. receiving the final price from b.." in
+  let* `final(price, ch) = receive ch#role_B in
+  let* () = debug ("received the final price: " ^ string_of_int price) in
   close ch
     
-let tb init_price =
-  let debug s = Lwt_io.printl ("b) " ^ s) in
+let tb init_price () =
+  let debug s = IO.printl ("b) " ^ s) in
   let ch = get_ch b g in
-  let/ () = debug "receiving item name from s" in
-  let/ `item(name,(ch:'c)) = receive ch#role_S in
-  let/ () = debug @@ "received: "^name in
+  let* () = debug "receiving item name from s" in
+  let* `item(name,(ch:'c)) = receive ch#role_S in
+  let* () = debug @@ "received: "^name in
   let rec loop (ch:'c) pr =
     if pr>100 then begin
-        let/ () = debug @@ "offering price to c:" ^ string_of_int pr in
-        let/ ch = send ch#role_C#offer pr in
-        let/ () = debug "receiving new price from c" in
-        let/ `counter((pr':int), ch) = receive ch#role_C in
-        let/ () = debug @@ "received from c:" ^ string_of_int pr' in
+        let* () = debug @@ "offering price to c:" ^ string_of_int pr in
+        let* ch = send ch#role_C#offer pr in
+        let* () = debug "receiving new price from c" in
+        let* `counter((pr':int), ch) = receive ch#role_C in
+        let* () = debug @@ "received from c:" ^ string_of_int pr' in
         loop ch pr'
       end else begin
-        Lwt.return (ch,pr)
+        IO.return (ch,pr)
       end
   in
-  let/ (ch,pr) = loop ch init_price in
-  let/ () = debug @@ "sending final price to s: " ^ string_of_int pr in
-  let/ ch = send ch#role_S#final pr in
-  let/ () = debug @@ "sending the result to c: " ^ string_of_int pr in
-  let/ ch = send ch#role_C#result pr in
+  let* (ch,pr) = loop ch init_price in
+  let* () = debug @@ "sending final price to s: " ^ string_of_int pr in
+  let* ch = send ch#role_S#final pr in
+  let* () = debug @@ "sending the result to c: " ^ string_of_int pr in
+  let* ch = send ch#role_C#result pr in
   close ch
 
 let tc () =
-  let debug s = Lwt_io.printl ("c) " ^ s) in
+  let debug s = IO.printl ("c) " ^ s) in
   let (ch:'c) = get_ch c g in
   let rec loop (ch:'c) =
-    let/ () = debug "waiting b" in
-    let/ lab = receive ch#role_B in
+    let* () = debug "waiting b" in
+    let* lab = receive ch#role_B in
     match lab with
     | `offer(price,ch) ->
-       let/ () = debug @@ "received offer from b:" ^ string_of_int price in
+       let* () = debug @@ "received offer from b:" ^ string_of_int price in
        let newpr = price/2 in
-       let/ () = debug @@ "sending new price (counter) to b:" ^ string_of_int newpr in
-       let/ ch = send ch#role_B#counter newpr in
+       let* () = debug @@ "sending new price (counter) to b:" ^ string_of_int newpr in
+       let* ch = send ch#role_B#counter newpr in
        loop ch
     | `result(pr,ch) ->
-       let/ () = debug @@ "received the result from b:" ^ string_of_int pr in
+       let* () = debug @@ "received the result from b:" ^ string_of_int pr in
        close ch
   in
   loop ch
   
 let () =
-  Lwt_main.run (Lwt.join [ts (); tb 250; tc ()])
+  Lwt_main.run (IO_list.iter Thread.join (List.map (fun f -> Thread.create f ()) [ts; tb 250; tc]))

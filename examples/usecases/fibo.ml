@@ -1,4 +1,5 @@
 open Mpst
+open Mpst.Util
 open Usecase_util
 
 (* global protocol Fibonacci(role A, role B)

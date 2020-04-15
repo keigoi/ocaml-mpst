@@ -1,4 +1,5 @@
 open Mpst
+open Mpst.Util
 open Usecase_util
 
 (* global protocol Proto(role C, role S)
@@ -55,6 +56,6 @@ open Usecase_util
   let main () =
     choice_at srv (to_cli playAsA_playAsB_or_playAsC)
       (srv, choice_at srv (to_cli playAsA_or_playAsB)
-              (srv, (srv --> cli) (playAsA >: prot a (game ())) finish)
-              (srv, (srv --> cli) (playAsB >: prot b (game ())) finish))
-      (srv, (srv --> cli) (playAsC >: prot c (game ())) finish)
+              (srv, (srv --> cli) (playAsA >: get_ty a (game ())) finish)
+              (srv, (srv --> cli) (playAsB >: get_ty b (game ())) finish))
+      (srv, (srv --> cli) (playAsC >: get_ty c (game ())) finish)

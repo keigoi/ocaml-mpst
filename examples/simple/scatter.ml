@@ -1,7 +1,11 @@
 (* multicasts *)
-open Mpst_lwt
+open Concur_shims
+open Mpst
+open Mpst.Util
 
-let (>>=) = Lwt.(>>=)
+let (let*) = IO.bind
+
+let finish = finish_with_multirole ~at:b
 
 (* A global protocol between A, B, and C *)
 let prot =
@@ -22,75 +26,81 @@ let pa, pb, pc =
   get_ch a g, get_ch_list b g, get_ch c g
 
 (* participant A *)
-let t1 : unit Lwt.t =
-  let s = pa in
-  let open Lwt in
-  receive s#role_C >>= fun (`msg(x, s)) -> begin
-      Printf.printf "received: %d\n" x;
-      if x = 0 then begin
-          sendmany s#role_B#left (fun _ -> ()) >>= fun s ->
+let t1 () =
+  Thread.create (fun () ->
+      let s = pa in
+      let* `msg(x,s) =  receive s#role_C in
+      let* () = begin
+        Printf.printf "received: %d\n" x;
+        if x = 0 then begin
+          let* s = send_many s#role_B#left (fun _ -> ()) in
           print_endline "sent left";
-          receive s#role_B >>= fun (`msg(str,s)) ->
+          let* `msg(str,s) = receive_many s#role_B in
           print_endline "received";
           str |> List.iter (Printf.printf "A) B says: %s\n");
           close s
         end else begin
-          sendmany s#role_B#right (fun _ -> ()) >>= fun s ->
+          let* s = send_many s#role_B#right (fun _ -> ()) in
           print_endline "sent right";
-          receive s#role_B >>= fun (`msg(xs,s)) ->
+          let* `msg(xs,s) = receive_many s#role_B in
           print_endline "received1";
-          receive s#role_C >>= fun (`msg(str,s)) ->
+          let* `msg(str,s) = receive s#role_C in
           print_endline "received2";
           List.iteri (fun i x -> Printf.printf "A) B(%d) says: %d, C says: %s\n" i x str) xs;
           close s
-        end;
-    end >>= fun () ->
-  print_endline "A finished.";
-  return ()
+        end
+      end in
+      IO.printl "A finished."
+    ) ()
 
 (* participant B *)
-let t2 : unit Lwt.t list =
-  pb |>
-  List.mapi begin fun i s ->
-  Printf.printf "B(%d): waiting.\n" i;
-  receive s#role_A >>= begin
-      function
-      | `left(_,s) ->
-         Printf.printf "B(%d): left.\n" i;
-         send s#role_C#right () >>= fun s ->
-         send s#role_A#msg (Printf.sprintf "Hooray! %d" i) >>= fun s ->
-         close s
-      | `right(_,s) ->
-         Printf.printf "B(%d): right.\n" i;
-         send s#role_A#msg (1234 * (i+1)) >>= fun s ->
-         send s#role_C#left () >>= fun s ->
-         close s
-    end >>= fun () ->
-  Printf.printf "B(%d) finished.\n" i;
-  Lwt.return ()
-  end
+let t2 () =
+  pb |> List.mapi (fun i ->
+      Thread.create (fun s ->
+          Printf.printf "B(%d): waiting.\n" i;
+          let* var = receive s#role_A in
+          let* () =
+            begin match var with
+              | `left(_,s) ->
+                Printf.printf "B(%d): left.\n" i;
+                let* s = send s#role_C#right () in
+                let* s = send s#role_A#msg (Printf.sprintf "Hooray! %d" i) in
+                close s
+              | `right(_,s) ->
+                Printf.printf "B(%d): right.\n" i;
+                let* s = send s#role_A#msg (1234 * (i+1)) in
+                let* s = send s#role_C#left () in
+                close s
+            end
+          in
+          Printf.printf "B(%d) finished.\n" i;
+          IO.return ()
+        ))
+
 
 
 (* participant C *)
-let t3 : unit Lwt.t =
-  let s = pc in
-  let open Lwt in
-  print_endline "C: enter a number (positive or zero or negative):";
-  Lwt_io.read_line Lwt_io.stdin >>= fun line ->
-  let num = int_of_string line in
-  send s#role_A#msg num >>= fun s ->
-  receive s#role_B >>= begin
-      function
-      | `left(_,s) -> begin
-          send s#role_A#msg "Hello, A!" >>= fun s ->
-          close s
-        end
-      | `right(_,s) -> begin
-          close s
-        end
-    end >>= fun () ->
-  print_endline "C finished.";
-  return ()
+let t3 () =
+  Thread.create (fun () ->
+      let s = pc in
+      let open Lwt in
+      print_endline "C: enter a number (positive or zero or negative):";
+      let* line = IO.read_line IO.stdin in
+      let num = int_of_string line in
+      let* s = send s#role_A#msg num in
+      let* var = receive_many s#role_B in
+      let* () =
+        begin match var with
+          | `left(_,s) -> begin
+              send s#role_A#msg "Hello, A!" >>= fun s ->
+              close s
+            end
+          | `right(_,s) -> begin
+              close s
+            end
+        end in
+      IO.printl "C finished."
+    ) ()
 
 let () =
-  Lwt_main.run (Lwt.join [t1; Lwt.join t2; t3])
+  Lwt_main.run (IO_list.iter Thread.join ([t1 (); t3 ()] @ t2 ()))

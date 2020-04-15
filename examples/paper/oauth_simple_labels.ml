@@ -1,4 +1,5 @@
-open Mpst;;
+open Mpst
+open Mpst.Util
 
 (* label objects *)
 let login =

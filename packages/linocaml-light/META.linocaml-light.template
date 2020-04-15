@@ -1,0 +1,14 @@
+# DUNE_GEN
+
+package "ppx-as-lib" (
+  directory = "ppx"
+  archive(byte) = "ppx_linocaml.cma"
+  archive(native) = "ppx_linocaml.cmxa"
+  plugin(byte) = "ppx_linocaml.cma"
+  plugin(native) = "ppx_linocaml.cmxs"
+  exists_if = "ppx_linocaml.cma"
+  requires = "compiler-libs
+              compiler-libs.common
+              ocaml-migrate-parsetree
+              ppx_tools_versioned"
+)

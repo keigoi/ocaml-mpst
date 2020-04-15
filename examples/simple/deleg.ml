@@ -1,6 +1,9 @@
+open Concur_shims
 open Mpst
-module Util = Calc_util.Dyn
-open Util
+open Mpst.Util
+open Calc_util
+
+let (let*) = IO.bind
 
 let mst = {role_index=Zero;
            role_label={make_obj=(fun v->object method role_Mst=v end);
@@ -19,57 +22,60 @@ let calc =
 
 let worker =
   (srv --> mst) msg @@
-  (mst --> srv) (msg >: prot srv calc) @@
+  (mst --> srv) (msg >: get_ty srv calc) @@
   finish
 
-let tCli s =
+let tCli (s:'t) =
+  let (_ : 't ty) = get_ty cli calc in
   print_endline "client start";
-  let s = send s#role_Srv#compute (Add, 20) in
-  let s = send s#role_Srv#compute (Sub, 45) in
-  let s = send s#role_Srv#compute (Mul, 10) in
-  let s = send s#role_Srv#result () in
-  let `answer(ans, s) = receive s#role_Srv in
-  close s;
+  let* s = send s#role_Srv#compute (Add, 20) in
+  let* s = send s#role_Srv#compute (Sub, 45) in
+  let* s = send s#role_Srv#compute (Mul, 10) in
+  let* s = send s#role_Srv#result () in
+  let* `answer(ans, s) = receive s#role_Srv in
+  let* () = close s in
   (* outputs "Answer: -250" (= (20 - 45) * 10) *)
   Printf.printf "Answer: %d\n" ans;
-  flush stdout
+  flush stdout;
+  IO.return ()
 
 let tSrv s =
   let rec loop acc s =
-    match receive s#role_Cli with
+    let* var = receive s#role_Cli in
+    match var with
     | `compute((sym,num), s) ->
        let op = match sym with
          | Add -> (+)   | Sub -> (-)
          | Mul -> ( * ) | Div -> (/)
        in loop (op acc num) s
     | `result(_, s) ->
-       let s = send s#role_Cli#answer acc in
+       let* s = send s#role_Cli#answer acc in
        close s
   in loop 0 s
 
-let calc_sh = create_shared ~kinds:[`IPCProcess;`IPCProcess] calc
-let work_sh = create_shared ~kinds:[`Local;`Local] worker
+let calc_sh = create_shared ~kinds:[`IPCProcess,0;`IPCProcess,0] calc
+let work_sh = create_shared ~kinds:[`Local,0;`Local,0] worker
 
 let tSrvWorker i =
   let rec loop () =
-    let t = accept work_sh srv in
-    let t = send t#role_Mst#msg i in
-    let `msg(s, t) = receive t#role_Mst in
-    close t;
-    tSrv s;
+    let* t = accept work_sh srv in
+    let* t = send t#role_Mst#msg i in
+    let* `msg(s, t) = receive t#role_Mst in
+    let* () = close t in
+    let* () = tSrv s in
     loop ()
   in loop ()
 
 let tMaster () =
   let rec loop () =
     print_endline "master loop";
-    let s = accept calc_sh srv in
+    let* s = accept calc_sh srv in
     print_endline "master: client comes";
-    let t = connect work_sh mst in
-    let `msg(i, t) = receive t#role_Srv in
+    let* t = connect work_sh mst in
+    let* `msg(i, t) = receive t#role_Srv in
     Printf.printf "master: connecrted to a worker %d\n" i;
-    let t = send t#role_Srv#msg s in
-    close t;
+    let* t = send t#role_Srv#msg s in
+    let* () = close t in
     loop ()
   in loop ()
 
@@ -90,8 +96,8 @@ let _ : Thread.t list =
 let _ : Thread.t =
   Thread.create tMaster ()
 
-let () =
-  List.iter Thread.join @@
-    repeat 10 (fun i -> Thread.create (fun () ->
-                                let s = connect calc_sh cli in
+let (_:unit IO.io) =
+  IO_list.iter Thread.join @@
+    repeat 10 (fun _ -> Thread.create (fun () ->
+                                let* s = connect calc_sh cli in
                                 tCli s) ())

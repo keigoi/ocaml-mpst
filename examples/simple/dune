@@ -9,7 +9,7 @@
  (name calc_util)
   (modules calc_util)
   (flags ("-g" "-short-paths"))
-  (libraries ocaml-mpst.lwt))
+  (libraries ocaml-mpst))
 
 (executable
  (name calc)
@@ -23,14 +23,13 @@
   (public_name ocaml-mpst.example.calc_mpst_simple_lwt)
   (modules calc_lwt)
   (flags ("-g" "-short-paths"))
-  (libraries ocaml-mpst.lwt calc_util))
+  (libraries ocaml-mpst calc_util))
 
 (executable
  (name calc_base)
   (public_name ocaml-mpst.example.calc_base_mpst_simple)
   (modules calc_base)
-  (flags ("-g" "-short-paths"))
-  (libraries ocaml-mpst calc_util))
+  (libraries concur-shims ocaml-mpst calc_util))
 
 (executable
  (name calc_reuse)
@@ -45,13 +44,6 @@
   (modules calc_scatter)
   (flags ("-g" "-short-paths"))
   (libraries ocaml-mpst calc_util))
-
-(executable
- (name calc_scatter_lwt)
-  (public_name ocaml-mpst.example.calc_scatter_lwt)
-  (modules calc_scatter_lwt)
-  (flags ("-g" "-short-paths"))
-  (libraries ocaml-mpst.lwt calc_util))
 
 (executable
  (name unfair)
@@ -93,14 +85,14 @@
  (public_name ocaml-mpst.example.scatter)
  (modules scatter)
  (flags ("-g" "-short-paths"))
- (libraries ocaml-mpst.lwt))
+ (libraries ocaml-mpst))
 
 (executable
  (name scatter2)
  (public_name ocaml-mpst.example.scatter2)
  (modules scatter2)
  (flags ("-g" "-short-paths"))
- (libraries ocaml-mpst.lwt))
+ (libraries ocaml-mpst))
 
 (executable
  (name deleg)
@@ -127,11 +119,11 @@
   (public_name ocaml-mpst.example.parallel_loop_mpst_simple)
   (modules parallel_loop)
   (flags ("-g" "-short-paths"))
-  (libraries ocaml-mpst.lwt))
+  (libraries ocaml-mpst))
 
 (executable
  (name trade)
   (public_name ocaml-mpst.example.trade_mpst_simple)
   (modules trade)
   (flags ("-g" "-short-paths"))
-  (libraries ocaml-mpst.lwt))
+  (libraries ocaml-mpst))

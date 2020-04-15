@@ -1,9 +1,11 @@
-open Mpst_lwt
-open Calc_util.Dyn
+open Mpst
+open Calc_util
+open Concur_shims
+
 let (let/) m f =
-  Lwt.bind (Lwt_unix.sleep (Random.float 0.2)) (fun () ->
-  Lwt.bind m f)
-let (let*) = Lwt.bind
+  IO.bind (Unix.sleepf (Random.float 0.2)) (fun () ->
+  IO.bind m f)
+let (let*) = IO.bind
 
 type op = Add | Sub | Mul | Div
 (* let calc =
@@ -29,7 +31,7 @@ let tCli ec =
   let/ () = close ec in
   (* outputs "Answer: -250" (= (20 - 45) * 10) *)
   Printf.printf "/ / / / / Answer: %d\n" ans;
-  Lwt.return_unit
+  IO.return ()
 
 let tSrv es =
   let rec loop acc es =
@@ -43,7 +45,7 @@ let tSrv es =
     | `result((), es) ->
       let/ es = send (es#role_Cli#answer) acc in
       let/ () = close es in
-      Lwt.return_unit
+      IO.return ()
   in loop 0 es
 
 (* let () =
@@ -63,7 +65,7 @@ let current =
 
 (* merger *)
 let compute_result_or_current =
-  {disj_merge=(fun l r ->
+  {disj_concat=(fun l r ->
     object method compute=l#compute method result=l#result
       method current=r#current end);
    disj_splitL=(fun lr-> (lr :> <compute:_; result:_>));
@@ -97,7 +99,7 @@ let tSrv2 es =
     | `result((), es) ->
       let/ es = send (es#role_Cli#answer) acc in
       let/ () = close es in
-      Lwt.return_unit
+      IO.return ()
     | `current((), es) ->
       let/ es = send (es#role_Cli#answer) acc in
       loop acc es
@@ -107,4 +109,5 @@ let () =
   Random.self_init ();
   let calc2 = gen @@ calc2 () in
   let ec = get_ch cli calc2 and es = get_ch srv calc2 in
-  Lwt_main.run @@ Lwt.join [tSrv2 es; tCli ec]
+  Lwt_main.run @@
+  IO_list.iter Thread.join [Thread.create tSrv2 es; Thread.create tCli ec]

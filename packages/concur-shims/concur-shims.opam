@@ -1,0 +1,10 @@
+opam-version: "1.2"
+maintainer: "keigo.imai@gmail.com"
+authors: ["Keigo Imai"]
+homepage: "https://github.com/keigoi/ocaml-mpst-light"
+bug-reports: "https://github.com/keigoi/ocaml-mpst-light/issues"
+dev-repo: "https://github.com/keigoi/ocaml-mpst-light.git"
+license: "LGPL-3.0-or-later with OCaml-LGPL-linking-exception"
+build:
+[[ "dune" "build" "-p" name "-j" jobs ]]
+available: [ ocaml-version >= "4.05" ]

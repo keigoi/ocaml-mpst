@@ -1,5 +1,7 @@
 open Mpst
-open Calc_util.Dyn
+open Calc_util
+open Concur_shims
+let (let*) = IO.bind
 
 type op = Add | Sub | Mul | Div
 
@@ -12,13 +14,14 @@ let calc =
           (cli, (cli --> srv) result @@
                   (srv --> cli) answer @@ finish))
 
-let () =
-  let sch = get_ch srv calc in
+let (_:unit IO.io) =
   let cch = get_ch cli calc in
+  let sch = get_ch srv calc in
   let (_:Thread.t) =
     Thread.create (fun () ->
         let rec loop sch accum =
-          match receive sch#role_Cli with
+          let* ret = receive sch#role_Cli in
+          match ret with
           | `compute((op,x), sch) ->
              let accum' =
                match op with
@@ -29,18 +32,18 @@ let () =
              in
              loop sch accum'
           | `result((), sch) ->
-             let sch = send sch#role_Cli#answer accum in
+             let* sch = send sch#role_Cli#answer accum in
              close sch
         in
         loop sch 0
       ) ()
   in
-  let cch = send cch#role_Srv#compute (Add, 100) in
-  let cch = send cch#role_Srv#compute (Sub, 10) in
-  let cch = send cch#role_Srv#compute (Mul, 3) in
-  let cch = send cch#role_Srv#compute (Div, 2) in
-  let cch = send cch#role_Srv#result () in
-  let `answer(ans,cch) = receive cch#role_Srv in
-  close cch;
+  let* cch = send cch#role_Srv#compute (Add, 100) in
+  let* cch = send cch#role_Srv#compute (Sub, 10) in
+  let* cch = send cch#role_Srv#compute (Mul, 3) in
+  let* cch = send cch#role_Srv#compute (Div, 2) in
+  let* cch = send cch#role_Srv#result () in
+  let* `answer(ans,cch) = receive cch#role_Srv in
+  ignore (close cch);
   Printf.printf "answer is: %d\n" ans;
-  ()
+  IO.return ()

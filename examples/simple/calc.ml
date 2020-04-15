@@ -1,5 +1,8 @@
 open Mpst
-open Calc_util.Dyn
+open Calc_util
+open Concur_shims
+let (let*) = IO.bind
+
 
 type op = Add | Sub | Mul | Div
 let calc =
@@ -12,36 +15,36 @@ let calc =
                  finish))
 
 let tCli (ec: 'ec) =
-  let _ : 'ec ty = get_ty cli calc
-  in  let ec = send ec#role_Srv#compute (Add, 20) in
-  let ec = send ec#role_Srv#compute (Sub, 45) in
-  let ec = send ec#role_Srv#compute (Mul, 10) in
-  let ec = send ec#role_Srv#result () in
-  let `answer(ans, ec) = receive ec#role_Srv in
-  close ec;
+  (* let _ : 'ec ty = get_ty cli calc in *)
+  let* ec = send ec#role_Srv#compute (Add, 20) in
+  let* ec = send ec#role_Srv#compute (Sub, 45) in
+  let* ec = send ec#role_Srv#compute (Mul, 10) in
+  let* ec = send ec#role_Srv#result () in
+  let* `answer(ans, ec) = receive ec#role_Srv in
+  let* () = close ec in
   (* outputs "Answer: -250" (= (20 - 45) * 10) *)
-  Printf.printf "Answer: %d\n" ans
+  Printf.printf "Answer: %d\n" ans;
+  IO.return ()
 
 let tSrv es =
-  let _ : 'es ty = get_ty srv calc in
+  (* let _ : 'es ty = get_ty srv calc in *)
   let rec loop acc (es : 'es) =
-    match receive es#role_Cli with
+    let* ret = receive es#role_Cli in
+    match ret with
     | `compute((sym,num), es) ->
       let op = match sym with
         | Add -> (+)   | Sub -> (-)
         | Mul -> ( * ) | Div -> (/)
       in loop (op acc num) es
     | `result((), es) ->
-      let es = send (es#role_Cli#answer) acc in
+      let* es = send (es#role_Cli#answer) acc in
       close es
   in loop 0 es
 
-let () =
-  let sh = create_shared ~kinds:[`Local;`Local] calc in
+let (_:unit IO.io) =
+  let sh = create_shared ~kinds:[`Local,0;`Local,0] calc in
   ignore (Thread.create (fun () -> accept_and_start sh srv tSrv) ()); (*FIXME*)
   connect_and_start sh cli tCli
-  ;
-  ()
   (* let g = gen @@ calc in
    * let ec = get_ch cli g in
    * let es = get_ch srv g in

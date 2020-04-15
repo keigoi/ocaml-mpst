@@ -1,15 +1,19 @@
 (* dynamic linearity (affinity) checking *)
+open Concur_shims
 open Mpst
+open Mpst.Util
+
+let (let*) = IO.bind
 
 let () = print_endline "dynamic linearity checking"
 
 let mustfail name f =
   try
     print_endline @@ name^":trying";
-    f ();
-    failwith (name^":no exception (unexpected)")
+    let* _ = f () in
+    IO.return @@ failwith (name^":no exception (unexpected)")
   with
-    Mpst.LinFlag.InvalidEndpoint ->
+    InvalidEndpoint ->
     print_endline (name^":exception correctly occurred")
     
        
@@ -18,8 +22,8 @@ let () =
   let ea = get_ch a shot in
   let eb = get_ch b shot in
   let t = Thread.create (fun () ->
-                let `msg(_,_) = receive eb#role_A in
-                mustfail "shot:epb" (fun () -> receive eb#role_A)) ()
+                let* `msg(_,_) = receive eb#role_A in
+                IO.return @@ mustfail "shot:epb" (fun () -> receive eb#role_A)) ()
   in
   let _ = send ea#role_B#msg () in
   Thread.join t;

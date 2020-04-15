@@ -1,0 +1,7 @@
+(library
+ (public_name linocaml-light.ppx)
+ (name ppx_linocaml)
+ (kind ppx_rewriter)
+ (preprocess (pps ppx_tools_versioned.metaquot_405))
+ (libraries ocaml-migrate-parsetree ppx_tools_versioned)
+ (ppx_runtime_libraries linocaml-light))

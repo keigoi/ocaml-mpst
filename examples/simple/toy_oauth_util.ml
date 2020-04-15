@@ -1,4 +1,5 @@
 open Mpst
+open Mpst.Util
 
 
 let f () = `A (*  [`A | ρ] *)
@@ -46,13 +47,13 @@ let retry = {obj={make_obj=(fun v-> object method retry=v end);
                var=(fun v -> `retry(v))}
 
 let login_or_cancel =
-  {disj_merge=(fun l r -> object method login=l#login method cancel=r#cancel end);
+  {disj_concat=(fun l r -> object method login=l#login method cancel=r#cancel end);
    disj_splitL=(fun lr -> (lr :> <login : _>));
    disj_splitR=(fun lr -> (lr :> <cancel : _>));
   }
 
 let login_cancel_or_retry =
-  {disj_merge=(fun l r -> object method login=l#login method cancel=l#cancel method retry=r#retry end);
+  {disj_concat=(fun l r -> object method login=l#login method cancel=l#cancel method retry=r#retry end);
    disj_splitL=(fun lr -> (lr :> <login : _; cancel : _>));
    disj_splitR=(fun lr -> (lr :> <retry : _>));
   }

@@ -1,9 +1,10 @@
-open Calc_util.Dyn
+open Concur_shims
 open Mpst
+open Calc_util
 
-(* open Mpst_async
- * let (>>=) m f = Async.Deferred.bind m ~f
- * let return_unit = Async.Deferred.return () *)
+let (let*) = IO.bind
+
+let finish = finish_with_multirole ~at:srv
 
 type op = Add | Sub | Mul | Div
 
@@ -16,63 +17,40 @@ let calc =
                (gather srv cli) answer @@
                finish)))
 
-(* let (let+) = Lwt.bind *)
-
 let const x _ = x
-(* let tCli ec =
- *   let+ ec = sendmany ec#role_Srv#compute (fun i -> (Add, 20+i)) in
- *   let+ ec = sendmany ec#role_Srv#compute (const (Sub, 45)) in
- *   let+ ec = sendmany ec#role_Srv#compute (const (Mul, 10)) in
- *   let+ ec = sendmany ec#role_Srv#result (const ()) in
- *   let+ `answer(ans, ec) = receive ec#role_Srv in
- *   close ec;
- *   (\* outputs "Answer: -250" (= (20 - 45) * 10) *\)
- *   List.iter (fun ans -> Printf.printf "Answer: %d\n" ans) ans;
- *   Lwt.return_unit *)
-let tCli ec =
-  let ec = sendmany ec#role_Srv#compute (fun i -> (Add, 20)) in
-  let ec = sendmany ec#role_Srv#compute (const (Sub, 45)) in
-  let ec = sendmany ec#role_Srv#compute (const (Mul, 10)) in
-  let ec = sendmany ec#role_Srv#result (const ()) in
-  let `answer(ans, ec) = receive ec#role_Srv in
-  close ec;
+
+let tCli (ec : 't) =
+  let (_ : 't ty) = get_ty cli calc in
+  let* ec = send_many ec#role_Srv#compute (fun i -> (Add, 20+i)) in
+  let* ec = send_many ec#role_Srv#compute (const (Sub, 45)) in
+  let* ec = send_many ec#role_Srv#compute (const (Mul, 10)) in
+  let* ec = send_many ec#role_Srv#result (const ()) in
+  let* `answer(ans, ec) = receive_many ec#role_Srv in
+  let* () = close ec in
   (* outputs "Answer: -250" (= (20 - 45) * 10) *)
   List.iter (fun ans -> Printf.printf "Answer: %d\n" ans) ans;
-  ()
+  IO.return ()
 
-(* let tSrv ew =
- *   let rec loop acc ew =
- *     let+ r = receive ew#role_Cli in
- *     match r with
- *     | `compute((sym,num), ew) ->
- *       let op = match sym with
- *         | Add -> (+)   | Sub -> (-)
- *         | Mul -> ( * ) | Div -> (/)
- *       in loop (op acc num) ew
- *     | `result((), ew) ->
- *       let+ ew = send (ew#role_Cli#answer) acc in
- *       close ew;
- *       Lwt.return_unit
- *   in loop 0 ew *)
 let tSrv ew =
   let rec loop acc ew =
-    match receive ew#role_Cli with
+    let* var = receive ew#role_Cli in
+    match var with
     | `compute((sym,num), ew) ->
       let op = match sym with
         | Add -> (+)   | Sub -> (-)
         | Mul -> ( * ) | Div -> (/)
       in loop (op acc num) ew
     | `result((), ew) ->
-      let ew = send ew#role_Cli#answer acc in
+      let* ew = send ew#role_Cli#answer acc in
       close ew
   in loop 0 ew
 
-let () =
+let (_ : unit IO.io) =
   let g = gen_mult [1;100] calc in
   let ec = get_ch cli g
   and ess = get_ch_list srv g
   in
   let ts = List.map (Thread.create tSrv) ess in
-  tCli ec;
-  List.iter Thread.join ts;
-  ()
+  ignore (Thread.create tCli ec);
+  IO_list.iter Thread.join ts
+

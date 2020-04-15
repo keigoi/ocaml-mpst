@@ -39,6 +39,18 @@ let rec find_physeq : 'a. 'a list -> 'a -> bool = fun xs y ->
   | x::xs -> if x==y then true else find_physeq xs y
   | [] -> false
 
-let rec int_of_lens : type a b c d. (a,b,c,d) idx -> int = function
+let rec int_of_idx : type a b c d. (a,b,c,d) idx -> int = function
   | Zero -> 0
-  | Succ l -> int_of_lens l + 1
+  | Succ l -> int_of_idx l + 1
+
+let map_option f = function
+  | Some x -> Some (f x)
+  | None -> None
+
+let of_option ~dflt = function
+  | Some x -> x
+  | None -> dflt
+
+let option ~dflt ~f = function
+  | Some x -> f x
+  | None -> dflt

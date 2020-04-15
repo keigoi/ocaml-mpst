@@ -34,4 +34,4 @@ val force_all : 'x t -> unit
 val effective_length : 'x t -> int
 
 val recvar : 'a t lazy_t -> 'a t
-val repeat : int -> (int -> 'a elem) -> ([ `cons of 'a * 'b ] as 'b) t
+val repeat : int -> (int -> 'a Mergeable.t) -> ([ `cons of 'a one * 'b ] as 'b) t

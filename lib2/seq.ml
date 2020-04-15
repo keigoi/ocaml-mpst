@@ -11,7 +11,7 @@ type 'a elem =
 type _ t =
   (* hidden *)
   | SeqCons : 'hd elem * 'tl t -> [`cons of 'hd  * 'tl] t
-  | SeqRepeat : int * (int -> 'a elem) -> ([`cons of 'a * 'tl] as 'tl) t
+  | SeqRepeat : int * (int -> 'a Mergeable.t) -> ([`cons of 'a one * 'tl] as 'tl) t
   | SeqRecVars : 'a t lazy_t list -> 'a t
   | SeqBottom : 'a t
 
@@ -65,7 +65,7 @@ let repeat i f = SeqRepeat(i,f)
 let rec seq_head : type hd tl. [`cons of hd * tl] t -> hd elem =
   function
   | SeqCons(hd,_) -> hd
-  | SeqRepeat(i,f) -> f i
+  | SeqRepeat(i,f) -> One(f i)
   | SeqRecVars (d::ds) -> List.fold_left merge_elem (seqvar_head d) (List.map seqvar_head ds)
   | SeqRecVars [] -> assert false
   | SeqBottom -> raise UnguardedLoopSeq

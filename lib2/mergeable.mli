@@ -3,7 +3,7 @@ open Base
 type 'a t
 (** A mergeable *)
 
-val make :value:'a -> mergefun:('a -> 'a -> 'a) -> ?cont:'x t -> unit -> 'a t
+val make : value:'a -> mergefun:('a -> 'a -> 'a) -> ?cont:'x t -> unit -> 'a t
 (** Make a mergeable value, with a merging function and an optional continuation *)
 
 val merge : 'a t -> 'a t -> 'a t

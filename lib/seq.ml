@@ -91,13 +91,13 @@ let rec get_list : type a b xs ys. size:int -> (a list, b, xs, ys) idx -> xs t -
   | Zero -> from_list ~size @@ seq_head xs
   | Succ ln' -> get_list ~size ln' (seq_tail xs)
 
-let rec put : type a b xs ys. (a one,b one,xs,ys) idx -> xs t -> b local -> ys t =
+let rec put : type a b xs ys. (a,b one,xs,ys) idx -> xs t -> b local -> ys t =
   fun ln xs b ->
   match ln with
   | Zero -> SeqCons(One b, seq_tail xs)
   | Succ ln' -> SeqCons(seq_head xs, put ln' (seq_tail xs) b)
 
-let rec put_list : type a b xs ys. (a list,b list,xs,ys) idx -> xs t -> b local list -> ys t =
+let rec put_list : type a b xs ys. (a,b list,xs,ys) idx -> xs t -> b local list -> ys t =
   fun ln xs bs ->
   match ln with
   | Zero -> SeqCons(List bs, seq_tail xs)

@@ -13,9 +13,9 @@ val receive : 'a inp -> 'a Lwt.t
 
 val create_scatter : int -> (int -> 'a -> 'b) -> 'a scatter * 'b inp list
 val merge_scatter : 'a scatter -> 'a scatter -> 'a scatter
-val send_list : 'a scatter -> (int -> 'a) -> unit Lwt.t
+val send_many : 'a scatter -> (int -> 'a) -> unit Lwt.t
 
 val create_gather : int -> ('a list -> 'b) -> 'a out list * 'b gather
 val merge_gather : 'a gather -> 'a gather -> 'a gather
-val receive_list : 'a gather -> 'a Lwt.t
+val receive_many : 'a gather -> 'a Lwt.t
 

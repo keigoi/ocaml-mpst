@@ -10,8 +10,8 @@ type 'var gather
 val send : ('v, 't) out -> 'v -> 't IO.io
 val receive : 'var inp -> 'var IO.io
 val close : close -> unit IO.io
-val send_list : ('v, 't) scatter -> (int -> 'v) -> 't IO.io
-val receive_list : 'var gather -> 'var IO.io
+val send_many : ('v, 't) scatter -> (int -> 'v) -> 't IO.io
+val receive_many : 'var gather -> 'var IO.io
 
 type 't global
 type 't tup
@@ -44,13 +44,44 @@ val fix : ('g global -> 'g global) -> 'g global
 
 val finish : ([ `cons of close one * 'a ] as 'a) global
 
-val closed :
+val finish_with_multirole :
+  at:(close one, close list, [ `cons of close one * 'a ] as 'a, 'g, _, _) role ->
+  'g global
+
+val closed_at :
   (close one, close one, 'g, 'g, 'a, 'b) role ->
   'g global -> 'g global
 
-val gen_with_param : Env.t -> 'a global -> 'a tup
+val closed_list_at :
+  (close list, close list, 'g, 'g, 'a, 'b) role ->
+  'g global -> 'g global
+
+val gen_with_env : Env.t -> 'a global -> 'a tup
 
 val gen : 'a global -> 'a tup
 
+val gen_mult : int list -> 'a global -> 'a tup
+
 val get_ch : ('a one, 'b, 'c, 'd, 'e, 'f) role -> 'c tup -> 'a
+
 val get_ch_list : ('a list, 'b, 'c, 'd, 'e, 'f) role -> 'c tup -> 'a list
+
+type 'a ty
+
+val get_ty : ('a one, 'b, 'c, 'd, 'e, 'f) role -> 'c global -> 'a ty
+
+val get_ty_ : ('a one, 'b, 'c, 'd, 'e, 'f) role -> 'c tup -> 'a ty
+
+val (>:) :
+  ('obj,('v, 'epA) out, 'var, 'v * 'epB) label ->
+  'v ty ->
+  ('obj,('v, 'epA) out, 'var, 'v * 'epB) label
+
+val (>>:) :
+  ('obj,('v, 'epA) scatter, 'var, 'v * 'epB) label ->
+  'v ty ->
+  ('obj,('v, 'epA) scatter, 'var, 'v * 'epB) label
+    
+val effective_length : 't tup -> int
+
+val env : 't tup -> Env.t

@@ -1,6 +1,8 @@
 open Concur_shims
 open Base
 
+exception InvalidEndpoint
+
 type +'a lin
 (** Linear type constructor *)
 

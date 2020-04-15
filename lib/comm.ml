@@ -91,8 +91,8 @@ end = struct
 end
 
 module ScatterGather : sig
-  type ('v, 's) scatter
-  type 'var gather
+  type ('v, 's) scatter = ('v Name.scatter * 's gen Mergeable.t) lin
+  type 'var gather = 'var Name.gather lin
 
   val declare_scatter :
     ('obj, 'm) method_ ->
@@ -104,9 +104,9 @@ module ScatterGather : sig
     ('obj, 'var gather) method_ ->
     'var Name.gather -> 's gen Mergeable.t -> 'obj gen Mergeable.t
       
-  val send_list : ('v, 't) scatter -> (int -> 'v) -> 't IO.io
+  val send_many : ('v, 't) scatter -> (int -> 'v) -> 't IO.io
 
-  val receive_list : 'var gather -> 'var IO.io
+  val receive_many : 'var gather -> 'var IO.io
 
 end = struct
 
@@ -143,15 +143,18 @@ end = struct
       ~mergefun:merge_gather_lin
       ()
 
-  let send_list (scatter: ('v,'t) scatter) f =
+  let send_many (scatter: ('v,'t) scatter) f =
     let* (n,t) = Lin.use scatter in
-    let* () = Name.send_list n f in
+    let* () = Name.send_many n f in
     ret @@ Lin.fresh (Mergeable.resolve t)
 
-  let receive_list (ch: 'var gather) =
+  let receive_many (ch: 'var gather) =
     let* ch = Lin.use ch in
-    Name.receive_list ch
+    Name.receive_many ch
 end
+
+include Single
+include ScatterGather
 
 type 't global = Env.t -> 't Seq.t
 
@@ -162,10 +165,10 @@ let (-->) ri rj label (g0 : _ global) : _ global = fun env ->
   let g0 = g0 env in
   let sj' = Seq.get rj.role_index g0 in
   let out, inp = Name.create (fun x -> label.var (x, Lin.fresh (Mergeable.resolve sj'))) in
-  let sj = Single.declare_inp ri.role_label inp sj' in
+  let sj = declare_inp ri.role_label inp sj' in
   let g1 = Seq.put rj.role_index g0 sj in
   let si' = Seq.get ri.role_index g1 in
-  let si = Single.declare_out rj.role_label label.obj out si' in
+  let si = declare_out rj.role_label label.obj out si' in
   let g2 = Seq.put ri.role_index g1 si in
   g2
 
@@ -175,10 +178,10 @@ let gather ri rj label (g0 : _ global) : _ global = fun env ->
   let g0 = g0 env in
   let sj' = Seq.get rj.role_index g0 in
   let outs, gather = Name.create_gather count (fun x -> label.var (x, Lin.fresh (Mergeable.resolve sj'))) in
-  let sj = ScatterGather.declare_gather ri.role_label gather sj' in
+  let sj = declare_gather ri.role_label gather sj' in
   let g1 = Seq.put rj.role_index g0 sj in
   let si' = Seq.get_list ~size:count ri.role_index g1 in
-  let si = List.map2 (Single.declare_out rj.role_label label.obj) outs si' in
+  let si = List.map2 (declare_out rj.role_label label.obj) outs si' in
   let g2 = Seq.put_list ri.role_index g1 si in
   g2
 
@@ -192,10 +195,10 @@ let scatter ri rj label (g0 : _ global) : _ global = fun env ->
     (fun x -> label.var (x, Lin.fresh (Mergeable.resolve sj')))
   in
   let scatter, inps = Name.create_scatter count wrap in
-  let sj = List.map2 (Single.declare_inp ri.role_label) inps sj' in
+  let sj = List.map2 (declare_inp ri.role_label) inps sj' in
   let g1 = Seq.put_list rj.role_index g0 sj in
   let si' = Seq.get ri.role_index g1 in
-  let si = ScatterGather.declare_scatter rj.role_label label.obj scatter si' in
+  let si = declare_scatter rj.role_label label.obj scatter si' in
   let g2 = Seq.put ri.role_index g1 si in
   g2
 
@@ -230,32 +233,81 @@ let fix : type g. (g global -> g global) -> g global = fun f env ->
   *)
   Seq.resolve_merge (Lazy.force body)
 
-let finish : ([`cons of Single.close one * 'a] as 'a) global = fun _ ->
-  Seq.repeat 0 (fun _ -> Single.declare_close)
+let finish_seq =
+  Seq.repeat 0 (fun _ -> declare_close)
 
-let closed : 'g. (Single.close one, Single.close one, 'g, 'g, _, _) role -> 'g global -> 'g global
-  = fun r g env ->
-    let g = g env in
-    let g' = Seq.put r.role_index g Single.declare_close in
+let finish : ([`cons of close one * 'a] as 'a) global = fun _ ->
+  finish_seq
+
+let finish_with_multirole :
+    at:(close one, close list, [ `cons of close one * 'a ] as 'a, 'g, _, _) role ->
+    'g global = fun ~at env ->
+    let info = Table.get env.metainfo (int_of_idx at.role_index) in
+    let g' = Seq.put_list at.role_index finish_seq (List.init info.rm_size (fun _ -> declare_close)) in
     g'
 
-let gen_with_param env g = (env, g env)
+let closed_at : 'g. (close one, close one, 'g, 'g, _, _) role -> 'g global -> 'g global
+  = fun r g env ->
+    let g = g env in
+    let g' = Seq.put r.role_index g declare_close in
+    g'
+
+let closed_list_at : 'g. (close list, close list, 'g, 'g, _, _) role -> 'g global -> 'g global
+  = fun r g env ->
+    let g = g env in
+    let info = Table.get env.metainfo (int_of_idx r.role_index) in
+    let g' = Seq.put_list r.role_index g (List.init info.rm_size (fun _ -> declare_close)) in
+    g'
 
 type 't tup = Env.t * 't Seq.t
 
+let gen_with_env env g = (env, g env)
+
 let gen g =
-  gen_with_param
+  gen_with_env
     {Env.metainfo=Table.create (); default=(fun _ -> EpLocal)}
     g
 
-let get_ch role (_, g) =
-  Lin.fresh @@ Mergeable.resolve @@ Seq.get role.role_index g
+(* let gen_ipc g =
+ *   gen_with_env
+ *     {Env.metainfo=Table.create (); default=ipc} g *)
 
-let get_ch_list role (env, g) =
+let local _ = Env.EpLocal
+
+let gen_mult ps g =
+  let ps = List.mapi (fun i cnt -> {Env.rm_index=i;rm_size=cnt;rm_kind=EpLocal}) ps in
+  gen_with_env
+    {Env.metainfo=Table.create_from ps; default=local}
+    g
+
+(* let gen_mult_ipc ps g =
+ *   let ps = List.mapi (fun i cnt -> {Env.rm_index=i;rm_size=cnt;rm_kind=ipc cnt}) ps in
+ *   gen_with_env
+ *     {Env.metainfo=Table.create_from ps; default=ipc}
+ *     g *)
+
+let effective_length (_, s) =
+  Seq.effective_length s
+
+let get_ch role (_, seq) =
+  Lin.fresh @@ Mergeable.resolve @@ Seq.get role.role_index seq
+
+let get_ch_list role (env, seq) =
   let idx = int_of_idx role.role_index in
   let size = (Table.get env.Env.metainfo idx).rm_size in
   List.map (fun x -> Lin.fresh @@ Mergeable.resolve x)
-    @@ Seq.get_list ~size role.role_index g
+    @@ Seq.get_list ~size role.role_index seq
 
-include Single
-include ScatterGather
+type 'a ty = Ty__ of (unit -> 'a)
+
+let get_ty_ = fun r g ->
+  Ty__ (fun () -> get_ch r g)
+
+let get_ty = fun r g ->
+  get_ty_ r (gen g)
+
+let (>:) l _ = l
+
+let (>>:) l _ = l
+
+let env (env, _) = env

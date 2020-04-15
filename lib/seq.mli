@@ -12,9 +12,9 @@ val get_list : size:int -> ('a list, 'b, 'xs, 'ys) idx -> 'xs t -> 'a local list
 
 (** lens put function *)
 val put :
-  ('a one, 'b one, 'xs, 'ys) idx -> 'xs t -> 'b local -> 'ys t
+  ('a, 'b one, 'xs, 'ys) idx -> 'xs t -> 'b local -> 'ys t
 val put_list :
-  ('a list, 'b list, 'xs, 'ys) idx -> 'xs t -> 'b local list -> 'ys t
+  ('a, 'b list, 'xs, 'ys) idx -> 'xs t -> 'b local list -> 'ys t
 
 (** merging of two sequences in a choice  *)
 val seq_merge : 'x t -> 'x t -> 'x t

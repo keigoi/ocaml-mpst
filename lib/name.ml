@@ -204,9 +204,9 @@ let send {contents=Out({o_st; o_wrap; _})} v =
 let receive {contents=Inp({i_st; i_wrap; _})} =
   Lwt_stream_opt.receive_wrap ~f:i_wrap i_st
 
-let send_list outs f =
+let send_many outs f =
   Lwt_list.iteri_p (fun i out -> send out (f i)) outs
 
-let receive_list : type t. t gather -> t Lwt.t =
+let receive_many : type t. t gather -> t Lwt.t =
   function {contents=Gather{g_inplist = inps; g_wrap = wrap; _}} ->
     Lwt.map wrap (Lwt_list.map_s receive inps)

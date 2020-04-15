@@ -1,19 +1,20 @@
-type +'a one = One of 'a
-type 'a elem
+open Base
+
 type _ t
+type 't local = 't Lin.gen Mergeable.t
 
 (** raised when one tries to extract a value from unguarded loop *)
 exception UnguardedLoopSeq
 
 (** lens get function *)
-val get : ('a one, 'b, 'xs, 'ys) Base.idx -> 'xs t -> 'a Mergeable.t
-val get_list : size:int -> ('a list, 'b, 'xs, 'ys) Base.idx -> 'xs t -> 'a Mergeable.t list
+val get : ('a one, 'b, 'xs, 'ys) idx -> 'xs t -> 'a local
+val get_list : size:int -> ('a list, 'b, 'xs, 'ys) idx -> 'xs t -> 'a local list
 
 (** lens put function *)
 val put :
-  ('a one, 'b one, 'xs, 'ys) Base.idx -> 'xs t -> 'b Mergeable.t -> 'ys t
+  ('a one, 'b one, 'xs, 'ys) idx -> 'xs t -> 'b local -> 'ys t
 val put_list :
-  ('a list, 'b list, 'xs, 'ys) Base.idx -> 'xs t -> 'b Mergeable.t list -> 'ys t
+  ('a list, 'b list, 'xs, 'ys) idx -> 'xs t -> 'b local list -> 'ys t
 
 (** merging of two sequences in a choice  *)
 val seq_merge : 'x t -> 'x t -> 'x t
@@ -34,4 +35,4 @@ val force_all : 'x t -> unit
 val effective_length : 'x t -> int
 
 val recvar : 'a t lazy_t -> 'a t
-val repeat : int -> (int -> 'a Mergeable.t) -> ([ `cons of 'a one * 'b ] as 'b) t
+val repeat : int -> (int -> 'a local) -> ([ `cons of 'a one * 'b ] as 'b) t

@@ -32,3 +32,4 @@ let lift_disj mrg =
    disj_splitL=(fun lr once -> mrg.disj_splitL (lr once));
    disj_splitR=(fun lr once -> mrg.disj_splitR (lr once))}
 let wrap f x flag = f (x flag)
+let declare_unlimited v = fun _ -> v

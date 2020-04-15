@@ -1,17 +1,17 @@
 open Base
 
-type 'a one = One of 'a
+type 't local = 't Lin.gen Mergeable.t
 
 type 'a elem =
-    One : 'a Mergeable.t -> 'a one elem
-  | List : 'a Mergeable.t list -> 'a list elem
+    One : 'a local -> 'a one elem
+  | List : 'a local list -> 'a list elem
   | Lazy : 'a elem lazy_t list -> 'a elem
 
 (* arbitrary-length, mergeable tuple *)
 type _ t =
   (* hidden *)
   | SeqCons : 'hd elem * 'tl t -> [`cons of 'hd  * 'tl] t
-  | SeqRepeat : int * (int -> 'a Mergeable.t) -> ([`cons of 'a one * 'tl] as 'tl) t
+  | SeqRepeat : int * (int -> 'a local) -> ([`cons of 'a one * 'tl] as 'tl) t
   | SeqRecVars : 'a t lazy_t list -> 'a t
   | SeqBottom : 'a t
 
@@ -19,13 +19,13 @@ let fold_left0 f = function
   | [] -> assert false
   | x::xs -> List.fold_left f x xs
 
-let rec from_one : type t. t one elem -> t Mergeable.t = function
+let rec from_one : type t. t one elem -> t local = function
   | One t -> t
   | Lazy es ->
     let ts = List.map (fun e -> Mergeable.make_recvar (lazy (from_one @@ Lazy.force e))) es in
     fold_left0 Mergeable.merge ts
 
-let rec from_list : type t. size:int -> t list elem -> t Mergeable.t list = fun ~size -> function
+let rec from_list : type t. size:int -> t list elem -> t local list = fun ~size -> function
   | List ts ->
     ts
   | Lazy es ->
@@ -81,23 +81,23 @@ let rec seq_tail : type hd tl. [`cons of hd * tl] t -> tl t =
 and seqvar_tail : type hd tl. [`cons of hd * tl] t lazy_t -> tl t lazy_t = fun d ->
   lazy (seq_tail (Lazy.force d))
 
-let rec get : type a b xs ys. (a one, b, xs, ys) idx -> xs t -> a Mergeable.t = fun ln xs ->
+let rec get : type a b xs ys. (a one, b, xs, ys) idx -> xs t -> a local = fun ln xs ->
   match ln with
   | Zero -> from_one @@ seq_head xs
   | Succ ln' -> get ln' (seq_tail xs)
 
-let rec get_list : type a b xs ys. size:int -> (a list, b, xs, ys) idx -> xs t -> a Mergeable.t list = fun ~size ln xs ->
+let rec get_list : type a b xs ys. size:int -> (a list, b, xs, ys) idx -> xs t -> a local list = fun ~size ln xs ->
   match ln with
   | Zero -> from_list ~size @@ seq_head xs
   | Succ ln' -> get_list ~size ln' (seq_tail xs)
 
-let rec put : type a b xs ys. (a one,b one,xs,ys) idx -> xs t -> b Mergeable.t -> ys t =
+let rec put : type a b xs ys. (a one,b one,xs,ys) idx -> xs t -> b local -> ys t =
   fun ln xs b ->
   match ln with
   | Zero -> SeqCons(One b, seq_tail xs)
   | Succ ln' -> SeqCons(seq_head xs, put ln' (seq_tail xs) b)
 
-let rec put_list : type a b xs ys. (a list,b list,xs,ys) idx -> xs t -> b Mergeable.t list -> ys t =
+let rec put_list : type a b xs ys. (a list,b list,xs,ys) idx -> xs t -> b local list -> ys t =
   fun ln xs bs ->
   match ln with
   | Zero -> SeqCons(List bs, seq_tail xs)

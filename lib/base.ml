@@ -34,6 +34,8 @@ type ('lr, 'l, 'r) disj =
    * constraint 'l = < .. >
    * constraint 'r = < .. > *)
 
+type 'a one = One of 'a
+
 let rec find_physeq : 'a. 'a list -> 'a -> bool = fun xs y ->
   match xs with
   | x::xs -> if x==y then true else find_physeq xs y

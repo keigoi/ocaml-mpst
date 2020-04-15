@@ -1,7 +1,5 @@
 (library
- (public_name ocaml-mpst)
- (name mpst)
- (flags ("-g" "-short-paths"))
+ (public_name ocaml-mpst.lib2)
+ (name mpst2)
  (ocamlopt_flags -O3)
-; (ocamlopt_flags -O3 -inlining-report -inline-lifting-benefit 3900)
- (libraries threads stdlib-shims))
+ (libraries lwt stdlib-shims concur-shims))

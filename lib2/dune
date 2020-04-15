@@ -1,5 +1,0 @@
-(library
- (public_name ocaml-mpst.lib2)
- (name mpst2)
- (ocamlopt_flags -O3)
- (libraries lwt stdlib-shims concur-shims))

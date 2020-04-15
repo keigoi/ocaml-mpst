@@ -1,173 +1,131 @@
-(**
- * Mergeable: the module for merging endpoints
- *)
-
 open Base
-open Common
+
+type hook = unit lazy_t
+type 'a mvalue =
+  {value: 'a; mergefun: 'a -> 'a -> 'a; hook: hook}
+type 'a cache = 'a mvalue lazy_t
 
 type 'a t =
-  | Single of 'a single
-  (** (A) delayed merge involving recvars *)
-  | Merge of 'a single list * 'a cache
-and 'a single =
+  | Value : 'a mvalue -> 'a t
   (** fully resolved merge *)
-  | Val : 'a body * hook -> 'a single
-  (** (B) disjoint merge involving recvars  (output) *)
-  | DisjMerge   : 'l t * 'r t * ('lr,'l,'r) disj_merge * 'lr cache -> 'lr single
-  (** (C) a recursion variable *) 
-  | RecVar : 'a t lazy_t * 'a cache -> 'a single
-and 'a body =
-  {mergefun: 'a -> 'a -> 'a;
-   value: 'a}
-and 'a cache = 'a lazy_t
-and hook = unit lazy_t
+  | RecVar : 'a t lazy_t * 'a cache -> 'a t
+  (** (A) a recursion variable *)
+  | Merge : 'a t * 'a t * 'a cache -> 'a t
+  (** (B) delayed merge involving recvars *)
+  | Disj   : 'l t * 'r t * ('lr,'l,'r) disj * 'lr cache -> 'lr t
+  (** (C) disjoint merge involving recvars  (output) *)
 
 exception UnguardedLoop
 
-let merge_body (ll,hl) (rr,hr) =
-  let hook = lazy (Lazy.force hl; Lazy.force hr) in
-  ({mergefun=ll.mergefun;
-    value=ll.mergefun ll.value rr.value},
-   hook)
+let seq_hook l r = lazy (Lazy.force l.hook; Lazy.force r.hook)
 
-let disj_merge_body
-    : 'lr 'l 'r. ('lr,'l,'r) disj_merge -> 'l body * hook -> 'r body * hook -> 'lr body * hook =
-  fun mrg (bl,hl) (br,hr) ->
+let merge_value l r =
+  {value=l.mergefun l.value r.value;
+   mergefun=l.mergefun;
+   hook=seq_hook l r}
+
+let make_value_disj
+    : 'lr 'l 'r. ('lr,'l,'r) disj -> 'l mvalue -> 'r mvalue -> 'lr mvalue =
+  fun disj bl br ->
   let mergefun lr1 lr2 =
-    mrg.disj_merge
-      (bl.mergefun (mrg.disj_splitL lr1) (mrg.disj_splitL lr2))
-      (br.mergefun (mrg.disj_splitR lr1) (mrg.disj_splitR lr2))
+    disj.disj_concat
+      (bl.mergefun (disj.disj_splitL lr1) (disj.disj_splitL lr2))
+      (br.mergefun (disj.disj_splitR lr1) (disj.disj_splitR lr2))
   in
-  let value = mrg.disj_merge bl.value br.value
+  let value = disj.disj_concat bl.value br.value
   in
-  {value; mergefun},lazy (Lazy.force hl; Lazy.force hr)    
+  {value; mergefun; hook=seq_hook bl br}
+
+let rec find_phys_eq : 'a. 'a list -> 'a -> bool = fun xs y ->
+  match xs with
+  | x::xs -> if x==y then true else find_phys_eq xs y
+  | [] -> false
 
 (**
- * Resolve delayed merges
+ * Resolve delayed merges.
+ * It carries list of recursion variables forced in the first arg, so that
+ *
  *)
-let rec resolve_merge : type x. x t lazy_t list -> x t -> x body * hook = fun hist t ->
-  match t with
-  | Single s ->
-     resolve_merge_single hist s
-  | Merge (ss, _) ->
-     (* (A) merge involves recursion variables *)
-     resolve_merge_list hist ss
+let rec real_resolve : type x. x t lazy_t list -> x t -> x mvalue option = fun hist ->
+    function
+    | Value v ->
+       Some v (* already resolved *)
+    | RecVar (t, _) ->
+       (* (A) a recursion variable -- check occurrence of it *)
+       if find_phys_eq hist t then begin
+           None (* we found a cycle of form (μt. .. ⊔ t ⊔ ..) -- strip t *)
+         end else begin
+           (* force and resolve it *)
+           real_resolve (t::hist) (Lazy.force t)
+         end
+    | Merge (s, t, _) ->
+       (* (B) merge recursion variables *)
+       begin match real_resolve hist s, real_resolve hist t with
+       | Some s, Some t ->
+          Some (merge_value s t)
+       | Some s, None | None, Some s ->
+          Some s
+       | None, None ->
+          None
+       end
+    | Disj (l,r,mrg,_) ->
+       (* (C) disjoint merge involves recursion variables *)
+       (* we can safely reset the history; as the two types are
+          different from the original one, the same type variable will not occur. *)
+       let l = do_real_resolve l in
+       let r = do_real_resolve r in
+       Some (make_value_disj mrg l r)
 
-and resolve_merge_single : type x. x t lazy_t list -> x single -> x body * hook = fun hist ->
-  function
-  | Val (v,hook) ->
-     (* already resolved *)
-     (v,hook)
-  | DisjMerge (l,r,mrg,d) ->
-     (* (B) disjoint merge involves recursion variables *)
-     (* we can safely reset the history; as the split types are different from the merged one, the same type variable will not occur. *)
-     let l, hl = resolve_merge [] l in
-     let r, hr = resolve_merge [] r in
-     disj_merge_body mrg (l,hl) (r,hr)
-  | RecVar (t, d) ->
-     (* (C) a recursion variable *)
-     if find_physeq hist t then begin
-         (* we found μt. .. ⊔ t ⊔ .. *)
-         raise UnguardedLoop
-       end else
-       (* force it, and resolve it. at the same time, check that t occurs again or not by adding t to the history  *)
-       let b, _ = resolve_merge (t::hist) (Lazy.force t) in
-       b, Lazy.from_val () (* dispose the hook -- recvar is already evaluated *)
-
-and resolve_merge_list : type x. x t lazy_t list -> x single list -> x body * hook = fun hist ss ->
-  (* remove unguarded recursions *)
-  let solved : (x body * hook) list =
-    List.fold_left (fun acc u ->
-        try
-          resolve_merge_single hist u :: acc
-        with
-          UnguardedLoop ->
-          prerr_endline "WARNING: an unbalanced loop detected";
-          (* remove it. *)
-          acc)
-      [] ss
-  in
-  (* then, merge them altogether *)
-  match solved with
-  | [] ->
-     raise UnguardedLoop
-  | x::xs ->
-     List.fold_left merge_body x xs
-
-let force_mergeable : 'a. 'a t -> 'a = fun t ->
-  let v,hook = resolve_merge [] t in
-  Lazy.force hook ;
-  v.value
-  
-let make ~hook ~mergefun ~value =
-  Single (Val ({mergefun;value}, hook))
-
-let make_recvar_single t =
-  let rec d = RecVar (t, lazy (force_mergeable (Single d)))
-  in d
+and do_real_resolve : 'a. 'a t -> 'a mvalue = fun t ->
+  match real_resolve [] t with
+  | Some v -> v
+  | None -> raise UnguardedLoop
 
 let make_recvar t =
-  Single (make_recvar_single t)
-
-let make_merge_single : 'a. 'a single list -> 'a t = fun us ->
-  let rec d = Merge (us, lazy (force_mergeable d))
+  let rec d = RecVar (t, lazy (do_real_resolve d))
   in d
 
-let make_merge : 'a. 'a t -> 'a t -> 'a t = fun l r ->
-  match l, r with
-  | Single (Val (ll,hl)), Single (Val (rr,hr)) ->
-     let blr, hlr = merge_body (ll,hl) (rr,hr) in
-     Single (Val (blr, hlr))
-  | Single v1, Single v2 ->
-     make_merge_single [v1; v2]
-  | Single v, Merge (ds,_) | Merge (ds,_), Single v ->
-     make_merge_single (v :: ds)
-  | Merge (d1, _), Merge (d2, _) ->
-     make_merge_single (d1 @ d2)
+let make_merge_delayed : 'a. 'a t -> 'a t -> 'a t = fun s t ->
+  let rec d = Merge (s, t, lazy (do_real_resolve d))
+  in d
 
-let make_merge_list = function
-  | [] -> failwith "merge_all: empty"
-  | m::ms -> List.fold_left make_merge m ms
-
-let make_disj_merge : 'lr 'l 'r. ('lr,'l,'r) disj_merge -> 'l t -> 'r t -> 'lr t = fun mrg l r ->
+let merge : 'a. 'a t -> 'a t -> 'a t = fun l r ->
   match l, r with
-  | Single (Val (bl, hl)), Single (Val (br, hr)) ->
-     let blr,hlr = disj_merge_body mrg (bl,hl) (br,hr) in
-     Single (Val (blr, hlr))
+  | Value ll, Value rr ->
+     let blr = merge_value ll rr in
+     Value blr
   | _ ->
-     let rec d = Single (DisjMerge (l,r,mrg, lazy (force_mergeable d)))
-                        (* prerr_endline "WARNING: internal choice involves recursion variable"; *)
+     make_merge_delayed l r
+
+let make_disj : 'lr 'l 'r. ('lr,'l,'r) disj -> 'l t -> 'r t -> 'lr t = fun mrg l r ->
+  match l, r with
+  | Value bl, Value br ->
+     let blr = make_value_disj mrg bl br in
+     Value blr
+  | _ ->
+     let rec d = Disj (l,r,mrg, lazy (do_real_resolve d))
+     (* prerr_endline "WARNING: internal choice involves recursion variable"; *)
      in d
 
-let mapbody : 'p 'q 'x. ('p -> 'q) -> ('q -> 'p) -> 'p body -> 'q body = fun f g b ->
-  {value=f b.value;
-   mergefun=(fun l r -> f (b.mergefun (g l) (g r)))}
+let resolve : type x. x t -> x = fun t ->
+  let b =
+    match t with
+    | Value b ->
+      b
+    | RecVar (_,d) ->
+      Lazy.force d
+    | Disj (_,_,_,d) ->
+      Lazy.force d
+    | Merge (_,_,d) ->
+      Lazy.force d
+  in
+  Lazy.force b.hook;
+  b.value
 
-let rec map_single : 'p 'q 'x. ('p -> 'q) -> ('q -> 'p) -> 'p single -> 'q single = fun f g ->
-  function
-  | Val (b,h) ->
-     Val (mapbody f g b,h)
-  | RecVar (t, _) ->
-     assert false
-  (* make_recvar_single (lazy (map f g (Lazy.force t))) *)
-  | DisjMerge (l,r,mrg,d) ->
-     assert false
-
-and map : 'p 'q 'x. ('p -> 'q) -> ('q -> 'p) -> 'p t -> 'q t = fun f g ->
-  function
-  | Single s ->
-     Single (map_single f g s)
-  | Merge (ss, _) ->
-     make_merge_list (List.map (fun s -> Single (map_single f g s)) ss)
-
-let resolve t =
-  match t with
-  | Single (Val (b,h)) ->
-     Lazy.force h;
-     b.value
-  | Single (RecVar (_,d)) ->
-     Lazy.force d
-  | Single (DisjMerge (_,_,_,d)) ->
-     Lazy.force d
-  | Merge (_,d) ->
-     Lazy.force d
+let make ~value ~mergefun ?cont () =
+  let hook =
+    match cont with
+    | None -> Lazy.from_val ()
+    | Some cont -> lazy (ignore (resolve cont))
+  in
+  Value {mergefun;value;hook}

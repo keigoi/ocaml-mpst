@@ -1,6 +1,8 @@
 open Base
 open Concur_shims
 
+module Seq = Seq.Make(struct type 'a t = 'a DynLin.gen end)
+
 let (let*) = IO.bind
 
 type 'a lin = 'a DynLin.lin

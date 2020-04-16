@@ -1,7 +1,7 @@
 (executable
  (name bare_pingpong)
  (public_name ocaml-mpst.bare_pingpong)
- (preprocess (pps linocaml.ppx))
+ (preprocess (pps linocaml-light.ppx))
  (ocamlopt_flags -O3)
  (flags ("-rectypes" "-short-paths"))
- (libraries bench_util core_bench ocaml-mpst.monad ocaml-mpst.lwt ocaml-mpst.monad.lwt ocaml-mpst.ref core.nano_mutex))
+ (libraries bench_util core_bench ocaml-mpst.lin core.nano_mutex))

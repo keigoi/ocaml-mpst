@@ -82,14 +82,24 @@ let put_linval : 'a 'pre 'post. (unit,'a lin,'pre,'post) lens -> 'a -> ('pre,'po
   {__m=(fun pre ->
      IO.return (lens_put l pre {__lin=v}, {data=()}))}
 
-let run =
-  fun f x ->
-  let rec all_empty = `cons((), all_empty) in
+let rec all_empty : all_empty = `cons((), all_empty)
+
+let thread_create l f x =
+  {__m=(fun lpre ->
+       let ep = lens_get l lpre in
+       let lpost = lens_put l lpre () in
+       let th () =
+         IO.bind ((f x).__m (`cons(ep,all_empty))) (fun b ->
+             let ((_:all_empty),{data=()}) = b in
+             IO.return ())
+       in
+       let t = Thread.create th () in
+       IO.return (lpost,{data=t}))}
+
+let run f x =
   IO.bind ((f x).__m all_empty) (fun (_, {data=x}) -> IO.return x)
 
-let run_ =
-  fun f ->
-  let rec all_empty = `cons((), all_empty) in
+let run_ f =
   IO.bind ((f ()).__m all_empty) (fun (_, {data=x}) -> IO.return x)
 
 module Syntax = struct

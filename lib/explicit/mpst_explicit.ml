@@ -1,4 +1,7 @@
 (** ocaml-mpst w/ explicit connection handling *)
+type tag = {tag:Obj.t}
+let make_tag : 'v. ('v -> [>]) -> tag = fun f ->
+  {tag=Obj.repr (f (Obj.magic ()))}
 
 type ('lr, 'l, 'r) disj_merge =
   {disj_merge: 'l -> 'r -> 'lr;

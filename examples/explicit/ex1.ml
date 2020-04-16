@@ -1,5 +1,4 @@
 open Mpst_explicit
-open HList
 
 let ($$) f m =
   Lwt.bind m (fun x -> f x)
@@ -7,7 +6,7 @@ let ($$) f m =
 type generic_pipe_channel =
   {inp: Lwt_io.input_channel;
    out: Lwt_io.output_channel;
-   mutable tagbuf: Base.tag option
+   mutable tagbuf: tag option
   }
 
 let new_channel () =
@@ -21,7 +20,7 @@ let new_channel () =
 
 let generic_handler label =
   let open Lwt in
-  let mytag = Mpst.M.Base.make_tag label.var in
+  let mytag = make_tag label.var in
   {write=(fun h v ->
      Lwt_io.write_value h.out (mytag, v) >>= fun () ->
      Lwt_io.flush h.out);

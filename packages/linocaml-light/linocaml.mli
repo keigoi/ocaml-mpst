@@ -58,9 +58,16 @@ val put_lin : (unit,'a lin,'mid,'post) lens -> ('pre,'mid,'a lin) monad -> ('pre
 
 val put_linval : (unit,'a lin,'pre,'post) lens -> 'a -> ('pre,'post,unit data) monad
 
+val thread_create :
+  ('a, unit, 'b, 'c) lens ->
+  ('d -> ([> `cons of 'a * all_empty ], all_empty, unit data) monad) ->
+  'd -> ('b, 'c, Concur_shims.Thread.t data) monad
+
 val run : ('a -> (all_empty, all_empty, 'b data) monad) -> 'a -> 'b Concur_shims.IO.io
 
 val run_ : (unit -> (all_empty, all_empty, 'b data) monad) -> 'b Concur_shims.IO.io
+
+
 
 module Syntax : sig
   val bind_data : ('pre,'mid,'a data) monad -> ('a -> ('mid,'post,'b) monad) -> ('pre,'post,'b) monad

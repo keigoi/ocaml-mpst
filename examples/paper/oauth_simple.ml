@@ -16,13 +16,13 @@ module OAuth1 = struct
 
   (* The client process *)
   let cliThread ch =
-  let* `login(x, ch) = receive ch#role_S in
+  let* `login(_, ch) = receive ch#role_S in
   let* ch = send ch#role_A#pwd "asdf" in
   close ch
 
   (* The authentication process *)
   let authThread ch =
-  let* `pwd(code,ch) = receive ch#role_C in
+  let* `pwd(_code,ch) = receive ch#role_C in
   let* ch = send ch#role_S#auth () in
   close ch
 

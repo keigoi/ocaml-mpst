@@ -265,7 +265,7 @@ end
 module SLabels = struct
   open Mpst_explicit
   let get ?sess_pred ?pred url = Labels.get %% Handlers.get ?sess_pred ?pred url
-  let post ?sess_pred ?pred url = Labels.post %% Handlers.get ?sess_pred ?pred:None url (* FIXME *)
+  let post ?sess_pred ?pred:_pred url = Labels.post %% Handlers.get ?sess_pred ?pred:None url (* FIXME *)
   let success ?sess_pred ?pred url = Labels.success %% Handlers.get ?sess_pred ?pred url
   let fail ?sess_pred ?pred url = Labels.fail %% Handlers.get ?sess_pred ?pred url
 

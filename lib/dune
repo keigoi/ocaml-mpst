@@ -2,5 +2,4 @@
  (public_name ocaml-mpst)
  (name mpst)
  (libraries stdlib-shims concur-shims)
-; (ocamlopt_flags -O3)
  )

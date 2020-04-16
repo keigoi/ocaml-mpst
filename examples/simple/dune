@@ -2,27 +2,23 @@
  (name ring)
   (public_name ocaml-mpst.example.ring_mpst_simple)
   (modules ring)
-  (flags ("-g" "-short-paths"))
   (libraries ocaml-mpst))
 
 (library
  (name calc_util)
   (modules calc_util)
-  (flags ("-g" "-short-paths"))
   (libraries ocaml-mpst))
 
 (executable
  (name calc)
   (public_name ocaml-mpst.example.calc_mpst_simple)
   (modules calc)
-  (flags ("-g" "-short-paths"))
   (libraries ocaml-mpst calc_util))
 
 (executable
  (name calc_lwt)
   (public_name ocaml-mpst.example.calc_mpst_simple_lwt)
   (modules calc_lwt)
-  (flags ("-g" "-short-paths"))
   (libraries ocaml-mpst calc_util))
 
 (executable
@@ -35,95 +31,81 @@
  (name calc_reuse)
   (public_name ocaml-mpst.example.calc_reuse_mpst_simple)
   (modules calc_reuse)
-  (flags ("-g" "-short-paths"))
   (libraries ocaml-mpst calc_util))
 
 (executable
  (name calc_scatter)
   (public_name ocaml-mpst.example.calc_scatter)
   (modules calc_scatter)
-  (flags ("-g" "-short-paths"))
   (libraries ocaml-mpst calc_util))
 
 (executable
  (name unfair)
   (public_name ocaml-mpst.example.unfair_mpst_simple)
   (modules unfair)
-  (flags ("-g" "-short-paths"))
   (libraries ocaml-mpst))
 
 (executable
  (name roleenabling)
   (public_name ocaml-mpst.example.roleenabling_mpst_simple)
   (modules roleenabling)
-  (flags ("-g" "-short-paths"))
   (libraries ocaml-mpst))
 
 (executable
  (name roleenabling2)
   (public_name ocaml-mpst.example.roleenabling2_mpst_simple)
   (modules roleenabling2)
-  (flags ("-g" "-short-paths"))
   (libraries ocaml-mpst))
 
 (executable
  (name loops)
   (public_name ocaml-mpst.example.loops_mpst_simple)
   (modules loops)
-  (flags ("-g" "-short-paths"))
   (libraries ocaml-mpst))
 
 (executable
  (name dynlin_test)
   (public_name ocaml-mpst.example.dynlin_test)
   (modules dynlin_test)
-  (flags ("-g" "-short-paths"))
   (libraries ocaml-mpst))
 
 (executable
  (name scatter)
  (public_name ocaml-mpst.example.scatter)
  (modules scatter)
- (flags ("-g" "-short-paths"))
  (libraries ocaml-mpst))
 
 (executable
  (name scatter2)
  (public_name ocaml-mpst.example.scatter2)
  (modules scatter2)
- (flags ("-g" "-short-paths"))
  (libraries ocaml-mpst))
 
 (executable
  (name deleg)
   (public_name ocaml-mpst.example.deleg_mpst_simple)
   (modules deleg)
-  (flags ("-g" "-short-paths"))
   (libraries ocaml-mpst calc_util))
 
 (library
  (name toy_oauth_util)
   (modules toy_oauth_util)
-  (flags ("-g" "-short-paths"))
   (libraries ocaml-mpst))
 
 (executable
  (name toy_oauth)
   (public_name ocaml-mpst.example.toy_oauth)
   (modules toy_oauth)
-  (flags ("-g" "-short-paths"))
   (libraries ocaml-mpst toy_oauth_util))
 
 (executable
  (name parallel_loop)
   (public_name ocaml-mpst.example.parallel_loop_mpst_simple)
   (modules parallel_loop)
-  (flags ("-g" "-short-paths"))
   (libraries ocaml-mpst))
 
 (executable
  (name trade)
   (public_name ocaml-mpst.example.trade_mpst_simple)
   (modules trade)
-  (flags ("-g" "-short-paths"))
   (libraries ocaml-mpst))

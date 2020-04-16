@@ -1,5 +1,4 @@
 (executable
  (name oauth)
  (public_name oauth)
- (flags ("-g" "-short-paths"))
  (libraries mpst_explicit mpst_http lwt.unix lwt_log cmdliner))

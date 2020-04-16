@@ -2,5 +2,4 @@
  (public_name ocaml-mpst.lin)
  (name mpst_lin)
  (libraries ocaml-mpst linocaml-light)
-; (ocamlopt_flags -O3)
  )

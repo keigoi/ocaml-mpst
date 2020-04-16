@@ -26,7 +26,7 @@ let rec tA (s:'t) i =
   else
     tA s (i+1)
 
-let rec tB i s =
+let tB i s =
   let rec loop s =
     let* () = IO.printl (Printf.sprintf "tB(%d)" i) in
     let* s = send s#role_A#msg () in

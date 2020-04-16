@@ -5,8 +5,6 @@ open Concur_shims
 open Mpst
 open Mpst.Util
 
-let (let*) = IO.bind
-
 module Util = struct
   let s = {role_index=Zero;
            role_label=

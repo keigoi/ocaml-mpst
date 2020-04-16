@@ -1,16 +1,14 @@
 ; examples from K. Imai, R. Neykova and N. Yoshida,
-; "Fully Static Multiparty Session Programming with Global Protocol Combinators",
-; 2019.
+; "Multiparty Session Programming with Global Protocol Combinators",
+; 2020.
 
 (executable
  (name oauth_simple)
   (public_name ocaml-mpst.example.oauth_simple)
   (modules oauth_simple)
-  (flags ("-g" "-short-paths"))
   (libraries ocaml-mpst oauth_simple_labels))
 
 (library
  (name oauth_simple_labels)
   (modules oauth_simple_labels)
-  (flags ("-g" "-short-paths"))
   (libraries ocaml-mpst))

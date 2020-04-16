@@ -9,7 +9,7 @@ module H = Mpst_http
 
 open Mpst_http.SLabels
 
-let (let/) = Lwt.(>>=)
+let (let*) = Lwt.(>>=)
 
 (*
   (replace keigoimai.info with appropriate domain)
@@ -59,10 +59,10 @@ let mk_oauth () =
   let sess_pred c =
     H.Util.http_parameter_contains ("state", c.H.extra_server)
   in
-  let success_pred c params =
+  let success_pred _c params =
     not (List.mem_assoc "error" params)
   in
-  let error_pred c params =
+  let error_pred _c params =
     List.mem_assoc "error" params
   in
   (u -!-> c) (get "/oauth") @@
@@ -90,8 +90,8 @@ let facebook_oauth () =
   let g = mk_oauth () in
   let s = get_ch c g in
   let sessionid = Int64.to_string @@ Random.int64 Int64.max_int in
-  let/ srv = my_acceptor sessionid in
-  let/ `get(params, s) = receive (s srv)#role_U in
+  let* srv = my_acceptor sessionid in
+  let* `get(_, s) = receive (s srv)#role_U in
   print_endline "connection accepted";
   let redirect_url =
     Uri.add_query_params'
@@ -100,24 +100,24 @@ let facebook_oauth () =
        ("redirect_uri", Params.callback_url);
        ("state", sessionid)]
   in
-  let/ s = s#role_U#_302 redirect_url in
-  let/ srv = my_acceptor sessionid in
-  let/ res = receive (s srv)#role_U in
+  let* s = s#role_U#_302 redirect_url in
+  let* srv = my_acceptor sessionid in
+  let* res = receive (s srv)#role_U in
   match res with
   | `success(_,s) ->
-     let/ cli = H.http_connector ~base_url:"https://graph.facebook.com/v2.11/oauth" sessionid in
-     let/ s = (s cli)#role_P#get [] in
-     let/ `_200(_,s) = receive (s#role_P) in
-     let/ s = s#role_U#_200 "auth succeeded" in
+     let* cli = H.http_connector ~base_url:"https://graph.facebook.com/v2.11/oauth" sessionid in
+     let* s = (s cli)#role_P#get [] in
+     let* `_200(_,s) = receive (s#role_P) in
+     let* s = s#role_U#_200 "auth succeeded" in
      close s
   | `fail(_,s) ->
-     let/ s = s#role_U#_200 "auth failed" in
+     let* s = s#role_U#_200 "auth failed" in
      close s
 
 let () =
   Lwt_main.run @@
     let rec loop () =
-      let/ () =
+      let* () =
         Lwt.finalize
           (fun () -> facebook_oauth ())
           (fun () -> prerr_endline "exception"; Lwt.return ())

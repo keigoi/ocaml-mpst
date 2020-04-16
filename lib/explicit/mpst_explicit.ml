@@ -89,12 +89,12 @@ module Mergeable
     (** (A) delayed merge involving recvars *)
     | Merge of 'a single list * 'a cache
   and 'a single =
-    (** fully resolved merge *)
     | Val : 'a body * hook -> 'a single
-    (** (B) disjoint merge involving recvars  (output) *)
+    (** fully resolved merge *)
     | DisjMerge   : 'l t * 'r t * ('lr,'l,'r) disj_merge * 'lr cache -> 'lr single
-    (** (C) a recursion variable *)
+    (** (B) disjoint merge involving recvars  (output) *)
     | RecVar : 'a t lazy_t * 'a cache -> 'a single
+    (** (C) a recursion variable *)
   and 'a body =
     {mergefun: 'a -> 'a -> 'a;
      valuefun: (Flag.t -> 'a)}
@@ -142,13 +142,13 @@ module Mergeable
       | Val (v,hook) ->
          (* already resolved *)
          (v,hook)
-      | DisjMerge (l,r,mrg,d) ->
+      | DisjMerge (l,r,mrg,_d) ->
          (* (B) disjoint merge involves recursion variables *)
          (* we can safely reset the history; as the split types are different from the merged one, the same type variable will not occur. *)
          let l, hl = resolve_merge [] l in
          let r, hr = resolve_merge [] r in
          disj_merge_body mrg l r, merge_hook hl hr
-      | RecVar (t, d) ->
+      | RecVar (t, _d) ->
          (* (C) a recursion variable *)
          if find_physeq hist t then begin
            (* we found μt. .. ⊔ t ⊔ .. *)
@@ -231,10 +231,10 @@ module Mergeable
   let rec map_single : 'p 'q 'x. ('p -> 'q) -> ('q -> 'p) -> 'p single -> 'q single = fun f g -> function
     | Val (b,h) ->
        Val (mapbody f g b,h)
-    | RecVar (t, _) ->
+    | RecVar (_, _) ->
        assert false
        (* make_recvar_single (lazy (map f g (Lazy.force t))) *)
-    | DisjMerge (l,r,mrg,d) ->
+    | DisjMerge (_) ->
        assert false
 
   and map : 'p 'q 'x. ('p -> 'q) -> ('q -> 'p) -> 'p t -> 'q t = fun f g -> function
@@ -319,7 +319,6 @@ module Inp : sig
 end = struct
   type ('l,'r) either = Left of 'l | Right of 'r
   type ('a,'buf) inp = {once:Flag.t;  handler:'buf option -> ('buf,'a) either Lwt.t}
-  let create_inp_discon _ = failwith ""
   let receive {once; handler} =
     Flag.use once;
     Lwt.bind (handler None) (function
@@ -357,7 +356,6 @@ end = struct
              (ks vec -> t) Mergeable.t ->
              (ks vec -> (var, buf) inp) Mergeable.t
     = fun lens slabel cont ->
-    let open Lwt in
     Mergeable.make
       ~hook:(delay_force cont)
       ~mergefun:merge_inp
@@ -515,7 +513,7 @@ end = struct
     Mergeable.make
       ~hook:(delay_force cont)
       ~mergefun:(fun d _ -> d)
-      ~valuefun:(fun once ks1 ->
+      ~valuefun:(fun _once ks1 ->
         object method disconnect =
             Lwt.return @@
               Mergeable.generate cont (vec_put lens ks1 ())
@@ -691,7 +689,6 @@ module Global
   = struct
   open Inp
   open Out
-  open Close
   open Discon
 
   let fix f =
@@ -813,8 +810,6 @@ module Global
 end
   
 module Util = struct
-  open Global
-  (* open Local *)
 
   let a = Role {role_label={make_obj=(fun v->object method role_A=v end);
                             call_obj=(fun o->o#role_A)};
@@ -872,13 +867,6 @@ module Util = struct
      disj_splitL=(fun lr -> (lr :> <right : _>));
      disj_splitR=(fun lr -> (lr :> <left : _>));
     }
-  let to_b m =
-    {disj_merge=(fun l r ->
-       object method role_B=m.disj_merge (l#role_B) (r#role_B) end);
-     disj_splitL=(fun lr -> object method role_B=m.disj_splitL (lr#role_B) end);
-     disj_splitR=(fun lr -> object method role_B=m.disj_splitR (lr#role_B) end)
-    }
-
 
   let to_ m r1 r2 r3 =
     let (!) (Role x) = x.role_label in

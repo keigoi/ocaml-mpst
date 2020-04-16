@@ -4,5 +4,4 @@
  (libraries
    (select concur_shims.ml from
      (concur-shims-lwt -> concur_shims.lwt.ml)
-     ; (async     -> concur_shims.async.ml)
      (threads -> concur_shims.threads.ml))))

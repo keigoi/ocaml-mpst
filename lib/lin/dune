@@ -1,5 +1,4 @@
 (library
- (public_name ocaml-mpst.lin)
  (name mpst_lin)
- (libraries ocaml-mpst concur-shims linocaml-light)
+ (libraries mpst concur-shims linocaml-light)
  )

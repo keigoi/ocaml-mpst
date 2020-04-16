@@ -1,0 +1,13 @@
+opam-version: "1.2"
+maintainer: "keigo.imai@gmail.com"
+authors: ["Keigo Imai"]
+homepage: "https://github.com/keigoi/ocaml-mpst"
+bug-reports: "https://github.com/keigoi/ocaml-mpst/issues"
+dev-repo: "https://github.com/keigoi/ocaml-mpst.git"
+license: "Apache"
+build:
+[[ "dune" "build" "-p" name "-j" jobs ]]
+available: [ ocaml-version >= "4.05" ]
+depends: [
+  "dune" {build & >= "1.0"}
+]

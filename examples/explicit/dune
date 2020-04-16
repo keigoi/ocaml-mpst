@@ -1,5 +1,0 @@
-(executable
- (name ex1)
-  (public_name mpst_explicit_ex1)
-  (modules ex1)
-  (libraries mpst mpst_explicit lwt.unix))

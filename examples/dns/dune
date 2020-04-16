@@ -1,10 +1,9 @@
 (executable
-  (public_name dnsserver)
   (name     dnsserver)
   (modules dnsserver)
-  (libraries mpst_explicit dns-lwt-unix lwt.unix dnshelper))
+  (libraries mpst_apibase dns-lwt-unix lwt.unix dnshelper))
 
 (library
   (name dnshelper)
   (modules dnshelper)
-  (libraries mpst_explicit dns-lwt-unix lwt.unix))
+  (libraries mpst_apibase dns-lwt-unix lwt.unix))

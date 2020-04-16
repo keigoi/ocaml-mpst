@@ -1,0 +1,4 @@
+(executable
+ (name ex1)
+ (modules ex1)
+ (libraries mpst mpst_explicit lwt.unix))

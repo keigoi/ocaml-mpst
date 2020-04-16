@@ -1,4 +1,0 @@
-(library
- (name mpst_explicit)
- (public_name ocaml-mpst.explicit)
- (libraries lwt.unix threads))

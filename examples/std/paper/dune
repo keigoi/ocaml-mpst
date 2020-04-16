@@ -4,11 +4,10 @@
 
 (executable
  (name oauth_simple)
-  (public_name ocaml-mpst.example.oauth_simple)
   (modules oauth_simple)
-  (libraries ocaml-mpst oauth_simple_labels))
+  (libraries mpst oauth_simple_labels))
 
 (library
  (name oauth_simple_labels)
   (modules oauth_simple_labels)
-  (libraries ocaml-mpst))
+  (libraries mpst))

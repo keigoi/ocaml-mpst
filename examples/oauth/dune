@@ -1,4 +1,3 @@
 (executable
  (name oauth)
- (public_name oauth)
- (libraries mpst_explicit mpst_http lwt.unix lwt_log cmdliner))
+ (libraries mpst_http lwt.unix lwt_log cmdliner))

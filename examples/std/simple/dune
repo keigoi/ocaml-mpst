@@ -1,0 +1,94 @@
+(executable
+ (name ring)
+ (modules ring)
+ (libraries mpst))
+
+(library
+ (name calc_util)
+ (modules calc_util)
+ (libraries mpst))
+
+(executable
+ (name calc)
+ (modules calc)
+ (libraries mpst calc_util))
+
+(executable
+ (name calc_lwt)
+ (modules calc_lwt)
+ (libraries mpst calc_util))
+
+(executable
+ (name calc_base)
+ (modules calc_base)
+ (libraries concur-shims mpst calc_util))
+
+(executable
+ (name calc_reuse)
+ (modules calc_reuse)
+ (libraries mpst calc_util))
+
+(executable
+ (name calc_scatter)
+ (modules calc_scatter)
+ (libraries mpst calc_util))
+
+(executable
+ (name unfair)
+ (modules unfair)
+ (libraries mpst))
+
+(executable
+ (name roleenabling)
+ (modules roleenabling)
+ (libraries mpst))
+
+(executable
+ (name roleenabling2)
+ (modules roleenabling2)
+ (libraries mpst))
+
+(executable
+ (name loops)
+ (modules loops)
+ (libraries mpst))
+
+(executable
+ (name dynlin_test)
+ (modules dynlin_test)
+ (libraries mpst))
+
+(executable
+ (name scatter)
+ (modules scatter)
+ (libraries mpst))
+
+(executable
+ (name scatter2)
+ (modules scatter2)
+ (libraries mpst))
+
+(executable
+ (name deleg)
+ (modules deleg)
+ (libraries mpst calc_util))
+
+(library
+ (name toy_oauth_util)
+ (modules toy_oauth_util)
+ (libraries mpst))
+
+(executable
+ (name toy_oauth)
+ (modules toy_oauth)
+ (libraries mpst toy_oauth_util))
+
+(executable
+ (name parallel_loop)
+ (modules parallel_loop)
+ (libraries mpst))
+
+(executable
+ (name trade)
+ (modules trade)
+ (libraries mpst))

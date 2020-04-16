@@ -2,12 +2,12 @@
  (public_name ocaml-mpst)
  (name mpst)
  (libraries
- stdlib-shims
- concur-shims
- (select name.ml from
-     (lwt.unix -> name.lwt.ml)
-     (threads -> name.event.ml))
- (select stream_opt.ml from
-     (lwt.unix -> stream_opt.lwt.ml)
-     (threads -> stream_opt.event.ml))
- ))
+  stdlib-shims
+  concur-shims
+  (select name.ml from
+		  (lwt.unix -> name.lwt.ml)
+		  (threads -> name.event.ml))
+  (select stream_opt.ml from
+		  (lwt.unix -> stream_opt.lwt.ml)
+		  (threads -> stream_opt.event.ml))
+  ))

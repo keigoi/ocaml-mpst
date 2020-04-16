@@ -103,4 +103,4 @@ let t3 () =
     ) ()
 
 let () =
-  Lwt_main.run (IO_list.iter Thread.join ([t1 (); t3 ()] @ t2 ()))
+  IO.main_run (IO_list.iter Thread.join ([t1 (); t3 ()] @ t2 ()))

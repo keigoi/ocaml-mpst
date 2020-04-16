@@ -50,5 +50,5 @@ let () =
       Thread.create tC (get_ch c g)
     ] @ List.mapi (fun i s -> Thread.create (tB i) s) (get_ch_list b g)
   in
-  Lwt_main.run
+  IO.main_run
     (IO_list.iter Thread.join threads)

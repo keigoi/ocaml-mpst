@@ -10,6 +10,7 @@ module IO = struct
   let stdin = Lwt_io.stdin
   let stdout = Lwt_io.stdout
   let stderr = Lwt_io.stderr
+  let main_run = Lwt_main.run
 end
 
 module IO_list = struct

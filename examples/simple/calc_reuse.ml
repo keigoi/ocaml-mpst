@@ -114,8 +114,8 @@ let tCli2 ec =
   IO.return ()
 
 
-let (_:unit IO.io) =
+let () =
   let g = gen @@ calc2' () in
   let ec = get_ch cli g and es = get_ch srv g
   in
-  IO_list.iter Thread.join [Thread.create tCli2 ec; Thread.create tSrv2' es]
+  IO.main_run @@ IO_list.iter Thread.join [Thread.create tCli2 ec; Thread.create tSrv2' es]

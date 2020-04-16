@@ -96,8 +96,8 @@ let _ : Thread.t list =
 let _ : Thread.t =
   Thread.create tMaster ()
 
-let (_:unit IO.io) =
-  IO_list.iter Thread.join @@
+let () =
+  IO.main_run @@ IO_list.iter Thread.join @@
     repeat 10 (fun _ -> Thread.create (fun () ->
                                 let* s = connect calc_sh cli in
                                 tCli s) ())

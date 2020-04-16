@@ -32,17 +32,20 @@ let tA () =
 
 let tB () =
   print_endline "B start";
-  match%lin s <@ receive (fun x->x#role_A) with
-  | `left({data=()}, #s) ->
-     print_endline "B left";
-     let%lin `msg({data=()}, #s) = s <@ receive (fun x->x#role_C) in
-     let%lin #s = s <@ send (fun x->x#role_C#left) () in
-     s <@ close
-  | `right({data=()}, #s) ->
-     print_endline "B right";
-     let%lin `msg({data=()}, #s) = s <@ receive (fun x->x#role_C) in
-     let%lin #s = s <@ send (fun x->x#role_C#right) () in
-     s <@ close
+  let/ () =
+    match%lin s <@ receive (fun x->x#role_A) with
+    | `left({data=()}, #s) ->
+      print_endline "B left";
+      let%lin `msg({data=()}, #s) = s <@ receive (fun x->x#role_C) in
+      let%lin #s = s <@ send (fun x->x#role_C#left) () in
+      s <@ close
+    | `right({data=()}, #s) ->
+      print_endline "B right";
+      let%lin `msg({data=()}, #s) = s <@ receive (fun x->x#role_C) in
+      let%lin #s = s <@ send (fun x->x#role_C#right) () in
+      s <@ close
+  in
+  lift @@ IO.printl "B done"
 
 let tC () =
   print_endline "C start";
@@ -57,16 +60,16 @@ let tC () =
         s <@ close
     end
   in
-  print_endline "C done";
-  return ()
+  lift @@ IO.printl "C done"
 
 let g = Linocaml.(Succ s)
 let s1 = Linocaml.(Succ g)
 let s2 = Linocaml.(Succ s1)
   
-let (_ : unit IO.io) =
+let () =
   Random.self_init ();
-  Linocaml.run (fun () ->
+  IO.main_run @@
+    Linocaml.run (fun () ->
       let%lin #g = gen roleenabling in
       let%lin #g,#s1 = get_ch a @> g in
       let%lin #g,#s2 = get_ch b @> g in

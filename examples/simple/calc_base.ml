@@ -14,7 +14,7 @@ let calc =
           (cli, (cli --> srv) result @@
                   (srv --> cli) answer @@ finish))
 
-let (_:unit IO.io) =
+let main () =
   let cch = get_ch cli calc in
   let sch = get_ch srv calc in
   let (_:Thread.t) =
@@ -47,3 +47,5 @@ let (_:unit IO.io) =
   ignore (close cch);
   Printf.printf "answer is: %d\n" ans;
   IO.return ()
+
+let () = IO.main_run (main ())

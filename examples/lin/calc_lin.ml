@@ -53,15 +53,18 @@ let rec tSrv_monad () =
   in loop 0
 
 
-let (_ : unit IO.io) =
-  ignore (Thread.create (run tSrv_monad) ());
-  ignore (Thread.create (run tCli_monad) ());
-  ignore (Thread.create (run tCli_monad) ());
-  ignore (Thread.create (run tCli_monad) ());
-  ignore (Thread.create (run tCli_monad) ());
-  ignore (Thread.create (run tCli_monad) ());
-  ignore (Thread.create (run tCli_monad) ());
-  let* () = run tCli_monad () in
-  let* () = run tCli_monad () in
-  let* () = run tCli_monad () in
-  IO.return ()
+let () =
+  IO.main_run begin
+    ignore (Thread.create (run tSrv_monad) ());
+    ignore (Thread.create (run tCli_monad) ());
+    ignore (Thread.create (run tCli_monad) ());
+    ignore (Thread.create (run tCli_monad) ());
+    ignore (Thread.create (run tCli_monad) ());
+    ignore (Thread.create (run tCli_monad) ());
+    ignore (Thread.create (run tCli_monad) ());
+    let* () = run tCli_monad () in
+    let* () = run tCli_monad () in
+    let* () = run tCli_monad () in
+    IO.return ()
+  end
+

@@ -96,6 +96,8 @@ let thread_create l f x =
        let t = Thread.create th () in
        IO.return (lpost,{data=t}))}
 
+let lift m = {__m=(fun p -> IO.bind m (fun v -> IO.return (p, {data=v})))}
+
 let run f x =
   IO.bind ((f x).__m all_empty) (fun (_, {data=x}) -> IO.return x)
 

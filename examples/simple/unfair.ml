@@ -18,7 +18,7 @@ let unfair () =
   in
   g
 
-let (_ : unit IO.io) =
+let () =
   let g = unfair ()
   in
   let ea = get_ch a g in
@@ -55,4 +55,4 @@ let (_ : unit IO.io) =
       print_endline "C: closing";
       close ec) ()
   in
-  IO_list.iter Thread.join [ta; tb; tc]
+  IO.main_run @@ IO_list.iter Thread.join [ta; tb; tc]

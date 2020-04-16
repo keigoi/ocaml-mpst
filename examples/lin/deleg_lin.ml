@@ -2,8 +2,8 @@ open Concur_shims
 open Mpst_lin
 open Mpst_lin.Util
 open Mpst_lin.LinocamlStyle
-
 open Linocaml
+
 open Calc_util
 
 let (let*) = IO.bind
@@ -104,7 +104,8 @@ let _ : Thread.t list =
 let _ : Thread.t =
   Thread.create (run tMaster) ()
 
-let (_:unit IO.io) =
+let () =
+  IO.main_run @@
   IO_list.iter Thread.join @@
     repeat 10 (fun _ -> Thread.create (fun () ->
                             run (fun () ->

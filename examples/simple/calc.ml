@@ -41,11 +41,7 @@ let tSrv es =
       close es
   in loop 0 es
 
-let (_:unit IO.io) =
+let () =
   let sh = create_shared ~kinds:[`Local,0;`Local,0] calc in
   ignore (Thread.create (fun () -> accept_and_start sh srv tSrv) ()); (*FIXME*)
-  connect_and_start sh cli tCli
-  (* let g = gen @@ calc in
-   * let ec = get_ch cli g in
-   * let es = get_ch srv g in
-   * List.iter Thread.join [Thread.create tCli ec; Thread.create tSrv es] *)
+  IO.main_run @@ connect_and_start sh cli tCli

@@ -110,4 +110,4 @@ let tc () =
   loop ch
   
 let () =
-  Lwt_main.run (IO_list.iter Thread.join (List.map (fun f -> Thread.create f ()) [ts; tb 250; tc]))
+  IO.main_run (IO_list.iter Thread.join (List.map (fun f -> Thread.create f ()) [ts; tb 250; tc]))

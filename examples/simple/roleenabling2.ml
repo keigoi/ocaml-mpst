@@ -85,6 +85,6 @@ let tC =
       loop ec
     ) ()
 
-let (_ : unit IO.io) =
+let () =
   Random.self_init ();
-  IO_list.iter Thread.join [tA; tB; tC]
+  IO.main_run @@ IO_list.iter Thread.join [tA; tB; tC]

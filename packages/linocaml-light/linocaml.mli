@@ -63,6 +63,8 @@ val thread_create :
   ('d -> ([> `cons of 'a * all_empty ], all_empty, unit data) monad) ->
   'd -> ('b, 'c, Concur_shims.Thread.t data) monad
 
+val lift : 'a Concur_shims.IO.io -> ('p, 'p, 'a data) monad 
+
 val run : ('a -> (all_empty, all_empty, 'b data) monad) -> 'a -> 'b Concur_shims.IO.io
 
 val run_ : (unit -> (all_empty, all_empty, 'b data) monad) -> 'b Concur_shims.IO.io

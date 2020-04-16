@@ -109,5 +109,5 @@ let () =
   Random.self_init ();
   let calc2 = gen @@ calc2 () in
   let ec = get_ch cli calc2 and es = get_ch srv calc2 in
-  Lwt_main.run @@
-  IO_list.iter Thread.join [Thread.create tSrv2 es; Thread.create tCli ec]
+  IO.main_run @@
+    IO_list.iter Thread.join [Thread.create tSrv2 es; Thread.create tCli ec]

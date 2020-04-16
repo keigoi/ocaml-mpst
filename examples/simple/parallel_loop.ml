@@ -92,4 +92,4 @@ let td () =
   loop ch
 
 let () =
-  Lwt_main.run (IO_list.iter Thread.join [Thread.create ta 8; Thread.create tb (); Thread.create tc 5; Thread.create td ()])
+  IO.main_run (IO_list.iter Thread.join [Thread.create ta 8; Thread.create tb (); Thread.create tc 5; Thread.create td ()])

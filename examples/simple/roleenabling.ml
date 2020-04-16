@@ -36,17 +36,20 @@ let tB =
   Thread.create (fun () ->
       print_endline "B start";
       let* var = receive eb#role_A in
-      match var with
-      | `left((), eb) ->
-        print_endline "B left";
-        let* `msg((), eb) = receive eb#role_C in
-        let* eb = send eb#role_C#left () in
-        close eb
-      | `right((), eb) ->
-        print_endline "B right";
-        let* `msg((), eb) = receive eb#role_C in
-        let* eb = send eb#role_C#right () in
-        close eb
+      let* () =
+        match var with
+        | `left((), eb) ->
+          print_endline "B left";
+          let* `msg((), eb) = receive eb#role_C in
+          let* eb = send eb#role_C#left () in
+          close eb
+        | `right((), eb) ->
+          print_endline "B right";
+          let* `msg((), eb) = receive eb#role_C in
+          let* eb = send eb#role_C#right () in
+          close eb
+      in
+      IO.printl "B done"
     ) ()
 
 let tC =
@@ -54,17 +57,18 @@ let tC =
       print_endline "C start";
       let* ec = send ec#role_B#msg () in
       let* var = receive ec#role_B in
-      match var with
-      | `left((), ec) ->
-        print_endline "C left";
-        let* () = close ec in
-        IO.printl "C done"
-      | `right((), ec) ->
-        print_endline "C right";
-        let* () = close ec in
-        IO.printl "C done"
+      let* () =
+        match var with
+        | `left((), ec) ->
+          print_endline "C left";
+          close ec
+        | `right((), ec) ->
+          print_endline "C right";
+          close ec
+      in
+      IO.printl "C done"
     ) ()
 
-let (_ : unit IO.io) =
+let () =
   Random.self_init ();
-  IO_list.iter Thread.join [tA; tB; tC]
+  IO.main_run @@ IO_list.iter Thread.join [tA; tB; tC]

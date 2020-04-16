@@ -45,12 +45,12 @@ let tSrv ew =
       close ew
   in loop 0 ew
 
-let (_ : unit IO.io) =
+let () =
   let g = gen_mult [1;100] calc in
   let ec = get_ch cli g
   and ess = get_ch_list srv g
   in
   let ts = List.map (Thread.create tSrv) ess in
   ignore (Thread.create tCli ec);
-  IO_list.iter Thread.join ts
+  IO.main_run @@ IO_list.iter Thread.join ts
 

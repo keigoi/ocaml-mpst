@@ -53,7 +53,7 @@ let tC =
       close ec
     ) ()
 
-let (_ : unit IO.io) = IO_list.iter Thread.join [tA; tB; tC]
+let () = IO.main_run @@ IO_list.iter Thread.join [tA; tB; tC]
 
 (* incompatible branching at C between reception and closing *)
 (* let test =

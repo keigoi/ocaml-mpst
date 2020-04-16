@@ -53,7 +53,7 @@ let tSrv s =
        close s
   in loop 0 s
 
-let calc_sh = create_shared ~kinds:[`IPCProcess,0;`IPCProcess,0] calc
+let calc_sh = create_shared ~kinds:[`Local,0;`Local,0] calc
 let work_sh = create_shared ~kinds:[`Local,0;`Local,0] worker
 
 let tSrvWorker i =

@@ -83,7 +83,6 @@ let t2 () =
 let t3 () =
   Thread.create (fun () ->
       let s = pc in
-      let open Lwt in
       print_endline "C: enter a number (positive or zero or negative):";
       let* line = IO.read_line IO.stdin in
       let num = int_of_string line in
@@ -92,7 +91,7 @@ let t3 () =
       let* () =
         begin match var with
           | `left(_,s) -> begin
-              send s#role_A#msg "Hello, A!" >>= fun s ->
+              let* s = send s#role_A#msg "Hello, A!" in
               close s
             end
           | `right(_,s) -> begin

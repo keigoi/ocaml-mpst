@@ -15,7 +15,7 @@ let mustfail name f =
       end begin function
       | InvalidEndpoint ->
         IO.printl (name^":exception correctly occurred")
-      | exn -> Lwt.fail exn
+      | exn -> raise exn
     end
     
        

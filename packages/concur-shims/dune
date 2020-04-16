@@ -3,5 +3,5 @@
  (name concur_shims)
  (libraries
    (select concur_shims.ml from
-     (concur-shims-lwt -> concur_shims.lwt.ml)
+     (lwt.unix -> concur_shims.lwt.ml)
      (threads -> concur_shims.threads.ml))))

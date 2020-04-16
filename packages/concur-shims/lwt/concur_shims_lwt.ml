@@ -11,6 +11,7 @@ module IO = struct
   let stdout = Lwt_io.stdout
   let stderr = Lwt_io.stderr
   let main_run = Lwt_main.run
+  let yield = Lwt_main.yield
 end
 
 module IO_list = struct

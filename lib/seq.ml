@@ -15,7 +15,7 @@ module Make(Elm:ElementType) = struct
     | List : 'a local list -> 'a list elem
     | Lazy : 'a elem lazy_t list -> 'a elem
 
-  (* arbitrary-length, mergeable tuple *)
+  (* variable-length, mergeable tuple *)
   type _ t =
     (* hidden *)
     | SeqCons : 'hd elem * 'tl t -> [`cons of 'hd  * 'tl] t
@@ -44,7 +44,16 @@ module Make(Elm:ElementType) = struct
   let merge_elem : type t. t elem -> t elem -> t elem = fun el er ->
     match el, er with
     | One x, One y -> One (Mergeable.merge x y)
-    | List xs, List ys -> List (List.map2 Mergeable.merge xs ys)
+    | List xs, List ys ->
+      begin try
+          print_endline "foobar";
+        List (List.map2 Mergeable.merge xs ys)
+      with
+        exn ->
+        print_endline @@ Printf.sprintf "left:%d, right:%d" (List.length xs) (List.length ys);
+        flush stdout;
+        raise exn
+    end
     | (Lazy _ as e), One x ->
       One (Mergeable.merge x (from_one e))      
     | One x, (Lazy _ as e) ->

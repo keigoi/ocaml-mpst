@@ -15,11 +15,14 @@ type t =
    default:int -> epkind}
 
 let metainfo env idx cnt =
-  let kind = env.default cnt in
-  let info = {rm_index=idx; rm_size=cnt; rm_kind=kind} in
-  Table.put env.metainfo idx info;
-  info
-  
+  match Table.get_opt env.metainfo idx  with
+  | Some t -> t
+  | None ->
+    let kind = env.default cnt in
+    let info = {rm_index=idx; rm_size=cnt; rm_kind=kind} in
+    Table.put env.metainfo idx info;
+    info
+
 
 let rm_size {metainfo;_} idx =
   option ~dflt:1 ~f:(fun x -> x.rm_size) (Table.get_opt metainfo idx)

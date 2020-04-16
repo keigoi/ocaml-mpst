@@ -1,6 +1,6 @@
 open Base
 
-exception InvalidEndpoint
+exception InvalidEndpoint = Mutex_flag.InvalidEndpoint
 
 module type S = sig
   type +'a lin

@@ -1,4 +1,0 @@
-(library
-  (name mpst_monad_lwt)
-  (public_name ocaml-mpst.monad.lwt)
-  (libraries ocaml-mpst.monad ocaml-mpst.lwt linocaml.lwt lwt))

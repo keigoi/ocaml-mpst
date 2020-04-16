@@ -1,4 +1,0 @@
-(library
- (name mpst_async)
- (flags ("-g" "-short-paths"))
- (libraries threads ocaml-mpst async async_unix))

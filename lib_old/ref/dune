@@ -1,5 +1,0 @@
-(library
- (public_name ocaml-mpst.ref)
- (name mpst_ref)
- (flags ("-g" "-short-paths"))
- (libraries threads stdlib-shims))

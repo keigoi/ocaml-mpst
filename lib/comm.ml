@@ -78,7 +78,11 @@ module Make(DynLin:DynLin.S)(Lin:LIN) : sig
   val gen : 'a global -> 'a tup
   
   val gen_mult : int list -> 'a global -> 'a tup
-  
+
+  val gen_with_kinds: [< `IPCProcess | `Local | `Untyped ] list -> 'a global -> 'a tup
+
+  val gen_with_kinds_mult: ([< `IPCProcess | `Local | `Untyped ] * int) list -> 'a global -> 'a tup
+
   val get_ch : ('a one, 'b, 'c, 'd, 'e, 'f) role -> 'c tup -> 'a
   
   val get_ch_list : ('a list, 'b, 'c, 'd, 'e, 'f) role -> 'c tup -> 'a list
@@ -261,6 +265,17 @@ end = struct
   let with_multirole ~at = closed_list_at_ at
   
   type 't tup = Env.t * 't Seq.t
+
+  let ipc cnt =
+    Env.EpDpipe (List.init cnt (fun _ -> Table.create ()))
+
+  let untyped cnt =
+    Env.EpUntyped (List.init cnt (fun _ -> Table.create ()))
+  
+  let rm_kind_of_kind ~rm_index ~rm_size = function
+    | `Local -> {Env.rm_kind=EpLocal; rm_size; rm_index}
+    | `IPCProcess -> {Env.rm_kind=ipc rm_size; rm_size; rm_index}
+    | `Untyped -> {Env.rm_kind=untyped rm_size; rm_size; rm_index}
   
   let gen_with_env env g = (env, g env)
   
@@ -281,6 +296,26 @@ end = struct
       {Env.metainfo=Table.create_from ps; default=local}
       g
   
+  let mkparams_mult ps =
+    {Env.metainfo =
+       Table.create_from
+         (List.mapi (fun rm_index (k,rm_size) -> rm_kind_of_kind ~rm_index ~rm_size k) ps);
+     default=local}
+
+  let mkparams ps =
+    {Env.metainfo =
+       Table.create_from
+         (List.mapi (fun rm_index k -> rm_kind_of_kind ~rm_index ~rm_size:1 k) ps);
+     default=local}
+
+  let gen_with_kinds ps g =
+    let env = mkparams ps in
+    env, g env
+
+  let gen_with_kinds_mult ps g =
+    let env = mkparams_mult ps in
+    env, g env
+
   (* let gen_mult_ipc ps g =
    *   let ps = List.mapi (fun i cnt -> {Env.rm_index=i;rm_size=cnt;rm_kind=ipc cnt}) ps in
    *   gen_with_env

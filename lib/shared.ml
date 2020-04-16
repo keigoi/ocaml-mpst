@@ -8,10 +8,13 @@ module Make(DynLin:DynLin.S)(Lin:Comm.LIN) = struct
   open Comm
 
   type kind = [`Local | `IPCProcess | `Untyped]
-  
-  let ipc _ = failwith ""
-  let untyped _ = failwith ""
-  
+
+  let ipc cnt =
+    Env.EpDpipe (List.init cnt (fun _ -> Table.create ()))
+
+  let untyped cnt =
+    Env.EpUntyped (List.init cnt (fun _ -> Table.create ()))
+
   let rm_kind_of_kind ~rm_index ~rm_size = function
     | `Local -> {Env.rm_kind=EpLocal; rm_size; rm_index}
     | `IPCProcess -> {Env.rm_kind=ipc rm_size; rm_size; rm_index}

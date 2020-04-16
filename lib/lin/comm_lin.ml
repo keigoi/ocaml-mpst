@@ -42,7 +42,7 @@ module Static : sig
     ('pre, 'post, unit data) monad
 
   module LinocamlStyle : sig
-    val s : ('x, 'y, 'x, 'y) lens
+    val s0 : ('x, 'y, 'x, 'y) lens
 
     val ( @* ) :
       ('a,'b,'q,'r) lens
@@ -112,7 +112,7 @@ end = struct
 
   module LinocamlStyle = struct
     (* "root" index *)
-    let s = Other ((fun x -> x), (fun _ x -> x))
+    let s0 = Other ((fun x -> x), (fun _ x -> x))
 
     let[@inline] ( @* ) l1 l2 =
       let open Linocaml in
@@ -167,9 +167,9 @@ let linret f = {Linocaml.__m=(fun pre -> IO.return (pre, {Linocaml.__lin=f ()}))
 let raw_gen = gen
 (* let raw_gen_ipc = gen_ipc *)
 let raw_gen_mult = gen_mult
-(* let raw_gen_mult_ipc = gen_mult_ipc
- * let raw_gen_with_kinds = gen_with_kinds
- * let raw_gen_with_kinds_mult = gen_with_kinds_mult *)
+(* let raw_gen_mult_ipc = gen_mult_ipc *)
+let raw_gen_with_kinds = gen_with_kinds
+let raw_gen_with_kinds_mult = gen_with_kinds_mult
 
 let gen_raw g = gen g
 

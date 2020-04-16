@@ -1,4 +1,5 @@
 open Mpst.M
+open Base
 open Concur_shims
 
 module Lin : Comm.LIN with type 'a lin = 'a Linocaml.lin = struct
@@ -42,6 +43,11 @@ module Static : sig
 
   module LinocamlStyle : sig
     val s : ('x, 'y, 'x, 'y) lens
+
+    val ( @* ) :
+      ('a,'b,'q,'r) lens
+      -> ('c,unit,'p,'q) lens
+      -> ('a * 'c,'b,'p,'r) lens
 
     val send : ((< .. > as 's) -> ('v data, 't) out) -> 'v -> ('s lin, unit, 't lin) monad
 
@@ -108,6 +114,19 @@ end = struct
     (* "root" index *)
     let s = Other ((fun x -> x), (fun _ x -> x))
 
+    let[@inline] ( @* ) l1 l2 =
+      let open Linocaml in
+      let[@inline] get p =
+        let c,q = lens_get l2 p, lens_put l2 p () in
+        let a = lens_get l1 q in
+        a,c
+      and[@inline] put p b =
+        let q = lens_put l2 p () in
+        let r = lens_put l1 q b in
+        r
+      in
+      Other(get,put)
+
     let send sel v = {__m=(fun lpre ->
         let* s = send_raw (sel (unlin lpre)) {data=v} in
         IO.return ((), {__lin=s})
@@ -166,7 +185,7 @@ let gen_mult ps g = linret (fun () -> gen_mult ps g)
  * 
  * let gen_with_kinds_mult ps g = linret (fun () -> gen_with_kinds_mult ps g) *)
 
-let degen : (([`cons of close * 't] as 't) Seq.t lin, unit, unit data) Linocaml.monad =
+let degen : (([`cons of close one * 't] as 't) tup lin, unit, unit data) Linocaml.monad =
   {Linocaml.__m=(fun _ -> IO.return ((), {Linocaml.data=()}))}
 
 let raw_get_ch = get_ch

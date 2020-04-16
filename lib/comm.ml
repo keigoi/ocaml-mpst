@@ -83,19 +83,19 @@ module Make(DynLin:DynLin.S)(Lin:LIN) : sig
   
   val get_ch_list : ('a list, 'b, 'c, 'd, 'e, 'f) role -> 'c tup -> 'a list
   
-  val get_ch_ : ('a one, unit one, 'c, 'd, 'e, 'f) role -> 'c tup -> 'a * 'd tup
+  val get_ch_ : ('a one, close one, 'c, 'd, 'e, 'f) role -> 'c tup -> 'a * 'd tup
   
-  val get_ch_list_ : ('a list, unit one, 'c, 'd, 'e, 'f) role -> 'c tup -> 'a list * 'd tup
+  val get_ch_list_ : ('a list, close one, 'c, 'd, 'e, 'f) role -> 'c tup -> 'a list * 'd tup
   
   type 'a ty
   
-  val get_ty : ('a one, 'b, 'c, 'd, 'e, 'f) role -> 'c global -> 'a ty
+  val get_ty : ('a one, 'b, 'c, 'd, 'e, 'f) role -> 'c global -> 'a lin ty
   
-  val get_ty_ : ('a one, 'b, 'c, 'd, 'e, 'f) role -> 'c tup -> 'a ty
+  val get_ty_ : ('a one, 'b, 'c, 'd, 'e, 'f) role -> 'c tup -> 'a lin ty
   
-  val get_ty_list : ('a list, 'b, 'c, 'd, 'e, 'f) role -> 'c global -> 'a ty
+  val get_ty_list : ('a list, 'b, 'c, 'd, 'e, 'f) role -> 'c global -> 'a lin ty
   
-  val get_ty_list_ : ('a list, 'b, 'c, 'd, 'e, 'f) role -> 'c tup -> 'a ty
+  val get_ty_list_ : ('a list, 'b, 'c, 'd, 'e, 'f) role -> 'c tup -> 'a lin ty
   
   val (>:) :
     ('obj,('v, 'epA) out, 'var, 'v * 'epB) label ->
@@ -271,12 +271,12 @@ end = struct
 
   let get_ch_ role ((env, seq) as tup) =
     let ch = get_ch role tup in
-    let seq' = Seq.put role.role_index seq munit in
+    let seq' = Seq.put role.role_index seq Single.declare_close in
     ch, (env, seq')
 
   let get_ch_list_ role ((env, seq) as tup) =
     let ch = get_ch_list role tup in
-    let seq' = Seq.put role.role_index seq munit in
+    let seq' = Seq.put role.role_index seq Single.declare_close in
     ch, (env, seq')
   
   type 'a ty =
@@ -284,13 +284,13 @@ end = struct
     | TyList__ of (unit -> 'a list)
   
   let get_ty_ = fun r g ->
-    Ty__ (fun () -> get_ch r g)
+    Ty__ (fun () -> Lin.mklin @@ get_ch r g)
   
   let get_ty = fun r g ->
     get_ty_ r (gen g)
   
   let get_ty_list_ = fun r g ->
-    TyList__ (fun () -> get_ch_list r g)
+    TyList__ (fun () -> List.map Lin.mklin @@ get_ch_list r g)
   
   let get_ty_list = fun r g ->
     get_ty_list_ r (gen g)

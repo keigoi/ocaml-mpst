@@ -63,15 +63,15 @@ let tC () =
 let g = Linocaml.(Succ s)
 let s1 = Linocaml.(Succ g)
 let s2 = Linocaml.(Succ s1)
-
-let () =
+  
+let (_ : unit IO.io) =
   Random.self_init ();
   Linocaml.run (fun () ->
       let%lin #g = gen roleenabling in
       let%lin #g,#s1 = get_ch a @> g in
       let%lin #g,#s2 = get_ch b @> g in
-      let/ () = thread_create s1 tA () in
-      let/ () = thread_create s2 tB () in
+      let/ _ = thread_create s1 tA () in
+      let/ _ = thread_create s2 tB () in
       let%lin #g,#s = get_ch c @> g in
       let/ () = tC () in
       let/ () = degen @> g in

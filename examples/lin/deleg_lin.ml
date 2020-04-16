@@ -1,7 +1,13 @@
-open Mpst_monad
+open Concur_shims
+open Mpst_lin
+open Mpst_lin.Util
+open Mpst_lin.LinocamlStyle
+
 open Linocaml
-module Util = Calc_util.Make(Mpst_monad.Linocaml_lin.EP)
-open Util
+open Calc_util
+
+let (let*) = IO.bind
+let (let/) = Linocaml.bind
 
 let mst = {role_index=Zero;
            role_label={make_obj=(fun v->object method role_Mst=v end);
@@ -20,7 +26,7 @@ let calc =
 
 let worker =
   (srv --> mst) msg @@
-  (mst --> srv) (msg >: prot srv calc) @@
+  (mst --> srv) (msg >: get_ty srv calc) @@
   finish
 
 let s = Linocaml.Zero
@@ -33,7 +39,7 @@ let tCli_monad () =
   let%lin #s = s <@ send (fun x->x#role_Srv#compute) (Mul, 10) in
   let%lin #s = s <@ send (fun x->x#role_Srv#result) () in
   let%lin `answer(ans, #s) = s <@ receive (fun x->x#role_Srv) in
-  s <@ close >>= fun () ->
+  let/ () = s <@ close in
   (* outputs "Answer: -250" (= (20 - 45) * 10) *)
   Printf.printf "Answer: %d\n" ans;
   return ()
@@ -51,8 +57,8 @@ let tSrv_monad () =
        s <@ close
   in loop 0
 
-let calc_sh = create_shared ~kinds:[`IPCProcess;`IPCProcess] calc
-let work_sh = create_shared ~kinds:[`Untyped;`Untyped] worker
+let calc_sh = create_shared ~kinds:[`Local,0;`Local,0] calc
+let work_sh = create_shared ~kinds:[`Local,0;`Local,0] worker
 
 let tSrvWorker i =
   let rec loop () =
@@ -60,8 +66,8 @@ let tSrvWorker i =
     let%lin #t = accept work_sh srv in
     let%lin #t = t <@ send (fun x->x#role_Mst#msg) i in
     let%lin `msg(#s, #t) = t <@ receive (fun x->x#role_Mst) in
-    t <@ close >>= fun () ->
-    tSrv_monad () >>= fun () ->
+    let/ () = t <@ close in
+    let/ () = tSrv_monad () in
     loop ()
   in loop ()
 
@@ -74,11 +80,12 @@ let tMaster () =
     let%lin `msg(i, #t) = t <@ receive (fun x->x#role_Srv) in
     Printf.printf "master: connecrted to a worker %d\n" i;
     let%lin #t = (t @* s) <@ deleg_send (fun x->x#role_Srv#msg) in
-    t <@ close >>= loop
+    let/ () = t <@ close in
+    loop ()
   in loop ()
 
-let run f x : unit =
-  Linocaml.run' f x
+let run f x : unit IO.io =
+  Linocaml.run f x
 
 let repeat cnt f =
   let rec loop cnt acc =
@@ -97,9 +104,9 @@ let _ : Thread.t list =
 let _ : Thread.t =
   Thread.create (run tMaster) ()
 
-let () =
-  List.iter Thread.join @@
-    repeat 10 (fun i -> Thread.create (fun () ->
+let (_:unit IO.io) =
+  IO_list.iter Thread.join @@
+    repeat 10 (fun _ -> Thread.create (fun () ->
                             run (fun () ->
                                 let%lin #s = connect calc_sh cli in
                                 tCli_monad ()) ()) ())

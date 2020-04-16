@@ -22,7 +22,7 @@ module Single(Local:S.LOCAL)(DynLin:DynLin.S) : sig
     ('obj, 'var inp) method_ ->
     'var Local.inp -> 's local -> 'obj local
 
-  val declare_close : close local
+  val declare_close : unit -> close local
   (** (Internal) Final state of a channel. *)
 
   val send : ('v, 't) out -> 'v -> 't IO.io
@@ -72,7 +72,7 @@ end = struct
       ~mergefun:merge_inp_lin
       ()
 
-  let declare_close =
+  let declare_close () =
     Mergeable.make
       ~value:(DynLin.declare ())
       ~mergefun:(fun _ _ -> DynLin.declare ())

@@ -235,7 +235,7 @@ end = struct
     Seq.resolve_merge (Lazy.force body)
   
   let finish_seq =
-    Seq.repeat 0 (fun _ -> Single.declare_close)
+    Seq.repeat 0 (fun _ -> Single.declare_close ())
   
   let finish : ([`cons of close_ one * 'a] as 'a) global = fun _ ->
     finish_seq
@@ -244,19 +244,19 @@ end = struct
       at:(close_ one, close_ list, [ `cons of close_ one * 'a ] as 'a, 'g, _, _) role ->
       'g global = fun ~at env ->
     let count = Env.rm_size env (int_of_idx at.role_index) in
-    let g' = Seq.put_list at.role_index finish_seq (List.init count (fun _ -> Single.declare_close)) in
+    let g' = Seq.put_list at.role_index finish_seq (List.init count (fun _ -> Single.declare_close ())) in
     g'
   
   let closed_at : 'g. (close_ one, close_ one, 'g, 'g, _, _) role -> 'g global -> 'g global
     = fun r g env ->
       let g = g env in
-      let g' = Seq.put r.role_index g Single.declare_close in
+      let g' = Seq.put r.role_index g (Single.declare_close ()) in
       g'
   
   let closed_list_at_ r g env =
       let g = g env in
       let count = Env.rm_size env (int_of_idx r.role_index) in
-      let g' = Seq.put_list r.role_index g (List.init count (fun _ -> Single.declare_close)) in
+      let g' = Seq.put_list r.role_index g (List.init count (fun _ -> Single.declare_close ())) in
       g'
   
   let closed_list_at : 'g. (close_ list, close_ list, 'g, 'g, _, _) role -> 'g global -> 'g global
@@ -335,12 +335,12 @@ end = struct
 
   let get_ch_ role ((env, seq) as tup) =
     let ch = get_ch role tup in
-    let seq' = Seq.put role.role_index seq Single.declare_close in
+    let seq' = Seq.put role.role_index seq (Single.declare_close ()) in
     ch, (env, seq')
 
   let get_ch_list_ role ((env, seq) as tup) =
     let ch = get_ch_list role tup in
-    let seq' = Seq.put role.role_index seq Single.declare_close in
+    let seq' = Seq.put role.role_index seq (Single.declare_close ()) in
     ch, (env, seq')
   
   type 'a ty =

@@ -1,6 +1,4 @@
 (library
  (name bench_util)
  (preprocess (pps linocaml-light.ppx))
- (ocamlopt_flags -O3)
- (flags ("-short-paths"))
- (libraries core_bench mpst mpst_lin core.nano_mutex))
+ (libraries mpst mpst_lin core_bench core.nano_mutex))

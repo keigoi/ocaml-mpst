@@ -35,6 +35,7 @@ module IO = struct
       end
     else
       pid
+  let is_direct = true
 end
 
 module IO_list = struct

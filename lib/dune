@@ -10,4 +10,7 @@
   (select stream_opt.ml from
 		  (lwt.unix -> stream_opt.lwt.ml)
 		  (threads -> stream_opt.event.ml))
+  (select mutex_flag.ml from
+		  (core.nano_mutex -> mutex_flag.nanomutex.ml)
+		  (threads -> mutex_flag.mutex.ml))
   ))

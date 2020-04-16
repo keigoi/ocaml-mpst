@@ -28,21 +28,75 @@ module type S = sig
   (** Lift given disjoint concatenation *)
   
   val declare_unlimited : 'a -> 'a gen
-end  
+end
 
-module Check : S = struct
+module Check : S
+(* Closure-less dynamic linearity checking (more efficient) *)
+  = struct
+  module Flag = Mutex_flag
+  type once_store = Flag.t ref
+  type 'a lin = {value:'a; store_ref:once_store ref}
+  type 'a gen =
+    {gen_value:'a;
+     gen_store_ref:once_store ref;
+     gen_store_assign:once_store -> unit}
+
+  let[@inline] use t =
+    Flag.use !(!(t.store_ref));
+    t.value
+
+  let declare v =
+    let store = ref (Flag.create ()) in
+    let store_ref = ref store in
+    let rec t =
+    {gen_value={value=v; store_ref};
+     gen_store_ref=store_ref;
+     gen_store_assign=(fun store -> t.gen_store_ref := store)}
+    in
+    t
+
+  let declare_unlimited v =
+    {gen_value=v;
+     gen_store_ref=ref @@ ref @@ Flag.create ();
+     gen_store_assign=(fun _ -> ())}
+
+  let wrap f x =
+    {x with gen_value=f x.gen_value}
+
+  let merge f meth ll rr =
+    let l = meth.call_obj ll.gen_value
+    and r = meth.call_obj rr.gen_value
+    in
+    let v = meth.make_obj {store_ref=l.store_ref; value = f l.value r.value}
+    in
+    {gen_value=v;
+     gen_store_ref=ll.gen_store_ref;
+     gen_store_assign=ll.gen_store_assign;
+    }
+
+  let lift_disj mrg =
+    {disj_concat=(fun l r ->
+       r.gen_store_assign !(l.gen_store_ref); (* track and use the same linearity flag *)
+       {l with
+         gen_value=mrg.disj_concat l.gen_value r.gen_value;
+         gen_store_assign=
+           (fun store -> l.gen_store_assign store; r.gen_store_assign store)
+       }
+     );
+     disj_splitL=(fun lr -> wrap mrg.disj_splitL lr);
+     disj_splitR=(fun lr -> wrap mrg.disj_splitR lr)}
+
+  let[@inline] refresh t =
+    !(t.gen_store_ref) := Flag.create ()
+
+  let[@inline] fresh t =
+    refresh t;
+    t.gen_value
+end
+
+module Check_closure : S = struct
   let (let*) = IO.bind
-                 
-  module Flag = struct
-    type t         = Mutex.t
-    let create ()  = Mutex.create ()
-    let use f      =
-      let* b = Mutex.try_lock f in
-      if b then
-        IO.return ()
-      else
-        raise InvalidEndpoint
-  end
+  module Flag = Mutex_flag
   
   type +'a lin = {once:Flag.t; value: 'a}
   type flag = Flag.t

@@ -1,4 +1,3 @@
-open Mpst.M
 open Mpst_explicit
 open HList
 
@@ -14,7 +13,7 @@ type generic_pipe_channel =
 let new_channel () =
   let pipe () =
     let inp,out = Lwt_unix.pipe () in
-    Lwt_io.of_fd Lwt_io.input inp, Lwt_io.of_fd Lwt_io.output out
+    Lwt_io.of_fd ~mode:Lwt_io.input inp, Lwt_io.of_fd ~mode:Lwt_io.output out
   in
   let my_inp, otr_out = pipe () in
   let otr_inp, my_out = pipe () in

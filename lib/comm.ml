@@ -83,6 +83,10 @@ module Make(DynLin:DynLin.S)(Lin:LIN) : sig
   
   val get_ch_list : ('a list, 'b, 'c, 'd, 'e, 'f) role -> 'c tup -> 'a list
   
+  val get_ch_ : ('a one, unit one, 'c, 'd, 'e, 'f) role -> 'c tup -> 'a * 'd tup
+  
+  val get_ch_list_ : ('a list, unit one, 'c, 'd, 'e, 'f) role -> 'c tup -> 'a list * 'd tup
+  
   type 'a ty
   
   val get_ty : ('a one, 'b, 'c, 'd, 'e, 'f) role -> 'c global -> 'a ty
@@ -264,6 +268,16 @@ end = struct
     let size = Env.rm_size env @@ int_of_idx role.role_index in
     List.map (fun x -> DynLin.fresh @@ Mergeable.resolve x)
       @@ Seq.get_list ~size role.role_index seq
+
+  let get_ch_ role ((env, seq) as tup) =
+    let ch = get_ch role tup in
+    let seq' = Seq.put role.role_index seq munit in
+    ch, (env, seq')
+
+  let get_ch_list_ role ((env, seq) as tup) =
+    let ch = get_ch_list role tup in
+    let seq' = Seq.put role.role_index seq munit in
+    ch, (env, seq')
   
   type 'a ty =
       Ty__ of (unit -> 'a)

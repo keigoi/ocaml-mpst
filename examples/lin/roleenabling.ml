@@ -1,8 +1,14 @@
 (* sending from a non-choosing role *)
-open Mpst_monad
+open Concur_shims
+open Mpst_lin
+open Mpst_lin.LinocamlStyle
+open Mpst_lin.Util
 open Linocaml
 
 let s = Linocaml.Zero
+
+let (let*) = IO.bind
+let (let/) = Linocaml.bind
 
 let roleenabling =
   choice_at a (to_b left_or_right)
@@ -41,14 +47,16 @@ let tB () =
 let tC () =
   print_endline "C start";
   let%lin #s = s <@ send (fun x->x#role_B#msg) () in
-  begin match%lin s <@ receive (fun x->x#role_B) with
-  | `left({data=()}, #s) ->
-     print_endline "C left";
-     s <@ close
-  | `right({data=()}, #s) ->
-     print_endline "C right";
-     s <@ close
-  end >>= fun () ->
+  let/ () =
+    begin match%lin s <@ receive (fun x->x#role_B) with
+      | `left({data=()}, #s) ->
+        print_endline "C left";
+        s <@ close
+      | `right({data=()}, #s) ->
+        print_endline "C right";
+        s <@ close
+    end
+  in
   print_endline "C done";
   return ()
 
@@ -58,15 +66,15 @@ let s2 = Linocaml.(Succ s1)
 
 let () =
   Random.self_init ();
-  Linocaml.run' (fun () ->
+  Linocaml.run (fun () ->
       let%lin #g = gen roleenabling in
       let%lin #g,#s1 = get_ch a @> g in
       let%lin #g,#s2 = get_ch b @> g in
-      thread_create s1 tA () >>
-      thread_create s2 tB () >>
+      let/ () = thread_create s1 tA () in
+      let/ () = thread_create s2 tB () in
       let%lin #g,#s = get_ch c @> g in
-      tC () >>= fun () ->
-      degen @> g >>
+      let/ () = tC () in
+      let/ () = degen @> g in
       return ()
     ) ()
 let f m =

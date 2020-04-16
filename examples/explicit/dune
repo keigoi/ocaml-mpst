@@ -2,5 +2,4 @@
  (name ex1)
   (public_name mpst_explicit_ex1)
   (modules ex1)
-  (flags ("-g" "-short-paths"))
   (libraries mpst mpst_explicit lwt.unix))

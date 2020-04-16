@@ -3,21 +3,21 @@
   (public_name calc_lin_mpst_simple)
   (modules calc_lin)
   (preprocess (pps linocaml-light.ppx))
-  (flags ("-g" "-short-paths"))
-  (libraries ocaml-mpst.monad calc_util))
+  (libraries ocaml-mpst.lin calc_util)
+  )
 
 (executable
  (name deleg_lin)
   (public_name deleg_lin_mpst_simple)
   (modules deleg_lin)
   (preprocess (pps linocaml-light.ppx))
-  (flags ("-g" "-short-paths"))
-  (libraries ocaml-mpst.monad calc_util))
+  (libraries ocaml-mpst.lin calc_util)
+  )
 
 (executable
  (name roleenabling)
   (public_name roleenabling_mpst_monad)
   (modules roleenabling)
   (preprocess (pps linocaml-light.ppx))
-  (flags ("-g" "-short-paths"))
-  (libraries ocaml-mpst.monad ))
+  (libraries ocaml-mpst.lin)
+  )

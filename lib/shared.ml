@@ -92,26 +92,26 @@ module Make(DynLin:DynLin.S)(Lin:Comm.LIN) = struct
     let env = mkenv kinds in
     let prop = Table.get env.metainfo (int_of_idx r.role_index) in
     match prop.rm_kind with
-    | Env.EpLocal (* | EpUntyped _ *)
+    | Env.EpLocal | EpUntyped _
       ->
       ignore (Thread.create (fun () -> (f ep : unit IO.io)) ());
       IO.return ()
-    (* | EpDpipe _ ->
-     *   ignore (C.fork_child (fun () -> f ep));
-     *   IO.return () *)
+    | EpDpipe _ ->
+       ignore (IO.fork_child (fun () -> f ep));
+       IO.return ()
   
   let connect_and_start (Shared{kinds;_} as sh) r f =
     let* ep = connect_ sh r in
     let env = mkenv kinds in
     let prop = Table.get env.metainfo (int_of_idx r.role_index) in
     match prop.rm_kind with
-    | EpLocal (* | EpUntyped _ *)
+    | EpLocal | EpUntyped _
       ->
       ignore (Thread.create (fun () -> (f ep : unit IO.io)) ());
       IO.return ()
-    (* | EpDpipe _ ->
-     *   ignore (C.fork_child (fun () -> f ep));
-     *   IO.return () *)
+    | EpDpipe _ ->
+      ignore (IO.fork_child (fun () -> f ep));
+      IO.return ()
 end
 
 module Dyn = Make(DynLin.Check)(Comm.NoStatic)

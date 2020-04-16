@@ -17,11 +17,31 @@ module IO = struct
       exn ->
       g exn
   let yield _ = ()
+  type in_channel = Stdlib.in_channel
+  type out_channel = Stdlib.out_channel
+  let pipe () =
+    let inp,out = Unix.pipe () in
+    Unix.in_channel_of_descr inp, Unix.out_channel_of_descr out
+  let close_in = close_in
+  let close_out = close_out
+  let output_value = output_value
+  let input_value = input_value
+  let flush = flush
+  let fork_child f =
+    let pid = Unix.fork () in
+    if pid = 0 then begin
+        (f ():unit);
+        exit 0;
+      end
+    else
+      pid
 end
 
 module IO_list = struct
   let iter = List.iter
   let iteri = List.iteri
+  let map = List.map
+  let mapi = List.mapi
 end
 
 module Thread = Thread

@@ -32,18 +32,18 @@ module Make(DynLin:DynLin.S)(Lin:LIN) : sig
   val ( --> ) :
     ('a one, 'b one, 'c, 'd, 'e, 'f inp) role ->
     ('g one, 'e one, 'h, 'c, 'b, 'i) role ->
-    ('i, ('j, 'a) out, 'f, 'j * 'g lin) label -> 'h global -> 'd global
+    ('i, ('j, 'a) out, [>] as 'f, 'j * 'g lin) label -> 'h global -> 'd global
   
   val gather :
     ('a list, 'b list, 'c, 'd, 'e, 'f gather) role ->
     ('g one, 'e one, 'h, 'c, 'b, 'i) role ->
-    ('i, ('j, 'a) out, 'f, 'j list * 'g lin) label ->
+    ('i, ('j, 'a) out, [>] as 'f, 'j list * 'g lin) label ->
     'h global -> 'd global
   
   val scatter :
     ('a one, 'b one, 'c, 'd, 'e, 'f inp) role ->
     ('g list, 'e list, 'h, 'c, 'b, 'i) role ->
-    ('i, ('j, 'a) scatter, 'f, 'j * 'g lin) label ->
+    ('i, ('j, 'a) scatter, [>] as 'f, 'j * 'g lin) label ->
     'h global -> 'd global
   
   val choice_at :
@@ -113,25 +113,44 @@ module Make(DynLin:DynLin.S)(Lin:LIN) : sig
 end = struct
 
   module Seq = Seq.Make(struct type 'a t = 'a DynLin.gen end)
-  module Single = Comm_base.Single(DynLin)
-  module ScatterGather = Comm_base.ScatterGather(DynLin)
+  module Channel = Channel.Make(struct
+                       type 'a t = 'a DynLin.gen
+                       and 'a u = 'a Lin.lin
+                       let fresh x = Lin.mklin @@ DynLin.fresh x
+                     end)
+  module Single = Comm_base.Single(Channel)(DynLin)
+  module ScatterGather = Comm_base.ScatterGather(Channel)(DynLin)
 
   type 't global = Env.t -> 't Seq.t
 
   type 'a lin = 'a Lin.lin
   
   type close_ = Single.close
-  
+
+  let is_chvec env from to_ =
+    let from = int_of_idx from.role_index
+    and to_ = int_of_idx to_.role_index in
+    let from_info = Env.metainfo env from 1
+    and to_info = Env.metainfo env to_ 1
+    in
+    from_info.rm_kind = Env.EpLocal
+    && to_info.rm_kind = Env.EpLocal
+    
   (**
    * Communication combinator
    *)
   let (-->) ri rj label (g0 : _ global) : _ global = fun env ->
     let g0 = g0 env in
     let sj' = Seq.get rj.role_index g0 in
-    let wrap = fun x ->
-      label.var (x, Lin.mklin @@ DynLin.fresh @@ Mergeable.resolve sj')
+    let out, inp =
+      if is_chvec env ri rj then
+        let wrap = fun x ->
+          label.var (x, Lin.mklin @@ DynLin.fresh @@ Mergeable.resolve sj')
+        in
+        Channel.create_name wrap
+      else
+        Channel.create env ~from:(int_of_idx ri.role_index) ~to_:(int_of_idx rj.role_index) label sj'
     in
-    let out, inp = Name.create wrap in
     let sj = Single.declare_inp ri.role_label inp sj' in
     let g1 = Seq.put rj.role_index g0 sj in
     let si' = Seq.get ri.role_index g1 in
@@ -143,10 +162,15 @@ end = struct
     let count = Env.rm_size env (int_of_idx ri.role_index) in
     let g0 = g0 env in
     let sj' = Seq.get rj.role_index g0 in
-    let wrap = fun x ->
-      label.var (x, Lin.mklin @@ DynLin.fresh (Mergeable.resolve sj'))
+    let outs, gather =
+    if is_chvec env ri rj then
+      let wrap = fun x ->
+        label.var (x, Lin.mklin @@ DynLin.fresh (Mergeable.resolve sj'))
+      in
+      Channel.create_name_gather count wrap
+    else
+      Channel.create_gather env ~from:(int_of_idx ri.role_index) ~to_:(int_of_idx rj.role_index) label sj'
     in
-    let outs, gather = Name.create_gather count wrap in
     let sj = ScatterGather.declare_gather ri.role_label gather sj' in
     let g1 = Seq.put rj.role_index g0 sj in
     let si' = Seq.get_list ~size:count ri.role_index g1 in
@@ -158,11 +182,16 @@ end = struct
     let count = Env.rm_size env (int_of_idx rj.role_index) in
     let g0 = g0 env in
     let sj' = Seq.get_list rj.role_index ~size:count g0 in
-    let wrap i =
-      let sj' = List.nth sj' i in
-      (fun x -> label.var (x, Lin.mklin @@ DynLin.fresh (Mergeable.resolve sj')))
+    let scatter, inps =
+      if is_chvec env ri rj then
+        let wrap i =
+          let sj' = List.nth sj' i in
+          (fun x -> label.var (x, Lin.mklin @@ DynLin.fresh (Mergeable.resolve sj')))
+        in
+        Channel.create_name_scatter count wrap
+      else
+        Channel.create_scatter env ~from:(int_of_idx ri.role_index) ~to_:(int_of_idx rj.role_index) label sj'
     in
-    let scatter, inps = Name.create_scatter count wrap in
     let sj = List.map2 (Single.declare_inp ri.role_label) inps sj' in
     let g1 = Seq.put_list rj.role_index g0 sj in
     let si' = Seq.get ri.role_index g1 in

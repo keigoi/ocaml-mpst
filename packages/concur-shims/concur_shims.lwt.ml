@@ -12,6 +12,14 @@ module IO = struct
   let stderr = Lwt_io.stderr
   let main_run = Lwt_main.run
   let yield = Lwt_main.yield
+  let fork_child f =
+    let pid = Lwt_unix.fork () in
+    if pid = 0 then begin
+        (f ():unit);
+        exit 0;
+      end
+    else
+      pid
 end
 
 module IO_list = struct

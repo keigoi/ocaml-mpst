@@ -1,6 +1,6 @@
 
-type 't st = 't Lwt_stream_opt.t
-let create_st () = Lwt_stream_opt.create ()
+type 't st = 't Stream_opt.t
+let create_st () = Stream_opt.create ()
 
 type ('t,'u) out0 =
   {o_st: 'u st;
@@ -198,10 +198,10 @@ let create_gather cnt (f : 'v list -> 't) =
   outs, gather
 
 let send {contents=Out({o_st; o_wrap; _})} v =
-  Lwt_stream_opt.send o_st (o_wrap v)
+  Stream_opt.send o_st (o_wrap v)
 
 let receive {contents=Inp({i_st; i_wrap; _})} =
-  Lwt_stream_opt.receive_wrap ~f:i_wrap i_st
+  Stream_opt.receive_wrap ~f:i_wrap i_st
 
 let send_many outs f =
   Lwt_list.iteri_p (fun i out -> send out (f i)) outs

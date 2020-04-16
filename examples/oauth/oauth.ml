@@ -4,7 +4,7 @@
  * a -!-> b : connect, then send.
  * b -?-> a : receive, then disconnect.
  *)
-open Mpst_explicit
+open Mpst_apibase
 module H = Mpst_http
 
 open Mpst_http.SLabels

@@ -12,20 +12,29 @@ module IO = struct
   let stderr = Lwt_io.stderr
   let main_run = Lwt_main.run
   let yield = Lwt_main.yield
-  let fork_child f =
-    let pid = Lwt_unix.fork () in
-    if pid = 0 then begin
-        (f ():unit);
-        exit 0;
-      end
-    else
-      pid
   let is_direct = false
+  type in_channel = Lwt_io.input_channel
+  type out_channel = Lwt_io.output_channel
+  let pipe () =
+    let inp,out = Unix.pipe () in
+    Lwt_io.of_unix_fd ~mode:Lwt_io.input inp,
+    Lwt_io.of_unix_fd ~mode:Lwt_io.output out
+  let close_in = Lwt_io.close
+  let close_out = Lwt_io.close
+  let output_value ch v =
+    (* NB: Lwt_io.write_value is much slower, as it writes to an intermediate buffer *)
+    Lwt_io.write_value ch v
+  let input_value ch =
+    Lwt_io.read_value ch
+  let flush ch =
+    Lwt_io.flush ch
 end
 
 module IO_list = struct
   let iter = Lwt_list.iter_s
   let iteri = Lwt_list.iteri_s
+  let map = Lwt_list.map_s
+  let mapi = Lwt_list.mapi_s
 end
 
 module Event : sig

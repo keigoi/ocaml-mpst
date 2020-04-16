@@ -4,6 +4,8 @@ module M = struct
   module Comm = Comm
   module Shared = Shared
   module Util = Util
+  module Flag = Mutex_flag
+  module Stream_opt = Stream_opt
 end
 
 include M.Base

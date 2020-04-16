@@ -1,4 +1,4 @@
-open Mpst_explicit
+open Mpst_apibase
 
 let ($$) f m =
   Lwt.bind m (fun x -> f x)

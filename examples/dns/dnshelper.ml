@@ -1,4 +1,4 @@
-open Mpst_explicit
+open Mpst_apibase
 open Lwt
 
 let cli = Role {role_label=

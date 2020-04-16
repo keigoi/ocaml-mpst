@@ -1,4 +1,4 @@
-open Mpst_explicit
+open Mpst_apibase
 let (>>=) = Lwt.(>>=)
 let (let/) = Lwt.bind
 

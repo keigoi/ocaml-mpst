@@ -179,11 +179,11 @@ let gen g = linret (fun () -> gen g)
 
 let gen_mult ps g = linret (fun () -> gen_mult ps g)
 
-(* let gen_mult_ipc ps g = linret (fun () -> gen_mult_ipc ps g)
- * 
- * let gen_with_kinds ps g = linret (fun () -> gen_with_kinds ps g)
- * 
- * let gen_with_kinds_mult ps g = linret (fun () -> gen_with_kinds_mult ps g) *)
+(* let gen_mult_ipc ps g = linret (fun () -> gen_mult_ipc ps g) *)
+
+let gen_with_kinds ps g = linret (fun () -> gen_with_kinds ps g)
+
+let gen_with_kinds_mult ps g = linret (fun () -> gen_with_kinds_mult ps g)
 
 let degen : (([`cons of close one * 't] as 't) tup lin, unit, unit data) Linocaml.monad =
   {Linocaml.__m=(fun _ -> IO.return ((), {Linocaml.data=()}))}

@@ -27,14 +27,6 @@ module IO = struct
   let output_value = output_value
   let input_value = input_value
   let flush = flush
-  let fork_child f =
-    let pid = Unix.fork () in
-    if pid = 0 then begin
-        (f ():unit);
-        exit 0;
-      end
-    else
-      pid
   let is_direct = true
 end
 

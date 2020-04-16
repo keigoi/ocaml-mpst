@@ -180,7 +180,7 @@ module Util = struct
 end
 
 module Labels = struct
-  open Mpst_explicit
+  open Mpst_apibase
   let get =
     {obj={make_obj=(fun v -> object method get=v end);
           call_obj=(fun o -> o#get)};
@@ -223,7 +223,7 @@ let mkpred = function
   | None -> (fun _ _ -> true)
 
 module Handlers = struct
-  open Mpst_explicit
+  open Mpst_apibase
 
   type http_param = (string * string list) list 
 
@@ -263,7 +263,7 @@ module Handlers = struct
 end
 
 module SLabels = struct
-  open Mpst_explicit
+  open Mpst_apibase
   let get ?sess_pred ?pred url = Labels.get %% Handlers.get ?sess_pred ?pred url
   let post ?sess_pred ?pred:_pred url = Labels.post %% Handlers.get ?sess_pred ?pred:None url (* FIXME *)
   let success ?sess_pred ?pred url = Labels.success %% Handlers.get ?sess_pred ?pred url

@@ -1,15 +1,15 @@
-module M = struct
-  module Base = Mpst.M.Base
-  module Comm = Comm_lin
-  module Shared = Shared_lin
-end
+include Mpst.Internal.Base
+include Combinators_lin
+include Shared_lin
 
-include M.Base
-include M.Comm
-include M.Shared
-
-module Util = Mpst.M.Util
+module Util = Mpst.Util
 
 exception InvalidEndpoint = Mpst.InvalidEndpoint
 exception UnguardedLoop = Mpst.UnguardedLoop
 exception UnguardedLoopSeq = Mpst.UnguardedLoopSeq
+
+module Internal = struct
+  module Combinators = Combinators_lin
+  module Shared = Shared_lin
+end
+

@@ -1,13 +1,14 @@
-open Mpst.M
-open Base
 open Concur_shims
 
-module Lin : Comm.LIN with type 'a lin = 'a Linocaml.lin = struct
+open Mpst.Internal
+open Mpst.Internal.Base
+
+module Lin : Combinators.LIN with type 'a lin = 'a Linocaml.lin = struct
   type 'a lin = 'a Linocaml.lin
   let mklin x = {Linocaml.__lin=x}
 end
 
-include Comm.Make(DynLin.NoCheck)(Lin)
+include Combinators.Make(Dyn_lin.NoCheck)(Lin)
 
 type 'a lin = 'a Linocaml.lin
 type 'a data = 'a Linocaml.data

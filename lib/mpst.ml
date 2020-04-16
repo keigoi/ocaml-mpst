@@ -1,19 +1,18 @@
-module M = struct
-  module Base = Base
-  module DynLin = DynLin
-  module Comm = Comm
-  module Shared = Shared
-  module Util = Util
-  module Flag = Mutex_flag
-  module Stream_opt = Stream_opt
-end
+include Base
+include Combinators.Dyn
+include Shared.Dyn
 
-include M.Base
-include M.Comm.Dyn
-include M.Shared.Dyn
+module Util = Util
 
-module Util = M.Util
-
-exception InvalidEndpoint = DynLin.InvalidEndpoint
+exception InvalidEndpoint = Mutex_flag.InvalidEndpoint
 exception UnguardedLoop = Mergeable.UnguardedLoop
 exception UnguardedLoopSeq = Seq.UnguardedLoopSeq
+
+module Internal = struct
+  module Combinators = Combinators
+  module Shared = Shared
+  module Base = Base
+  module Flag = Mutex_flag
+  module Dyn_lin = Dyn_lin
+  module Stream_opt = Stream_opt
+end

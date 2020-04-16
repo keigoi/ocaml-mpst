@@ -3,19 +3,43 @@ open Base
 open Env
 
 module Make(X:sig type 'a t and 'a u val fresh : 'a t -> 'a u end) : sig
+
   include S.LOCAL
-  
-  val create : Env.t -> from:int -> to_:int -> (_,_,[>] as 'var, 'v * 'cont X.u) label -> 'cont X.t Mergeable.t -> 'a out * 'var inp
-  val create_scatter : Env.t -> from:int -> to_:int ->  (_,_,[>] as 'var, 'v * 'cont X.u) label -> 'cont X.t Mergeable.t list -> 'a scatter * 'var inp list
-  val create_gather : Env.t -> from:int -> to_:int -> (_,_,[>] as 'var, 'v list * 'cont X.u) label -> 'cont X.t Mergeable.t -> 'a out list * 'var gather
 
   val create_name : ('a -> 'b) -> 'a out * 'b inp
+                                    
   val create_name_scatter : int -> (int -> 'a -> 'b) -> 'a scatter * 'b inp list
+                                                          
   val create_name_gather : int -> ('a list -> 'b) -> 'a out list * 'b gather
+  
+  val create :
+    Env.t
+    -> from:int
+    -> to_:int
+    -> (_,_,[>] as 'var, 'v * 'cont X.u) label
+    -> 'cont X.t Mergeable.t
+    -> 'a out * 'var inp
+                                                                                                                     
+  val create_scatter :
+    Env.t
+    -> from:int
+    -> to_:int
+    ->  (_,_,[>] as 'var, 'v * 'cont X.u) label
+    -> 'cont X.t Mergeable.t list
+    -> 'a scatter * 'var inp list
+                                                                                                                                   
+  val create_gather :
+    Env.t ->
+    from:int ->
+    to_:int ->
+    (_,_,[>] as 'var, 'v list * 'cont X.u) label ->
+    'cont X.t Mergeable.t ->
+    'a out list * 'var gather
 
 end = struct
+
   module U = Untyped.Make(X)
-  module DpipeU = Dpipe.Make(X)
+  module DpipeU = Untyped_dpipe.Make(X)
   module Untyped_streamU = Untyped_stream.Make(X)
 
   let (let*) = IO.bind
@@ -58,7 +82,7 @@ end = struct
   
   type ('x,'y) ch =
   | Dstream of (Untyped.tag * Obj.t) Untyped_stream.t list list
-  | Dpipe of Dpipe.t list list
+  | Dpipe of Untyped_dpipe.t list list
          
   let generate ~from_info ~to_info =
     match from_info.rm_kind, to_info.rm_kind with
@@ -72,7 +96,7 @@ end = struct
     | EpDpipe _, _ | _, EpDpipe _ ->
        let dpipes = 
          generate_channels
-           ~newch:Dpipe.new_dpipe ~flipch:Dpipe.flip_dpipe ~tablefun:dpipe_table
+           ~newch:Untyped_dpipe.new_dpipe ~flipch:Untyped_dpipe.flip_dpipe ~tablefun:dpipe_table
            ~from_info ~to_info
        in
        Dpipe(dpipes)

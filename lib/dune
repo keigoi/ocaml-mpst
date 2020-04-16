@@ -6,11 +6,11 @@
   concur-shims
   (select name.ml from
 		  (lwt.unix -> name.lwt.ml)
-		  (threads -> name.event.ml))
+		  (threads -> name.threads.ml))
   (select stream_opt.ml from
 		  (lwt.unix -> stream_opt.lwt.ml)
-		  (threads -> stream_opt.event.ml))
+		  (threads -> stream_opt.threads.ml))
   (select mutex_flag.ml from
 		  (core.nano_mutex -> mutex_flag.nanomutex.ml)
-		  (threads -> mutex_flag.mutex.ml))
+		  (threads -> mutex_flag.threads.ml))
   ))

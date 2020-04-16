@@ -3,9 +3,7 @@ let (let*) = Lwt.bind
 open Bench_util.Util
 open Bench_util.Testbase
 
-module Base =  Mpst.M.Base
-module Flag = Mpst.M.Flag
-(* module Common = Mpst.M.Common *)
+module Flag = Mpst.Internal.Flag
 
 let default_payload = snd @@ List.nth big_arrays 1
 
@@ -49,7 +47,7 @@ module BEventWrap : TEST = struct
 end
 
 module BLwtWrap() : TEST = struct
-  module M = Mpst.M.Stream_opt
+  module M = Mpst.Internal.Stream_opt
 
   let ch1 = M.create ()
   let ch2 = M.create ()
@@ -112,7 +110,7 @@ module type LWT_CHAN = sig
   val receive : 'a t -> 'a Lwt.t
 end
 module MpstLwtStream : LWT_CHAN = struct
-  module S = Mpst.M.Stream_opt
+  module S = Mpst.Internal.Stream_opt
   type 'a t = 'a S.t
   let create () = S.create ()
   let send t v = S.send t v

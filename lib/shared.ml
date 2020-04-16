@@ -1,13 +1,12 @@
-open Concur_shims
-open Base
 
-let (let*) = IO.bind
-
-module Make(DynLin:DynLin.S)(Lin:Comm.LIN) = struct
-  module Comm = Comm.Make(DynLin)(Lin)
-  open Comm
+module Make(DynLin:Dyn_lin.S)(Lin:Combinators.LIN) = struct
+  module Com = Combinators.Make(DynLin)(Lin)
+  open Com
 
   type kind = [`Local | `IPCProcess | `Untyped]
+
+  open Concur_shims
+  open Base
 
   let ipc cnt =
     Env.EpDpipe (List.init cnt (fun _ -> Table.create ()))
@@ -25,7 +24,7 @@ module Make(DynLin:DynLin.S)(Lin:Comm.LIN) = struct
         {global: [`cons of 'ep * 'tl] global;
          kinds: (kind*int) list option;
          accept_lock: Mutex.t;
-         connect_sync: ([`cons of 'ep * 'tl] Comm.tup) Event.channel list;
+         connect_sync: ([`cons of 'ep * 'tl] tup) Event.channel list;
         } -> [`cons of 'ep * 'tl] shared
   
   let local _ = Env.EpLocal
@@ -58,7 +57,7 @@ module Make(DynLin:DynLin.S)(Lin:Comm.LIN) = struct
     let accept_lock = Mutex.create () in
     let env = mkenv kinds in
     let seq = gen_with_env env global in
-    let len = Comm.effective_length seq in
+    let len = effective_length seq in
     let connect_sync = List.init len (fun _ -> Event.new_channel ()) in
     Shared
       {global;
@@ -68,6 +67,7 @@ module Make(DynLin:DynLin.S)(Lin:Comm.LIN) = struct
       }
   
   let accept_ (Shared m) r =
+    let (let*) = IO.bind in
     let* () = Mutex.lock m.accept_lock in
     let tup = init_seq_ (Shared m) in
     (* sync with all threads *)
@@ -79,6 +79,7 @@ module Make(DynLin:DynLin.S)(Lin:Comm.LIN) = struct
     IO.return ep
   
   let connect_ (Shared m) r =
+    let (let*) = IO.bind in
     let roleid = int_of_idx r.role_index in
     let c = List.nth m.connect_sync roleid in
     let* tup = Event.sync (Event.receive c) in
@@ -91,4 +92,4 @@ module Make(DynLin:DynLin.S)(Lin:Comm.LIN) = struct
     connect_ sh r
 end
 
-module Dyn = Make(DynLin.Check)(Comm.NoStatic)
+module Dyn = Make(Dyn_lin.Check)(Combinators.NoStatic)

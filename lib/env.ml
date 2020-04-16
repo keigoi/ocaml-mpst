@@ -2,7 +2,7 @@ open Base
 
 type epkind =
     EpLocal
-  | EpDpipe of Dpipe.t list Table.t list
+  | EpDpipe of Untyped_dpipe.t list Table.t list
   | EpUntyped of (Untyped.tag * Obj.t) Untyped_stream.t list Table.t list
 
 type role_metainfo =

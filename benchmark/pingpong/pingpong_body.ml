@@ -1,8 +1,6 @@
 open Concur_shims
 open Bench_util.Util
 open Bench_util.Testbase
-open Mpst.M
-open Mpst.M.Base
 
 module MakeDyn
          (Med:MEDIUM)

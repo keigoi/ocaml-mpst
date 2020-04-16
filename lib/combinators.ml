@@ -11,7 +11,7 @@ module NoStatic : LIN with type 'a lin = 'a = struct
   let mklin x = x
 end
 
-module Make(DynLin:DynLin.S)(Lin:LIN) : sig
+module Make(DynLin:Dyn_lin.S)(Lin:LIN) : sig
   type 'a lin = 'a Lin.lin
 
   type ('v, 's) out
@@ -116,15 +116,18 @@ module Make(DynLin:DynLin.S)(Lin:LIN) : sig
   val env : 't tup -> Env.t
 end = struct
 
-  module Seq = Seq.Make(struct type 'a t = 'a DynLin.gen end)
   module Channel = Channel.Make(struct
                        type 'a t = 'a DynLin.gen
                        and 'a u = 'a Lin.lin
                        let fresh x = Lin.mklin @@ DynLin.fresh x
                      end)
-  module Single = Comm_base.Single(Channel)(DynLin)
-  module ScatterGather = Comm_base.ScatterGather(Channel)(DynLin)
 
+  module Single = Channel_vectors.Single(Channel)(DynLin)
+
+  module ScatterGather = Channel_vectors.ScatterGather(Channel)(DynLin)
+
+  module Seq = Seq.Make(struct type 'a t = 'a DynLin.gen end)
+      
   type 't global = Env.t -> 't Seq.t
 
   type 'a lin = 'a Lin.lin
@@ -369,4 +372,4 @@ end = struct
   include ScatterGather
 end
 
-module Dyn = Make(DynLin.Check)(NoStatic)
+module Dyn = Make(Dyn_lin.Check)(NoStatic)

@@ -1,7 +1,7 @@
 open Concur_shims
 open Base
 
-module Single(Local:S.LOCAL)(DynLin:DynLin.S) : sig
+module Single(Local:S.LOCAL)(DynLin:Dyn_lin.S) : sig
   type 'a local = 'a DynLin.gen Mergeable.t
 
   type ('v, 's) out
@@ -95,7 +95,7 @@ end = struct
 end
 
 
-module ScatterGather(Local:S.LOCAL)(DynLin:DynLin.S) : sig
+module ScatterGather(Local:S.LOCAL)(DynLin:Dyn_lin.S) : sig
   type 'a local = 'a DynLin.gen Mergeable.t
 
   type ('v, 's) scatter

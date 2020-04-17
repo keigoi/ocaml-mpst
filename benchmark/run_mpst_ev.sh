@@ -10,6 +10,8 @@ echo running benchmark with quota of $QUOTA seconds.
 set -e
 set -v
 
+opam switch ocaml-mpst-ev
+eval `opam env`
 dune build @mpst/all
 
 ../_build/default/benchmark/mpst/pingpong/pingpong.exe +time cycles alloc gc percentage speedup samples -quota $QUOTA -sexp >mpst/pingpong/results/table_sexp_ev.txt

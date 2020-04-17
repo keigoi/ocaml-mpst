@@ -4,24 +4,21 @@ open Core_bench.Bench.Test
 open Bench_util.Util
 open Chameleons_body
 
-(* let nums_threads = [2500; 1000; 500; 100; 75; 50; 25; 3] *)
-let nums_threads = [100; 75; 50; 25; 3]
+let nums_threads = [1000; 500; 100; 75; 50; 25; 3]
 
 let run ?(args=nums_threads) ~name t =
   create_indexed ~args ~name t
 
-let prefix =
+let test =
   if IO.is_direct then
-    "ev_"
+    []
   else
-    "lwt_"
-
-let test = [
-  run ~name:(prefix^"dynamic") (let module M = MakeDyn(Shmem)() in M.runtest);
-  run ~name:(prefix^"dynamic_untyped") (let module M = MakeDyn(Untyped)() in M.runtest);
-  run ~name:(prefix^"static") (let module M = MakeStatic(Shmem)() in M.runtest);
-  run ~name:(prefix^"static_untyped") (let module M = MakeStatic(Untyped)() in M.runtest);
-  ]
+    [
+      run ~name:("lwt_dynamic") (let module M = MakeDyn(Shmem)() in M.runtest);
+      run ~name:("lwt_static") (let module M = MakeStatic(Shmem)() in M.runtest);
+      run ~name:("lwt_ipc_dynamic") (let module M = MakeDyn(IPC)() in M.runtest);
+      run ~name:("lwt_ipc_static") (let module M = MakeStatic(IPC)() in M.runtest);
+    ]
 
 let test_all =
     test

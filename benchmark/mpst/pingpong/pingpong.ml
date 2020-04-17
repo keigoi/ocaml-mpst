@@ -28,13 +28,17 @@ let test = [
     create ~name:(prefix^"static_untyped") @@ (let module M = MakeStatic(Untyped)() in run M.runtest);
   ]
 
-let test_ipc = [
-    (* Interestingly, when we use Unix pipe, event-based versions are always faster by 2x or more.
-     * Also, static (monadic) versions are always faster; it seems that closures are GC'ed during i/o.
-     *)
-    create_indexed ~args ~name:"ipc_dynamic" (let module M = MakeDyn(IPC)() in M.runtest);
-    create_indexed ~args ~name:"ipc_static" (let module M = MakeStatic(IPC)() in M.runtest);
-  ]
+let test_ipc =
+  if IO.is_direct then
+    [
+      (* Interestingly, when we use Unix pipe, event-based versions are always faster by 2x or more.
+       * Also, static (monadic) versions are always faster; it seems that closures are GC'ed during i/o.
+      *)
+      create_indexed ~args ~name:"ipc_dynamic" (let module M = MakeDyn(IPC)() in M.runtest);
+      create_indexed ~args ~name:"ipc_static" (let module M = MakeStatic(IPC)() in M.runtest);
+    ]
+  else
+    []
 
 let test_all =
   test @ test_ipc

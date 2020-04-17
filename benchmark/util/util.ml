@@ -1,7 +1,6 @@
 (* open Mpst.M *)
 
-(* let array_sizes = [1; 10; 100; 1000; 10000; 100000] *)
-let array_sizes = [1; 10; 100; 1000; 5000; 10000]
+let array_sizes = [1; 10; 100; 1000]
 
 (* actual array that is passed around threads/processes *)
 let big_arrays =

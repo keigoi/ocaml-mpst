@@ -21,7 +21,7 @@
 (executable
  (name calc_base)
  (modules calc_base)
- (libraries concur-shims mpst calc_util))
+ (libraries mpst calc_util))
 
 (executable
  (name calc_reuse)
@@ -31,46 +31,6 @@
 (executable
  (name calc_scatter)
  (modules calc_scatter)
- (libraries mpst calc_util))
-
-(executable
- (name unfair)
- (modules unfair)
- (libraries mpst))
-
-(executable
- (name roleenabling)
- (modules roleenabling)
- (libraries mpst))
-
-(executable
- (name roleenabling2)
- (modules roleenabling2)
- (libraries mpst))
-
-(executable
- (name loops)
- (modules loops)
- (libraries mpst))
-
-(executable
- (name dynlin_test)
- (modules dynlin_test)
- (libraries mpst))
-
-(executable
- (name scatter)
- (modules scatter)
- (libraries mpst))
-
-(executable
- (name scatter2)
- (modules scatter2)
- (libraries mpst))
-
-(executable
- (name deleg)
- (modules deleg)
  (libraries mpst calc_util))
 
 (library
@@ -84,46 +44,6 @@
  (libraries mpst toy_oauth_util))
 
 (executable
- (name parallel_loop)
- (modules parallel_loop)
- (libraries mpst))
-
-(executable
  (name trade)
  (modules trade)
  (libraries mpst))
-
-(executable
- (name calc_lin)
- (modules calc_lin)
- (preprocess (pps linocaml-light.ppx))
- (libraries mpst_lin calc_util)
- )
-
-(executable
- (name deleg_lin)
- (modules deleg_lin)
- (preprocess (pps linocaml-light.ppx))
- (libraries mpst_lin calc_util)
- )
-
-(executable
- (name roleenabling_lin)
- (modules roleenabling_lin)
- (preprocess (pps linocaml-light.ppx))
- (libraries mpst_lin)
- )
- 
-; examples from K. Imai, R. Neykova and N. Yoshida,
-; "Multiparty Session Programming with Global Protocol Combinators",
-; 2020.
-
-(executable
- (name oauth_simple)
-  (modules oauth_simple)
-  (libraries mpst oauth_simple_labels))
-
-(library
- (name oauth_simple_labels)
-  (modules oauth_simple_labels)
-  (libraries mpst))

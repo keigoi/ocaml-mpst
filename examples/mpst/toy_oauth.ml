@@ -1,3 +1,9 @@
+(*
+ examples from K. Imai, R. Neykova, N. Yoshida and S. Yuen,
+ "Multiparty Session Programming with Global Protocol Combinators",
+ 2020.
+*) 
+
 open Concur_shims
 open Mpst
 open Toy_oauth_util

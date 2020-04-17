@@ -1,0 +1,44 @@
+(executable
+ (name loop_unfair)
+ (modules loop_unfair)
+ (libraries mpst))
+
+(executable
+ (name choice_non_enabled)
+ (modules choice_non_enabled)
+ (libraries mpst))
+
+(executable
+ (name choice_non_enabled_loop)
+ (modules choice_non_enabled_loop)
+ (libraries mpst))
+
+(executable
+ (name loop_errors)
+ (modules loop_errors)
+ (libraries mpst))
+
+(executable
+ (name dynlin_errors)
+ (modules dynlin_errors)
+ (libraries mpst))
+
+(executable
+ (name scatter)
+ (modules scatter)
+ (libraries mpst))
+
+(executable
+ (name scatter_loop)
+ (modules scatter_loop)
+ (libraries mpst))
+
+(executable
+ (name delegation)
+ (modules delegation)
+ (libraries mpst calc_util))
+
+(executable
+ (name loop_parallel)
+ (modules loop_parallel)
+ (libraries mpst))

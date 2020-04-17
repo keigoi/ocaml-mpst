@@ -1,4 +1,4 @@
-(* sending from a non-choosing role *)
+(* sending from a non-enabled role *)
 open Concur_shims
 open Mpst
 open Mpst.Util

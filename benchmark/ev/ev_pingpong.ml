@@ -1,3 +1,6 @@
+open Core_bench.Bench
+open Core_bench.Bench.Test
+open Bench_util
 open Bench_util.Util
 open Bench_util.Testbase
 
@@ -22,26 +25,6 @@ module BEventIdeal : TEST = struct
     Core.Staged.stage (fun () ->
         Event.sync (Event.send ch_arr payload);
         Event.sync (Event.receive ch_unit))
-end
-
-module BEventWrap : TEST = struct
-  let ch_arr = Event.new_channel ()
-  let ch_unit = Event.new_channel ()
-
-  let _ : Thread.t =
-    Thread.create (fun () ->
-        let rec loop () =
-          let `First(_) = Event.sync (Event.wrap (Event.receive ch_arr) (fun x -> `First(x))) in
-          let () = Event.sync (Event.send ch_unit ()) in
-          loop ()
-        in loop ()) ()
-
-  let runtest param =
-    let payload = List.assoc param big_arrays in
-    Core.Staged.stage (fun () ->
-        let () = Event.sync (Event.send ch_arr payload) in
-        let `Next(_) = Event.sync (Event.wrap (Event.receive ch_unit) (fun x -> `Next(x))) in
-        ())
 end
 
 module BEventCPS : TEST = struct
@@ -73,3 +56,71 @@ module BEventCPS : TEST = struct
       let ((),`Next(ch)) = receive next0 in
       stored := ch
 end
+
+module Make_IPC() : TEST = struct
+  let (let*) = IO.bind
+
+  type pipe = {inp: IO.in_channel; out: IO.out_channel}
+  type t = {me:pipe; othr:pipe}
+
+  let new_dpipe () =
+    let my_inp, otr_out = IO.pipe () in
+    let otr_inp, my_out = IO.pipe () in
+    {me={inp=my_inp; out=my_out};
+     othr={inp=otr_inp; out=otr_out}}
+
+  let flip {me=othr;othr=me} =
+    {me;othr}
+
+  let fork_child f =
+    let pid = Unix.fork () in
+    if pid = 0 then begin
+        (f ():unit);
+        exit 0;
+      end
+    else
+      pid
+
+  let ch = new_dpipe ()
+
+  let () =
+    ignore @@ fork_child (fun () ->
+        let ch = flip ch in
+        let rec loop () =
+          let _ = input_value ch.me.inp in
+          let _ = output_value ch.me.out () in
+          let () = flush ch.me.out in
+          loop ()
+        in
+        loop ())
+
+  let runtest param =
+    let payload = List.assoc param big_arrays in
+    Core.Staged.stage @@
+      fun () ->
+          let () = output_value ch.me.out payload in
+          let () = flush ch.me.out in
+          let () = input_value ch.me.inp in
+          ()
+
+end
+
+(* array size parameters for ipc payloads *)
+let args = array_sizes
+
+let run f = Core.Staged.unstage (f (List.nth array_sizes 0))
+
+let test_bare_pingpong =
+  if IO.is_direct then (* ev only *)
+    [
+      create ~name:"ev_bare" (run BEventIdeal.runtest);
+      create ~name:"ev_bare_cps" (run BEventCPS.runtest);
+      create_indexed ~args ~name:"ipc_bare" (let module M = Make_IPC() in M.runtest);
+    ]
+  else
+    []
+
+let () =
+  Core.Command.run @@
+    Core_bench.Bench.make_command
+      test_bare_pingpong

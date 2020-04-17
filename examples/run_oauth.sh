@@ -3,7 +3,7 @@ cd "$(dirname "$0")"
 set -e
 set -v
 
-dune build @all
+dune build @oauth/all
 
 # Starting the OAuth server.
 # An HTTPS-enabled web server is required.
@@ -26,5 +26,5 @@ dune build @all
 #
 #   killall oauth.exe
 #
-../../_build/default/examples/oauth/oauth.exe &
+../_build/default/examples/oauth/oauth.exe &
 firefox https://keigoimai.info/scribble/oauth

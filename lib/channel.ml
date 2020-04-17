@@ -6,13 +6,13 @@ module Make(X:sig type 'a t and 'a u val fresh : 'a t -> 'a u end) : sig
 
   include S.LOCAL
 
-  val create_name : ('a -> 'b) -> 'a out * 'b inp
+  val create : ('a -> 'b) -> 'a out * 'b inp
                                     
-  val create_name_scatter : int -> (int -> 'a -> 'b) -> 'a scatter * 'b inp list
+  val create_scatter : int -> (int -> 'a -> 'b) -> 'a scatter * 'b inp list
                                                           
-  val create_name_gather : int -> ('a list -> 'b) -> 'a out list * 'b gather
+  val create_gather : int -> ('a list -> 'b) -> 'a out list * 'b gather
   
-  val create :
+  val create_untyped :
     Env.t
     -> from:int
     -> to_:int
@@ -20,7 +20,7 @@ module Make(X:sig type 'a t and 'a u val fresh : 'a t -> 'a u end) : sig
     -> 'cont X.t Mergeable.t
     -> 'a out * 'var inp
                                                                                                                      
-  val create_scatter :
+  val create_untyped_scatter :
     Env.t
     -> from:int
     -> to_:int
@@ -28,7 +28,7 @@ module Make(X:sig type 'a t and 'a u val fresh : 'a t -> 'a u end) : sig
     -> 'cont X.t Mergeable.t list
     -> 'a scatter * 'var inp list
                                                                                                                                    
-  val create_gather :
+  val create_untyped_gather :
     Env.t ->
     from:int ->
     to_:int ->
@@ -68,15 +68,15 @@ end = struct
     | EpUntyped ts -> Some ts
     | _ -> None
 
-  let create_name f =
+  let create f =
     let out,inp = Name.create f in
     OutName out, InpName inp
 
-  let create_name_scatter size f  =
+  let create_scatter size f  =
     let scatter,inps = Name.create_scatter size f in
     ScatterName scatter, List.map (fun i -> InpName i) inps
 
-  let create_name_gather size f =
+  let create_gather size f =
     let outs, gather = Name.create_gather size f in
     List.map (fun o -> OutName o) outs, GatherName gather
   
@@ -103,7 +103,7 @@ end = struct
     | EpLocal, EpLocal ->
        assert false
   
-  let create env ~from ~to_ label cont =
+  let create_untyped env ~from ~to_ label cont =
     let from_info = Env.metainfo env from 1
     and to_info = Env.metainfo env to_ 1
     in
@@ -119,7 +119,7 @@ end = struct
     | Dstream(_) ->
        assert false
   
-  let create_scatter env ~from ~to_ label conts =
+  let create_untyped_scatter env ~from ~to_ label conts =
     let from_info = Env.metainfo env from 1
     and to_info = Env.metainfo env to_ 1
     in
@@ -135,7 +135,7 @@ end = struct
     | Dstream(_) ->
        assert false
   
-  let create_gather env ~from ~to_ label cont =
+  let create_untyped_gather env ~from ~to_ label cont =
     let from_info = Env.metainfo env from 1
     and to_info = Env.metainfo env to_ 1
     in

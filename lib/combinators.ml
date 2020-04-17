@@ -134,7 +134,7 @@ end = struct
   
   type close_ = Single.close
 
-  let is_chvec env from to_ =
+  let is_typed env from to_ =
     let from = int_of_idx from.role_index
     and to_ = int_of_idx to_.role_index in
     let from_info = Env.metainfo env from 1
@@ -150,13 +150,13 @@ end = struct
     let g0 = g0 env in
     let sj' = Seq.get rj.role_index g0 in
     let out, inp =
-      if is_chvec env ri rj then
+      if is_typed env ri rj then
         let wrap = fun x ->
           label.var (x, Lin.mklin @@ DynLin.fresh @@ Mergeable.resolve sj')
         in
-        Channel.create_name wrap
+        Channel.create wrap
       else
-        Channel.create env ~from:(int_of_idx ri.role_index) ~to_:(int_of_idx rj.role_index) label sj'
+        Channel.create_untyped env ~from:(int_of_idx ri.role_index) ~to_:(int_of_idx rj.role_index) label sj'
     in
     let sj = Single.declare_inp ri.role_label inp sj' in
     let g1 = Seq.put rj.role_index g0 sj in
@@ -170,13 +170,13 @@ end = struct
     let g0 = g0 env in
     let sj' = Seq.get rj.role_index g0 in
     let outs, gather =
-    if is_chvec env ri rj then
+    if is_typed env ri rj then
       let wrap = fun x ->
         label.var (x, Lin.mklin @@ DynLin.fresh (Mergeable.resolve sj'))
       in
-      Channel.create_name_gather count wrap
+      Channel.create_gather count wrap
     else
-      Channel.create_gather env ~from:(int_of_idx ri.role_index) ~to_:(int_of_idx rj.role_index) label sj'
+      Channel.create_untyped_gather env ~from:(int_of_idx ri.role_index) ~to_:(int_of_idx rj.role_index) label sj'
     in
     let sj = ScatterGather.declare_gather ri.role_label gather sj' in
     let g1 = Seq.put rj.role_index g0 sj in
@@ -190,14 +190,14 @@ end = struct
     let g0 = g0 env in
     let sj' = Seq.get_list rj.role_index ~size:count g0 in
     let scatter, inps =
-      if is_chvec env ri rj then
+      if is_typed env ri rj then
         let wrap i =
           let sj' = List.nth sj' i in
           (fun x -> label.var (x, Lin.mklin @@ DynLin.fresh (Mergeable.resolve sj')))
         in
-        Channel.create_name_scatter count wrap
+        Channel.create_scatter count wrap
       else
-        Channel.create_scatter env ~from:(int_of_idx ri.role_index) ~to_:(int_of_idx rj.role_index) label sj'
+        Channel.create_untyped_scatter env ~from:(int_of_idx ri.role_index) ~to_:(int_of_idx rj.role_index) label sj'
     in
     let sj = List.map2 (Single.declare_inp ri.role_label) inps sj' in
     let g1 = Seq.put_list rj.role_index g0 sj in

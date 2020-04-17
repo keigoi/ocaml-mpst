@@ -4,8 +4,7 @@ let (let/) = Lwt.bind
 
 open Dnshelper
 
-(* FIXME!!! *)
-let myip = "192.168.1.7"
+let myip = "0.0.0.0"
 let myport = 12345
 
 let forward_ip = "8.8.8.8"

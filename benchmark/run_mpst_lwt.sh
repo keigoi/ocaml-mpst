@@ -10,7 +10,7 @@ echo running benchmark with quota of $QUOTA seconds.
 set -e
 set -v
 
-opam switch ocaml-mpst-ev
+opam switch ocaml-mpst-lwt
 eval `opam env`
 dune build @mpst/all
 

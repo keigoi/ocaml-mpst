@@ -19,16 +19,6 @@
  (libraries mpst calc_util))
 
 (executable
- (name calc_lwt)
- (modules calc_lwt)
- (libraries mpst calc_util))
-
-(executable
- (name calc_base)
- (modules calc_base)
- (libraries mpst calc_util))
-
-(executable
  (name calc_reuse)
  (modules calc_reuse)
  (libraries mpst calc_util))

@@ -8,6 +8,11 @@
  (modules calc_util)
  (libraries mpst))
 
+(library
+ (name polyclip_util)
+ (modules polyclip_util)
+ (libraries mpst))
+
 (executable
  (name calc)
  (modules calc)

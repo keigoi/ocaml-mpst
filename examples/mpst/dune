@@ -92,3 +92,38 @@
  (name trade)
  (modules trade)
  (libraries mpst))
+
+(executable
+ (name calc_lin)
+ (modules calc_lin)
+ (preprocess (pps linocaml-light.ppx))
+ (libraries mpst_lin calc_util)
+ )
+
+(executable
+ (name deleg_lin)
+ (modules deleg_lin)
+ (preprocess (pps linocaml-light.ppx))
+ (libraries mpst_lin calc_util)
+ )
+
+(executable
+ (name roleenabling_lin)
+ (modules roleenabling_lin)
+ (preprocess (pps linocaml-light.ppx))
+ (libraries mpst_lin)
+ )
+ 
+; examples from K. Imai, R. Neykova and N. Yoshida,
+; "Multiparty Session Programming with Global Protocol Combinators",
+; 2020.
+
+(executable
+ (name oauth_simple)
+  (modules oauth_simple)
+  (libraries mpst oauth_simple_labels))
+
+(library
+ (name oauth_simple_labels)
+  (modules oauth_simple_labels)
+  (libraries mpst))

@@ -34,21 +34,23 @@ module MakeDyn
       create_shared ~kinds:[`Local,0;`Local,0] chameleons
 
     let rec start_server n =
-      if n=0 then IO.return () else
-      (* print_endline "server start."; *)
-      let* sb1 = accept entrypoint b in
-      (* print_endline "found client 1."; *)
-      let* sb2 = accept entrypoint b in
-      (* print_endline "found client 2."; *)
-      let g = gen_with_kinds [Med.medium;Med.medium;] pingpong in
-      let ta, tb = get_ch a g, get_ch b g in
-      let* sb1 = send sb1#role_A#left ta in
-      (* print_endline "left sent."; *)
-      let* () = close sb1 in
-      let* sb2 = send sb2#role_A#right tb in
-      (* print_endline "middle sent."; *)
-      let* () = close sb2 in
-      start_server (n-1)
+      if n=0 then IO.return () else begin
+        (* print_endline "server start."; *)
+        let* sb1 = accept entrypoint b in
+        (* print_endline "found client 1."; *)
+        let* sb2 = accept entrypoint b in
+        (* print_endline "found client 2."; *)
+        let g = gen_with_kinds [Med.medium;Med.medium;] pingpong in
+        let ta, tb = get_ch a g, get_ch b g in
+        let* sb1 = send sb1#role_A#left ta in
+        (* print_endline "left sent."; *)
+        let* () = close sb1 in
+        let* sb2 = send sb2#role_A#right tb in
+        (* print_endline "middle sent."; *)
+        let* () = close sb2 in
+        start_server (n-1)
+      end
+
 
     let start_client i () =
       let debug str =
@@ -92,7 +94,7 @@ module MakeDyn
     let (let*) = IO.bind
 
     let server_step _ _ =
-      IO.return ()
+      IO.return_unit
 
     let client_step n =
       Core.Staged.stage @@

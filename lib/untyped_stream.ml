@@ -2,15 +2,15 @@ open Base
 
   type 'v stream = 'v Stream_opt.t
   type 'v t = {me:'v stream; othr:'v stream}
+
+module Make(X:sig type 'a t and 'a u val fresh : 'a t -> 'a u end) = struct
+  module U = Untyped.Make(X)
   
   let create () =
     {me=Stream_opt.create (); othr=Stream_opt.create ()}
   
   let flip {me=othr;othr=me} =
     {me;othr}
-
-module Make(X:sig type 'a t and 'a u val fresh : 'a t -> 'a u end) = struct
-  module U = Untyped.Make(X)
   
   let out_untyped ch label : 'v U.out = fun v ->
     let tag = Untyped.make_tag label.var in

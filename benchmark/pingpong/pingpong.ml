@@ -33,8 +33,6 @@ let test_ipc = [
      * Also, static (monadic) versions are always faster; it seems that closures are GC'ed during i/o.
      *)
     create_indexed ~args ~name:"ipc_dynamic" (let module M = MakeDyn(IPC)() in M.runtest);
-    create_indexed ~args ~name:"ipc_dynamic_posixmutex" (let module M = MakeDyn(IPC)() in M.runtest);
-    create_indexed ~args ~name:"ipc_dynamic_nocheck" (let module M = MakeDyn(IPC)() in M.runtest);
     create_indexed ~args ~name:"ipc_static" (let module M = MakeStatic(IPC)() in M.runtest);
   ]
 

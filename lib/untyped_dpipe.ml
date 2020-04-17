@@ -3,16 +3,20 @@ open Base
 
 let (let*) = IO.bind
 
-  type pipe = {inp: IO.in_channel; out: IO.out_channel}
-  type t = {me:pipe; othr:pipe}
+type pipe = {inp: IO.in_channel; out: IO.out_channel}
+type t = {me:pipe; othr:pipe}
   
+
+module Make(X:sig type 'a t and 'a u val fresh : 'a t -> 'a u end) = struct
+  module U = Untyped.Make(X)
+
   let new_dpipe () =
     let my_inp, otr_out = IO.pipe () in
     let otr_inp, my_out = IO.pipe () in
     {me={inp=my_inp; out=my_out};
      othr={inp=otr_inp; out=otr_out}}
   
-  let flip_dpipe {me=othr;othr=me} =
+  let flip {me=othr;othr=me} =
     {me;othr}
   
   let close_dpipe dp =
@@ -20,9 +24,6 @@ let (let*) = IO.bind
     let* () = IO.close_out dp.me.out in
     IO.return ()
   
-
-module Make(X:sig type 'a t and 'a u val fresh : 'a t -> 'a u end) = struct
-  module U = Untyped.Make(X)
   
   let out_dpipe ch label : 'v U.out = fun v ->
     let tag = Untyped.make_tag label.var in

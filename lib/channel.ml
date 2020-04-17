@@ -39,7 +39,7 @@ module Make(X:sig type 'a t and 'a u val fresh : 'a t -> 'a u end) : sig
 end = struct
 
   module U = Untyped.Make(X)
-  module DpipeU = Untyped_dpipe.Make(X)
+  module Untyped_dpipeU = Untyped_dpipe.Make(X)
   module Untyped_streamU = Untyped_stream.Make(X)
 
   let (let*) = IO.bind
@@ -89,14 +89,14 @@ end = struct
     | EpUntyped _, _ | _, EpUntyped _->
        let dstreams =
          generate_channels
-           ~newch:Untyped_stream.create ~flipch:Untyped_stream.flip ~tablefun:untyped_table
+           ~newch:Untyped_streamU.create ~flipch:Untyped_streamU.flip ~tablefun:untyped_table
            ~from_info ~to_info
        in
        Dstream(dstreams)
     | EpDpipe _, _ | _, EpDpipe _ ->
        let dpipes = 
          generate_channels
-           ~newch:Untyped_dpipe.new_dpipe ~flipch:Untyped_dpipe.flip_dpipe ~tablefun:dpipe_table
+           ~newch:Untyped_dpipeU.new_dpipe ~flipch:Untyped_dpipeU.flip ~tablefun:dpipe_table
            ~from_info ~to_info
        in
        Dpipe(dpipes)
@@ -109,12 +109,12 @@ end = struct
     in
     match generate ~from_info ~to_info with
     | Dpipe([[dpipe]]) ->
-       OutFun(DpipeU.out_dpipe dpipe label),
-       InpFun(DpipeU.inp_dpipe dpipe label cont)
+       OutFun(Untyped_dpipeU.(out_dpipe (flip dpipe) label)),
+       InpFun(Untyped_dpipeU.inp_dpipe dpipe label cont)
     | Dpipe(_) ->
        assert false
     | Dstream([[dstream]]) ->
-       OutFun(Untyped_streamU.out_untyped dstream label),
+       OutFun(Untyped_streamU.(out_untyped @@ flip dstream) label),
        InpFun(Untyped_streamU.inp_untyped dstream label cont)
     | Dstream(_) ->
        assert false
@@ -125,8 +125,8 @@ end = struct
     in
     match generate ~from_info ~to_info with
     | Dpipe([dpipes]) ->
-       ScatterFun(List.map (fun dpipe -> DpipeU.out_dpipe dpipe label) dpipes),
-       List.map2 (fun dpipe cont -> InpFun(DpipeU.inp_dpipe dpipe label cont)) dpipes conts
+       ScatterFun(List.map (fun dpipe -> Untyped_dpipeU.(out_dpipe (flip dpipe) label)) dpipes),
+       List.map2 (fun dpipe cont -> InpFun(Untyped_dpipeU.inp_dpipe dpipe label cont)) dpipes conts
     | Dpipe(_) ->
        assert false
     | Dstream([dstreams]) ->
@@ -142,11 +142,11 @@ end = struct
     match generate ~from_info ~to_info with
     | Dpipe(dpipes) ->
        let dpipes = List.map List.hd dpipes in
-       List.map (fun dpipe -> OutFun(DpipeU.out_dpipe dpipe label)) dpipes,
-       GatherFun(DpipeU.inplist_dpipe dpipes label cont)
+       List.map (fun dpipe -> OutFun(Untyped_dpipeU.(out_dpipe (flip dpipe) label))) dpipes,
+       GatherFun(Untyped_dpipeU.inplist_dpipe dpipes label cont)
     | Dstream(dstreams) ->
        let dstreams = List.map List.hd dstreams in
-       List.map (fun dstream -> OutFun(Untyped_streamU.out_untyped dstream label)) dstreams,
+       List.map (fun dstream -> OutFun(Untyped_streamU.(out_untyped @@ flip dstream) label)) dstreams,
        GatherFun(Untyped_streamU.inplist_untyped dstreams label cont)
        
   let merge_out o1 o2 =

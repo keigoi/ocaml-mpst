@@ -3,6 +3,7 @@ module IO = struct
   let bind = Lwt.bind
   let both = Lwt.both
   let return = Lwt.return
+  let return_unit = Lwt.return_unit
   let map = Lwt.map
   let catch = Lwt.catch
   let printl = Lwt_io.printl
@@ -28,6 +29,8 @@ module IO = struct
     Lwt_io.read_value ch
   let flush ch =
     Lwt_io.flush ch
+  let async f =
+    Lwt.async f
 end
 
 module IO_list = struct

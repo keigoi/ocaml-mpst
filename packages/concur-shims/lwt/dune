@@ -1,4 +1,0 @@
-(library
-; (public_name concur-shims-lwt)
- (name concur_shims_lwt)
- (libraries lwt lwt.unix))

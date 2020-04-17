@@ -9,16 +9,26 @@
 
 To build all examples at once, type the following at the project root:
 
-```
+```bash
 dune build @examples/all
 ```
 
 or 
 
 
-```
+```bash
 dune build @examples/mpst/all
 dune build @examples/protocols/all
 dune build @examples/oauth/all
 dune build @examples/dns/all
 ```
+
+## Run
+
+At the project root, type (for example):
+
+```bash
+_build/default/examples/mpst/calc.exe
+```
+
+Note also some examples contain shell scripts to test them.

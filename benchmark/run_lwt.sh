@@ -6,9 +6,10 @@ then
 else
 	QUOTA=$1
 fi
+echo running benchmark with quota of $QUOTA seconds.
 set -e
 set -v
 
-dune build @lwt
+dune build @lwt/all
 
 ../_build/default/benchmark/lwt/lwt_pingpong.exe +time cycles alloc gc percentage speedup samples -quota $QUOTA -sexp >lwt/results/table_sexp.txt

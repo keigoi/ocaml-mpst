@@ -6,6 +6,7 @@ then
 else
 	QUOTA=$1
 fi
+echo running benchmark with quota of $QUOTA seconds.
 set -e
 set -v
 

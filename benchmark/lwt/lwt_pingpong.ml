@@ -2,7 +2,6 @@ open Core_bench.Bench
 open Core_bench.Bench.Test
 open Bench_util
 open Bench_util.Util
-open Bare_pingpong_body
 let (let*) = Lwt.bind
 
 open Bench_util.Util

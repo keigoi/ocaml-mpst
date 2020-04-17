@@ -8,13 +8,13 @@ type t = {me:pipe; othr:pipe}
   
   
 let close_dpipe dp =
-  IO.catch begin fun () ->
+  (* IO.catch begin fun () -> *)
     let* () = IO.close_in dp.me.inp in
     let* () = IO.close_out dp.me.out in
     IO.return_unit
-  end @@ function
-  | Lwt_io.Channel_closed _ -> IO.return_unit
-  | exn -> raise exn
+  (* end @@ function
+   * | Lwt_io.Channel_closed _ -> IO.return_unit
+   * | exn -> raise exn *)
 
 module Make(X:sig type 'a t and 'a u val fresh : 'a t -> 'a u end) = struct
   module U = Untyped.Make(X)

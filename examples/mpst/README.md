@@ -2,7 +2,7 @@
 
 * [polyclip](polyclip.ml): Parallel polygon clipping protocol
 * [ring](ring.ml): Simple three-party ring protocol
-* [toy_oauth](toy_oauth): A simplified OAuth protocol
+* [toy_oauth](toy_oauth.ml): A simplified OAuth protocol
 * [trade](trade.ml): Trade protocol
   * from Pierre-Malo Deniélou, Nobuko Yoshida: Multiparty Session Types Meet Communicating Automata. ESOP 2012: 194-213.
 

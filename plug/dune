@@ -1,4 +1,4 @@
 (library
- (name mpst_apibase)
+ (name mpst_plug)
  (public_name ocaml-mpst-apibase)
  (libraries lwt.unix threads))

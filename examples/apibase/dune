@@ -1,4 +1,0 @@
-(executable
- (name ex1)
-  (modules ex1)
-  (libraries mpst_apibase lwt.unix))

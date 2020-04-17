@@ -1,0 +1,6 @@
+(executable
+ (name lwt_pingpong)
+ (preprocess (pps linocaml-light.ppx))
+ (ocamlopt_flags -O3)
+ (flags ("-rectypes" "-short-paths"))
+ (libraries mpst mpst_lin bench_util core_bench core.nano_mutex))

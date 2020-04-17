@@ -1,5 +1,5 @@
 (executable
- (name bare_pingpong)
+ (name ev_pingpong)
  (preprocess (pps linocaml-light.ppx))
  (ocamlopt_flags -O3)
  (flags ("-rectypes" "-short-paths"))

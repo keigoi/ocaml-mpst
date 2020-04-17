@@ -4,7 +4,8 @@ open Core_bench.Bench.Test
 open Bench_util.Util
 open Chameleons_body
 
-let nums_threads = [2500; 1000; 500; 100; 75; 50; 25; 3]
+(* let nums_threads = [2500; 1000; 500; 100; 75; 50; 25; 3] *)
+let nums_threads = [100; 75; 50; 25; 3]
 
 let run ?(args=nums_threads) ~name t =
   create_indexed ~args ~name t

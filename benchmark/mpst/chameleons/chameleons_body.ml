@@ -80,7 +80,6 @@ module MakeDyn
     let rec loop f x = IO.bind (f x) (fun () -> loop f x)
 
     let setup n =
-      (* if Med.medium = `IPCProcess || M.is_direct then begin *)
       let _ : unit list =
         List.init n begin fun i ->
           ignore (Thread.create 
@@ -90,8 +89,6 @@ module MakeDyn
           end
       in
       ()
-
-    let (let*) = IO.bind
 
     let server_step _ _ =
       IO.return_unit

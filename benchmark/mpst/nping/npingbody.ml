@@ -30,19 +30,19 @@ module MakeDyn
     (**
      * pre-allocated channels
      *)
-    let sa_stored, sb_stored =
+    let sa_init, sb_init =
       ref None, ref None
 
     let setup n =
       let g = gen_with_kinds [Med.medium;Med.medium;] (nping n)  in
-      sa_stored := Some (get_ch a g);
-      sb_stored := Some (get_ch b g);
+      sa_init := Some (get_ch a g);
+      sb_init := Some (get_ch b g);
       ()
 
     let (let*) = IO.bind
 
     let server_step _ =
-      let sb_stored = ref (!sb_stored) in
+      let sb_stored = ref (!sb_init) in
       fun () ->
       let sb = from_some !sb_stored in
       (* print_endline "server step (start)"; *)
@@ -54,6 +54,7 @@ module MakeDyn
       IO.return ()
 
     let client_step _ =
+      let sa_stored = ref (!sa_init) in
       let payload = () in
       Core.Staged.stage @@ fun () ->
       (* print_endline "client step (start)"; *)

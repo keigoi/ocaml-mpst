@@ -11,6 +11,13 @@ module Flag = Mpst.Internal.Flag
 
 let default_payload = snd @@ List.nth big_arrays 1
 
+module type LWT_CHAN = sig
+  type 'a t
+  val create : unit -> 'a t
+  val send : 'a t -> 'a -> unit Lwt.t
+  val receive : 'a t -> 'a Lwt.t
+end
+
 module BLwtIdeal(Chan:LWT_CHAN)() : TEST = struct
   type 'a seq = Seq of 'a * 'a seq lazy_t
 
@@ -34,7 +41,7 @@ module BLwtIdeal(Chan:LWT_CHAN)() : TEST = struct
     let server_step = server_step () in
     let client_step = client_step () in
     Core.Staged.stage (fun () ->
-        ignore (Thread.create server_step ());
+        ignore (server_step ());
         Lwt_main.run (client_step ()))
 end
 
@@ -73,21 +80,32 @@ module BLwtCPS(Chan:LWT_CHAN)() : TEST = struct
     let server_step = server_step init_srv in
     let client_step = client_step param init_cli in
     Core.Staged.stage (fun () ->
-        ignore (Thread.create server_step ());
+        ignore (server_step ());
         Lwt_main.run (client_step ()))
-
-
 end
+
+module MpstStream : LWT_CHAN = struct
+  module S = Mpst.Internal.Stream_opt
+  type 'a t = 'a S.t
+  let create () = S.create ()
+  let send t v = S.send t v
+  let receive t = S.receive t
+end
+
 
 (* array size parameters for ipc payloads *)
 let args = array_sizes
 
 let run f = Core.Staged.unstage (f (List.nth array_sizes 0))
 
-let test_bare_pingpong = [
-    create ~name:"lwt_bare" (let module M = BLwtIdeal() in run M.runtest);
-    create ~name:"lwt_bare_cps" (let module M = BLwtCPS() in run M.runtest);
-  ]
+let test_bare_pingpong =
+  if IO.is_direct then
+    []
+  else
+    [
+      create ~name:"lwt_bare" (let module M = BLwtIdeal(MpstStream)() in run M.runtest);
+      create ~name:"lwt_bare_cps" (let module M = BLwtCPS(MpstStream)() in run M.runtest);
+    ]
 
 let () =
   Core.Command.run @@

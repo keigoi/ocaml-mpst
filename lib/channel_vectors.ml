@@ -22,7 +22,7 @@ module Single(Local:S.LOCAL)(DynLin:Dyn_lin.S) : sig
     ('obj, 'var inp) method_ ->
     'var Local.inp -> 's local -> 'obj local
 
-  val declare_close : unit -> close local
+  val declare_close : (unit -> unit IO.io) -> close local
   (** (Internal) Final state of a channel. *)
 
   val send : ('v, 't) out -> 'v -> 't IO.io
@@ -40,7 +40,7 @@ end = struct
 
   type ('v, 's) out = ('v Local.out * 's local) lin
   type 'var inp = 'var Local.inp lin
-  type close = unit lin
+  type close = (unit -> unit IO.io) lin
       
   let declare_out role label out cont =
     let ch =
@@ -72,10 +72,10 @@ end = struct
       ~mergefun:merge_inp_lin
       ()
 
-  let declare_close () =
+  let declare_close f =
     Mergeable.make
-      ~value:(DynLin.declare ())
-      ~mergefun:(fun _ _ -> DynLin.declare ())
+      ~value:(DynLin.declare f)
+      ~mergefun:(fun _ _ -> DynLin.declare f)
       ()
 
   let (let*) = IO.bind
@@ -89,9 +89,9 @@ end = struct
     let ch = DynLin.use ch in
     Local.receive ch
 
-  let close (ep: unit lin) =
-    DynLin.use ep;
-    IO.return ()
+  let close (ep: close) =
+    let f = DynLin.use ep in
+    f ()
 end
 
 

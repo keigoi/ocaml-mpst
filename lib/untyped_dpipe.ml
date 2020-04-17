@@ -6,6 +6,15 @@ let (let*) = IO.bind
 type pipe = {inp: IO.in_channel; out: IO.out_channel}
 type t = {me:pipe; othr:pipe}
   
+  
+let close_dpipe dp =
+  IO.catch begin fun () ->
+    let* () = IO.close_in dp.me.inp in
+    let* () = IO.close_out dp.me.out in
+    IO.return_unit
+  end @@ function
+  | Lwt_io.Channel_closed _ -> IO.return_unit
+  | exn -> raise exn
 
 module Make(X:sig type 'a t and 'a u val fresh : 'a t -> 'a u end) = struct
   module U = Untyped.Make(X)
@@ -19,10 +28,7 @@ module Make(X:sig type 'a t and 'a u val fresh : 'a t -> 'a u end) = struct
   let flip {me=othr;othr=me} =
     {me;othr}
   
-  let close_dpipe dp =
-    let* () = IO.close_in dp.me.inp in
-    let* () = IO.close_out dp.me.out in
-    IO.return ()
+  let close_dpipe = close_dpipe
   
   
   let out_dpipe ch label : 'v U.out = fun v ->

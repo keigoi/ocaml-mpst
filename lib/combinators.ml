@@ -236,30 +236,48 @@ end = struct
      * in the body.
     *)
     Seq.resolve_merge (Lazy.force body)
+
+  let make_close env role i =
+    let info = Env.metainfo env role 1  in
+    match info.rm_kind with
+    | EpLocal | EpUntyped _ ->
+      (* do nothing *)
+      Single.declare_close IO.return
+    | Env.EpDpipe table ->
+      (* close pipe *)
+      Single.declare_close begin fun () ->
+        let chss = Table.to_list (List.nth table i) in
+        let chss = List.concat chss in
+        IO_list.iteri (fun _ c -> Untyped_dpipe.close_dpipe c) chss
+      end
+
+  let finish_seq env =
+    Seq.repeat 0 (fun role -> make_close env role 0)
   
-  let finish_seq =
-    Seq.repeat 0 (fun _ -> Single.declare_close ())
-  
-  let finish : ([`cons of close_ one * 'a] as 'a) global = fun _ ->
+  let finish : ([`cons of close_ one * 'a] as 'a) global = 
     finish_seq
   
   let finish_with_multirole :
       at:(close_ one, close_ list, [ `cons of close_ one * 'a ] as 'a, 'g, _, _) role ->
       'g global = fun ~at env ->
-    let count = Env.rm_size env (int_of_idx at.role_index) in
-    let g' = Seq.put_list at.role_index finish_seq (List.init count (fun _ -> Single.declare_close ())) in
+    let role = int_of_idx at.role_index in
+    let count = Env.rm_size env role in
+    let seq = finish_seq env in
+    let g' = Seq.put_list at.role_index seq (List.init count (fun i -> make_close env role i)) in
     g'
   
   let closed_at : 'g. (close_ one, close_ one, 'g, 'g, _, _) role -> 'g global -> 'g global
     = fun r g env ->
       let g = g env in
-      let g' = Seq.put r.role_index g (Single.declare_close ()) in
+      let role = int_of_idx r.role_index in
+      let g' = Seq.put r.role_index g (make_close env role 0) in
       g'
   
   let closed_list_at_ r g env =
       let g = g env in
       let count = Env.rm_size env (int_of_idx r.role_index) in
-      let g' = Seq.put_list r.role_index g (List.init count (fun _ -> Single.declare_close ())) in
+      let role = int_of_idx r.role_index in
+      let g' = Seq.put_list r.role_index g (List.init count (fun i -> make_close env role i)) in
       g'
   
   let closed_list_at : 'g. (close_ list, close_ list, 'g, 'g, _, _) role -> 'g global -> 'g global
@@ -338,12 +356,12 @@ end = struct
 
   let get_ch_ role ((env, seq) as tup) =
     let ch = get_ch role tup in
-    let seq' = Seq.put role.role_index seq (Single.declare_close ()) in
+    let seq' = Seq.put role.role_index seq (Single.declare_close IO.return) in
     ch, (env, seq')
 
   let get_ch_list_ role ((env, seq) as tup) =
     let ch = get_ch_list role tup in
-    let seq' = Seq.put role.role_index seq (Single.declare_close ()) in
+    let seq' = Seq.put role.role_index seq (Single.declare_close IO.return) in
     ch, (env, seq')
   
   type 'a ty =

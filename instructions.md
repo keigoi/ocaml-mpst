@@ -88,11 +88,18 @@ Follow the instructions
 
 ###  Run the global protocol combinators (Section 6.2)
 All global protocol combinators from the paper are in the examples/protocols folder. 
-To build the examples, run: 
+To build all examples, run: 
 
 ```
 dune build @examples/protocols/all
 ```
+
+* You can modify and test some of these protocols to ensure that an error is detected.  
+To test if a global protocol compiles after you have modify it, run: 
+
+```dune build examples/protocols/the_name_of_the_protocol.exe```
+
+wher eyou have to replace the_name_of_the_protocol with the name of the file that you are modifying. 
 
 Note that this folder contains only the protocols. 
 The easiest way to explore the channle vectors inferred by running the global combinators is to open VSCode, 
@@ -101,10 +108,16 @@ choose some of the files from the protocol folder, and hover over the type of th
 (TODO: Maybe put a picture here?)
 
 ## Additional information 
-Try OCaml-MPST [Online](https://keigoi.github.io/ocaml-mpst-light/index.html)!
+*  All examples are already compiled and the executables are ```in_build/default/examples/**.exe.```
 
-* An interactive web interface is available at:
-  * https://keigoi.github.io/ocaml-mpst-light/index.html
+* other useful commands:  
+If you wish to modify an existing example and 
+```
+dune clean; dune @examples/mpst/all
+```
+
+* Try OCaml-MPST [Online](https://keigoi.github.io/ocaml-mpst-light/index.html)!
+An interactive web interface is available at: https://keigoi.github.io/ocaml-mpst-light/index.html
 
 
 

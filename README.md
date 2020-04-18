@@ -43,7 +43,7 @@ ocamlfind ocamlopt -thread -linkpkg -package ocaml-mpst ring.ml -o ring.exe
 # run it
 ./ring.exe
 ```
-g
+
 ## ocaml-mpst in 5 minutes
 
 1. Write down a **protocol** using  **Global Combinators**. 
@@ -129,8 +129,8 @@ OCaml-MPST depends on [concur-shims](packages/concur-shims/), which provides a t
 
 Thus, __the programming interface and behaviour significantly changes if you (un)install LWT__.   
 
-* LWT version of OCaml-MPST works asynchronously (using queue)
-* The `threads` version
+* Output is non-blocking in  LWT version of OCaml-MPST.
+* Output is __blocking__ in `threads` version (it uses `Event.channel`).
 
 Normally, you can just use `lwt` version of the OCaml-MPST. 
 
@@ -138,23 +138,53 @@ Also note that the above Quick Start automatically installs LWT, as `ocaml-mpst-
 
 (The reasons for using `concur_shims` are (1) to ease readability and maintainability of the implementation code (2) running benchmark using both `threads` and `lwt` and (3) to provide an easy interface for users who are not fluent with recent OCaml based on `lwt`.)
 
+### Monadic vs. Direct Style
+
+Some programming idioms in direct style is not available in lwt.
+While you can use [let rebinding in OCaml 4.08.0 or later](https://github.com/ocaml/ocaml/pull/1947), like
+
+```ocaml
+let (let*) = Lwt.bind (* IO.bind in concur-shims will also work *)
+
+  ...
+  let* `msg(x, s) = receive s#role_A in ... (* legal *)
+```
+
+You can't do the same thing in `match`-construct:
+
+```ocaml
+  match* receive s#role_A with (* illegal *)
+  | `left(x, s) -> ...
+  | `right(x, s) -> ...
+```
+
+In that case, you must bind the received result once and match on it, like the following:
+
+```ocaml
+  let* var = receive s#role_A in
+  match var with
+  | `left(x, s) -> ...
+  | `right(x, s) -> ...
+```
+
+Another solution would be to use [ppx_let](https://github.com/janestreet/ppx_let).
+
+
 ## Nano_mutex in Janestreet Core
 
 `Nano_mutex` in Jane Street's Core makes better performance in dynamic linearity checking.  If you install `core`, OPAM will automatically recompiles everything. Otherwise, OCaml-MPST uses either `Mutex` or `Lwt_mutex` module (indirectly via `concur_shims`).  
+
 
 ## Libraries used in examples and benchmarks
 
 Some examples and benchmarks has additional dependencies. To install them at once, type:
 
 ```bash
-opam install dns-lwt-unix uri cmdliner lwt_log
+opam install dns-lwt-unix cmdliner lwt_log
 ```
 
-* DNS `dns-lwt-unix`
-	* OAuth `cohttp-lwt-unix uri cmdliner lwt_log lwt_ssl`
-* For faster dynamic linearity checking via Nano_mutex
-	* `core`
-* For benchmarking:
-	* `core_bench `
+* DNS example: `dns-lwt-unix`
+* OAuth exapmle: `cmdliner lwt_log`
+* Benchmarks: `core_bench `
 
 

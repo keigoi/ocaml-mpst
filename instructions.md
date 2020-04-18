@@ -46,7 +46,7 @@ jupyter-notebook benchmark/graphs/Graph.ipynb
 
 ## STEP 2: Run mpst-ocaml benchmarks (Section 6.1):
 
-* Run the benchmarks script from the paper and display the graphs: 
+* Run the benchmarks script: 
 ```./benchmarks/run_all.sh 10s``` 
 
 * Display the graphs from the paper using jupyter-notebook
@@ -55,8 +55,9 @@ jupyter-notebook benchmark/graphs/Graph.ipynb
 The jupyter script will open in a new chrome tab. Click Run to run the scipt and display the graphs. 
 At the bottom of the page, you will see a summary of the results. The graphs correspond to Figure 15 (Section 6.1) 
 
-## STEP 3: Run examples, written with mpst-ocaml
+More information about the source of the benchmarks is available [here] (benchmark/).
 
+## STEP 3: Run examples, written with mpst-ocaml 
 ###  Test an oAuth use case (Section 6.3)
 * run the run_oAuth script 
 ```./examples/run_oauth.sh```
@@ -75,6 +76,14 @@ If you use your own account, a message dispalying that no access is allowd will 
 Follow the instructions 
 
 * the source code of the example is in examples/oAuth.ml
+
+###  Test the global protocol combinators (Section 6.2)
+All global protocol combinators from the paper are in the examples/protocols folder. 
+To build the examples, run: 
+
+```
+dune build @examples/protocols/all
+```
 
 
 

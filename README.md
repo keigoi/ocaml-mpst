@@ -1,8 +1,4 @@
-# ocaml-mpst
-
-## NEWS: Examples and Benchmarks
-
-Now the repository contains [examples](examples/) and [benchmark](benchmark/) results.
+# OCaml-MPST
 
 ## What is `ocaml-mpst`?
 
@@ -14,20 +10,46 @@ Now the repository contains [examples](examples/) and [benchmark](benchmark/) re
 
 --- under the assumption that all communication channels are used _linearly_. Linearity is checked either _dynamically_ (default) or _statically_, via another library `linocaml`.
 
+
+## Install
+
+Install [OPAM](https://opam.ocaml.org/). then the following command will install OCaml-MPST in your OPAM switch:
+
+```bash
+opam pin -y https://github.com/keigoi/ocaml-mpst.git
+```
+
+It will install several packages from this repository. To remove them, type:  `opam pin remove concur-shims linocaml-light ocaml-mpst ocaml-mpst-lwt ocaml-mpst-plug ocaml-mpst-plug-http` .
+
+
 ## Try OCaml-MPST [Online](https://keigoi.github.io/ocaml-mpst-light/index.html)!
 
-* An interactive programming interface is available at:
+* An interactive web interface is available at:
   * https://keigoi.github.io/ocaml-mpst-light/index.html
-
-![Try OCaml-MPST Screenshot](https://keigoi.github.io/ocaml-mpst-light/screenshot.png)
 
 [Try OCaml-MPST Online](https://keigoi.github.io/ocaml-mpst-light/index.html)
 
+
+## Try OCaml-MPST on your PC
+
+To run a example, after installation, type the script below in the terminal:
+```
+git clone https://github.com/keigoi/ocaml-mpst.git
+cd ocaml-mpst/examples/mpst
+
+# compile it
+ocamlfind ocamlopt -thread -linkpkg -package ocaml-mpst ring.ml -o ring.exe
+
+# run it
+./ring.exe
+```
+g
 ## ocaml-mpst in 5 minutes
 
 1. Write down a **protocol** using  **Global Combinators**. 
 
 ```ocaml
+open Mpst_light
 let ring = (a --> b) msg @@ (b --> c) msg @@ (c --> a) finish
 ```
 
@@ -94,35 +116,45 @@ More examples including branching, loops and delegation will come soon!
 * [Slides presented at PLAS Group Seminar at University of Kent](https://www.slideshare.net/keigoi/ocamlmpst-global-protocol-combinators-175519214)
 
 
-## Build (For experienced users)
-
-(We recommend a lightweight implementation [ocaml-mpst-light](https://github.com/keigoi/ocaml-mpst-light/))
-
-* Install OPAM
-
-```sh
-    sh <(curl -sL https://raw.githubusercontent.com/ocaml/opam/master/shell/install.sh)
-    opam switch 4.06.1
-    eval $(opam env)
-```
-
-* Download and build
-
-```sh
-    git clone https://github.com/keigoi/ocaml-mpst.git
-    cd ocaml-mpst
-    
-    # all
-    opam install dune lwt_ssl lwt_log cohttp-lwt-unix
-    dune build
-    
-    # minimal
-    opam install dune lwt
-    dune build example/ex1.exe
-    ./_build/default/example/ex1.exe
-```
-
 ## Examples
 
 * See [Examples](examples/)
+
+
+# Notes on optional library dependencies
+
+## LWT vs. Threads
+
+OCaml-MPST depends on [concur-shims](packages/concur-shims/), which provides a thin layer for switching between standard `threads` library and [LWT](https://github.com/ocsigen/lwt).
+
+Thus, __the programming interface and behaviour significantly changes if you (un)install LWT__.   
+
+* LWT version of OCaml-MPST works asynchronously (using queue)
+* The `threads` version
+
+Normally, you can just use `lwt` version of the OCaml-MPST. 
+
+Also note that the above Quick Start automatically installs LWT, as `ocaml-mpst-plug-http` indirectly depends on `lwt`.
+
+(The reasons for using `concur_shims` are (1) to ease readability and maintainability of the implementation code (2) running benchmark using both `threads` and `lwt` and (3) to provide an easy interface for users who are not fluent with recent OCaml based on `lwt`.)
+
+## Nano_mutex in Janestreet Core
+
+For dyanmic linearity checking, OCaml-MPST uses either `Mutex` or `Lwt_mutex` module (indirectly via `concur_shims`).  If you install Jane Street's `Core`,  it automatically recompiles and uses `Nano_mutex` for better performance.
+
+## Libraries used in examples and benchmarks
+
+Some examples and benchmarks has additional dependencies. To install them at once, type:
+
+```bash
+opam install dns-lwt-unix uri cmdliner lwt_log
+```
+
+* DNS `dns-lwt-unix`
+	* OAuth `cohttp-lwt-unix uri cmdliner lwt_log lwt_ssl`
+* For faster dynamic linearity checking via Nano_mutex
+	* `core`
+* For benchmarking:
+	* `core_bench `
+
 

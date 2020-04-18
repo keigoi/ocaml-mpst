@@ -59,5 +59,5 @@ let test3 =
 
 (* (!): Future work: We can forcibly merge them by catching the exception in mergeable.ml. 
         In that case, C indefinitely blocks but this should be distinguished with the 
-        actual deadlock 
+        actual deadlock (i.e. it is "safe" in some weaker notion of progress property) 
  *)

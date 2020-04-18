@@ -1,4 +1,4 @@
-(* two loops running in parallel, using "unbalanced loops"  *)
+(* two loops running in parallel, based on an "unbalanced choice"  *)
 
 open Concur_shims
 open Mpst
@@ -9,6 +9,7 @@ let bind m f = IO.bind m (fun x -> IO.bind (Unix.sleepf (Random.float 0.1)) (fun
 let (let*) = bind
 let return = IO.return
 
+(* A-B and C-D pairs are running in parallel, then B and C "joins" in the end. *)
 let g =
   gen @@
   fix (fun t ->

@@ -12,11 +12,12 @@ Alternatively, you may use the VM prepared for the ECOOP'20 artifact evaluation.
 In the following, we assume that you are in the ocaml-mpst-lwt directory.
 ## Artifact layout
 
-In addition to the source code of the library, which is a git clone of the githunb repository of the libary,
+In addition to the source code of the library, which is a git clone of [mpst-ocaml](https://github.com/keigoi/ocaml-mpst/), 
 the artifact also contains
 * a [benchmark](benchmark/) folder, which includes the source of the benchmarks and the scripts for producing the graphs (Section 6.1, Figure 15)
-* an [examples](examples/) folder, which includes various examples, all global combinators from Figure 16 (Section 6.2).   
-* a script, examples/run_oauth.sh for running the OAuth use case (Section 6.3) 
+* an [examples](examples/) folder, which includes various examples
+* an [examples/protocol](examples/protocol) folder, which includes the global combinators from Figure 16 (Section 6.2).   
+* a script, examples/run_oauth.sh, for running the OAuth use case (Section 6.3) 
 * a tutorial that guides you through implementing and testing your own examples 
 
 ## Quick check before you start
@@ -63,7 +64,7 @@ At the bottom of the page, you will see a summary of the results. The graphs cor
 More information about the source of the benchmarks is available [here] (benchmark/).
 
 ## STEP 3: Run applications, written with mpst-ocaml 
-###  Run an oAuth use case (Section 6.3)
+### STEP 3.1: Run an oAuth use case (Section 6.3)
 * run the run_oAuth script 
 ```
 ./examples/run_oauth.sh
@@ -75,7 +76,7 @@ If you use your own account, a message dispalying that no access is allowd will 
 
 * the source code of the example is in examples/oAuth.ml
 
-###  Run a dns server 
+### STEP 3.2: Run a dns server 
 
 * run the run_dns script 
 ```
@@ -86,7 +87,7 @@ Follow the instructions
 
 * the source code of the example is in examples/oAuth.ml
 
-###  Run the global protocol combinators (Section 6.2)
+### STEP 3.3: Run the global protocol combinators (Section 6.2)
 All global protocol combinators from the paper are in the examples/protocols folder. 
 To build all examples, run: 
 
@@ -124,11 +125,3 @@ opam switch ocaml-mpst-lwt; eval $(opam env)
 
 * Try OCaml-MPST [Online](https://keigoi.github.io/ocaml-mpst-light/index.html)!
 An interactive web interface is available at: https://keigoi.github.io/ocaml-mpst-light/index.html
-
-
-
-
-
-
-
-

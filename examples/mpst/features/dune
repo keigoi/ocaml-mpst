@@ -4,16 +4,6 @@
  (libraries mpst))
 
 (executable
- (name choice_non_enabled)
- (modules choice_non_enabled)
- (libraries mpst))
-
-(executable
- (name choice_non_enabled_loop)
- (modules choice_non_enabled_loop)
- (libraries mpst))
-
-(executable
  (name loop_errors)
  (modules loop_errors)
  (libraries mpst))

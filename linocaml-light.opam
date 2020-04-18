@@ -1,10 +1,28 @@
-opam-version: "1.2"
-maintainer: "keigo.imai@gmail.com"
-authors: ["Keigo Imai"]
-homepage: "https://github.com/keigoi/ocaml-mpst-light"
-bug-reports: "https://github.com/keigoi/ocaml-mpst-light/issues"
-dev-repo: "https://github.com/keigoi/ocaml-mpst-light.git"
+opam-version: "2.0"
+synopsis: "Lightweight version of LinOCaml: Linear types in OCaml via a parameterised monad"
+
+version: "dev"
 license: "LGPL-3.0-or-later with OCaml-LGPL-linking-exception"
+homepage: "https://github.com/keigoi/ocaml-mpst"
+doc: "https://github.com/keigoi/ocaml-mpst"
+bug-reports: "https://github.com/keigoi/ocaml-mpst/issues"
+authors: ["Keigo Imai"]
+maintainer: "Keigo Imai <keigo.imai@gmail.com>"
+dev-repo: "git+https://github.com/keigoi/ocaml-mpst.git"
+          
+depends: [
+  "ocaml" {>= "4.08.0"}
+  "dune"
+  "ocamlfind"
+  "concur-shims"
+  "ppx_tools_versioned"
+]
+
+depopts: [
+  "lwt"
+  ]
+  
 build:
-[[ "dune" "build" "-p" name "-j" jobs ]]
-available: [ ocaml-version >= "4.05" ]
+  [[ "dune" "build" "-p" name "-j" jobs ]]
+
+description: "Lightweight version of LinOCaml: Linear types in OCaml via a parameterised monad"

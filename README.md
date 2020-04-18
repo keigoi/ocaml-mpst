@@ -140,7 +140,7 @@ Also note that the above Quick Start automatically installs LWT, as `ocaml-mpst-
 
 ## Nano_mutex in Janestreet Core
 
-For dyanmic linearity checking, OCaml-MPST uses either `Mutex` or `Lwt_mutex` module (indirectly via `concur_shims`).  If you install Jane Street's `Core`,  it automatically recompiles and uses `Nano_mutex` for better performance.
+`Nano_mutex` in Jane Street's Core makes better performance in dynamic linearity checking.  If you install `core`, OPAM will automatically recompiles everything. Otherwise, OCaml-MPST uses either `Mutex` or `Lwt_mutex` module (indirectly via `concur_shims`).  
 
 ## Libraries used in examples and benchmarks
 

@@ -81,16 +81,16 @@ end = struct
   let (let*) = IO.bind
 
   let send (out: ('v,'t) out) (v:'v) =
-    let (n,t) = DynLin.use out in
+    let* (n,t) = DynLin.use out in
     let* () = Local.send n v in
     IO.return @@ DynLin.fresh (Mergeable.resolve t)
 
   let receive (ch: 'var inp) =
-    let ch = DynLin.use ch in
+    let* ch = DynLin.use ch in
     Local.receive ch
 
   let close (ep: close) =
-    let f = DynLin.use ep in
+    let* f = DynLin.use ep in
     f ()
 end
 
@@ -155,11 +155,11 @@ end = struct
   let (let*) = IO.bind
 
   let send_many (scatter: ('v,'t) scatter) f =
-    let (n,t) = DynLin.use scatter in
+    let* (n,t) = DynLin.use scatter in
     let* () = Local.send_many n f in
     IO.return @@ DynLin.fresh (Mergeable.resolve t)
 
   let receive_many (ch: 'var gather) =
-    let ch = DynLin.use ch in
+    let* ch = DynLin.use ch in
     Local.receive_many ch
 end

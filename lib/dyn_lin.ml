@@ -1,4 +1,7 @@
+open Concur_shims
 open Base
+
+let (let*) = IO.bind
 
 exception InvalidEndpoint = Mutex_flag.InvalidEndpoint
 
@@ -14,7 +17,7 @@ module type S = sig
   val fresh : 'a gen -> 'a
   (** Generate a fresh linear resource  *)
   
-  val use : 'a lin -> 'a
+  val use : 'a lin -> 'a IO.io
   (** Extract the value. Raises InvalidEndpoint if the endpoint is already consumed *)
   
   val wrap : ('a -> 'b) -> 'a gen -> 'b gen
@@ -41,8 +44,8 @@ module Check : S
      gen_store_assign:once_store -> unit}
 
   let[@inline] use t =
-    Flag.use !(!(t.store_ref));
-    t.value
+    let* () = Flag.use !(!(t.store_ref)) in
+    IO.return t.value
 
   let declare v =
     let store = ref (Flag.create ()) in
@@ -100,8 +103,8 @@ module Check_closure : S = struct
   type flag = Flag.t
   type 's gen = flag -> 's
   let use t =
-    Flag.use t.once;
-    t.value
+    let* () = Flag.use t.once in
+    IO.return t.value
   let declare v = fun once -> {once; value=v}
   let fresh f = f (Flag.create ())
   let merge f meth x y flag =
@@ -119,7 +122,7 @@ end
 module NoCheck : S with type 'a lin = 'a with type 's gen = 's = struct
   type +'a lin = 'a
   type 's gen = 's
-  let use t = t
+  let use t = IO.return t
   let declare v = v
   let fresh v = v
   let merge f meth x y =

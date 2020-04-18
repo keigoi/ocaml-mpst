@@ -1,3 +1,4 @@
+open Concur_shims
 exception InvalidEndpoint
 type t = Nano_mutex.t
 let create ()  = Nano_mutex.create ()

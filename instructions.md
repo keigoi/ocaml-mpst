@@ -42,10 +42,10 @@ Display the graphs from the paper using jupyter-notebook
 jupyter-notebook benchmark/graphs/Graph.ipynb
 ```
 
-## STEP 1: Getting to know the library:
+## STEP 1: Getting to know the library
 
 
-## STEP 2: Run mpst-ocaml benchmarks (Section 6.1):
+## STEP 2: Run mpst-ocaml benchmarks (Section 6.1)
 
 * Run the benchmarks script (it should take approximately 10-15 min): 
 

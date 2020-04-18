@@ -25,12 +25,12 @@ To ensure that your environemnt is working, open a terminal and run the followin
 
 Make sure that there are no errors, failures or timeouts.
 
- * Build all examples: 
+1.  Build all examples: 
 ``` 
 dune build @examples/all 
 ```
 
-* Run the benchmarks script from the paper and display the graphs: 
+2.  Run the benchmarks script from the paper and display the graphs: 
 
 Run all benchmarks for a limited time.:
 ```

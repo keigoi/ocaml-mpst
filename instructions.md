@@ -61,8 +61,9 @@ jupyter-notebook benchmark/graphs/Graph.ipynb
 The jupyter script will open in a new chrome tab. Click Run to run the scipt and display the graphs. 
 At the bottom of the page, you will see a summary of the results. The graphs correspond to Figure 15 (Section 6.1) 
 
-More information about the source of the benchmarks is available [here] (benchmark/).
+More information about the source of the benchmarks is available [here](benchmark/).
 
+(TODO:... should we mention smth about discrepencies because the VM is slow?)
 ## STEP 3: Run applications, written with mpst-ocaml 
 ### STEP 3.1: Run an oAuth use case (Section 6.3)
 * run the run_oAuth script 

@@ -99,7 +99,7 @@ To test if a global protocol compiles after you have modify it, run:
 
 ```dune build examples/protocols/the_name_of_the_protocol.exe```
 
-wher eyou have to replace the_name_of_the_protocol with the name of the file that you are modifying. 
+where you have to replace the_name_of_the_protocol with the name of the file that you are modifying. 
 
 Note that this folder contains only the protocols. 
 The easiest way to explore the channle vectors inferred by running the global combinators is to open VSCode, 

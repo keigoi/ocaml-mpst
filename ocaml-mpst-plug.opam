@@ -14,12 +14,8 @@ depends: [
   "ocaml" {>= "4.08.0"}
   "dune"
   "ocamlfind"
-]
-
-depopts: [
   "lwt"
-  "core"
-  ]
+]
   
 build:
   [[ "dune" "build" "-p" name "-j" jobs ]]

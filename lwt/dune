@@ -1,0 +1,4 @@
+(library
+ (public_name ocaml-mpst-lwt)
+ (name mpst_lwt)
+ (libraries ocaml-mpst lwt))

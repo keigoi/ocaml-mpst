@@ -11,9 +11,6 @@ maintainer: "Keigo Imai <keigo.imai@gmail.com>"
 dev-repo: "git+https://github.com/keigoi/ocaml-mpst.git"
           
 depends: [
-  "ocaml" {>= "4.08.0"}
-  "dune"
-  "ocamlfind"
   "concur-shims"
   "linocaml-light"
 ]

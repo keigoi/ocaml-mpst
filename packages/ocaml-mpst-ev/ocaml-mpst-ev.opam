@@ -1,5 +1,5 @@
 opam-version: "2.0"
-synopsis: "OCaml-MPST on top of HTTP (very tentative)"
+synopsis: "Concurrency library based on Multiparty Session Types"
 
 version: "dev"
 license: "LGPL-3.0-or-later with OCaml-LGPL-linking-exception"
@@ -11,11 +11,11 @@ maintainer: "Keigo Imai <keigo.imai@gmail.com>"
 dev-repo: "git+https://github.com/keigoi/ocaml-mpst.git"
           
 depends: [
-  "ocaml-mpst-plug"
-  "conduit-lwt-unix"
-  "cohttp-lwt-unix"
-  "uri"
-  "sexplib"
+  "ocaml-mpst"
+]
+
+conflicts: [
+  "lwt"
 ]
   
 build:

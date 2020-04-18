@@ -16,8 +16,8 @@ In addition to the source code of the library, which is a git clone of [mpst-oca
 the artifact also contains
 * a [benchmark](benchmark/) folder, which includes the source of the benchmarks and the scripts for producing the graphs (Section 6.1, Figure 15)
 * an [examples](examples/) folder, which includes various examples
-* an [examples/protocol](examples/protocol) folder, which includes the global combinators from Figure 16 (Section 6.2).   
-* a script, examples/run_oauth.sh, for running the OAuth use case (Section 6.3) 
+* an [examples/protocols](examples/protocols) folder, which includes the global combinators from Figure 16 (Section 6.2).   
+* a script, [examples/run_oauth.sh](examples/run_oauth.sh), for running the OAuth use case (Section 6.3) 
 * a tutorial that guides you through implementing and testing your own examples 
 
 ## Quick check before you start

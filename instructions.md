@@ -111,10 +111,12 @@ choose some of the files from the protocol folder, and hover over the type of th
 *  All examples are already compiled and the executables are ```in_build/default/examples/**.exe.```
 
 * other useful commands:  
-If you wish to modify an existing example and 
-```
-dune clean; dune @examples/mpst/all
-```
+
+If you wish to modify the existing example (e.g. examples/mpst/calc.ml) and
+recompile it, type
+                    ```dune clean; dune @examples/mpst/all```
+If compilation fails, also try
+                ```opam switch ocaml-mpst-lwt; eval $(opam env)```
 
 * Try OCaml-MPST [Online](https://keigoi.github.io/ocaml-mpst-light/index.html)!
 An interactive web interface is available at: https://keigoi.github.io/ocaml-mpst-light/index.html

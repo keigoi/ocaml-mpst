@@ -2,7 +2,7 @@
 
 ## NEWS: Examples and Benchmarks
 
-Now the repository contains [examples](examples/) and [benchmark](benchmarks/) results.
+Now the repository contains [examples](examples/) and [benchmark](benchmark/) results.
 
 ## What is `ocaml-mpst`?
 

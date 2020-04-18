@@ -1,11 +1,11 @@
 
 ## Getting started
-For instructions for compiling the ocaml-mpst on your own machine, see README.md.
+For instructions for compiling the ocaml-mpst on your own machine, see [README.md](https://github.com/keigoi/ocaml-mpst/edit/master/readme.md).
 
 Alternatively, you may use the VM prepared for the ECOOP'20 artifact evaluation.
 
-1. Download our modified VM.
-2. Load it in Virtual Box and boot it.
+1. Download our [modified VM](https://drive.google.com/open?id=198S910WCd8y4Ow14WRg_9e3rrs-qsK3Q).
+2. Load it in [Virtual Box](https://www.virtualbox.org/) and boot it.
 3. Open a terminal and navigate to ~/ocaml-mpst-lwt.
 4. Follow the instructions below.
 
@@ -46,21 +46,28 @@ jupyter-notebook benchmark/graphs/Graph.ipynb
 
 ## STEP 2: Run mpst-ocaml benchmarks (Section 6.1):
 
-* Run the benchmarks script: 
-```./benchmarks/run_all.sh 10s``` 
+* Run the benchmarks script (it should take approximately 10-15 min): 
+
+```
+./benchmarks/run_all.sh
+``` 
 
 * Display the graphs from the paper using jupyter-notebook
-```jupyter-notebook benchmark/graphs/Graph.ipynb```
+```
+jupyter-notebook benchmark/graphs/Graph.ipynb
+```
 
 The jupyter script will open in a new chrome tab. Click Run to run the scipt and display the graphs. 
 At the bottom of the page, you will see a summary of the results. The graphs correspond to Figure 15 (Section 6.1) 
 
 More information about the source of the benchmarks is available [here] (benchmark/).
 
-## STEP 3: Run examples, written with mpst-ocaml 
-###  Test an oAuth use case (Section 6.3)
+## STEP 3: Run applications, written with mpst-ocaml 
+###  Run an oAuth use case (Section 6.3)
 * run the run_oAuth script 
-```./examples/run_oauth.sh```
+```
+./examples/run_oauth.sh
+```
 
 This will trigger a facebook authentication (a tab in chrome will open). 
 You can either use your own facebook account to login, or use our test account. 
@@ -68,22 +75,38 @@ If you use your own account, a message dispalying that no access is allowd will 
 
 * the source code of the example is in examples/oAuth.ml
 
-###  Test a dns server 
+###  Run a dns server 
 
 * run the run_dns script 
-```./examples/run_oauth.sh```
+```
+./examples/run_oauth.sh
+```
 
 Follow the instructions 
 
 * the source code of the example is in examples/oAuth.ml
 
-###  Test the global protocol combinators (Section 6.2)
+###  Run the global protocol combinators (Section 6.2)
 All global protocol combinators from the paper are in the examples/protocols folder. 
 To build the examples, run: 
 
 ```
 dune build @examples/protocols/all
 ```
+
+Note that this folder contains only the protocols. 
+The easiest way to explore the channle vectors inferred by running the global combinators is to open VSCode, 
+choose some of the files from the protocol folder, and hover over the type of the global combinator. 
+
+(TODO: Maybe put a picture here?)
+
+## Additional information 
+Try OCaml-MPST [Online](https://keigoi.github.io/ocaml-mpst-light/index.html)!
+
+* An interactive web interface is available at:
+  * https://keigoi.github.io/ocaml-mpst-light/index.html
+
+
 
 
 

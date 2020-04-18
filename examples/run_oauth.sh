@@ -3,6 +3,8 @@ cd "$(dirname "$0")"
 set -e
 set -v
 
+opam switch ocaml-mpst-lwt
+eval `opam env`
 dune build @oauth/all
 
 # Starting the OAuth server.

@@ -1,8 +1,9 @@
 #!/bin/bash
 cd "$(dirname "$0")"
-set -e
 set -v
 
+opam switch ocaml-mpst-lwt
+eval `opam env`
 dune build @dns/all
 
 # Starting the DNS server. After entering root password,

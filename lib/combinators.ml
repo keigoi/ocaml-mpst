@@ -388,6 +388,6 @@ end = struct
   
   include Single
   include ScatterGather
-end
+end[@@inline]
 
 module Dyn = Make(Dyn_lin.Check)(NoStatic)

@@ -42,14 +42,14 @@ end = struct
   type 'var inp = 'var Local.inp lin
   type close = (unit -> unit IO.io) lin
       
-  let declare_out role label out cont =
+  let[@inline] declare_out role label out cont =
     let ch =
       (* <role_rj = <lab = (ch,si) > > *)
       DynLin.wrap role.make_obj @@
         DynLin.wrap label.make_obj @@
           DynLin.declare (out,cont)
     in
-    let merge_out (n1,s1') (n2,s2') =
+    let[@inline] merge_out (n1,s1') (n2,s2') =
       (Local.merge_out n1 n2, Mergeable.merge s1' s2')
     in
     let merge_out_lin = DynLin.merge merge_out (compose_method role label) in
@@ -59,7 +59,7 @@ end = struct
       ~mergefun:merge_out_lin
       ()
       
-  let declare_inp role inp cont =
+  let[@inline] declare_inp role inp cont =
     let ch =
       (* <role_ri = wrap (receive ch) (λx.`lab(x,sj)) > *)
       DynLin.wrap role.make_obj @@
@@ -72,7 +72,7 @@ end = struct
       ~mergefun:merge_inp_lin
       ()
 
-  let declare_close f =
+  let[@inline] declare_close f =
     Mergeable.make
       ~value:(DynLin.declare f)
       ~mergefun:(fun _ _ -> DynLin.declare f)
@@ -80,19 +80,19 @@ end = struct
 
   let (let*) = IO.bind
 
-  let send (out: ('v,'t) out) (v:'v) =
+  let[@inline] send (out: ('v,'t) out) (v:'v) =
     let* (n,t) = DynLin.use out in
     let* () = Local.send n v in
     IO.return @@ DynLin.fresh (Mergeable.resolve t)
 
-  let receive (ch: 'var inp) =
+  let[@inline] receive (ch: 'var inp) =
     let* ch = DynLin.use ch in
     Local.receive ch
 
-  let close (ep: close) =
+  let[@inline] close (ep: close) =
     let* f = DynLin.use ep in
     f ()
-end
+end[@@inline]
 
 
 module ScatterGather(Local:S.LOCAL)(DynLin:Dyn_lin.S) : sig
@@ -162,4 +162,4 @@ end = struct
   let receive_many (ch: 'var gather) =
     let* ch = DynLin.use ch in
     Local.receive_many ch
-end
+end[@@inline]

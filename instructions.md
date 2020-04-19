@@ -49,6 +49,8 @@ To get to know the library:
 * create a file ring_protocol.ml in the examples/mpst folder 
 * follow the short tutoriual [here](https://github.com/keigoi/ocaml-mpst/wiki/Ocaml-mpst-in-5-minutes) to implement the protocol 
 
+__Hint:__ If you are struggling, the [examples/mpst/ring.ml file](examples/mpst/ring.ml) contains the full implementation, you can use it for reference. 
+
 #### Compile/run a new example
 Use the following commands. The commands assumes the newly created file is /examples/mpst/ring_protocol.ml. 
 
@@ -61,8 +63,6 @@ dune build examples/mpst/ring_protocol.ml
 ```
 dune exec ./examples/mpst/ring_protocol.exe
 ``` 
-
-__Hint:__ If you are struggling, the [examples/mpst/ring.ml file](examples/mpst/ring.ml) contains the full implementation, you can use it for reference. 
 
 #### __Note__ on syntax discrepencies:
 

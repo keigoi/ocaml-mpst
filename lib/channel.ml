@@ -188,12 +188,12 @@ end = struct
     | GatherName _, GatherFun _ | GatherFun _, GatherName _ ->
        assert false
         
-  let send out v =
+  let[@inline] send out v =
     match out with
     | OutName out -> Name.send out v
     | OutFun f -> f v
   
-  let receive inp =
+  let[@inline] receive inp =
     match inp with
     | InpName inp -> Name.receive inp
     | InpFun (f, wrappers) ->
@@ -217,4 +217,4 @@ end = struct
           IO.return (U.apply_wrapper wrappers tag vs)
        | [] ->
           assert false
-end
+end[@@inline]

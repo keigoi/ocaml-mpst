@@ -1,9 +1,9 @@
 module IO = struct
   type +'a io = 'a
-  let bind m f = f m
+  external bind : 'a -> ('a -> 'b) -> 'b = "%revapply"
   let both a b = (a, b)
   let map f x = f x
-  let return x = x
+  external return : 'a -> 'a = "%identity"
   let return_unit = ()
   let printl = print_endline
   let main_run x = x

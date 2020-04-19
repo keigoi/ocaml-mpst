@@ -79,9 +79,7 @@ let thread_B ch =
   | `right(x, ch) -> ...
 ```
 
-For details, see the [notes on library dependencies](README.md#notes-on-optional-library-dependencies).
-
-implemented on top of [concur-shims](packages/concur-shims/)
+For details, see the [notes on library dependencies](README.md#notes-on-optional-library-dependencies), implemented on top of [concur-shims](packages/concur-shims/)
 
 
 Note that the light version of mpst-ocaml, which is not parametric on the transport but uses only the in-build Evenmt module of ocaml, matches the exact synatax from the paper and is avalaible to try [here](https://keigoi.github.io/ocaml-mpst-light/index.html) follows the syntax of the paper. 

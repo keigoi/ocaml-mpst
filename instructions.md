@@ -62,7 +62,34 @@ Hint: If you are struggling, the [examples/mpst/ring.ml file](examples/mpst/ring
 
 Note: Discrepencies between the sytax of ocaml-mpst-lwt and the paper
 
-(TODO: explain the use of gen, and the the use let*).
+Primitives `send`, `recv` and `close` are monadic in lwt, and
+you must first declare monadic `let*` binding and use it, as follows:
+
+```ocaml
+open Concur_shims
+let (let*) = IO.bind
+
+let thread_A ch =
+  let* ch = send ch#role_B#left "hello" in
+  let* `msg(_,ch) = receive ch#role_C in ..
+```
+
+Patern-maching `match` is not available for monads. Thus, when you make an external choice,
+you must first bind the received variant to a variable, then match on it, as follows:
+
+```ocaml
+let thread_B ch =
+  let* var = receive ch#role_A in
+  match var with
+  | `left(x, ch) -> ...
+  | `right(x, ch) -> ...
+```
+
+For details, see the [notes on library dependencies](README.md#notes-on-optional-library-dependencies).
+
+implemented on top of [concur-shims](packages/concur-shims/)
+
+
 Note that the light version of mpst-ocaml, that is avalaible here[https://keigoi.github.io/ocaml-mpst-light/index.html] follows the syntax of the paper. 
 
 ## STEP 2: Run mpst-ocaml benchmarks (Section 6.1)

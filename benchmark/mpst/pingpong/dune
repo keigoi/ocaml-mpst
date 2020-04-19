@@ -1,6 +1,7 @@
 (executable
  (name pingpong)
  (preprocess (pps linocaml-light.ppx))
+ ; (ocamlopt_flags -O3 -inline-max-depth 1000 -inline 1000)
  (ocamlopt_flags -O3)
  (flags ("-rectypes" "-short-paths"))
  (libraries mpst mpst_lin bench_util core_bench))

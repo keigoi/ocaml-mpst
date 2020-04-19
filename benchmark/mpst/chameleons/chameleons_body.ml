@@ -54,8 +54,8 @@ module MakeDyn
 
     let start_client i () =
       let debug str =
-        (* Printf.printf "(%d): %s\n" i str;
-         * flush stdout; *)
+        Printf.printf "(%d): %s\n" i str;
+        flush stdout;
         ()
       in
       debug "connecting..";
@@ -65,16 +65,16 @@ module MakeDyn
       let* lab = receive sa#role_B in
       match lab with
       | `left(sa2,sa) ->
-         debug "left.";
          let* sa2 = send sa2#role_B#msg () in
          let* `msg((),sa2) = receive sa2#role_B in
+         debug "left recv'd.";
          let* () = close sa2 in
          close sa
       | `right(sb2,sa) ->
-         debug "right.";
          let* `msg((),sb2) = receive sb2#role_A in
+         debug "right send.";
          let* sb2 = send sb2#role_A#msg () in
-         let* () = close sb2 in
+         (* let* () = close sb2 in *)
          close sa
 
     let rec loop f x = IO.bind (f x) (fun () -> loop f x)
@@ -82,7 +82,7 @@ module MakeDyn
     let setup n =
       let _ : unit list =
         List.init n begin fun i ->
-          ignore (Thread.create 
+          ignore (Thread.create
             (fun () ->
               (* Printf.printf "thread %d started\n" i; *)
               loop (start_client i) ()) ())
@@ -113,7 +113,7 @@ module MakeStatic
     open Mpst_lin
     open Mpst.Util
     let (let/) = Linocaml.bind
-       
+
     let pingpong =
       (a --> b) msg @@
       (b --> a) msg @@ finish
@@ -160,8 +160,8 @@ module MakeStatic
       let open Linocaml in
       let open LinocamlStyle in
       let debug str =
-        (* Printf.printf "(%d): %s\n" i str;
-         * flush stdout; *)
+        Printf.printf "(%d): %s\n" i str;
+        flush stdout;
         ()
       in
       debug "connecting..";

@@ -16,14 +16,9 @@ let test =
     [
       run ~name:("lwt_dynamic") (let module M = MakeDyn(Shmem)() in M.runtest);
       run ~name:("lwt_static") (let module M = MakeStatic(Shmem)() in M.runtest);
-      (* run ~name:("lwt_ipc_dynamic") (let module M = MakeDyn(IPC)() in M.runtest);
-       * run ~name:("lwt_ipc_static") (let module M = MakeStatic(IPC)() in M.runtest); *)
     ]
-
-let test_all =
-    test
 
 let () =
   Core.Command.run @@
     Core_bench.Bench.make_command
-      test_all
+      test

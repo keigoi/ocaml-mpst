@@ -19,13 +19,13 @@ and 'w gather =
 
 type ('a, 'b) either = Left of 'a | Right of 'b
 
-let create f =
+let[@inline] create f =
   let evch = Event.new_channel () in
   let rec ch = {contents={channel=evch; merged=[ch]}} in
   let inp = ch in
-  ch, Event.wrap (Event.guard (fun () -> Event.receive (!inp).channel)) f
+  ch, Event.wrap (Event.guard (fun[@inline] () -> Event.receive (!inp).channel)) f
 
-let merge_out cl cr =
+let[@inline] merge_out cl cr =
   if cl==cr then
     cl
   else
@@ -36,16 +36,16 @@ let merge_out cl cr =
       cr := newch;
       cl
     end
-let merge_inp cl cr =
+let[@inline] merge_inp cl cr =
   if cl==cr then
     cl
   else
     Event.choose [cl; cr]
 
-let send c v =
+let[@inline] send c v =
   Event.sync (Event.send (!c).channel v)
   
-let receive c =
+let[@inline] receive c =
   Event.sync c
 
 let create_scatter cnt f =

@@ -41,7 +41,8 @@ let test_ipc =
     []
 
 let test_all =
-  test @ test_ipc
+  test
+   (* @ test_ipc *)
 
 let () =
   Core.Command.run @@

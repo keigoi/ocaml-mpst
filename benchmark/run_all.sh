@@ -14,20 +14,33 @@ then
     exit 1
 fi
 
+set -e
+
+QUOTA=$1
+
+DIR=`mktemp -d -p results`
+cd $DIR
+
+echo Saving raw results to $DIR ..
+
+set -v
 
 opam switch ocaml-mpst-ev
 eval `opam env`
 dune clean
-dune build @ev/all @mpst/all
 
-./run_ev.sh $1
-./run_mpst_ev.sh $1
+dune exec ../../ev/ev_pingpong.exe -- +time cycles alloc gc percentage speedup samples -save -quota $QUOTA
+dune exec ../../mpst/pingpong/pingpong.exe -- +time cycles alloc gc percentage speedup samples -save -quota $QUOTA
 
 opam switch ocaml-mpst-lwt
 eval `opam env`
 dune clean
-dune build @lwt/all @mpst/all
 
-./run_lwt.sh $1
-./run_mpst_lwt.sh $1
+dune exec ../../lwt/lwt_pingpong.exe -- +time cycles alloc gc percentage speedup samples -save -quota $QUOTA
+dune exec ../../mpst/pingpong/pingpong.exe -- +time cycles alloc gc percentage speedup samples -save -quota $QUOTA
+dune exec ../../mpst/nping/nping.exe -- +time cycles alloc gc percentage speedup samples -save -quota $QUOTA
+dune exec ../../mpst/chameleons/chameleons.exe -- +time cycles alloc gc percentage speedup samples -save -quota $QUOTA
 
+echo Saved raw results to $DIR .
+
+dune exec ../../mpst/pingpong/pingpong.exe -- -load $(echo $(ls *s.txt) | sed 's/ / -load /g') -sexp >../table_sexp.txt

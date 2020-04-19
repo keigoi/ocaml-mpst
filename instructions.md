@@ -54,7 +54,12 @@ dune build examples/mpst/ring_protocol.exe
 ``` 
 __Hint:__ If you are struggling, the [examples/mpst/ring.ml file](examples/mpst/ring.ml) contains the full implementation, you can use it for reference. 
 
-#### __Note:__ Discrepencies between the sytax of ocaml-mpst-lwt and the paper
+#### __Note__ on synatx discrepencies:
+
+There are small synatx discrepencies between ocaml-mpst-lwt and the paper. 
+The running example of the paper uses the simplest in-built communication transport in Ocaml(Event).
+To make our library oparametric, we have created a wrapper that uses the lwt transport when installed, and switces to the in-built Event module if lwt is not available. To accommodate the lwt requirements, the wrapper requires 
+a monadic let binding as explained below.  
 
 Primitives `send`, `recv` and `close` are monadic in lwt, and
 you must first declare monadic `let*` binding and use it, as follows:

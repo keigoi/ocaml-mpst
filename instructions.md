@@ -1,6 +1,5 @@
 
 ## Getting started
-For instructions for compiling the ocaml-mpst on your own machine, see [README.md](https://github.com/keigoi/ocaml-mpst/edit/master/readme.md).
 
 For the ECOOP'20 artifact evaluation, please use the VM prepared: 
 
@@ -131,6 +130,7 @@ choose some of the files from the protocol folder, and hover over the type of th
 (TODO: Maybe put a picture here?)
 
 ## Additional information 
+* For instructions for compiling the ocaml-mpst on your own machine, see [README.md](https://github.com/keigoi/ocaml-mpst/edit/master/readme.md).
 * All examples are already compiled and the executables are ```in_build/default/examples/**.exe.```
 * The file [examples/mpst/toy_oauth.ml file](examples/mpst/toy_oauth.ml) contains the running example from the paper (Section 2). You can compile and run it with:
 

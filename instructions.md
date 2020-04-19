@@ -48,7 +48,8 @@ To get to know the library:
 * open VSCode and ... 
 * create a file ring_protocol.ml in the examples/mpst folder 
 * follow the short tutoriual [here](https://github.com/keigoi/ocaml-mpst/wiki/Ocaml-mpst-in-5-minutes) to implement the protocol 
-###To compile/run a new example use the following command (it assumes the newly created file is /examples/mpst/ring_protocol.ml):
+
+### To compile/run a new example use the following command (it assumes the newly created file is /examples/mpst/ring_protocol.ml):
 
 * open the dune file and add an entry ring_protocol.exe
 * to build the example use:

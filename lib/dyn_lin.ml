@@ -122,13 +122,18 @@ end
 module NoCheck : S with type 'a lin = 'a with type 's gen = 's = struct
   type +'a lin = 'a
   type 's gen = 's
-  let use t = IO.return t
-  let declare v = v
-  let fresh v = v
-  let merge f meth x y =
+  let[@inline] use t = IO.return t
+  let[@inline] merge f meth x y =
     let x = meth.call_obj x and y = meth.call_obj y in
     meth.make_obj (f x y)
+  external declare : 'a -> 'a = "%identity"
+  external declare_unlimited : 'a -> 'a = "%identity"
+  external fresh : 'a -> 'a = "%identity"
+  external lift_disj : 'a -> 'a = "%identity"
+  external wrap : ('a -> 'b) -> 'a -> 'b = "%apply"
+  (* let declare v = v
+  let fresh v = v
   let lift_disj disj = disj
   let wrap f x = f x
-  let declare_unlimited v = v
+  let declare_unlimited v = v *)
 end

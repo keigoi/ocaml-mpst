@@ -197,10 +197,10 @@ let create_gather cnt (f : 'v list -> 't) =
   let rec gather = {contents=Gather {g_inplist = inps; g_wrap = f; g_merged = [gather]}} in
   outs, gather
 
-let send {contents=Out({o_st; o_wrap; _})} v =
+let[@inline] send {contents=Out({o_st; o_wrap; _})} v =
   Stream_opt.send o_st (o_wrap v)
 
-let receive {contents=Inp({i_st; i_wrap; _})} =
+let[@inline] receive {contents=Inp({i_st; i_wrap; _})} =
   Stream_opt.receive_wrap ~f:i_wrap i_st
 
 let send_many outs f =

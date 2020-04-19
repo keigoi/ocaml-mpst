@@ -66,36 +66,36 @@ end = struct
       
   let (let*) = IO.bind
 
-  let unlin x = x.__lin
+  let[@inline] unlin x = x.__lin
 
   let send_raw = send
   let receive_raw = receive
   let close_raw = close
 
-  let send idx sel v = {__m=(fun lpre ->
+  let[@inline] send idx sel v = {__m=(fun[@inline] lpre ->
       let s = lens_get idx lpre in
-      let* t = send_raw (sel (unlin s)) {data=v} in
-      IO.return (lens_put idx lpre (), {__lin=t})
+      IO.bind (send_raw (sel (unlin s)) {data=v}) (fun[@inline] t ->
+      IO.return (lens_put idx lpre (), {__lin=t}))
     )}
 
   let deleg_send idx1 sel idx2 = {__m=(fun lpre ->
       let t = lens_get idx2 lpre in
       let lmid = lens_put idx2 lpre () in
       let s = lens_get idx1 lmid in
-      let* u = send_raw (sel (unlin s)) t in
+      let* u[@inline] = send_raw (sel (unlin s)) t in
       IO.return (lens_put idx1 lmid (), {__lin=u})
     )}
 
-  let receive idx sel = {__m=(fun lpre ->
+  let[@inline] receive idx sel = {__m=(fun[@inline] lpre ->
       let s = lens_get idx lpre in
-      let* var = receive_raw (sel (unlin s)) in
-      IO.return (lens_put idx lpre (), {__lin=var})
+      IO.bind (receive_raw (sel (unlin s))) (fun[@inline] var ->
+      IO.return (lens_put idx lpre (), {__lin=var}))
     )}
 
-  let close idx = {__m=(fun lpre ->
+  let[@inline] close idx = {__m=(fun[@inline] lpre ->
       let s = lens_get idx lpre in
-      let* () = close_raw (unlin s) in
-      IO.return (lens_put idx lpre (), {data=()})
+      IO.bind (close_raw (unlin s)) (fun[@inline] () ->
+      IO.return (lens_put idx lpre (), {data=()}))
     )}
 
   let create_thread_lin idx idx' m =
@@ -128,24 +128,24 @@ end = struct
       in
       Other(get,put)
 
-    let send sel v = {__m=(fun lpre ->
-        let* s = send_raw (sel (unlin lpre)) {data=v} in
+    let[@inline] send sel v = {__m=(fun[@inline] lpre ->
+        let* s[@inline] = send_raw (sel (unlin lpre)) {data=v} in
         IO.return ((), {__lin=s})
       )}
 
-    let deleg_send sel = {__m=(fun lpre ->
+    let[@inline] deleg_send sel = {__m=(fun[@inline] lpre ->
         let subj, obj = lpre in
-        let* ep = send_raw (sel (unlin subj)) obj in
+        let* ep[@inline] = send_raw (sel (unlin subj)) obj in
         IO.return ((), {__lin=ep})
       )}
 
-    let receive sel = {__m=(fun lpre ->
-        let* var = receive_raw (sel (unlin lpre)) in
+    let[@inline] receive sel = {__m=(fun[@inline] lpre ->
+        let* var[@inline] = receive_raw (sel (unlin lpre)) in
         IO.return ((), {__lin=var})
       )}
 
-    let close = {__m=(fun lpre ->
-        let* () = close_raw (unlin lpre) in
+    let close = {__m=(fun[@inline] lpre ->
+        let* ()[@inline] = close_raw (unlin lpre) in
         IO.return ((), {data=()})
       )}
 

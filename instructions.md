@@ -52,15 +52,9 @@ To get to know the library:
 ```
 dune build examples/mpst/ring_protocol.exe
 ``` 
+*Hint:* If you are struggling, the [examples/mpst/ring.ml file](examples/mpst/ring.ml) contains the full implementation, you can use it for reference. 
 
-Hint: If you are struggling, the [examples/mpst/ring.ml file](examples/mpst/ring.ml) contains the full implementation, you can use it for reference. 
-
-2. Check if protocols are correct 
-* open [examples/mpst/ring.ml file]
-* uncomment the various protocols at the bottom of the file and check the error messages
-
-
-Note: Discrepencies between the sytax of ocaml-mpst-lwt and the paper
+*Note:* Discrepencies between the sytax of ocaml-mpst-lwt and the paper
 
 Primitives `send`, `recv` and `close` are monadic in lwt, and
 you must first declare monadic `let*` binding and use it, as follows:
@@ -90,7 +84,11 @@ For details, see the [notes on library dependencies](README.md#notes-on-optional
 implemented on top of [concur-shims](packages/concur-shims/)
 
 
-Note that the light version of mpst-ocaml, that is avalaible here[https://keigoi.github.io/ocaml-mpst-light/index.html] follows the syntax of the paper. 
+Note that the light version of mpst-ocaml, which is not parametric on the transport but uses only the in-build Evenmt module of ocaml, matches the exact synatax from the paper and is avalaible to try [here](https://keigoi.github.io/ocaml-mpst-light/index.html) follows the syntax of the paper. 
+
+2. Check if protocols are correct 
+* open [examples/mpst/ring.ml file]
+* uncomment the various protocols at the bottom of the file and check the error messages
 
 ## STEP 2: Run mpst-ocaml benchmarks (Section 6.1)
 

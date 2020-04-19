@@ -125,7 +125,7 @@ If you use your own account, a message dispalying that no access is allowd will 
 
 * run the run_dns script 
 ```
-./examples/run_oauth.sh
+./examples/run_dns.sh
 ```
 
 Follow the instructions 

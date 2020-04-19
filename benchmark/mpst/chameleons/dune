@@ -1,22 +1,5 @@
 (executable
  (name chameleons)
- (modules chameleons)
- (preprocess (pps linocaml-light.ppx))
- (ocamlopt_flags -O3)
- (flags ("-rectypes" "-short-paths"))
- (libraries mpst mpst_lin chameleons_body bench_util core_bench))
-
-(executable
- (name chameleons_pipes)
- (modules chameleons_pipes)
- (preprocess (pps linocaml-light.ppx))
- (ocamlopt_flags -O3)
- (flags ("-rectypes" "-short-paths"))
- (libraries mpst mpst_lin chameleons_body bench_util core_bench))
-
-(library
- (name chameleons_body)
- (modules chameleons_body)
  (preprocess (pps linocaml-light.ppx))
  (ocamlopt_flags -O3)
  (flags ("-rectypes" "-short-paths"))

@@ -169,6 +169,6 @@ If compilation fails, also try
 opam switch ocaml-mpst-lwt; eval $(opam env)
 ```
 ## Additional information
-* For instructions for compiling the ocaml-mpst on your own machine, see [README.md](https://github.com/keigoi/ocaml-mpst/blob/master/README.md).
+* For instructions for compiling the ocaml-mpst on your own machine, see [README.md](https://github.com/keigoi/ocaml-mpst/blob/master/README.md). Note that some of the large examples (dns, oAuth)  need [additional dependencies](https://github.com/keigoi/ocaml-mpst/blob/master/README.md#libraries-used-in-examples-and-benchmarks). 
 * Try OCaml-MPST [Online](https://keigoi.github.io/ocaml-mpst-light/index.html)!
 An interactive web interface is available at: https://keigoi.github.io/ocaml-mpst-light/index.html

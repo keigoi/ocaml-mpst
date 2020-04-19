@@ -90,10 +90,6 @@ For details, see the [notes on library dependencies](README.md#notes-on-optional
 
 Note that the light version of mpst-ocaml, which is not parametric on the transport but uses only the in-build [Event module](https://caml.inria.fr/pub/docs/manual-ocaml/libref/Event.html) of ocaml, matches the exact synatax from the paper and is avalaible to try [here](https://keigoi.github.io/ocaml-mpst-light/index.html) follows the syntax of the paper. 
 
-2. Check if protocols are correct 
-* open [examples/mpst/ring.ml file]
-* uncomment the various protocols at the bottom of the file and check the error messages
-
 ## STEP 2: Run mpst-ocaml benchmarks (Section 6.1)
 
 * Run the benchmarks script (it should take approximately 10-15 min): 
@@ -157,7 +153,20 @@ choose some of the files from the protocol folder, and hover over the type of th
 
 (TODO: Maybe put a picture here?)
 
-## Additional commands and examples
+### Step 4: Other examples
+1. Check if protocols are correct 
+* open the [ring.ml file][examples/mpst/ring.ml file]
+* uncomment the various global combinators at the bottom of the file and check the error messages
+
+2. Experiment with a simple calculator  
+* open the [examples/mpst/calc.ml file][examples/mpst/calc.ml file]
+
+```ocaml
+dune build examples/mpst/calc.ml
+dune exec ./examples/mpst/calc.exe
+```
+
+## Additional details
 * All examples are already compiled and the executables are ```in_build/default/examples/**.exe.```
 * The file [examples/mpst/toy_oauth.ml file](examples/mpst/toy_oauth.ml) contains the running example from the paper (Section 2). You can compile and run it with:
 

@@ -42,24 +42,24 @@ jupyter-notebook benchmark/graphs/Graphs.ipynb
 ```
 
 ## STEP 1: Getting to know the library
-The VM comes with VSCode installed and configured with an ocaml plugin. 
+The VM comes with VSCode installed and configured with an ocaml plug-in. 
 To get to know the library: 
 1. Create a simple ring protocol 
 * open VSCode and ... 
 * create a file ring_protocol.ml in the examples/mpst folder 
-* follow the short tutoriual [here](https://github.com/keigoi/ocaml-mpst/wiki/Ocaml-mpst-in-5-minutes) to implement the protocol 
+* follow the short tutorial [here](https://github.com/keigoi/ocaml-mpst/wiki/Ocaml-mpst-in-5-minutes) to implement the protocol 
 * To compile/run the example use the following command:
 ```
 dune build examples/mpst/ring_protocol.ml
 ``` 
 __Hint:__ If you are struggling, the [examples/mpst/ring.ml file](examples/mpst/ring.ml) contains the full implementation, you can use it for reference. 
 
-#### __Note__ on syntax discrepencies:
+#### __Note__ on syntax discrepancies:
 
-There are small synatax discrepencies between ocaml-mpst-lwt and the paper. 
-The running example of the paper uses the simplest in-built communication transport in Ocaml (Event), whcih is also avialble in our [ocaml-mpst-light](https://keigoi.github.io/ocaml-mpst-light/index.html) implementation.
+There are small syntax discrepancies between ocaml-mpst-lwt and the paper. 
+The running example of the paper uses the simplest in-built communication transport in Ocaml (Event), which is also avoidable in our [ocaml-mpst-light](https://keigoi.github.io/ocaml-mpst-light/index.html) implementation.
 
-The full ocaml-mpst library of the artifact is parametric on the underlying transport. To enable this parametricity, we have created a wrapper that uses the [lwt](https://ocsigen.org/lwt/5.2.0/manual/manual) transport when installed, and switces to the in-built [Event] (https://caml.inria.fr/pub/docs/manual-ocaml/libref/Event.html) module if lwt is not available. 
+The full ocaml-mpst library of the artifact is parametric on the underlying transport. To enable this parametricity, we have created a wrapper that uses the [lwt](https://ocsigen.org/lwt/5.2.0/manual/manual) transport when installed, and switches to the in-built [Event] (https://caml.inria.fr/pub/docs/manual-ocaml/libref/Event.html) module if lwt is not available. 
 To accommodate the lwt requirements, the wrapper requires some syntactic changes as explained below. 
 
 Primitives `send`, `recv` and `close` are monadic in lwt, and
@@ -74,7 +74,7 @@ let thread_A ch =
   let* `msg(_,ch) = receive ch#role_C in ..
 ```
 
-Patern-maching `match` is not available for monads. Thus, when you make an external choice,
+Pattern-matching `match` is not available for monads. Thus, when you make an external choice,
 you must first bind the received variant to a variable, then match on it, as follows:
 
 ```ocaml
@@ -88,7 +88,7 @@ let thread_B ch =
 For details, see the [notes on library dependencies](README.md#notes-on-optional-library-dependencies), implemented on top of [concur-shims](packages/concur-shims/)
 
 
-Note that the light version of mpst-ocaml, which is not parametric on the transport but uses only the in-build [Event module](https://caml.inria.fr/pub/docs/manual-ocaml/libref/Event.html) of ocaml, matches the exact synatax from the paper and is avalaible to try [here](https://keigoi.github.io/ocaml-mpst-light/index.html) follows the syntax of the paper. 
+Note that the light version of mpst-ocaml, which is not parametric on the transport but uses only the in-build [Event module](https://caml.inria.fr/pub/docs/manual-ocaml/libref/Event.html) of ocaml, matches the exact syntax from the paper and is available to try [here](https://keigoi.github.io/ocaml-mpst-light/index.html) follows the syntax of the paper. 
 
 ## STEP 2: Run mpst-ocaml benchmarks (Section 6.1)
 
@@ -103,7 +103,7 @@ Note that the light version of mpst-ocaml, which is not parametric on the transp
 jupyter-notebook benchmark/graphs/Graph.ipynb
 ```
 
-The jupyter script will open in a new chrome tab. Click Run to run the scipt and display the graphs. 
+The jupyter script will open in a new chrome tab. Click Run to run the script and display the graphs. 
 At the bottom of the page, you will see a summary of the results. The graphs correspond to Figure 15 (Section 6.1) 
 
 More information about the source of the benchmarks is available [here](benchmark/).
@@ -117,7 +117,7 @@ More information about the source of the benchmarks is available [here](benchmar
 
 This will trigger a facebook authentication (a tab in chrome will open). 
 You can either use your own facebook account to login, or use our test account. 
-If you use your own account, a message dispalying that no access is allowd will be displayed. 
+If you use your own account, a message displaying that no access is allows will be displayed. 
 
 * the source code of the example is in examples/oAuth.ml
 
@@ -148,7 +148,7 @@ To test if a global protocol compiles after you have modify it, run:
 where you have to replace the_name_of_the_protocol with the name of the file that you are modifying. 
 
 Note that this folder contains only the protocols. 
-The easiest way to explore the channle vectors inferred by running the global combinators is to open VSCode, 
+The easiest way to explore the channel vectors inferred by running the global combinators is to open VSCode, 
 choose some of the files from the protocol folder, and hover over the type of the global combinator. 
 
 (TODO: Maybe put a picture here?)

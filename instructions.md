@@ -54,7 +54,7 @@ dune build examples/mpst/ring_protocol.exe
 ``` 
 __Hint:__ If you are struggling, the [examples/mpst/ring.ml file](examples/mpst/ring.ml) contains the full implementation, you can use it for reference. 
 
-__Note:__ Discrepencies between the sytax of ocaml-mpst-lwt and the paper
+#### __Note:__ Discrepencies between the sytax of ocaml-mpst-lwt and the paper
 
 Primitives `send`, `recv` and `close` are monadic in lwt, and
 you must first declare monadic `let*` binding and use it, as follows:

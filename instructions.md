@@ -2,7 +2,7 @@
 ## Getting started
 For instructions for compiling the ocaml-mpst on your own machine, see [README.md](https://github.com/keigoi/ocaml-mpst/edit/master/readme.md).
 
-Alternatively, you may use the VM prepared for the ECOOP'20 artifact evaluation.
+For the ECOOP'20 artifact evaluation, please use the VM prepared: 
 
 1. Download our [modified VM](https://drive.google.com/open?id=198S910WCd8y4Ow14WRg_9e3rrs-qsK3Q).
 2. Load it in [Virtual Box](https://www.virtualbox.org/) and boot it.

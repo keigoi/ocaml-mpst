@@ -54,7 +54,7 @@ dune build examples/mpst/ring_protocol.exe
 ``` 
 __Hint:__ If you are struggling, the [examples/mpst/ring.ml file](examples/mpst/ring.ml) contains the full implementation, you can use it for reference. 
 
-#### __Note__ on synatx discrepencies:
+#### __Note__ on syntax discrepencies:
 
 There are small synatax discrepencies between ocaml-mpst-lwt and the paper. 
 The running example of the paper uses the simplest in-built communication transport in Ocaml (Event), whcih is also avialble in our [ocaml-mpst-light](https://keigoi.github.io/ocaml-mpst-light/index.html) implementation.

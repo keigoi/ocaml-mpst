@@ -33,12 +33,12 @@ dune build @examples/all
 
 Run all benchmarks for a limited time.:
 ```
-./benchmarks/run_all.sh 0.5s
+./benchmark/run_all.sh 0.5s
 ``` 
 
 Display the graphs from the paper using jupyter-notebook
 ```
-jupyter-notebook benchmark/graphs/Graph.ipynb
+jupyter-notebook benchmark/graphs/Graphs.ipynb
 ```
 
 ## STEP 1: Getting to know the library

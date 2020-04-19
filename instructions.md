@@ -43,7 +43,22 @@ jupyter-notebook benchmark/graphs/Graph.ipynb
 ```
 
 ## STEP 1: Getting to know the library
+The VM comes with VSCode installed and configured with an ocaml plugin. 
+To get to know the library:
+* open VSCode. 
+* open [examples/mpst/toy_oauth.ml file](examples/mpst/toy_oauth.ml) - it contains the running example from the paper (Section 2)
+* Uncomment the different sections in the file to test the various implementations
 
+* To compiler/run the example use the following command:
+
+```
+dune build examples/mpst/toy_oauth.exe
+``` 
+
+Note: Discrepencies between the sytax of ocaml-mpst-lwt and the paper
+
+(TODO: explain the use of gen, and the the use let*).
+Note that the light version of mpst-ocaml, that is avalaible here[https://keigoi.github.io/ocaml-mpst-light/index.html] follows the syntax of the paper. 
 
 ## STEP 2: Run mpst-ocaml benchmarks (Section 6.1)
 

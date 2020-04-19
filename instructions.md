@@ -82,7 +82,7 @@ let thread_B ch =
 For details, see the [notes on library dependencies](README.md#notes-on-optional-library-dependencies), implemented on top of [concur-shims](packages/concur-shims/)
 
 
-Note that the light version of mpst-ocaml, which is not parametric on the transport but uses only the in-build Evenmt module of ocaml, matches the exact synatax from the paper and is avalaible to try [here](https://keigoi.github.io/ocaml-mpst-light/index.html) follows the syntax of the paper. 
+Note that the light version of mpst-ocaml, which is not parametric on the transport but uses only the in-build [Event module](https://caml.inria.fr/pub/docs/manual-ocaml/libref/Event.html) of ocaml, matches the exact synatax from the paper and is avalaible to try [here](https://keigoi.github.io/ocaml-mpst-light/index.html) follows the syntax of the paper. 
 
 2. Check if protocols are correct 
 * open [examples/mpst/ring.ml file]
@@ -106,7 +106,6 @@ At the bottom of the page, you will see a summary of the results. The graphs cor
 
 More information about the source of the benchmarks is available [here](benchmark/).
 
-(TODO:... should we mention smth about discrepencies because the VM is slow?)
 ## STEP 3: Run applications, written with mpst-ocaml 
 ### STEP 3.1: Run an oAuth use case (Section 6.3)
 * run the run_oAuth script 

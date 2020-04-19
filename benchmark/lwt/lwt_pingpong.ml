@@ -1,3 +1,4 @@
+open Concur_shims
 open Core_bench.Bench
 open Core_bench.Bench.Test
 open Bench_util
@@ -6,6 +7,8 @@ let (let*) = Lwt.bind
 
 open Bench_util.Util
 open Bench_util.Testbase
+
+let (let*) = IO.bind
 
 module Flag = Mpst.Internal.Flag
 
@@ -50,8 +53,12 @@ module BLwtCPS(Chan:LWT_CHAN)() : TEST = struct
   let create () =
     let ch = Chan.create () in
     (Flag.create (), ch), (Flag.create (), ch)
-  let send (lin, ch) v = Flag.use lin; Chan.send ch v
-  let receive (lin, ch) = Flag.use lin; Chan.receive ch
+  let send (lin, ch) v = 
+    let* () = Flag.use lin in 
+    Chan.send ch v
+  let receive (lin, ch) = 
+    let* () = Flag.use lin in
+    Chan.receive ch
 
   let server_step init =
     let stored = ref init in

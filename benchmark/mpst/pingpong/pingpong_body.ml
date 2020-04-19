@@ -84,17 +84,17 @@ module MakeStatic
 
     let s = Linocaml.Zero
 
-    let setup _ =
-      let g = raw_gen_with_kinds [Med.medium;Med.medium;] prot in
+    let setup _ = ()
+      (* let g = raw_gen_with_kinds [Med.medium;Med.medium;] prot in
       sa_init := raw_get_ch a g;
-      sb_init := raw_get_ch b g
+      sb_init := raw_get_ch b g *)
       
 
     let server_step _ =
-      let store = ref !sb_init in
+      let store = sb_init in
       Linocaml.run
         (fun[@inline] () ->
-        let* () = put_linval s !store in
+        let* ()[@inline] = put_linval s !store in
         let%lin `ping(_,#s) = s <@ receive (fun[@inline] x->x#role_A) in
         let%lin #s = s <@ send (fun[@inline] x-> x#role_A#pong) () in
         {__m=(fun[@inline] pre ->
@@ -104,7 +104,7 @@ module MakeStatic
       )
 
     let client_step param =
-      let store = ref !sa_init in
+      let store = sa_init in
       let payload = List.assoc param big_arrays in
       Core.Staged.stage
         (Linocaml.run

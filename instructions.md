@@ -54,7 +54,7 @@ To get to know the library:
 dune build examples/mpst/ring_protocol.exe
 ``` 
 
-Hint: If you are struggling, the [examples/mpst/ring.ml file] contains the full implementation, you can use it for reference. 
+Hint: If you are struggling, the [examples/mpst/ring.ml file](examples/mpst/ring.ml) contains the full implementation, you can use it for reference. 
 
 2. Check if protocols are correct 
 * open [examples/mpst/ring.ml file]

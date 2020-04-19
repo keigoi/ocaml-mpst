@@ -109,13 +109,13 @@ end = struct
     in
     match generate ~from_info ~to_info with
     | Dpipe([[dpipe]]) ->
-       OutFun(Untyped_dpipeU.(out_dpipe (flip dpipe) label)),
-       InpFun(Untyped_dpipeU.inp_dpipe dpipe label cont)
+       OutFun(Untyped_dpipeU.out_dpipe dpipe label),
+       InpFun(Untyped_dpipeU.(inp_dpipe (flip dpipe) label cont))
     | Dpipe(_) ->
        assert false
     | Dstream([[dstream]]) ->
-       OutFun(Untyped_streamU.(out_untyped @@ flip dstream) label),
-       InpFun(Untyped_streamU.inp_untyped dstream label cont)
+       OutFun(Untyped_streamU.out_untyped dstream label),
+       InpFun(Untyped_streamU.(inp_untyped (flip dstream) label cont))
     | Dstream(_) ->
        assert false
   
@@ -125,13 +125,13 @@ end = struct
     in
     match generate ~from_info ~to_info with
     | Dpipe([dpipes]) ->
-       ScatterFun(List.map (fun dpipe -> Untyped_dpipeU.(out_dpipe (flip dpipe) label)) dpipes),
-       List.map2 (fun dpipe cont -> InpFun(Untyped_dpipeU.inp_dpipe dpipe label cont)) dpipes conts
+       ScatterFun(List.map (fun dpipe -> Untyped_dpipeU.out_dpipe dpipe label) dpipes),
+       List.map2 (fun dpipe cont -> InpFun(Untyped_dpipeU.(inp_dpipe (flip dpipe) label cont))) dpipes conts
     | Dpipe(_) ->
        assert false
     | Dstream([dstreams]) ->
        ScatterFun(List.map (fun dstream -> Untyped_streamU.out_untyped dstream label) dstreams),
-       List.map2 (fun dstream cont -> InpFun(Untyped_streamU.inp_untyped dstream label cont)) dstreams conts
+       List.map2 (fun dstream cont -> InpFun(Untyped_streamU.(inp_untyped (flip dstream) label cont))) dstreams conts
     | Dstream(_) ->
        assert false
   
@@ -142,12 +142,12 @@ end = struct
     match generate ~from_info ~to_info with
     | Dpipe(dpipes) ->
        let dpipes = List.map List.hd dpipes in
-       List.map (fun dpipe -> OutFun(Untyped_dpipeU.(out_dpipe (flip dpipe) label))) dpipes,
-       GatherFun(Untyped_dpipeU.inplist_dpipe dpipes label cont)
+       List.map (fun dpipe -> OutFun(Untyped_dpipeU.out_dpipe dpipe label)) dpipes,
+       GatherFun(Untyped_dpipeU.(inplist_dpipe (List.map flip dpipes) label cont))
     | Dstream(dstreams) ->
        let dstreams = List.map List.hd dstreams in
-       List.map (fun dstream -> OutFun(Untyped_streamU.(out_untyped @@ flip dstream) label)) dstreams,
-       GatherFun(Untyped_streamU.inplist_untyped dstreams label cont)
+       List.map (fun dstream -> OutFun(Untyped_streamU.out_untyped dstream label)) dstreams,
+       GatherFun(Untyped_streamU.(inplist_untyped (List.map flip dstreams) label cont))
        
   let merge_out o1 o2 =
     match o1, o2 with

@@ -52,7 +52,7 @@ end = struct
     let[@inline] merge_out (n1,s1') (n2,s2') =
       (Local.merge_out n1 n2, Mergeable.merge s1' s2')
     in
-    let merge_out_lin = DynLin.merge merge_out (compose_method role label) in
+    let[@inline] merge_out_lin x y = DynLin.merge merge_out (compose_method role label) x y in
     Mergeable.make
       ~value:ch
       ~cont:cont
@@ -65,7 +65,7 @@ end = struct
       DynLin.wrap role.make_obj @@
         DynLin.declare inp
     in
-    let merge_inp_lin = DynLin.merge Local.merge_inp role in
+    let[@inline] merge_inp_lin x y = DynLin.merge Local.merge_inp role x y in
     Mergeable.make
       ~value:ch
       ~cont:cont
@@ -75,7 +75,7 @@ end = struct
   let[@inline] declare_close f =
     Mergeable.make
       ~value:(DynLin.declare f)
-      ~mergefun:(fun _ _ -> DynLin.declare f)
+      ~mergefun:(fun[@inline] _ _ -> DynLin.declare f)
       ()
 
   let (let*) = IO.bind

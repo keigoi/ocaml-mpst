@@ -107,7 +107,7 @@ let[@inline] run_ f =
 module Syntax = struct
   let bind_data = bind
   let bind_lin = bind_lin
-  let bind_raw {__m=m} f = {__m=(fun[@inline] pre -> IO.bind (m pre) (fun[@inline] (mid,x) -> (f x).__m mid))}
+  let[@inline] bind_raw {__m=m} f = {__m=(fun[@inline] pre -> IO.bind (m pre) (fun[@inline] (mid,x) -> (f x).__m mid))}
   let return_lin = return_lin
   let get_lin = get_lin
   let put_linval = put_linval
@@ -115,8 +115,9 @@ module Syntax = struct
   module Internal = struct
     let[@inline] _lin x = {__lin=x}
     let[@inline] _unlin ({__lin=x}) = x
-    let _mkbind : 'f. 'f -> 'f bind =
-      fun[@inline] f -> f
+    (* let _mkbind : 'f. 'f -> 'f bind =
+      fun[@inline] f -> f *)
+    external _mkbind : 'a -> 'a = "%identity"
     let _run : 'pre 'post 'a. ('pre,'post,'a data) monad -> 'pre -> 'a IO.io =
       fun[@inline] m pre ->
          IO.bind (m.__m pre) (fun[@inline] (_, {data=v}) -> IO.return v)

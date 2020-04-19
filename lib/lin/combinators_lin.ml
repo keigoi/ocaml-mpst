@@ -5,7 +5,7 @@ open Mpst.Internal.Base
 
 module Lin : Combinators.LIN with type 'a lin = 'a Linocaml.lin = struct
   type 'a lin = 'a Linocaml.lin
-  let mklin x = {Linocaml.__lin=x}
+  let[@inline] mklin x = {Linocaml.__lin=x}
 end
 
 include Combinators.Make(Dyn_lin.NoCheck)(Lin)
@@ -113,7 +113,7 @@ end = struct
 
   module LinocamlStyle = struct
     (* "root" index *)
-    let s0 = Other ((fun x -> x), (fun _ x -> x))
+    let s0 = Other ((fun[@inline] x -> x), (fun[@inline] _ x -> x))
 
     let[@inline] ( @* ) l1 l2 =
       let open Linocaml in
@@ -145,8 +145,8 @@ end = struct
       )}
 
     let close = {__m=(fun[@inline] lpre ->
-        let* ()[@inline] = close_raw (unlin lpre) in
-        IO.return ((), {data=()})
+        IO.bind (close_raw (unlin lpre)) (fun[@inline] () -> 
+        IO.return ((), {data=()}))
       )}
 
     let create_thread_lin (m: unit -> ('a lin, unit, unit data) monad) =

@@ -56,11 +56,11 @@ __Hint:__ If you are struggling, the [examples/mpst/ring.ml file](examples/mpst/
 
 #### __Note__ on synatx discrepencies:
 
-There are small synatx discrepencies between ocaml-mpst-lwt and the paper. 
-The running example of the paper uses the simplest in-built communication transport in Ocaml (Event), whcih is also avialble in our [ocaml-mpst-light] implementation (https://keigoi.github.io/ocaml-mpst-light/index.html).
+There are small synatax discrepencies between ocaml-mpst-lwt and the paper. 
+The running example of the paper uses the simplest in-built communication transport in Ocaml (Event), whcih is also avialble in our [ocaml-mpst-light](https://keigoi.github.io/ocaml-mpst-light/index.html) implementation.
 
-The full ocaml-mpst library is parametric on the underlying transport. To enable this parametricity, we have created a wrapper that uses the [lwt](https://ocsigen.org/lwt/5.2.0/manual/manual) transport when installed, and switces to the in-built [Event] (https://caml.inria.fr/pub/docs/manual-ocaml/libref/Event.html) module if lwt is not available. 
-To accommodate the lwt requirements, the wrapper requires some synatctic changes as explained below. 
+The full ocaml-mpst library of the artifact is parametric on the underlying transport. To enable this parametricity, we have created a wrapper that uses the [lwt](https://ocsigen.org/lwt/5.2.0/manual/manual) transport when installed, and switces to the in-built [Event] (https://caml.inria.fr/pub/docs/manual-ocaml/libref/Event.html) module if lwt is not available. 
+To accommodate the lwt requirements, the wrapper requires some syntactic changes as explained below. 
 
 Primitives `send`, `recv` and `close` are monadic in lwt, and
 you must first declare monadic `let*` binding and use it, as follows:

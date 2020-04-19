@@ -161,8 +161,6 @@ Note that this folder contains only the protocols.
 The easiest way to explore the channel vectors inferred by running the global combinators is to open VSCode, 
 choose some of the files from the protocol folder, and hover over the type of the global combinator. 
 
-(TODO: Maybe put a picture here?)
-
 ### Step 4: Other examples
 1. Check if protocols are correct 
 * open the [ring.ml](examples/mpst/ring.ml) file

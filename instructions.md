@@ -14,7 +14,7 @@ In the following, we assume that you are in the ocaml-mpst-lwt directory.
 In addition to the source code of the library, which is a git clone of [mpst-ocaml](https://github.com/keigoi/ocaml-mpst/), 
 the artifact also contains
 * a [benchmark](benchmark/) folder, which includes the source of the benchmarks and the scripts for producing the graphs (Section 6.1, Figure 15)
-* an [examples](examples/) folder, which includes various examples, inlcuding [examples/mpst/toy_oauth.ml file](examples/mpst/toy_oauth.ml) with the running example from the paper (Section 2). 
+* an [examples](examples/) folder, which includes various examples, including [examples/mpst/toy_oauth.ml file](examples/mpst/toy_oauth.ml) with the running example from the paper (Section 2). 
 * an [examples/protocols](examples/protocols) folder, which includes the global combinators from Figure 16 (Section 6.2).   
 * a script, [examples/run_oauth.sh](examples/run_oauth.sh), for running the OAuth use case (Section 6.3) 
 * a tutorial that guides you through implementing and testing your own examples 

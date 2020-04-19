@@ -20,7 +20,7 @@ the artifact also contains
 * a tutorial that guides you through implementing and testing your own examples 
 
 ## Quick check before you start
-To ensure that your environemnt is working, open a terminal and run the following commands. 
+To ensure that your environment is working, open a terminal and run the following commands. 
 
 Make sure that there are no errors, failures or timeouts.
 

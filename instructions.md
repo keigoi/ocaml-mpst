@@ -47,8 +47,8 @@ To get to know the library:
 1. Create a simple ring protocol 
 * open VSCode and ... 
 * create a file ring_protocol.ml in the examples/mpst folder 
-* follow the short tutoriual [here](https://github.com/keigoi/ocaml-mpst#ocaml-mpst-in-5-minutes) to implement the protocol 
-* To compiler/run the example use the following command:
+* follow the short tutoriual [here](https://github.com/keigoi/ocaml-mpst/wiki/Ocaml-mpst-in-5-minutes) to implement the protocol 
+* To compile/run the example use the following command:
 ```
 dune build examples/mpst/ring_protocol.exe
 ``` 
@@ -156,8 +156,7 @@ choose some of the files from the protocol folder, and hover over the type of th
 
 (TODO: Maybe put a picture here?)
 
-## Additional information 
-* For instructions for compiling the ocaml-mpst on your own machine, see [README.md](https://github.com/keigoi/ocaml-mpst/edit/master/readme.md).
+## Additional commands and examples
 * All examples are already compiled and the executables are ```in_build/default/examples/**.exe.```
 * The file [examples/mpst/toy_oauth.ml file](examples/mpst/toy_oauth.ml) contains the running example from the paper (Section 2). You can compile and run it with:
 
@@ -165,9 +164,7 @@ choose some of the files from the protocol folder, and hover over the type of th
 dune build examples/mpst/toy_oauth.exe
 ``` 
 
-* Other useful commands:  
-
-If you wish to modify the existing example (e.g. examples/mpst/calc.ml) and
+* If you wish to modify the existing example (e.g. examples/mpst/calc.ml) and
 recompile it, type
 ```
 dune clean; dune @examples/mpst/all
@@ -176,6 +173,7 @@ If compilation fails, also try
 ```
 opam switch ocaml-mpst-lwt; eval $(opam env)
 ```
-
+## Additional information
+* For instructions for compiling the ocaml-mpst on your own machine, see [README.md](https://github.com/keigoi/ocaml-mpst/edit/master/readme.md).
 * Try OCaml-MPST [Online](https://keigoi.github.io/ocaml-mpst-light/index.html)!
 An interactive web interface is available at: https://keigoi.github.io/ocaml-mpst-light/index.html

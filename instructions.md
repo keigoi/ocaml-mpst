@@ -15,7 +15,7 @@ In the following, we assume that you are in the ocaml-mpst-lwt directory.
 In addition to the source code of the library, which is a git clone of [mpst-ocaml](https://github.com/keigoi/ocaml-mpst/), 
 the artifact also contains
 * a [benchmark](benchmark/) folder, which includes the source of the benchmarks and the scripts for producing the graphs (Section 6.1, Figure 15)
-* an [examples](examples/) folder, which includes various examples
+* an [examples](examples/) folder, which includes various examples, inlcuding [examples/mpst/toy_oauth.ml file](examples/mpst/toy_oauth.ml) with the running example from the paper (Section 2). 
 * an [examples/protocols](examples/protocols) folder, which includes the global combinators from Figure 16 (Section 6.2).   
 * a script, [examples/run_oauth.sh](examples/run_oauth.sh), for running the OAuth use case (Section 6.3) 
 * a tutorial that guides you through implementing and testing your own examples 
@@ -44,16 +44,22 @@ jupyter-notebook benchmark/graphs/Graph.ipynb
 
 ## STEP 1: Getting to know the library
 The VM comes with VSCode installed and configured with an ocaml plugin. 
-To get to know the library:
-* open VSCode. 
-* open [examples/mpst/toy_oauth.ml file](examples/mpst/toy_oauth.ml) - it contains the running example from the paper (Section 2)
-* Uncomment the different sections in the file to test the various implementations
-
+To get to know the library: 
+1. Create a simple ring protocol 
+* open VSCode and ... 
+* create a file ring_protocol.ml in the examples/mpst folder 
+* follow the short tutoriual [here](https://github.com/keigoi/ocaml-mpst#ocaml-mpst-in-5-minutes) to implement the protocol 
 * To compiler/run the example use the following command:
-
 ```
-dune build examples/mpst/toy_oauth.exe
+dune build examples/mpst/ring_protocol.exe
 ``` 
+
+Hint: If you are struggling, the [examples/mpst/ring.ml file] contains the full implementation, you can use it for reference. 
+
+2. Check if protocols are correct 
+* open [examples/mpst/ring.ml file]
+* uncomment the various protocols at the bottom of the file and check the error messages
+
 
 Note: Discrepencies between the sytax of ocaml-mpst-lwt and the paper
 
@@ -125,7 +131,12 @@ choose some of the files from the protocol folder, and hover over the type of th
 (TODO: Maybe put a picture here?)
 
 ## Additional information 
-*  All examples are already compiled and the executables are ```in_build/default/examples/**.exe.```
+* All examples are already compiled and the executables are ```in_build/default/examples/**.exe.```
+* The file [examples/mpst/toy_oauth.ml file](examples/mpst/toy_oauth.ml) contains the running example from the paper (Section 2). You can compile and run it with:
+
+```
+dune build examples/mpst/toy_oauth.exe
+``` 
 
 * Other useful commands:  
 

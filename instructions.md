@@ -14,13 +14,13 @@ In the following, we assume that you are in the ocaml-mpst-lwt directory.
 In addition to the source code of the library, which is a git clone of [mpst-ocaml](https://github.com/keigoi/ocaml-mpst/), 
 the artifact also contains
 * a [benchmark](benchmark/) folder, which includes the source of the benchmarks and the scripts for producing the graphs (Section 6.1, Figure 15)
-* an [examples](examples/) folder, which includes various examples, inlcuding [examples/mpst/toy_oauth.ml file](examples/mpst/toy_oauth.ml) with the running example from the paper (Section 2). 
+* an [examples](examples/) folder, which includes various examples, including [examples/mpst/toy_oauth.ml file](examples/mpst/toy_oauth.ml) with the running example from the paper (Section 2). 
 * an [examples/protocols](examples/protocols) folder, which includes the global combinators from Figure 16 (Section 6.2).   
 * a script, [examples/run_oauth.sh](examples/run_oauth.sh), for running the OAuth use case (Section 6.3) 
 * a tutorial that guides you through implementing and testing your own examples 
 
 ## Quick check before you start
-To ensure that your environemnt is working, open a terminal and run the following commands. 
+To ensure that your environment is working, open a terminal and run the following commands. 
 
 Make sure that there are no errors, failures or timeouts.
 
@@ -33,34 +33,44 @@ dune build @examples/all
 
 Run all benchmarks for a limited time.:
 ```
-./benchmarks/run_all.sh 0.5s
+./benchmark/run_all.sh 0.5s
 ``` 
 
 Display the graphs from the paper using jupyter-notebook
 ```
-jupyter-notebook benchmark/graphs/Graph.ipynb
+jupyter-notebook benchmark/graphs/Graphs.ipynb
 ```
 
 ## STEP 1: Getting to know the library
-The VM comes with VSCode installed and configured with an ocaml plugin. 
+The VM comes with VSCode installed and configured with an ocaml plug-in. 
 To get to know the library: 
 1. Create a simple ring protocol 
 * open VSCode and ... 
 * create a file ring_protocol.ml in the examples/mpst folder 
-* follow the short tutoriual [here](https://github.com/keigoi/ocaml-mpst#ocaml-mpst-in-5-minutes) to implement the protocol 
-* To compiler/run the example use the following command:
+* follow the short tutorial [here](https://github.com/keigoi/ocaml-mpst/wiki/Ocaml-mpst-in-5-minutes) to implement the protocol 
+
+__Hint:__ If you are struggling, the [examples/mpst/ring.ml file](examples/mpst/ring.ml) contains the full implementation, you can use it for reference. 
+
+#### Compile/run a new example
+Use the following commands. The commands assumes the newly created file is /examples/mpst/ring_protocol.ml. 
+
+* open the dune file and add a new executable entry for ring_protocol
+* to build the example use:
 ```
-dune build examples/mpst/ring_protocol.exe
+dune build examples/mpst/ring_protocol.ml
+``` 
+* to execute the example use:
+```
+dune exec ./examples/mpst/ring_protocol.exe
 ``` 
 
-Hint: If you are struggling, the [examples/mpst/ring.ml file](examples/mpst/ring.ml) contains the full implementation, you can use it for reference. 
+#### __Note__ on syntax discrepancies:
 
-2. Check if protocols are correct 
-* open [examples/mpst/ring.ml file]
-* uncomment the various protocols at the bottom of the file and check the error messages
+There are small syntax discrepancies between ocaml-mpst-lwt and the paper. 
+The running example of the paper uses the simplest in-built communication transport in Ocaml (Event), which is also avoidable in our [ocaml-mpst-light](https://keigoi.github.io/ocaml-mpst-light/index.html) implementation.
 
-
-Note: Discrepencies between the sytax of ocaml-mpst-lwt and the paper
+The full ocaml-mpst library of the artifact is parametric on the underlying transport. To enable this parametricity, we have created a wrapper that uses the [lwt](https://ocsigen.org/lwt/5.2.0/manual/manual) transport when installed, and switches to the in-built [Event] (https://caml.inria.fr/pub/docs/manual-ocaml/libref/Event.html) module if lwt is not available. 
+To accommodate the lwt requirements, the wrapper requires some syntactic changes as explained below. 
 
 Primitives `send`, `recv` and `close` are monadic in lwt, and
 you must first declare monadic `let*` binding and use it, as follows:
@@ -74,7 +84,7 @@ let thread_A ch =
   let* `msg(_,ch) = receive ch#role_C in ..
 ```
 
-Patern-maching `match` is not available for monads. Thus, when you make an external choice,
+Pattern-matching `match` is not available for monads. Thus, when you make an external choice,
 you must first bind the received variant to a variable, then match on it, as follows:
 
 ```ocaml
@@ -85,12 +95,10 @@ let thread_B ch =
   | `right(x, ch) -> ...
 ```
 
-For details, see the [notes on library dependencies](README.md#notes-on-optional-library-dependencies).
-
-implemented on top of [concur-shims](packages/concur-shims/)
+For details, see the [notes on library dependencies](README.md#notes-on-optional-library-dependencies), implemented on top of [concur-shims](packages/concur-shims/)
 
 
-Note that the light version of mpst-ocaml, that is avalaible here[https://keigoi.github.io/ocaml-mpst-light/index.html] follows the syntax of the paper. 
+Note that the light version of mpst-ocaml, which is not parametric on the transport but uses only the in-build [Event module](https://caml.inria.fr/pub/docs/manual-ocaml/libref/Event.html) of ocaml, matches the exact syntax from the paper and is available to try [here](https://keigoi.github.io/ocaml-mpst-light/index.html) follows the syntax of the paper. 
 
 ## STEP 2: Run mpst-ocaml benchmarks (Section 6.1)
 
@@ -105,12 +113,11 @@ Note that the light version of mpst-ocaml, that is avalaible here[https://keigoi
 jupyter-notebook benchmark/graphs/Graph.ipynb
 ```
 
-The jupyter script will open in a new chrome tab. Click Run to run the scipt and display the graphs. 
+The jupyter script will open in a new chrome tab. Click Run to run the script and display the graphs. 
 At the bottom of the page, you will see a summary of the results. The graphs correspond to Figure 15 (Section 6.1) 
 
 More information about the source of the benchmarks is available [here](benchmark/).
 
-(TODO:... should we mention smth about discrepencies because the VM is slow?)
 ## STEP 3: Run applications, written with mpst-ocaml 
 ### STEP 3.1: Run an oAuth use case (Section 6.3)
 * run the run_oAuth script 
@@ -120,7 +127,7 @@ More information about the source of the benchmarks is available [here](benchmar
 
 This will trigger a facebook authentication (a tab in chrome will open). 
 You can either use your own facebook account to login, or use our test account. 
-If you use your own account, a message dispalying that no access is allowd will be displayed. 
+If you use your own account, a message displaying that no access is allows will be displayed. 
 
 * the source code of the example is in examples/oAuth.ml
 
@@ -128,7 +135,7 @@ If you use your own account, a message dispalying that no access is allowd will 
 
 * run the run_dns script 
 ```
-./examples/run_oauth.sh
+./examples/run_dns.sh
 ```
 
 Follow the instructions 
@@ -151,13 +158,25 @@ To test if a global protocol compiles after you have modify it, run:
 where you have to replace the_name_of_the_protocol with the name of the file that you are modifying. 
 
 Note that this folder contains only the protocols. 
-The easiest way to explore the channle vectors inferred by running the global combinators is to open VSCode, 
+The easiest way to explore the channel vectors inferred by running the global combinators is to open VSCode, 
 choose some of the files from the protocol folder, and hover over the type of the global combinator. 
 
 (TODO: Maybe put a picture here?)
 
-## Additional information 
-* For instructions for compiling the ocaml-mpst on your own machine, see [README.md](https://github.com/keigoi/ocaml-mpst/edit/master/readme.md).
+### Step 4: Other examples
+1. Check if protocols are correct 
+* open the [ring.ml](examples/mpst/ring.ml) file
+* uncomment the various global combinators at the bottom of the file and check the error messages
+
+2. Experiment with a simple calculator  
+* open the [examples/mpst/calc.ml](examples/mpst/calc.ml) file
+
+```
+dune build examples/mpst/calc.ml
+dune exec ./examples/mpst/calc.exe
+```
+
+## Additional details
 * All examples are already compiled and the executables are ```in_build/default/examples/**.exe.```
 * The file [examples/mpst/toy_oauth.ml file](examples/mpst/toy_oauth.ml) contains the running example from the paper (Section 2). You can compile and run it with:
 
@@ -165,9 +184,7 @@ choose some of the files from the protocol folder, and hover over the type of th
 dune build examples/mpst/toy_oauth.exe
 ``` 
 
-* Other useful commands:  
-
-If you wish to modify the existing example (e.g. examples/mpst/calc.ml) and
+* If you wish to modify the existing example (e.g. examples/mpst/calc.ml) and
 recompile it, type
 ```
 dune clean; dune @examples/mpst/all
@@ -176,6 +193,7 @@ If compilation fails, also try
 ```
 opam switch ocaml-mpst-lwt; eval $(opam env)
 ```
-
+## Additional information
+* For instructions for compiling the ocaml-mpst on your own machine, see [README.md](https://github.com/keigoi/ocaml-mpst/blob/master/README.md). Note that some of the large examples (dns, oAuth)  need [additional dependencies](https://github.com/keigoi/ocaml-mpst/blob/master/README.md#libraries-used-in-examples-and-benchmarks). 
 * Try OCaml-MPST [Online](https://keigoi.github.io/ocaml-mpst-light/index.html)!
 An interactive web interface is available at: https://keigoi.github.io/ocaml-mpst-light/index.html

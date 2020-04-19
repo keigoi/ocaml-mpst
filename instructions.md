@@ -155,13 +155,13 @@ choose some of the files from the protocol folder, and hover over the type of th
 
 ### Step 4: Other examples
 1. Check if protocols are correct 
-* open the [ring.ml file][examples/mpst/ring.ml file]
+* open the [ring.ml file](examples/mpst/ring.ml file)
 * uncomment the various global combinators at the bottom of the file and check the error messages
 
 2. Experiment with a simple calculator  
-* open the [examples/mpst/calc.ml file][examples/mpst/calc.ml file]
+* open the [examples/mpst/calc.ml file](examples/mpst/calc.ml file)
 
-```ocaml
+```
 dune build examples/mpst/calc.ml
 dune exec ./examples/mpst/calc.exe
 ```

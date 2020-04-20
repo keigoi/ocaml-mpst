@@ -90,7 +90,7 @@ To configure VS code run in the terminal:
 dune build @example/all
 ```
 
-### Step 4: Other example and wroting your own protocols (Optional)
+### Step 4: Other example and implementing your own protocols (Optional)
 1. Check if protocols are correct 
 * open the [ring.ml](examples/mpst/ring.ml) file
 * uncomment the various global combinators at the bottom of the file and check the error messages

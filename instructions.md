@@ -55,7 +55,7 @@ username: ecoop.91.2020@gmail.com
 
 password: ecoop2020
 
-* After your enter the test account credentials, you will see an **acccess accepted** message. 
+* After your enter the test account credentials, you will see an *acccess accepted* message. 
 * the source code of the example is in examples/oAuth.ml
 
 ### STEP 3.2: Run a dns server (Section 6.2)

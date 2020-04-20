@@ -27,8 +27,6 @@ module MakeDyn
       ref (get_ch a g), ref (get_ch b g)
 
 
-    let (let*) = IO.bind
-
     let setup _ =
       let g = gen_with_kinds [Med.medium;Med.medium;] prot in
       sa_init := get_ch a g;
@@ -38,20 +36,20 @@ module MakeDyn
       let stored = ref !sb_init in
       fun () ->
       let sb = !stored in
-      let* `ping(_,sb) = receive sb#role_A in
-      let* sb = send sb#role_A#pong () in
+      IO.bind (receive sb#role_A) (fun[@inline] (`ping(_,sb)) ->
+      IO.bind (send sb#role_A#pong ()) (fun[@inline] sb ->
       stored := sb;
-      IO.return_unit
+      IO.return_unit))
 
     let client_step param =
       let stored = ref !sa_init in
       let payload = List.assoc param big_arrays in
       Core.Staged.stage @@ fun () ->
       let sa = !stored in
-      let* sa = send sa#role_B#ping payload in
-      let* `pong(c,sa) = receive sa#role_B in
+      IO.bind (send sa#role_B#ping payload) (fun[@Inline] sa ->
+      IO.bind (receive sa#role_B) (fun[@inline] (`pong(c,sa)) ->
       stored := sa;
-      IO.return_unit
+      IO.return_unit))
   end
 
   include MakeTestBase(Test)(Med)()
@@ -84,42 +82,41 @@ module MakeStatic
 
     let s = Linocaml.Zero
 
-    let setup _ = ()
-      (* let g = raw_gen_with_kinds [Med.medium;Med.medium;] prot in
+    let setup _ =
+      let g = raw_gen_with_kinds [Med.medium;Med.medium;] prot in
       sa_init := raw_get_ch a g;
-      sb_init := raw_get_ch b g *)
-      
+      sb_init := raw_get_ch b g
+
 
     let server_step _ =
-      let store = sb_init in
+      let store = ref !sb_init in
       Linocaml.run
         (fun[@inline] () ->
-        let* ()[@inline] = put_linval s !store in
+        Linocaml.bind (put_linval s !store) (fun[@inline] () ->
         let%lin `ping(_,#s) = s <@ receive (fun[@inline] x->x#role_A) in
         let%lin #s = s <@ send (fun[@inline] x-> x#role_A#pong) () in
         {__m=(fun[@inline] pre ->
            store := (Linocaml.lens_get s pre).__lin;
            IO.return (Linocaml.lens_put s pre (), {Linocaml.data=()})
         )}
-      )
+      ))
 
     let client_step param =
-      let store = sa_init in
+      let store = ref !sa_init in
       let payload = List.assoc param big_arrays in
       Core.Staged.stage
         (Linocaml.run
            (fun[@inline] () ->
-             let* () = put_linval s !store in
+             Linocaml.bind (put_linval s !store) (fun[@inline] () ->
              let%lin #s = s <@ send (fun[@inline] x->x#role_B#ping) payload in
              let%lin `pong({Linocaml.data=()},#s) = s <@ receive (fun[@inline] x->x#role_B) in
              {__m=(fun[@inline] pre ->
                 store := (Linocaml.lens_get s pre).__lin;
                 IO.return (Linocaml.lens_put s pre (), {Linocaml.data=()})
              )}
-        ))
+        )))
 
   end
 
   include MakeTestBase(Test)(Med)()
 end[@@inline]
-

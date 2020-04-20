@@ -13,10 +13,12 @@ let may_tuple ?loc tup = function
   | l -> Some (tup ?loc ?attrs:None l)
 
 (* FIXME *)
+let inline = Attr.mk (Location.mknoloc "inline") (PStr[])
 let lid ?(loc = !default_loc) s = Location.mkloc (Longident.parse s) loc
 let app ?loc ?attrs f l = if l = [] then f else Exp.apply ?loc ?attrs f (List.map (fun a -> Nolabel, a) l)
 let evar ?loc ?attrs s = Exp.ident ?loc ?attrs (lid ?loc s)
-let lam ?loc ?attrs ?(label = Nolabel) ?default pat exp = Exp.fun_ ?loc ?attrs label default pat exp
+let lam ?loc ?(attrs=[]) ?(label = Nolabel) ?default pat exp = (*always inline lambdas*)
+  Exp.fun_ ?loc ~attrs:(inline::attrs) label default pat exp
 let record ?loc ?attrs ?over l =
   Exp.record ?loc ?attrs (List.map (fun (s, e) -> (lid ~loc:e.pexp_loc s, e)) l) over
 let constr ?loc ?attrs s args = Exp.construct ?loc ?attrs (lid ?loc s) (may_tuple ?loc Exp.tuple args)

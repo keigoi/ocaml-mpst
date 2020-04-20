@@ -1,6 +1,6 @@
 open Concur_shims
 
-type tag = {tag:Obj.t}
+type tag = {tag:Obj.t}[@@ocaml.unboxed]
 
 let make_tag : 'v. ('v -> [>]) -> tag = fun f ->
   {tag=Obj.repr (f (Obj.magic ()))}
@@ -49,11 +49,11 @@ module Make(X:sig type 'a t and 'a u val fresh : 'a t -> 'a u end) = struct
     in
     fonly @ gonly @ List.map2 merge_wrapper fdup gdup
 
-  let apply_wrapper wrappers tag v =
+  let[@inline] apply_wrapper wrappers tag v =
     let (Wrapper(cont,f)) =
       match wrappers with
       | [wrapper] -> snd wrapper
       | _ -> List.assoc tag wrappers
     in
     f (v, X.fresh @@ Mergeable.resolve cont)
-end
+end[@@inline]

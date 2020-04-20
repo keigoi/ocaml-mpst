@@ -2,13 +2,13 @@ The purpose of this document is to describe in details the steps required to ass
 
 We would like you to be able to
 
-* reproduce our benchmarks from Figure 15, Section 6.1. For that purposee, completing Step 1 of this document.  
+* reproduce our benchmarks from Figure 15, Section 6.1. For that purposee, complete Step 1 of this document.  
 
-* test teh main use case (oAuth) from the paper, described in Figure 15, Section 6.3. For that purposee, complete Step 2.1 of this document.  
+* test the main use case (oAuth) from the paper, described in Figure 15, Section 6.3. For that purposee, complete Step 2.1 of this document.  
 
 * compile the global protocols, reported in Figure 15, Section 6.2. For that purposee, complete Step 2.2 of this document.  
 
-Additionally, you can also try some of the other protocols that we have implemented, such as DSN (See Step 2.2), and implement your own protocols (Step 3).
+Additionally, you can also try some of the other protocols that we have implemented, such as DSN (See Step 2.2), you can  verify various protocols (Step 3.1) and implement your own protocols (Step 3.2) using our library.
 
 ## Getting started
 

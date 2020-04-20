@@ -8,7 +8,7 @@ We would like you to be able to
 
 * compile the global protocols, reported in Figure 15, Section 6.2. For that purposee, complete Step 2.2 of this document.  
 
-Additionally, you can also try some of the other protocols that we have implemented, such as DSN (See Step 2.2), you can  verify various protocols (Step 3.1) and implement your own protocols (Step 3.2) using our library.
+Additionally, you can also try some of the other protocols that we have implemented, such as DSN (See Step 2.2), you can  verify various examples (Step 3.1) and implement your own protocols (Step 3.2) using our library.
 
 ## Getting started
 

@@ -111,7 +111,7 @@ If you plan to use VS code, before opening it, first build all examples from the
 dune build @example/all
 ```
 
-### Step 4: Other examples and implementing your own protocols (Optional)
+## Step 4: Other examples and implementing your own protocols (Optional)
 1. Check if protocols are correct 
 * open the [ring.ml](examples/mpst/ring.ml) file
 * uncomment the various global combinators at the bottom of the file and check the error messages

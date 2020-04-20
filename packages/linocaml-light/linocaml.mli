@@ -1,7 +1,7 @@
 (* A lightweight version of LinOCaml https://github.com/keigoi/linocaml/ *)
 
-type 'a lin = {__lin:'a}
-type 'a data = {data:'a}
+type 'a lin = {__lin:'a}[@@ocaml.unboxed]
+type 'a data = {data:'a}[@@ocaml.unboxed]
 
 type (_,_,_,_) lens =
   | Zero : ('a,'b,[`cons of 'a * 'xs], [`cons of 'b * 'xs]) lens

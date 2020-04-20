@@ -1,7 +1,7 @@
 open Concur_shims
 
-type 'a lin = {__lin:'a}
-type 'a data = {data:'a}
+type 'a lin = {__lin:'a}[@@ocaml.unboxed]
+type 'a data = {data:'a}[@@ocaml.unboxed]
 
 type (_,_,_,_) lens =
   | Zero : ('a,'b,[`cons of 'a * 'xs], [`cons of 'b * 'xs]) lens
@@ -18,13 +18,13 @@ let _1 = Succ Zero
 
 let _2 = Succ (Succ Zero)
 
-let rec lens_get : type x y xs ys. (x,y,xs,ys) lens -> xs -> x = fun[@inline] l xs ->
+let rec lens_get : type x y xs ys. (x,y,xs,ys) lens -> xs -> x = fun[@inline][@specialise] l xs ->
   match l,xs with
   | Zero,(`cons(hd,_)) -> hd
   | Succ l,(`cons(_,tl)) -> lens_get l tl
   | Other(get,_),xs -> get xs
 
-let rec lens_put : type x y xs ys. (x,y,xs,ys) lens -> xs -> y -> ys = fun[@inline] l xs b ->
+let rec lens_put : type x y xs ys. (x,y,xs,ys) lens -> xs -> y -> ys = fun[@inline][@specialise] l xs b ->
   match l,xs with
   | Zero,(`cons(_,tl)) -> `cons(b,tl)
   | Succ l,(`cons(hd,tl)) -> `cons(hd,lens_put l tl b)

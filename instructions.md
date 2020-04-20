@@ -125,7 +125,7 @@ dune exec ./examples/mpst/calc.exe
 ```
 
 3. Create a simple ring protocol 
-* open VSCode and ... 
+* open VSCode (Before that make sure that you have build all the examples: ``` dune build @examples/all```)
 * follow the short tutorial [here](https://github.com/keigoi/ocaml-mpst/wiki/Ocaml-mpst-in-5-minutes) to implement the protocol 
 
 __Hint:__ If you are struggling, the [examples/mpst/ring.ml file](examples/mpst/ring.ml) contains the full implementation, you can use it for reference. 

@@ -1,0 +1,249 @@
+opam-version: "2.0"
+compiler: [
+  "base-bigarray.base"
+  "base-threads.base"
+  "base-unix.base"
+  "ocaml.4.09.1"
+  "ocaml-config.1"
+  "ocaml-variants.4.09.1+flambda"
+]
+roots: [
+  "conf-libev.4-11"
+  "core.v0.13.0"
+  "core_bench.v0.13.0"
+  "merlin.3.3.4"
+  "ocaml-mpst-lwt.dev"
+  "ocaml-variants.4.09.1+flambda"
+  "tuareg.2.2.0"
+]
+installed: [
+  "base.v0.13.1"
+  "base-bigarray.base"
+  "base-bytes.base"
+  "base-threads.base"
+  "base-unix.base"
+  "base_bigstring.v0.13.0"
+  "base_quickcheck.v0.13.0"
+  "bin_prot.v0.13.0"
+  "biniou.1.2.1"
+  "concur-shims.dev"
+  "conf-emacs.1"
+  "conf-libev.4-11"
+  "conf-m4.1"
+  "core.v0.13.0"
+  "core_bench.v0.13.0"
+  "core_kernel.v0.13.1"
+  "cppo.1.6.6"
+  "dune.2.5.0"
+  "dune-configurator.2.5.0"
+  "dune-private-libs.2.5.0"
+  "easy-format.1.3.2"
+  "fieldslib.v0.13.0"
+  "jane-street-headers.v0.13.0"
+  "jst-config.v0.13.0"
+  "linocaml-light.dev"
+  "lwt.5.2.0"
+  "merlin.3.3.4"
+  "mmap.1.1.0"
+  "num.1.3"
+  "ocaml.4.09.1"
+  "ocaml-compiler-libs.v0.12.1"
+  "ocaml-config.1"
+  "ocaml-migrate-parsetree.1.7.1"
+  "ocaml-mpst.dev"
+  "ocaml-mpst-lwt.dev"
+  "ocaml-variants.4.09.1+flambda"
+  "ocamlfind.1.8.1"
+  "ocplib-endian.1.1"
+  "octavius.1.2.2"
+  "parsexp.v0.13.0"
+  "ppx_assert.v0.13.0"
+  "ppx_base.v0.13.0"
+  "ppx_bench.v0.13.0"
+  "ppx_bin_prot.v0.13.0"
+  "ppx_cold.v0.13.0"
+  "ppx_compare.v0.13.0"
+  "ppx_custom_printf.v0.13.0"
+  "ppx_derivers.1.2.1"
+  "ppx_enumerate.v0.13.0"
+  "ppx_expect.v0.13.0"
+  "ppx_fail.v0.13.0"
+  "ppx_fields_conv.v0.13.0"
+  "ppx_hash.v0.13.0"
+  "ppx_here.v0.13.0"
+  "ppx_inline_test.v0.13.1"
+  "ppx_jane.v0.13.0"
+  "ppx_js_style.v0.13.0"
+  "ppx_let.v0.13.0"
+  "ppx_module_timer.v0.13.0"
+  "ppx_optcomp.v0.13.0"
+  "ppx_optional.v0.13.0"
+  "ppx_pipebang.v0.13.0"
+  "ppx_sexp_conv.v0.13.0"
+  "ppx_sexp_message.v0.13.0"
+  "ppx_sexp_value.v0.13.0"
+  "ppx_stable.v0.13.0"
+  "ppx_tools_versioned.5.3.0"
+  "ppx_typerep_conv.v0.13.0"
+  "ppx_variants_conv.v0.13.0"
+  "ppxlib.0.13.0"
+  "re.1.9.0"
+  "result.1.5"
+  "seq.base"
+  "sexplib.v0.13.0"
+  "sexplib0.v0.13.0"
+  "spawn.v0.13.0"
+  "splittable_random.v0.13.0"
+  "stdio.v0.13.0"
+  "stdlib-shims.0.1.0"
+  "textutils.v0.13.0"
+  "time_now.v0.13.0"
+  "tuareg.2.2.0"
+  "typerep.v0.13.0"
+  "variantslib.v0.13.0"
+  "yojson.1.7.0"
+]
+pinned: [
+  "concur-shims.dev"
+  "linocaml-light.dev"
+  "ocaml-mpst.dev"
+  "ocaml-mpst-lwt.dev"
+  "ocaml-mpst-plug.dev"
+  "ocaml-mpst-plug-http.dev"
+]
+package "concur-shims" {
+  opam-version: "2.0"
+  version: "dev"
+  synopsis: "A thin switching layer for concurrency"
+  description:
+    "Cocnur_shims provide a thin layer for switching concurrency libraries -- between threads and lwt."
+  maintainer: "Keigo Imai <keigo.imai@gmail.com>"
+  authors: "Keigo Imai"
+  license: "LGPL-3.0-or-later with OCaml-LGPL-linking-exception"
+  homepage: "https://github.com/keigoi/ocaml-mpst"
+  doc: "https://github.com/keigoi/ocaml-mpst"
+  bug-reports: "https://github.com/keigoi/ocaml-mpst/issues"
+  depends: [
+    "ocaml" {>= "4.08.0"}
+    "dune"
+    "ocamlfind"
+  ]
+  depopts: ["lwt"]
+  build: ["dune" "build" "-p" name "-j" jobs]
+  dev-repo: "git+https://github.com/keigoi/ocaml-mpst.git"
+  url {
+    src: "git+file:///home/keigoi/ocaml-mpst#master"
+  }
+}
+package "linocaml-light" {
+  opam-version: "2.0"
+  version: "dev"
+  synopsis:
+    "Lightweight version of LinOCaml: Linear types in OCaml via a parameterised monad"
+  description:
+    "Lightweight version of LinOCaml: Linear types in OCaml via a parameterised monad"
+  maintainer: "Keigo Imai <keigo.imai@gmail.com>"
+  authors: "Keigo Imai"
+  license: "LGPL-3.0-or-later with OCaml-LGPL-linking-exception"
+  homepage: "https://github.com/keigoi/ocaml-mpst"
+  doc: "https://github.com/keigoi/ocaml-mpst"
+  bug-reports: "https://github.com/keigoi/ocaml-mpst/issues"
+  depends: [
+    "ocaml" {>= "4.08.0"}
+    "dune"
+    "ocamlfind"
+    "stdlib-shims"
+    "concur-shims"
+    "ppx_tools_versioned"
+  ]
+  depopts: ["lwt"]
+  build: ["dune" "build" "-p" name "-j" jobs]
+  dev-repo: "git+https://github.com/keigoi/ocaml-mpst.git"
+  url {
+    src: "git+file:///home/keigoi/ocaml-mpst#master"
+  }
+}
+package "ocaml-mpst" {
+  opam-version: "2.0"
+  version: "dev"
+  synopsis: "Concurrency library based on Multiparty Session Types"
+  description:
+    "OCaml-MPST is a library implementation of Multiparty Session Types."
+  maintainer: "Keigo Imai <keigo.imai@gmail.com>"
+  authors: "Keigo Imai"
+  license: "LGPL-3.0-or-later with OCaml-LGPL-linking-exception"
+  homepage: "https://github.com/keigoi/ocaml-mpst"
+  doc: "https://github.com/keigoi/ocaml-mpst"
+  bug-reports: "https://github.com/keigoi/ocaml-mpst/issues"
+  depends: ["concur-shims" "linocaml-light"]
+  depopts: ["lwt" "core"]
+  build: ["dune" "build" "-p" name "-j" jobs]
+  dev-repo: "git+https://github.com/keigoi/ocaml-mpst.git"
+  url {
+    src: "git+file:///home/keigoi/ocaml-mpst#master"
+  }
+}
+package "ocaml-mpst-lwt" {
+  opam-version: "2.0"
+  version: "dev"
+  synopsis: "Concurrency library based on Multiparty Session Types"
+  description:
+    "OCaml-MPST is a library implementation of Multiparty Session Types."
+  maintainer: "Keigo Imai <keigo.imai@gmail.com>"
+  authors: "Keigo Imai"
+  license: "LGPL-3.0-or-later with OCaml-LGPL-linking-exception"
+  homepage: "https://github.com/keigoi/ocaml-mpst"
+  doc: "https://github.com/keigoi/ocaml-mpst"
+  bug-reports: "https://github.com/keigoi/ocaml-mpst/issues"
+  depends: ["ocaml-mpst" "lwt"]
+  build: ["dune" "build" "-p" name "-j" jobs]
+  dev-repo: "git+https://github.com/keigoi/ocaml-mpst.git"
+  url {
+    src: "git+file:///home/keigoi/ocaml-mpst#master"
+  }
+}
+package "ocaml-mpst-plug" {
+  opam-version: "2.0"
+  version: "dev"
+  synopsis: "A pluggable variant of OCaml-MPST (very tentative)"
+  description:
+    "OCaml-MPST is a library implementation of Multiparty Session Types."
+  maintainer: "Keigo Imai <keigo.imai@gmail.com>"
+  authors: "Keigo Imai"
+  license: "LGPL-3.0-or-later with OCaml-LGPL-linking-exception"
+  homepage: "https://github.com/keigoi/ocaml-mpst"
+  doc: "https://github.com/keigoi/ocaml-mpst"
+  bug-reports: "https://github.com/keigoi/ocaml-mpst/issues"
+  depends: [
+    "ocaml" {>= "4.08.0"}
+    "dune"
+    "ocamlfind"
+    "lwt"
+  ]
+  build: ["dune" "build" "-p" name "-j" jobs]
+  dev-repo: "git+https://github.com/keigoi/ocaml-mpst.git"
+  url {
+    src: "git+file:///home/keigoi/ocaml-mpst#master"
+  }
+}
+package "ocaml-mpst-plug-http" {
+  opam-version: "2.0"
+  version: "dev"
+  synopsis: "OCaml-MPST on top of HTTP (very tentative)"
+  description:
+    "OCaml-MPST is a library implementation of Multiparty Session Types."
+  maintainer: "Keigo Imai <keigo.imai@gmail.com>"
+  authors: "Keigo Imai"
+  license: "LGPL-3.0-or-later with OCaml-LGPL-linking-exception"
+  homepage: "https://github.com/keigoi/ocaml-mpst"
+  doc: "https://github.com/keigoi/ocaml-mpst"
+  bug-reports: "https://github.com/keigoi/ocaml-mpst/issues"
+  depends: [
+    "ocaml-mpst-plug" "conduit-lwt-unix" "cohttp-lwt-unix" "uri" "sexplib"
+  ]
+  build: ["dune" "build" "-p" name "-j" jobs]
+  dev-repo: "git+https://github.com/keigoi/ocaml-mpst.git"
+  url {
+    src: "git+file:///home/keigoi/ocaml-mpst#master"
+  }
+}

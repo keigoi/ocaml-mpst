@@ -21,6 +21,9 @@ the artifact also contains
 
 
 ## Step 0: Build all examples 
+```
+dune build @examples/all
+```
 
 ## STEP 1: Run mpst-ocaml benchmarks (Section 6.1)
 

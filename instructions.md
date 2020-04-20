@@ -55,7 +55,6 @@ You can either use your own facebook account to login, or use our test account.
 The test account is:
 
 username: ecoop.91.2020@gmail.com
-
 password: ecoop2020
 
 * After your enter the test account credentials, you will see an *acccess accepted* message. 
@@ -67,9 +66,10 @@ password: ecoop2020
 ```
 ./examples/run_dns.sh
 ```
-
-Follow the instructions 
-
+* you may be promted to enter a root password. If so, enter the password.
+* open a new termninal tab and test the dns server is working. For example, type: 
+```
+```
 * the source code of the example is in examples/dns.ml
 
 ### STEP 3.3: Compile the global protocol combinators (Section 6.2)

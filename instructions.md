@@ -75,9 +75,16 @@ The test account is: username: ecoop.91.2020@gmail.com  password: ecoop2020
 ./examples/run_dns.sh
 ```
 * you may be promted to enter a root password. If so, enter the password.
-* open a new termninal tab and test the dns server is working. For example, type: 
+* open a new termninal tab and test the dns server is working. For example, you can try with: 
 ```
+host -t nagoya.my.domain 127.0.0.1 
 ```
+The server will answer 1.2.3.4.
+
+or with: 
+```
+host -t www.google.com 127.0.0.1 
+``` 
 * the source code of the example is in examples/dns.ml
 
 ### STEP 3.3: Compile the global protocol combinators (Section 6.2)

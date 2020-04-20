@@ -185,6 +185,6 @@ opam install dns-lwt-unix cmdliner lwt_log
 
 * DNS example: `dns-lwt-unix`
 * OAuth exapmle: `cmdliner lwt_log`
-* Benchmarks: `core_bench `
+* Benchmarks: `core_bench`, `conf-libev`
 
 

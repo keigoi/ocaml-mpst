@@ -19,34 +19,92 @@ the artifact also contains
 * a script, [examples/run_oauth.sh](examples/run_oauth.sh), for running the OAuth use case (Section 6.3) 
 * a tutorial that guides you through implementing and testing your own examples 
 
-## Quick check before you start
-To ensure that your environment is working, open a terminal and run the following commands. 
 
-Make sure that there are no errors, failures or timeouts.
+## Step 0: Build all examples 
 
-1.  Build all examples: 
-``` 
-dune build @examples/all 
+## STEP 1: Run mpst-ocaml benchmarks (Section 6.1)
+
+* Run the benchmarks script (it should take approximately 10-15 min): 
+
 ```
-
-2.  Run the benchmarks script from the paper and display the graphs: 
-
-Run all benchmarks for a limited time.:
-```
-./benchmark/run_all.sh 0.5s
+sudo ./benchmark/run_all.sh
 ``` 
 
-Display the graphs from the paper using jupyter-notebook
+* Display the graphs from the paper using jupyter-notebook
 ```
 jupyter-notebook benchmark/graphs/Graphs.ipynb
 ```
 
-## STEP 1: Getting to know the library
-The VM comes with VSCode installed and configured with an ocaml plug-in. 
-To get to know the library: 
-1. Create a simple ring protocol 
+The jupyter script will open in a new chrome tab. Click Run to run the script and display the graphs. 
+At the bottom of the page, you will see a summary of the results. The graphs correspond to Figure 15 (Section 6.1) 
+
+More information about the source of the benchmarks is available [here](benchmark/).
+
+## STEP 3: Run applications, written with mpst-ocaml 
+### STEP 3.1: Run an oAuth use case (Section 6.3)
+* run the run_oAuth script 
+```
+./examples/run_oauth.sh
+```
+
+This will trigger a facebook authentication (a tab in chrome will open). 
+You can either use your own facebook account to login, or use our test account. 
+If you use your own account, a message displaying that no access is allows will be displayed. 
+The test account is:
+username: ecoop.91.2020@gmail.com
+password: ecoop2020
+
+* the source code of the example is in examples/oAuth.ml
+
+### STEP 3.2: Run a dns server (Section 6.2)
+
+* run the run_dns script 
+```
+./examples/run_dns.sh
+```
+
+Follow the instructions 
+
+* the source code of the example is in examples/oAuth.ml
+
+### STEP 3.3: Compile the global protocol combinators (Section 6.2)
+All global protocol combinators from the paper are in the examples/protocols folder. 
+To build all examples, run: 
+
+```
+dune build @examples/protocols/all
+```
+
+* You can modify and test some of these protocols to ensure that an error is detected.  
+To test if a global protocol compiles after you have modify it, run: 
+
+```dune build examples/protocols/the_name_of_the_protocol.exe```
+
+where you have to replace the_name_of_the_protocol with the name of the file that you are modifying. 
+
+Note that this folder contains only the protocols. 
+The easiest way to explore the channel vectors inferred by running the global combinators is to open VSCode, 
+choose some of the files from the protocol folder, and hover over the type of the global combinator. 
+To configure VS code run in the terminal: 
+```
+dune build @example/all
+```
+
+### Step 4: Other example and wroting your own protocols (Optional)
+1. Check if protocols are correct 
+* open the [ring.ml](examples/mpst/ring.ml) file
+* uncomment the various global combinators at the bottom of the file and check the error messages
+
+2. Experiment with a simple calculator  
+* open the [examples/mpst/calc.ml](examples/mpst/calc.ml) file
+
+```
+dune build examples/mpst/calc.ml
+dune exec ./examples/mpst/calc.exe
+```
+
+3. Create a simple ring protocol 
 * open VSCode and ... 
-* create a file ring_protocol.ml in the examples/mpst folder 
 * follow the short tutorial [here](https://github.com/keigoi/ocaml-mpst/wiki/Ocaml-mpst-in-5-minutes) to implement the protocol 
 
 __Hint:__ If you are struggling, the [examples/mpst/ring.ml file](examples/mpst/ring.ml) contains the full implementation, you can use it for reference. 
@@ -107,82 +165,6 @@ For details, see the [notes on library dependencies](README.md#notes-on-optional
 
 Note that the light version of mpst-ocaml, which is not parametric on the transport but uses only the in-build [Event module](https://caml.inria.fr/pub/docs/manual-ocaml/libref/Event.html) of ocaml, matches the exact syntax from the paper and is available to try [here](https://keigoi.github.io/ocaml-mpst-light/index.html) follows the syntax of the paper. 
 
-## STEP 2: Run mpst-ocaml benchmarks (Section 6.1)
-
-* Run the benchmarks script (it should take approximately 10-15 min): 
-
-```
-sudo ./benchmark/run_all.sh
-``` 
-
-* Display the graphs from the paper using jupyter-notebook
-```
-jupyter-notebook benchmark/graphs/Graphs.ipynb
-```
-
-The jupyter script will open in a new chrome tab. Click Run to run the script and display the graphs. 
-At the bottom of the page, you will see a summary of the results. The graphs correspond to Figure 15 (Section 6.1) 
-
-More information about the source of the benchmarks is available [here](benchmark/).
-
-## STEP 3: Run applications, written with mpst-ocaml 
-### STEP 3.1: Run an oAuth use case (Section 6.3)
-* run the run_oAuth script 
-```
-./examples/run_oauth.sh
-```
-
-This will trigger a facebook authentication (a tab in chrome will open). 
-You can either use your own facebook account to login, or use our test account. 
-If you use your own account, a message displaying that no access is allows will be displayed. 
-The test account is:
-username: ecoop.91.2020@gmail.com
-password: ecoop2020
-
-* the source code of the example is in examples/oAuth.ml
-
-### STEP 3.2: Run a dns server 
-
-* run the run_dns script 
-```
-./examples/run_dns.sh
-```
-
-Follow the instructions 
-
-* the source code of the example is in examples/oAuth.ml
-
-### STEP 3.3: Run the global protocol combinators (Section 6.2)
-All global protocol combinators from the paper are in the examples/protocols folder. 
-To build all examples, run: 
-
-```
-dune build @examples/protocols/all
-```
-
-* You can modify and test some of these protocols to ensure that an error is detected.  
-To test if a global protocol compiles after you have modify it, run: 
-
-```dune build examples/protocols/the_name_of_the_protocol.exe```
-
-where you have to replace the_name_of_the_protocol with the name of the file that you are modifying. 
-
-Note that this folder contains only the protocols. 
-The easiest way to explore the channel vectors inferred by running the global combinators is to open VSCode, 
-choose some of the files from the protocol folder, and hover over the type of the global combinator. 
-
-### Step 4: Other examples
-1. Check if protocols are correct 
-* open the [ring.ml](examples/mpst/ring.ml) file
-* uncomment the various global combinators at the bottom of the file and check the error messages
-
-2. Experiment with a simple calculator  
-* open the [examples/mpst/calc.ml](examples/mpst/calc.ml) file
-
-```
-dune build examples/mpst/calc.ml
-dune exec ./examples/mpst/calc.exe
-```
 
 ## Additional details
 * All examples are already compiled and the executables are ```in_build/default/examples/**.exe.```

@@ -155,7 +155,7 @@ dune exec ./examples/mpst/ring_protocol.exe
 There are small syntax discrepancies between ocaml-mpst-lwt and the paper. 
 The running example of the paper uses the simplest in-built communication transport in Ocaml (Event), which is also avoidable in our [ocaml-mpst-light](https://keigoi.github.io/ocaml-mpst-light/index.html) implementation.
 
-The full ocaml-mpst library of the artifact is parametric on the underlying transport. To enable this parametricity, we have created a wrapper that uses the [lwt](https://ocsigen.org/lwt/5.2.0/manual/manual) transport when installed, and switches to the in-built [Event] (https://caml.inria.fr/pub/docs/manual-ocaml/libref/Event.html) module if lwt is not available. 
+The full ocaml-mpst library of the artifact is parametric on the underlying transport. To enable this parametricity, we have created a wrapper that uses the [lwt](https://ocsigen.org/lwt/5.2.0/manual/manual) transport when installed, and switches to the in-built [Event](https://caml.inria.fr/pub/docs/manual-ocaml/libref/Event.html) module if lwt is not available. 
 To accommodate the lwt requirements, the wrapper requires some syntactic changes as explained below. 
 
 Primitives `send`, `recv` and `close` are monadic in lwt, and

@@ -6,9 +6,9 @@ We would like you to be able to
 
 * test the main use case (oAuth) from the paper, described in Figure 15, Section 6.3. For that purposee, complete Step 2.1 of this document.  
 
-* compile the global protocols, reported in Figure 15, Section 6.2. For that purposee, complete Step 2.2 of this document.  
+* compile the global protocols, reported in Figure 15, Section 6.2. For that purposee, complete Step 3 of this document.  
 
-Additionally, you can also try some of the other protocols that we have implemented, such as DSN (See Step 2.2), you can  verify various examples (Step 3.1) and implement your own protocols (Step 3.2) using our library.
+Additionally, you can also try some of the other protocols that we have implemented, such as DSN (See Step 2.2), you can  verify various examples (Step 4.1) and implement your own protocols (Step 4.2) using our library.
 
 ## Getting started
 
@@ -54,8 +54,8 @@ At the bottom of the page, you will see a summary of the results. The graphs cor
 
 More information about the source of the benchmarks is available [here](benchmark/).
 
-## STEP 3: Run applications, written with mpst-ocaml (Section 6.2 and 6.3)
-### STEP 3.1: Run an oAuth use case (Section 6.3)
+## STEP 2: Run applications, written with mpst-ocaml (Section 6.2 and 6.3)
+### STEP 2.1: Run an oAuth use case (Section 6.3)
 * run the run_oAuth script 
 ```
 ./examples/run_oauth.sh
@@ -68,7 +68,7 @@ The test account is: username: ecoop.91.2020@gmail.com  password: ecoop2020
 * After your enter the test account credentials, you will see an *acccess accepted* message. 
 * the source code of the example is in examples/oAuth.ml
 
-### STEP 3.2: Run a dns server (Section 6.2)
+### STEP 2.2: Run a dns server (Section 6.2)
 
 * run the run_dns script 
 ```
@@ -87,7 +87,7 @@ host -t www.google.com 127.0.0.1
 ``` 
 * the source code of the example is in examples/dns.ml
 
-### STEP 3.3: Compile the global protocol combinators (Section 6.2)
+## STEP 3: Compile the global protocol combinators (Section 6.2)
 All global protocol combinators from the paper are in the examples/protocols folder. 
 To compile all global protocol combinators  from Figure 16 run: 
 

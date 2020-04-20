@@ -54,7 +54,14 @@ __Hint:__ If you are struggling, the [examples/mpst/ring.ml file](examples/mpst/
 #### Compile/run a new example
 Use the following commands. The commands assumes the newly created file is /examples/mpst/ring_protocol.ml. 
 
-* open the dune file and add a new executable entry for ring_protocol
+* Open the dune file (/examples/mpst/dune) and add a new executable entry to it: 
+```
+(executable
+ (name ring_protocol)
+ (modules ring_protocol)
+ (libraries mpst))
+```
+
 * to build the example use:
 ```
 dune build examples/mpst/ring_protocol.ml

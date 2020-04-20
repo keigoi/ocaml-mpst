@@ -112,12 +112,12 @@ Note that the light version of mpst-ocaml, which is not parametric on the transp
 * Run the benchmarks script (it should take approximately 10-15 min): 
 
 ```
-./benchmark/run_all.sh
+sudo ./benchmark/run_all.sh
 ``` 
 
 * Display the graphs from the paper using jupyter-notebook
 ```
-jupyter-notebook benchmark/graphs/Graph.ipynb
+jupyter-notebook benchmark/graphs/Graphs.ipynb
 ```
 
 The jupyter script will open in a new chrome tab. Click Run to run the script and display the graphs. 

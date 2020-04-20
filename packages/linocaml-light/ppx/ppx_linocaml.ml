@@ -13,12 +13,11 @@ let may_tuple ?loc tup = function
   | l -> Some (tup ?loc ?attrs:None l)
 
 (* FIXME *)
-let inline = Attr.mk (Location.mknoloc "inline") (PStr[])
 let lid ?(loc = !default_loc) s = Location.mkloc (Longident.parse s) loc
 let app ?loc ?attrs f l = if l = [] then f else Exp.apply ?loc ?attrs f (List.map (fun a -> Nolabel, a) l)
 let evar ?loc ?attrs s = Exp.ident ?loc ?attrs (lid ?loc s)
-let lam ?loc ?(attrs=[]) ?(label = Nolabel) ?default pat exp = (*always inline lambdas*)
-  Exp.fun_ ?loc ~attrs:(inline::attrs) label default pat exp
+let lam ?loc ?(attrs=[]) ?(label = Nolabel) ?default pat exp =
+  Exp.fun_ ?loc ~attrs:attrs label default pat exp
 let record ?loc ?attrs ?over l =
   Exp.record ?loc ?attrs (List.map (fun (s, e) -> (lid ~loc:e.pexp_loc s, e)) l) over
 let constr ?loc ?attrs s args = Exp.construct ?loc ?attrs (lid ?loc s) (may_tuple ?loc Exp.tuple args)
@@ -53,7 +52,7 @@ let monad_return_lin () =
 let get_lin () =
   longident (!root_module ^ ".get_lin")
 
-let put_lin () =
+let put_linval () =
   longident (!root_module ^ ".put_linval")
 
 let mkbind () =
@@ -65,7 +64,7 @@ let error loc (s:string) =
 
 let add_putval es expr =
   let insert_expr (linvar, newvar) =
-    app (* ~loc:oldpat.ppat_loc *) (put_lin ()) [Exp.ident ~loc:linvar.loc linvar; evar ~loc:linvar.loc newvar]
+    app (* ~loc:oldpat.ppat_loc *) (put_linval ()) [Exp.ident ~loc:linvar.loc linvar; evar ~loc:linvar.loc newvar]
   in
   List.fold_right (fun e expr ->
       app

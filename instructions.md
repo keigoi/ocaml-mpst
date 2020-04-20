@@ -117,12 +117,14 @@ dune build @example/all
 * uncomment the various global combinators at the bottom of the file and check the error messages
 
 2. Experiment with a simple calculator  
-* open the [examples/mpst/calc.ml](examples/mpst/calc.ml) file
+* open the [examples/mpst/calc.ml](examples/mpst/calc.ml) file. Run the example: 
 
 ```
 dune build examples/mpst/calc.ml
 dune exec ./examples/mpst/calc.exe
 ```
+
+Note: Do not get confused by the .exe extension. This is not the Windows executable. It is a dune convenvention. The file calc.exe does not exist in /examples/mpst. 
 
 3. Create a simple ring protocol 
 * open VSCode (Before that make sure that you have build all the examples: ``` dune build @examples/all```)

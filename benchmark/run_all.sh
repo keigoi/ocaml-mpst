@@ -33,13 +33,13 @@ eval `opam env`
 dune clean
 
 mkdir ev_bare_pingpong; pushd ev_bare_pingpong
-dune exec ../../ev/ev_pingpong.exe -- +time cycles alloc gc percentage speedup samples -save -quota $QUOTA
-dune exec ../../ev/ev_pingpong.exe -- -load $(echo $(ls *s.txt) | sed 's/ / -load /g') -sexp >../../results/ev_bare_pingpong.txt
+dune exec --profile=release ../../ev/ev_pingpong.exe -- +time cycles alloc gc percentage speedup samples -save -quota $QUOTA
+dune exec --profile=release ../../ev/ev_pingpong.exe -- -load $(echo $(ls *s.txt) | sed 's/ / -load /g') -sexp >../../results/ev_bare_pingpong.txt
 popd
 
 mkdir ev_pingpong; pushd ev_pingpong
-dune exec ../../mpst/pingpong/pingpong.exe -- +time cycles alloc gc percentage speedup samples -save -quota $QUOTA
-dune exec ../../mpst/pingpong/pingpong.exe -- -load $(echo $(ls *s.txt) | sed 's/ / -load /g') -sexp >../../results/ev_pingpong.txt
+dune exec --profile=release ../../mpst/pingpong/pingpong.exe -- +time cycles alloc gc percentage speedup samples -save -quota $QUOTA
+dune exec --profile=release ../../mpst/pingpong/pingpong.exe -- -load $(echo $(ls *s.txt) | sed 's/ / -load /g') -sexp >../../results/ev_pingpong.txt
 popd
 
 
@@ -48,22 +48,22 @@ eval `opam env`
 dune clean
 
 mkdir -p lwt_bare_pingpong; pushd lwt_bare_pingpong
-dune exec ../../lwt/lwt_pingpong.exe -- +time cycles alloc gc percentage speedup samples -save -quota $QUOTA
-dune exec ../../lwt/lwt_pingpong.exe -- -load $(echo $(ls *s.txt) | sed 's/ / -load /g') -sexp >../../results/lwt_bare_pingpong.txt
+dune exec --profile=release ../../lwt/lwt_pingpong.exe -- +time cycles alloc gc percentage speedup samples -save -quota $QUOTA
+dune exec --profile=release ../../lwt/lwt_pingpong.exe -- -load $(echo $(ls *s.txt) | sed 's/ / -load /g') -sexp >../../results/lwt_bare_pingpong.txt
 popd
 
 mkdir -p lwt_pingpong; pushd lwt_pingpong
-dune exec ../../mpst/pingpong/pingpong.exe -- +time cycles alloc gc percentage speedup samples -save -quota $QUOTA
-dune exec ../../mpst/pingpong/pingpong.exe -- -load $(echo $(ls *s.txt) | sed 's/ / -load /g') -sexp >../../results/lwt_pingpong.txt
+dune exec --profile=release ../../mpst/pingpong/pingpong.exe -- +time cycles alloc gc percentage speedup samples -save -quota $QUOTA
+dune exec --profile=release ../../mpst/pingpong/pingpong.exe -- -load $(echo $(ls *s.txt) | sed 's/ / -load /g') -sexp >../../results/lwt_pingpong.txt
 popd
 
 mkdir -p lwt_nping; pushd lwt_nping
-dune exec ../../mpst/nping/nping.exe -- +time cycles alloc gc percentage speedup samples -save -quota $QUOTA
-dune exec ../../mpst/nping/nping.exe -- -load $(echo $(ls *s.txt) | sed 's/ / -load /g') -sexp >../../results/lwt_nping.txt
+dune exec --profile=release ../../mpst/nping/nping.exe -- +time cycles alloc gc percentage speedup samples -save -quota $QUOTA
+dune exec --profile=release ../../mpst/nping/nping.exe -- -load $(echo $(ls *s.txt) | sed 's/ / -load /g') -sexp >../../results/lwt_nping.txt
 popd
 
 mkdir -p lwt_chameleons; pushd lwt_chameleons
-dune exec ../../mpst/chameleons/chameleons.exe -- +time cycles alloc gc percentage speedup samples -save -quota $QUOTA
-dune exec ../../mpst/chameleons/chameleons.exe -- -load $(echo $(ls *s.txt) | sed 's/ / -load /g') -sexp >../../results/lwt_chameleons.txt
+dune exec --profile=release ../../mpst/chameleons/chameleons.exe -- +time cycles alloc gc percentage speedup samples -save -quota $QUOTA
+dune exec --profile=release ../../mpst/chameleons/chameleons.exe -- -load $(echo $(ls *s.txt) | sed 's/ / -load /g') -sexp >../../results/lwt_chameleons.txt
 popd
 

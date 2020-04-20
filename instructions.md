@@ -14,7 +14,7 @@ Additionally, you can also try some of the other protocols that we have implemen
 
 For the ECOOP'20 artifact evaluation, please use the VM prepared: 
 
-1. Download our [modified VM](https://drive.google.com/open?id=198S910WCd8y4Ow14WRg_9e3rrs-qsK3Q), file: .
+1. Download our [modified VM](https://drive.google.com/open?id=198S910WCd8y4Ow14WRg_9e3rrs-qsK3Q), file: OCamlMPST.ova.
 2. Load it in [Virtual Box](https://www.virtualbox.org/) and boot it.
 3. Open a terminal and navigate to ~/ocaml-mpst-lwt.
 4. Follow the instructions below.
@@ -198,6 +198,7 @@ If compilation fails, also try
 opam switch ocaml-mpst-lwt; eval $(opam env)
 ```
 ## Additional information
-* For instructions for compiling the ocaml-mpst on your own machine, see [README.md](https://github.com/keigoi/ocaml-mpst/blob/master/README.md). Note that some of the large examples (dns, oAuth)  need [additional dependencies](https://github.com/keigoi/ocaml-mpst/blob/master/README.md#libraries-used-in-examples-and-benchmarks). 
+* For instructions for compiling the ocaml-mpst on your own machine, see [README.md](https://github.com/keigoi/ocaml-mpst/blob/master/README.md). Note that some of the large examples (DNS, oAuth)  need [additional dependencies](https://github.com/keigoi/ocaml-mpst/blob/master/README.md#libraries-used-in-examples-and-benchmarks). Running oAuth locally is more cumbursome since it requires to prepare a web server, register a facebook app, and insert your app's id into oauth.ml. 
+
 * Try OCaml-MPST [Online](https://keigoi.github.io/ocaml-mpst-light/index.html)!
 An interactive web interface is available at: https://keigoi.github.io/ocaml-mpst-light/index.html

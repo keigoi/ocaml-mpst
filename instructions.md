@@ -126,6 +126,10 @@ dune exec ./examples/mpst/calc.exe
 
 Note: Do not get confused by the .exe extension. This is not the Windows executable. It is a dune convenvention. The file calc.exe does not exist in /examples/mpst. 
 
+* check that errors are reported when you introduce an error in the implementation. For example: 
+-- modify the type of the payload in line 21 (change 10 to "10")
+-- modify line 22 by replaceing ```result``` with ```answer``` (this will triger a protocol deviation error)
+
 3. Create a simple ring protocol 
 * open VSCode (Before that make sure that you have build all the examples: ``` dune build @examples/all```)
 * follow the short tutorial [here](https://github.com/keigoi/ocaml-mpst/wiki/Ocaml-mpst-in-5-minutes) to implement the protocol 

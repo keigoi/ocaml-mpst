@@ -43,7 +43,7 @@ At the bottom of the page, you will see a summary of the results. The graphs cor
 
 More information about the source of the benchmarks is available [here](benchmark/).
 
-## STEP 3: Run applications, written with mpst-ocaml 
+## STEP 3: Run applications, written with mpst-ocaml (Section 6.2 and 6.3)
 ### STEP 3.1: Run an oAuth use case (Section 6.3)
 * run the run_oAuth script 
 ```

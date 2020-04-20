@@ -47,7 +47,7 @@ More information about the source of the benchmarks is available [here](benchmar
 ./examples/run_oauth.sh
 ```
 
-This will trigger a facebook authentication (a tab in chrome will open). 
+This will trigger a facebook authentication (a tab in firefox will open). 
 You can either use your own facebook account to login, or use our test account. 
 The test account is:
 
@@ -55,7 +55,7 @@ username: ecoop.91.2020@gmail.com
 
 password: ecoop2020
 
-* After your enter teh test account credentials, you will see an acccess accepted message. 
+* After your enter the test account credentials, you will see an **acccess accepted** message. 
 * the source code of the example is in examples/oAuth.ml
 
 ### STEP 3.2: Run a dns server (Section 6.2)

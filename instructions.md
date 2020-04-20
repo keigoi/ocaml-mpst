@@ -71,7 +71,7 @@ Follow the instructions
 
 ### STEP 3.3: Compile the global protocol combinators (Section 6.2)
 All global protocol combinators from the paper are in the examples/protocols folder. 
-To build all examples, run: 
+To compile all global protocol combinators  from Figure 16 run: 
 
 ```
 dune build @examples/protocols/all
@@ -87,12 +87,13 @@ where you have to replace the_name_of_the_protocol with the name of the file tha
 Note that this folder contains only the protocols. 
 The easiest way to explore the channel vectors inferred by running the global combinators is to open VSCode, 
 choose some of the files from the protocol folder, and hover over the type of the global combinator. 
-To configure VS code run in the terminal: 
+If you plan to use VS code, before opening it, first build all examples from the terminal: 
+
 ```
 dune build @example/all
 ```
 
-### Step 4: Other example and implementing your own protocols (Optional)
+### Step 4: Other examples and implementing your own protocols (Optional)
 1. Check if protocols are correct 
 * open the [ring.ml](examples/mpst/ring.ml) file
 * uncomment the various global combinators at the bottom of the file and check the error messages

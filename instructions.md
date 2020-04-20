@@ -27,7 +27,7 @@ the artifact also contains
 * Run the benchmarks script (it should take approximately 10-15 min): 
 
 ```
-sudo ./benchmark/run_all.sh
+./benchmark/run_all.sh
 ``` 
 
 * Display the graphs from the paper using jupyter-notebook

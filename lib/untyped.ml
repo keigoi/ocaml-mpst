@@ -49,7 +49,7 @@ module Make(X:sig type 'a t and 'a u val fresh : 'a t -> 'a u end) = struct
     in
     fonly @ gonly @ List.map2 merge_wrapper fdup gdup
 
-  let[@inline] apply_wrapper wrappers tag v =
+  let apply_wrapper wrappers tag v =
     let (Wrapper(cont,f)) =
       match wrappers with
       | [wrapper] -> snd wrapper

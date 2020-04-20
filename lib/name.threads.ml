@@ -5,7 +5,7 @@ and 'a ch_ = {channel:'a Event.channel; merged: 'a ch list}
 
 type 'a out = 'a ch
 type 'a inp = 'a Event.event
-  
+
 type 'a scatter = 'a out list
 
 type ('w, 'u) gather0 =
@@ -19,13 +19,13 @@ and 'w gather =
 
 type ('a, 'b) either = Left of 'a | Right of 'b
 
-let[@inline] create f =
+let create f =
   let evch = Event.new_channel () in
   let rec ch = {contents={channel=evch; merged=[ch]}} in
   let inp = ch in
-  ch, Event.wrap (Event.guard (fun[@inline] () -> Event.receive (!inp).channel)) f
+  ch, Event.wrap (Event.guard (fun () -> Event.receive (!inp).channel)) f
 
-let[@inline] merge_out cl cr =
+let merge_out cl cr =
   if cl==cr then
     cl
   else
@@ -36,16 +36,16 @@ let[@inline] merge_out cl cr =
       cr := newch;
       cl
     end
-let[@inline] merge_inp cl cr =
+let merge_inp cl cr =
   if cl==cr then
     cl
   else
     Event.choose [cl; cr]
 
-let[@inline] send c v =
+let send c v =
   Event.sync (Event.send (!c).channel v)
-  
-let[@inline] receive c =
+
+let receive c =
   Event.sync c
 
 let create_scatter cnt f =
@@ -92,5 +92,4 @@ let merge_gather : type t. t gather -> t gather -> t gather = fun gl gr ->
 
 let receive_many : type t. t gather -> t IO.io =
   function {contents=Gather{g_inplist = inps; g_wrap = wrap; _}} ->
-    wrap (List.map receive inps) 
-
+    wrap (List.map receive inps)

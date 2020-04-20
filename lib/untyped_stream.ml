@@ -21,7 +21,7 @@ module Make(X:sig type 'a t and 'a u val fresh : 'a t -> 'a u end) = struct
   
   let inp_untyped ch label cont : 'var U.inp =
     let tag = Untyped.make_tag label.var in
-    (fun[@inline] () -> Name.receive (snd ch.me)), [(tag, U.Wrapper (cont, wrap label.var))]
+    (fun () -> Name.receive (snd ch.me)), [(tag, U.Wrapper (cont, wrap label.var))]
   
   let wrap_list var (vs, cont) =
     var (List.map Obj.obj vs, cont)

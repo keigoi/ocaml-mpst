@@ -7,11 +7,11 @@ module Make(X:sig type 'a t and 'a u val fresh : 'a t -> 'a u end) : sig
   include S.LOCAL
 
   val create : ('a -> 'b) -> 'a out * 'b inp
-                                    
+
   val create_scatter : int -> (int -> 'a -> 'b) -> 'a scatter * 'b inp list
-                                                          
+
   val create_gather : int -> ('a list -> 'b) -> 'a out list * 'b gather
-  
+
   val create_untyped :
     Env.t
     -> from:int
@@ -19,7 +19,7 @@ module Make(X:sig type 'a t and 'a u val fresh : 'a t -> 'a u end) : sig
     -> (_,_,[>] as 'var, 'v * 'cont X.u) label
     -> 'cont X.t Mergeable.t
     -> 'a out * 'var inp
-                                                                                                                     
+
   val create_untyped_scatter :
     Env.t
     -> from:int
@@ -27,7 +27,7 @@ module Make(X:sig type 'a t and 'a u val fresh : 'a t -> 'a u end) : sig
     ->  (_,_,[>] as 'var, 'v * 'cont X.u) label
     -> 'cont X.t Mergeable.t list
     -> 'a scatter * 'var inp list
-                                                                                                                                   
+
   val create_untyped_gather :
     Env.t ->
     from:int ->
@@ -43,27 +43,27 @@ end = struct
   module Untyped_streamU = Untyped_stream.Make(X)
 
   let (let*) = IO.bind
-  
+
   type 'var inp =
     | InpName of 'var Name.inp
     | InpFun of 'var U.inp
-  
+
   type 'v out =
     | OutName of 'v Name.out
     | OutFun of 'v U.out
-  
+
   type 'v scatter =
     | ScatterName of 'v Name.scatter
     | ScatterFun of 'v U.out list
-  
+
   type 'var gather =
     | GatherName of 'var Name.gather
     | GatherFun of 'var U.inplist
-  
+
   let dpipe_table = function
     | EpDpipe ts -> Some ts
     | _ -> None
-  
+
   let untyped_table = function
     | EpUntyped ts -> Some ts
     | _ -> None
@@ -79,12 +79,12 @@ end = struct
   let create_gather size f =
     let outs, gather = Name.create_gather size f in
     List.map (fun o -> OutName o) outs, GatherName gather
-  
+
   type ('x,'y) ch =
   | Dstream of (Untyped.tag * Obj.t) Untyped_stream.t list list
   | Dpipe of Untyped_dpipe.t list list
 
-  let[@inline] generate ~from_info ~to_info =
+  let generate ~from_info ~to_info =
     match from_info.rm_kind, to_info.rm_kind with
     | EpUntyped _, _ | _, EpUntyped _->
        let dstreams =
@@ -94,7 +94,7 @@ end = struct
        in
        Dstream(dstreams)
     | EpDpipe _, _ | _, EpDpipe _ ->
-       let dpipes = 
+       let dpipes =
          generate_channels
            ~newch:Untyped_dpipeU.new_dpipe ~flipch:Untyped_dpipeU.flip ~tablefun:dpipe_table
            ~from_info ~to_info
@@ -102,8 +102,8 @@ end = struct
        Dpipe(dpipes)
     | EpLocal, EpLocal ->
        assert false
-  
-  let[@inline] create_untyped env ~from ~to_ label cont =
+
+  let create_untyped env ~from ~to_ label cont =
     let from_info = Env.metainfo env from 1
     and to_info = Env.metainfo env to_ 1
     in
@@ -118,7 +118,7 @@ end = struct
        InpFun(Untyped_streamU.(inp_untyped (flip dstream) label cont))
     | Dstream(_) ->
        assert false
-  
+
   let create_untyped_scatter env ~from ~to_ label conts =
     let from_info = Env.metainfo env from 1
     and to_info = Env.metainfo env to_ 1
@@ -134,7 +134,7 @@ end = struct
        List.map2 (fun dstream cont -> InpFun(Untyped_streamU.(inp_untyped (flip dstream) label cont))) dstreams conts
     | Dstream(_) ->
        assert false
-  
+
   let create_untyped_gather env ~from ~to_ label cont =
     let from_info = Env.metainfo env from 1
     and to_info = Env.metainfo env to_ 1
@@ -148,7 +148,7 @@ end = struct
        let dstreams = List.map List.hd dstreams in
        List.map (fun dstream -> OutFun(Untyped_streamU.out_untyped dstream label)) dstreams,
        GatherFun(Untyped_streamU.(inplist_untyped (List.map flip dstreams) label cont))
-       
+
   let merge_out o1 o2 =
     match o1, o2 with
     | OutName o1, OutName o2 ->
@@ -157,7 +157,7 @@ end = struct
        o1
     | OutName _, OutFun _ | OutFun _, OutName _ ->
        assert false
-  
+
   let merge_inp i1 i2 =
     match i1, i2 with
     | InpName o1, InpName o2 ->
@@ -166,7 +166,7 @@ end = struct
        InpFun (f, U.merge_wrappers wrap1 wrap2)
     | InpName _, InpFun _ | InpFun _, InpName _ ->
        assert false
-  
+
   let merge_scatter o1 o2 =
     match o1, o2 with
     | ScatterName o1, ScatterName o2 ->
@@ -175,7 +175,7 @@ end = struct
        o1
     | ScatterName _, ScatterFun _ | ScatterFun _, ScatterName _ ->
        assert false
-  
+
   let merge_gather (i1:'var gather) (i2:'var gather) : 'var gather =
     match i1, i2 with
     | GatherName i1, GatherName i2 ->
@@ -187,25 +187,25 @@ end = struct
        GatherFun(f1, U.merge_wrappers wrap1 wrap2)
     | GatherName _, GatherFun _ | GatherFun _, GatherName _ ->
        assert false
-        
+
   let[@inline] send out v =
     match out with
     | OutName out -> Name.send out v
     | OutFun f -> f v
-  
+
   let[@inline] receive inp =
     match inp with
     | InpName inp -> Name.receive inp
     | InpFun (f, wrappers) ->
        IO.bind (f ()) (fun[@inline] (tag,v) ->
        IO.return (U.apply_wrapper wrappers tag v))
-  
+
   let send_many outs f =
     match outs with
     | ScatterName outs -> Name.send_many outs f
     | ScatterFun outs ->
        IO_list.iteri (fun i out -> out (f i)) outs
-  
+
   let receive_many inps =
     match inps with
     | GatherName inps -> Name.receive_many inps

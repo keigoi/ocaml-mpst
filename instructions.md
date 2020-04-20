@@ -1,9 +1,20 @@
+The purpose of this document is to describe in details the steps required to assess the artifact associated to our paper.
+
+We would like you to be able to
+
+* reproduce our benchmarks from Figure 15, Section 6.1. For that purposee, completing Step 1 of this document.  
+
+* test teh main use case (oAuth) from the paper, described in Figure 15, Section 6.3. For that purposee, complete Step 2.1 of this document.  
+
+* compile the global protocols, reported in Figure 15, Section 6.2. For that purposee, complete Step 2.2 of this document.  
+
+Additionally, you can also try some of the other protocols that we have implemented, such as DSN (See Step 2.2), and implement your own protocols (Step 3).
 
 ## Getting started
 
 For the ECOOP'20 artifact evaluation, please use the VM prepared: 
 
-1. Download our [modified VM](https://drive.google.com/open?id=198S910WCd8y4Ow14WRg_9e3rrs-qsK3Q).
+1. Download our [modified VM](https://drive.google.com/open?id=198S910WCd8y4Ow14WRg_9e3rrs-qsK3Q), file: .
 2. Load it in [Virtual Box](https://www.virtualbox.org/) and boot it.
 3. Open a terminal and navigate to ~/ocaml-mpst-lwt.
 4. Follow the instructions below.

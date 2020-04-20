@@ -49,11 +49,13 @@ More information about the source of the benchmarks is available [here](benchmar
 
 This will trigger a facebook authentication (a tab in chrome will open). 
 You can either use your own facebook account to login, or use our test account. 
-If you use your own account, a message displaying that no access is allows will be displayed. 
 The test account is:
+
 username: ecoop.91.2020@gmail.com
+
 password: ecoop2020
 
+* After your enter teh test account credentials, you will see an acccess accepted message. 
 * the source code of the example is in examples/oAuth.ml
 
 ### STEP 3.2: Run a dns server (Section 6.2)
@@ -65,7 +67,7 @@ password: ecoop2020
 
 Follow the instructions 
 
-* the source code of the example is in examples/oAuth.ml
+* the source code of the example is in examples/dns.ml
 
 ### STEP 3.3: Compile the global protocol combinators (Section 6.2)
 All global protocol combinators from the paper are in the examples/protocols folder. 

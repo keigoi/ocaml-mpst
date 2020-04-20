@@ -16,7 +16,7 @@ module Single(Local:S.LOCAL)(DynLin:Dyn_lin.S) : sig
     ('obj, 'm) method_ ->
     ('m, ('v, 's) out) method_ ->
     'v Local.out -> 's local ->
-    'obj local    
+    'obj local
 
   val declare_inp :
     ('obj, 'var inp) method_ ->
@@ -41,41 +41,41 @@ end = struct
   type ('v, 's) out = ('v Local.out * 's local) lin
   type 'var inp = 'var Local.inp lin
   type close = (unit -> unit IO.io) lin
-      
-  let[@inline] declare_out role label out cont =
+
+  let declare_out role label out cont =
     let ch =
       (* <role_rj = <lab = (ch,si) > > *)
       DynLin.wrap role.make_obj @@
         DynLin.wrap label.make_obj @@
           DynLin.declare (out,cont)
     in
-    let[@inline] merge_out (n1,s1') (n2,s2') =
+    let merge_out (n1,s1') (n2,s2') =
       (Local.merge_out n1 n2, Mergeable.merge s1' s2')
     in
-    let[@inline] merge_out_lin x y = DynLin.merge merge_out (compose_method role label) x y in
+    let merge_out_lin x y = DynLin.merge merge_out (compose_method role label) x y in
     Mergeable.make
       ~value:ch
       ~cont:cont
       ~mergefun:merge_out_lin
       ()
-      
-  let[@inline] declare_inp role inp cont =
+
+  let declare_inp role inp cont =
     let ch =
       (* <role_ri = wrap (receive ch) (λx.`lab(x,sj)) > *)
       DynLin.wrap role.make_obj @@
         DynLin.declare inp
     in
-    let[@inline] merge_inp_lin x y = DynLin.merge Local.merge_inp role x y in
+    let merge_inp_lin x y = DynLin.merge Local.merge_inp role x y in
     Mergeable.make
       ~value:ch
       ~cont:cont
       ~mergefun:merge_inp_lin
       ()
 
-  let[@inline] declare_close f =
+  let declare_close f =
     Mergeable.make
       ~value:(DynLin.declare f)
-      ~mergefun:(fun[@inline] _ _ -> DynLin.declare f)
+      ~mergefun:(fun _ _ -> DynLin.declare f)
       ()
 
   let[@inline] send (out: ('v,'t) out) (v:'v) =
@@ -108,7 +108,7 @@ module ScatterGather(Local:S.LOCAL)(DynLin:Dyn_lin.S) : sig
   val declare_gather :
     ('obj, 'var gather) method_ ->
     'var Local.gather -> 's local -> 'obj local
-      
+
   val send_many : ('v, 't) scatter -> (int -> 'v) -> 't IO.io
 
   val receive_many : 'var gather -> 'var IO.io
@@ -136,7 +136,7 @@ end = struct
       ~cont:cont
       ~mergefun:merge_scatter_lin
       ()
-      
+
   let declare_gather role inp cont =
     let ch =
       (* <role_ri = wrap (receive ch) (λx.`lab(x,sj)) > *)

@@ -14,6 +14,18 @@ type t =
   {metainfo: role_metainfo Table.t;
    default:int -> epkind}
 
+let map_option f = function
+  | Some x -> Some (f x)
+  | None -> None
+
+let of_option ~dflt = function
+  | Some x -> x
+  | None -> dflt
+
+let option ~dflt ~f = function
+  | Some x -> f x
+  | None -> dflt
+
 let metainfo env idx cnt =
   match Table.get_opt env.metainfo idx  with
   | Some t -> t
@@ -34,7 +46,7 @@ let rm_kind env idx cnt =
      let info = metainfo env idx cnt in
      info.rm_kind
 
-     
+
 let make_metainfo ?size env role =
   let rm_index = int_of_idx role.role_index in
   let rm_size = of_option size ~dflt:(rm_size env rm_index) in
@@ -106,4 +118,3 @@ let generate_channels
      in
      flip_all flipch chss
   | _ -> assert false
-    

@@ -119,7 +119,7 @@ end = struct
   module Channel = Channel.Make(struct
                        type 'a t = 'a DynLin.gen
                        and 'a u = 'a Lin.lin
-                       let[@inline] fresh x = Lin.mklin @@ DynLin.fresh x
+                       let fresh x = Lin.mklin @@ DynLin.fresh x
                      end)
 
   module Single = Channel_vectors.Single(Channel)(DynLin)
@@ -151,7 +151,7 @@ end = struct
     let sj' = Seq.get rj.role_index g0 in
     let out, inp =
       if is_typed env ri rj then
-        let wrap = fun[@inline] x ->
+        let wrap = fun x ->
           label.var (x, Lin.mklin @@ DynLin.fresh @@ Mergeable.resolve sj')
         in
         Channel.create wrap

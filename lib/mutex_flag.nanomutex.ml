@@ -1,7 +1,7 @@
 open Concur_shims
 exception InvalidEndpoint
 type t = Nano_mutex.t
-let create ()  = Nano_mutex.create ()
+let create  = Nano_mutex.create
 let try_lock_nano f =
   match Nano_mutex.try_lock f with
   | Ok `Acquired -> true

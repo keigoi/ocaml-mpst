@@ -54,8 +54,8 @@ module MakeDyn
 
     let start_client i () =
       let debug str =
-        Printf.printf "(%d): %s\n" i str;
-        flush stdout;
+        (* Printf.printf "(%d): %s\n" i str;
+         * flush stdout; *)
         ()
       in
       debug "connecting..";
@@ -74,7 +74,7 @@ module MakeDyn
          let* `msg((),sb2) = receive sb2#role_A in
          debug "right send.";
          let* sb2 = send sb2#role_A#msg () in
-         (* let* () = close sb2 in *)
+         let* () = close sb2 in
          close sa
 
     let rec loop f x = IO.bind (f x) (fun () -> loop f x)
@@ -160,8 +160,8 @@ module MakeStatic
       let open Linocaml in
       let open LinocamlStyle in
       let debug str =
-        Printf.printf "(%d): %s\n" i str;
-        flush stdout;
+        (* Printf.printf "(%d): %s\n" i str;
+         * flush stdout; *)
         ()
       in
       debug "connecting..";

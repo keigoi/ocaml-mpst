@@ -83,8 +83,8 @@ end = struct
   type ('x,'y) ch =
   | Dstream of (Untyped.tag * Obj.t) Untyped_stream.t list list
   | Dpipe of Untyped_dpipe.t list list
-         
-  let generate ~from_info ~to_info =
+
+  let[@inline] generate ~from_info ~to_info =
     match from_info.rm_kind, to_info.rm_kind with
     | EpUntyped _, _ | _, EpUntyped _->
        let dstreams =
@@ -103,7 +103,7 @@ end = struct
     | EpLocal, EpLocal ->
        assert false
   
-  let create_untyped env ~from ~to_ label cont =
+  let[@inline] create_untyped env ~from ~to_ label cont =
     let from_info = Env.metainfo env from 1
     and to_info = Env.metainfo env to_ 1
     in
@@ -197,8 +197,8 @@ end = struct
     match inp with
     | InpName inp -> Name.receive inp
     | InpFun (f, wrappers) ->
-       let* (tag,v) = f () in
-       IO.return (U.apply_wrapper wrappers tag v)
+       IO.bind (f ()) (fun[@inline] (tag,v) ->
+       IO.return (U.apply_wrapper wrappers tag v))
   
   let send_many outs f =
     match outs with

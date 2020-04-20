@@ -34,7 +34,7 @@ type ('lr, 'l, 'r) disj =
    * constraint 'l = < .. >
    * constraint 'r = < .. > *)
 
-type 'a one = One of 'a
+type 'a one = One of 'a[@@ocaml.unboxed]
 
 let rec find_physeq : 'a. 'a list -> 'a -> bool = fun xs y ->
   match xs with
@@ -45,14 +45,14 @@ let rec int_of_idx : type a b c d. (a,b,c,d) idx -> int = function
   | Zero -> 0
   | Succ l -> int_of_idx l + 1
 
-let map_option f = function
+let[@inline] map_option f = function
   | Some x -> Some (f x)
   | None -> None
 
-let of_option ~dflt = function
+let[@inline] of_option ~dflt = function
   | Some x -> x
   | None -> dflt
 
-let option ~dflt ~f = function
+let[@inline] option ~dflt ~f = function
   | Some x -> f x
   | None -> dflt

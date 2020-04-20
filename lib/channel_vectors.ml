@@ -78,20 +78,18 @@ end = struct
       ~mergefun:(fun[@inline] _ _ -> DynLin.declare f)
       ()
 
-  let (let*) = IO.bind
-
   let[@inline] send (out: ('v,'t) out) (v:'v) =
-    let* (n,t) = DynLin.use out in
-    let* () = Local.send n v in
-    IO.return @@ DynLin.fresh (Mergeable.resolve t)
+    IO.bind (DynLin.use out) (fun[@inline] (n,t) ->
+    IO.bind (Local.send n v) (fun[@inline] () ->
+    IO.return @@ DynLin.fresh (Mergeable.resolve t)))
 
   let[@inline] receive (ch: 'var inp) =
-    let* ch = DynLin.use ch in
-    Local.receive ch
+    IO.bind (DynLin.use ch) (fun[@inline] ch ->
+    Local.receive ch)
 
   let[@inline] close (ep: close) =
-    let* f = DynLin.use ep in
-    f ()
+    IO.bind (DynLin.use ep) (fun[@inline] f ->
+    f ())
 end[@@inline]
 
 

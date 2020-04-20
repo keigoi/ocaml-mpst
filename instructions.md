@@ -112,7 +112,7 @@ Note that the light version of mpst-ocaml, which is not parametric on the transp
 * Run the benchmarks script (it should take approximately 10-15 min): 
 
 ```
-./benchmarks/run_all.sh
+./benchmark/run_all.sh
 ``` 
 
 * Display the graphs from the paper using jupyter-notebook

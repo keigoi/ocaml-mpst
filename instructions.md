@@ -87,7 +87,7 @@ host -t www.google.com 127.0.0.1
 ``` 
 * the source code of the example is in examples/dns.ml
 
-# STEP 2.3: Run an SMTP client (Section 6.2)
+### STEP 2.3: Run an SMTP client (Section 6.2)
 
 You need to prepare an SMTP e-mail forwarding server.
 

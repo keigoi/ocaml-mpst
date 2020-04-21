@@ -25,8 +25,8 @@ echo Saving raw results to $DIR ..
 
 set -v
 
-# extend file open limit
-ulimit -n 65535
+# extend file open limit for chameleons (which use many pipes)
+ulimit -n 4096
 
 opam switch ocaml-mpst-ev
 eval `opam env`

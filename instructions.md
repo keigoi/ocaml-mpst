@@ -14,7 +14,7 @@ Additionally, you can also try some of the other protocols that we have implemen
 
 For the ECOOP'20 artifact evaluation, please use the VM prepared: 
 
-1. Download our [modified VM](https://drive.google.com/open?id=198S910WCd8y4Ow14WRg_9e3rrs-qsK3Q), file: OCamlMPST.ova.
+1. Download our VM as explained in the artifact pdf (artifact.pdf).
 2. Load it in [Virtual Box](https://www.virtualbox.org/) and boot it.
 3. Open a terminal and navigate to ~/ocaml-mpst-lwt.
 4. Follow the instructions below.

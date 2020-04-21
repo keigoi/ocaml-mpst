@@ -1,0 +1,10 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+"ocaml.lsp.path" : "/home/osboxes/.opam/ocaml-mpst-lwt/bin/ocamllsp"
+	}
+}

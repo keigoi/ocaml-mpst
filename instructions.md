@@ -87,6 +87,16 @@ host -t www.google.com 127.0.0.1
 ``` 
 * the source code of the example is in examples/dns.ml
 
+# STEP 2.3: Run an SMTP client (Section 6.2)
+
+You need to prepare an SMTP e-mail forwarding server.
+
+* run the run_smtp script
+```
+./examples/run_smtp.sh [SMTP server IP Addres]
+```
+Then it will ask sender and recipient address, email title and message body (single line).
+
 ## STEP 3: Compile the global protocol combinators (Section 6.2)
 All global protocol combinators from the paper are in the examples/protocols folder. 
 To compile all global protocol combinators  from Figure 16 run: 

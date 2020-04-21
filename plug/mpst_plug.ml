@@ -22,8 +22,7 @@ type ('ka,'va) output_handler = 'ka -> 'va -> unit Lwt.t
 
 type ('ka,'kb,'v,'buf) handler =
   {write: 'ka -> 'v -> unit Lwt.t;
-   read: 'kb -> 'buf Lwt.t;
-   try_parse: 'kb -> 'buf -> 'v option
+   read: 'kb -> 'buf option -> ('buf option * 'v option) Lwt.t;
   }
 
 type (_, _, _, _, _, _, _) slabel =
@@ -318,7 +317,7 @@ module Inp : sig
     ('ks1 vec -> ('var,'buf) inp) Mergeable.t
 end = struct
   type ('l,'r) either = Left of 'l | Right of 'r
-  type ('a,'buf) inp = {once:Flag.t;  handler:'buf option -> ('buf,'a) either Lwt.t}
+  type ('a,'buf) inp = {once:Flag.t;  handler:'buf option -> ('buf option,'a) either Lwt.t}
   let receive {once; handler} =
     Flag.use once;
     Lwt.bind (handler None) (function
@@ -328,22 +327,17 @@ end = struct
   let merge_inp f1 f2 =
     let seq h1 h2 = fun buf ->
       Lwt.bind (h1 buf) (function
-          | Left buf -> h2 (Some buf)
+          | Left buf -> h2 buf
           | Right success -> Lwt.return (Right success))
     in
     fun k0 ->
     let inp1, inp2 = f1 k0, f2 k0 in
     {once=inp1.once; handler=seq inp1.handler inp2.handler}
 
+  let (let*) = Lwt.bind
   let try_read (Slabel slabel) k ks cont = fun buf ->
-    let open Lwt in
-    begin match buf with
-    | None ->
-       slabel.handler.read k
-    | Some buf ->
-       Lwt.return buf
-    end >>= fun buf ->
-    match (slabel.handler.try_parse k buf) with
+    let* buf,res = slabel.handler.read k buf in
+    match res with
     | None -> Lwt.return (Left buf)
     | Some v ->
        let cont = Mergeable.generate cont ks in

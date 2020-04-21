@@ -1,4 +1,5 @@
 let (>>=) = Lwt.(>>=)
+let (let*) = Lwt.bind
 
 type 'a cohttp_server =
   {base_path: string;
@@ -228,16 +229,26 @@ module Handlers = struct
   type http_param = (string * string list) list 
 
   let get ?sess_pred ?pred path =
+      let isok k req = 
+           match pred with
+           | None ->
+              (None, Some (param req))
+           | Some pred ->
+              if pred k (param req) then
+                (None, Some (param req))
+              else
+                (Some req, None)
+      in
       {write=(fun c v ->
          c.write_request ~path ~params:v);
-       read=(fun c ->
-         c.read_request ~paths:[path] ~predicate:(mkpred sess_pred c) () >>= fun (req,_) ->
-         Lwt.return @@ param req);
-       try_parse=(fun k req ->
-         match pred with
-         | None -> Some req
-         | Some pred -> if pred k req then Some req else None
-      )}
+       read=(fun c buf ->
+         match buf with
+         | Some req ->
+            Lwt.return @@ isok c req
+         | None ->
+            let* req,_ = c.read_request ~paths:[path] ~predicate:(mkpred sess_pred c) () in
+            Lwt.return @@ isok c req
+       )}
 
   let _200 =
     {write=(fun c v ->
@@ -246,10 +257,9 @@ module Handlers = struct
          ~body:v
          () >>= fun (resp,body) ->
        c.write_response (resp, body));
-     read=(fun c -> (* FIXME: check resposne code *)
+     read=(fun c _buf -> (* FIXME: check resposne code *)
        c.read_response >>= fun (_resp, body) ->
-       Lwt.return body);
-     try_parse=(fun _ req -> Some req)}
+       Lwt.return (_buf, Some body))}
 
   let _302 =
       {write=(fun c url ->
@@ -258,8 +268,7 @@ module Handlers = struct
            ~headers:(Cohttp.Header.init_with "Location" @@ Uri.to_string url)
            ~body:"" () >>= fun (resp,body) ->
          c.write_response (resp, body));
-       read=(fun _ -> Lwt.fail_with "TODO: not implemented");
-       try_parse=(fun _ v -> Some v)}
+       read=(fun _ _buf -> Lwt.fail_with "TODO: not implemented")}
 end
 
 module SLabels = struct

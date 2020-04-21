@@ -47,8 +47,7 @@ let dummy =
             var=(fun v -> `dummy(v))};
      handler=
        {write=(fun _fd () -> Lwt.return ()(* do nothing*));
-        read=(fun _fd -> Lwt.return None);
-        try_parse=(fun _ _ -> None)
+        read=(fun _fd _bufopt -> Lwt.return (_bufopt, None));
        }
     }
 
@@ -64,15 +63,14 @@ let query =
           Cstruct.(Lwt_bytes.sendto fd buf.buffer buf.off buf.len [] peer_addr) >>= fun _ ->
           Lwt.return_unit
       );
-      read=(fun ({fd; _} as r) ->
+      read=(fun ({fd; _} as r) bufopt ->
         let buf = Cstruct.create 4096 in
         Cstruct.(Lwt_bytes.recvfrom fd buf.buffer buf.off buf.len [])
         >>= fun (len, dst_addr) ->
         r.peer_addr <- dst_addr;
         (*fixme bufferiing*)
-        Lwt.return (Dns.Protocol.Server.parse (Cstruct.sub buf 0 len))
+        Lwt.return (bufopt, Dns.Protocol.Server.parse (Cstruct.sub buf 0 len))
         );
-      try_parse=(fun _ o -> o)
     }}
 
 let answer =
@@ -86,7 +84,7 @@ let answer =
           Cstruct.(Lwt_bytes.sendto fd buf.buffer buf.off buf.len [] peer_addr) >>= fun _ ->
           Lwt.return_unit
         );
-        read=(fun {fd; peer_addr; query_id} ->
+        read=(fun {fd; peer_addr; query_id} bufopt ->
           let buf = Cstruct.create 4096 in
           Cstruct.(Lwt_bytes.recvfrom fd buf.buffer buf.off buf.len [])
           >>= fun (len, dst_addr) ->
@@ -94,9 +92,8 @@ let answer =
           let answer = Dns.Packet.parse buf in
           (* FIXME: check query id and dst_addr -- we need session correlation!! *)
           if peer_addr = dst_addr && answer.Dns.Packet.id = query_id then
-            Lwt.return (Some answer)
+            Lwt.return (bufopt, Some answer)
           else begin
               (* FIXME: unget... and cancel the execution ... *)
-              Lwt.return (Some answer)
-            end);
-        try_parse=(fun _ o -> o)}}
+              Lwt.return (bufopt, Some answer)
+            end)}}

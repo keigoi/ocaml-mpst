@@ -21,13 +21,17 @@ opam pin -y https://github.com/keigoi/ocaml-mpst.git
 
 It will install several packages from this repository. To remove them, type:  `opam pin remove concur-shims linocaml-light ocaml-mpst ocaml-mpst-lwt ocaml-mpst-plug ocaml-mpst-plug-http` .
 
+For benchmarks and some examples, you might need additional dependencies, which can be installed by:
+
+```bash
+opam install dns-lwt-unix cmdliner lwt_log lwt_ssl core_bench conf-libev
+```
+
 
 ## Try OCaml-MPST [Online](https://keigoi.github.io/ocaml-mpst-light/index.html)!
 
 * An interactive web interface is available at:
   * https://keigoi.github.io/ocaml-mpst-light/index.html
-
-[Try OCaml-MPST Online](https://keigoi.github.io/ocaml-mpst-light/index.html)
 
 
 ## Try OCaml-MPST on your PC
@@ -35,22 +39,30 @@ It will install several packages from this repository. To remove them, type:  `o
 To run a example, after installation, type the script below in the terminal:
 ```
 git clone https://github.com/keigoi/ocaml-mpst.git
-cd ocaml-mpst/examples/mpst
+cd ocaml-mpst/
 
 # compile it
-ocamlfind ocamlopt -thread -linkpkg -package ocaml-mpst ring.ml -o ring.exe
+dune build examples/mpst/ring.exe
 
 # run it
+dune exec examples/mpst/ring.exe
+```
+
+Or alternatively, you can also use `ocamlfind` to compile things:
+
+```bash
+ocamlfind ocamlopt -thread -linkpkg -package ocaml-mpst ring.ml -o ring.exe
 ./ring.exe
 ```
+
 
 ## ocaml-mpst in 5 minutes
 
 1. Write down a **protocol** using  **Global Combinators**. 
 
 ```ocaml
-open Mpst_light
-let ring = (a --> b) msg @@ (b --> c) msg @@ (c --> a) finish
+open Mpst
+let ring = gen @@ (a --> b) msg @@ (b --> c) msg @@ (c --> a) finish
 ```
 
   --- This is a simple three-party ring-based protocol with _participants_ `A`, `B` and `C`, circulating messages with _label_ `msg` in this order. 
@@ -70,25 +82,32 @@ let sc = get_ch c ring
 
 3. Run threads in parallel, one for each participant!
 
+NB: The following uses [concur-shims](packages/concur-shims) offers an `IO` monad parameterised over direct style and LWT.
+
+```
+open Concur_shims
+let (let*) = IO.bind
+```
+
 ```ocaml
 (* Participant A *)
 Thread.create (fun () -> 
-  let sa = send sa#role_B#msg "Hello, " in
-  let `msg(str, sa) = receive sa#role_C in
+  let* sa = send sa#role_B#msg "Hello, " in
+  let* `msg(str, sa) = receive sa#role_C in
   print_endline str;
   close sa
 ) ();;
 
 (* Participant B *)
 Thread.create (fun () ->
-  let `msg(str,sb) = receive sb#role_A in
-  let sb = send sb#role_C#msg (str ^ "MPST") in
+  let* `msg(str,sb) = receive sb#role_A in
+  let* sb = send sb#role_C#msg (str ^ "MPST") in
   close sb
 ) ();;
 
 (* Participant C *)
-let `msg(str, sc) = receive sc#role_C in
-let sc = send sc#role_A#msg (str ^ " World!") in
+let* `msg(str, sc) = receive sc#role_C in
+let* sc = send sc#role_A#msg (str ^ " World!") in
 close sc
 ```
 
@@ -119,6 +138,24 @@ More examples including branching, loops and delegation will come soon!
 ## Examples
 
 * See [Examples](examples/)
+
+## Benchmark Scripts
+
+Benchmark Scripts [run_all.sh](benchmark/run_all.sh) depends on fixed OPAM switches: `ocaml-mpst-ev` and `ocaml-mpst-lwt`. Please install the corresponding packages, for example:
+
+```bash
+opam switch create ocaml-mpst-lwt 4.09.1+flambda
+opam pin -y https://github.com/keigoi/ocaml-mpst.git
+# install additional dependencies
+opam install dns-lwt-unix cmdliner lwt_log lwt_ssl core_bench conf-libev
+
+opam switch create ocaml-mpst-ev 4.09.1+flambda
+git clone https://github.com/keigoi/ocaml-mpst.git
+cd ocaml-mpst
+opam pin -n -y .
+cd packages/ocaml-mpst-ev
+opam pin -y
+```
 
 
 # Notes on optional library dependencies
@@ -184,7 +221,7 @@ opam install dns-lwt-unix cmdliner lwt_log
 ```
 
 * DNS example: `dns-lwt-unix`
-* OAuth exapmle: `cmdliner lwt_log`
-* Benchmarks: `core_bench`, `conf-libev`
+* OAuth exapmle: `cmdliner lwt_log lwt_ssl`
+* Benchmarks: `core_bench conf-libev`
 
 

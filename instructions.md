@@ -30,15 +30,6 @@ the artifact also contains
 * a script, [examples/run_oauth.sh](examples/run_oauth.sh), for running the OAuth use case (Section 6.3) 
 * a tutorial that guides you through implementing and testing your own examples 
 
-## Note
-
-In benchmarks, the results might have some instability if:
-
-1. host hardware is not enough, or
-2. some apps are running in the host.
-
-Bear in mind that the benchmark data in the paper was generated using the machine with Intel Core i7-7700K CPU (4.20GHz, 4 cores), Ubuntu 17.10, Linux 4.13.0-46-generic, 16GB. Thus, VM in a host should have sufficient hardware specs (16 GB RAM, 4 CPU cores), while the script attached here are tailored to a single-core VM. Make sure that you do not have any other applications running in your host machine, while performing the benchmarks. 
-
 
 ## Step 0: Build all examples 
 ```
@@ -62,6 +53,11 @@ The jupyter script will open in a new chrome tab. Click Run to run the script an
 At the bottom of the page, you will see a summary of the results. The graphs correspond to Figure 15 (Section 6.1) 
 
 More information about the source of the benchmarks is available [here](benchmark/).
+
+## Note:Warning:
+
+Bear in mind that the benchmark data in the paper was generated using  machine with Intel Core i7-7700K CPU (4.20GHz, 4 cores), Ubuntu 17.10, Linux 4.13.0-46-generic, 16GB, while the script attached here are tailored to a single-core VM. 
+The benchmarks in the VM may show deviations if the VM doe snot have sufficient resources(i.e 1. the host hardware is not enough, or 2. other apps are running in the host). Please run the VM in a host with sufficient hardware specs (16 GB RAM, 4 CPU cores). Make sure that you do not have any other applications running in your host machine, while performing the benchmarks. 
 
 ## STEP 2: Run applications, written with mpst-ocaml (Section 6.2 and 6.3)
 ### STEP 2.1: Run an oAuth use case (Section 6.3)

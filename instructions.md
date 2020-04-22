@@ -30,6 +30,15 @@ the artifact also contains
 * a script, [examples/run_oauth.sh](examples/run_oauth.sh), for running the OAuth use case (Section 6.3) 
 * a tutorial that guides you through implementing and testing your own examples 
 
+## Note
+
+In benchmarks, the results might have some instability if:
+
+1. host hardware is not enough, or
+2. some apps are running in the host.
+
+Bear in mind that the benchmark data in the paper was generated using the machine with Intel Core i7-7700K CPU (4.20GHz, 4 cores), Ubuntu 17.10, Linux 4.13.0-46-generic, 16GB. Thus, VM in a host should have sufficient hardware specs (16 GB RAM, 4 CPU cores), while the script attached here are tailored to a single-core VM. Make sure that you do not have any other applications running in your host machine, while performing the benchmarks. 
+
 
 ## Step 0: Build all examples 
 ```

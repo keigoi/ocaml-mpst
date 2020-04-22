@@ -54,9 +54,7 @@ At the bottom of the page, you will see a summary of the results. The graphs cor
 
 More information about the source of the benchmarks is available [here](benchmark/).
 
-## Note:Warning:
-
-Bear in mind that the benchmark data in the paper was generated using  machine with Intel Core i7-7700K CPU (4.20GHz, 4 cores), Ubuntu 17.10, Linux 4.13.0-46-generic, 16GB, while the script attached here are tailored to a single-core VM. 
+__Note__: Bear in mind that the benchmark data in the paper was generated using  machine with Intel Core i7-7700K CPU (4.20GHz, 4 cores), Ubuntu 17.10, Linux 4.13.0-46-generic, 16GB, while the script attached here are tailored to a single-core VM. 
 The benchmarks in the VM may show deviations if the VM doe snot have sufficient resources(i.e 1. the host hardware is not enough, or 2. other apps are running in the host). Please run the VM in a host with sufficient hardware specs (16 GB RAM, 4 CPU cores). Make sure that you do not have any other applications running in your host machine, while performing the benchmarks. 
 
 ## STEP 2: Run applications, written with mpst-ocaml (Section 6.2 and 6.3)

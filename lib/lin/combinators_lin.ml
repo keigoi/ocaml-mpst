@@ -1,166 +1,126 @@
 open Concur_shims
 
-open Mpst
-
-module Lin : Combinators.LIN with type 'a lin = 'a Linocaml.lin = struct
+module Lin = struct
   type 'a lin = 'a Linocaml.lin
   let[@inline] mklin x = {Linocaml.__lin=x}
 end
 
-include Combinators.Make(Dyn_lin.NoCheck)(Lin)
-
-type 'a lin = 'a Linocaml.lin
 type 'a data = 'a Linocaml.data
 
-module Static : sig
-  open Linocaml
-
-  val send :
-    ('s lin, unit, 'pre, 'post) lens ->
-    ((< .. > as 's) -> ('v data, 't) out) -> 'v ->
-    ('pre, 'post, 't lin) monad
-
-  val deleg_send :
-    ('s lin, unit, 'mid, 'post) lens ->
-    ((< .. > as 's) -> ('t lin, 'u) out) ->
-    ('t lin, unit, 'pre, 'mid) lens ->
-    ('pre, 'post, 'u lin) monad
-
-  val receive :
-    ('s lin, unit, 'pre, 'post) lens ->
-    ((< .. > as 's) -> 'var inp) ->
-    ('pre, 'post, 'var lin) monad
-
-  val close :
-    (close lin, unit, 'pre, 'post) lens ->
-    ('pre, 'post, unit data) monad
-
-  val create_thread_lin :
-    ('s lin, unit, 'pre, 'post) lens ->
-    (unit, 's lin, all_empty, 'pre2) lens ->
-    (unit -> ('pre2, all_empty, unit data) monad) ->
-    ('pre, 'post, unit data) monad
-
-  module LinocamlStyle : sig
-    val s0 : ('x, 'y, 'x, 'y) lens
-
-    val ( @* ) :
-      ('a,'b,'q,'r) lens
-      -> ('c,unit,'p,'q) lens
-      -> ('a * 'c,'b,'p,'r) lens
-
-    val send : ((< .. > as 's) -> ('v data, 't) out) -> 'v -> ('s lin, unit, 't lin) monad
-
-    val deleg_send : ((< .. > as 's) -> ('t lin, 'u) out) -> ('s lin * 't lin, unit, 'u lin) monad
-
-    val receive : ((< .. > as 's) -> 'var inp) -> ('s lin, unit, 'var lin) monad
-
-    val close : (close lin, unit, unit data) monad
-
-    val create_thread_lin :
-      (unit -> ('a lin, unit, unit data) monad) -> ('a lin, unit, unit data) monad
-  end
-end = struct
-  open Linocaml
+open Linocaml
+include Mpst.Combinators.Make(Mpst.Dyn_lin.NoCheck)(Lin)
       
-  let (let*) = IO.bind
+let (let*) = IO.bind
 
-  let[@inline] unlin x = x.__lin
+let[@inline] unlin x = x.__lin
 
-  let send_raw = send
-  let receive_raw = receive
-  let close_raw = close
+let send_raw = send
+let receive_raw = receive
+let close_raw = close
 
-  let[@inline] send idx sel v = {__m=(fun[@inline] lpre ->
-      let s = lens_get idx lpre in
-      IO.bind (send_raw (sel (unlin s)) {data=v}) (fun[@inline] t ->
-      IO.return (lens_put idx lpre (), {__lin=t}))
+let send_many_raw = send_many
+
+let receive_many_raw = receive_many
+
+let[@inline] send idx sel v = {__m=(fun[@inline] lpre ->
+    let s = lens_get idx lpre in
+    IO.bind (send_raw (sel (unlin s)) {data=v}) (fun[@inline] t ->
+    IO.return (lens_put idx lpre (), {__lin=t}))
+  )}
+
+let deleg_send idx1 sel idx2 = {__m=(fun lpre ->
+    let t = lens_get idx2 lpre in
+    let lmid = lens_put idx2 lpre () in
+    let s = lens_get idx1 lmid in
+    let* u[@inline] = send_raw (sel (unlin s)) t in
+    IO.return (lens_put idx1 lmid (), {__lin=u})
+  )}
+
+let[@inline] receive idx sel = {__m=(fun[@inline] lpre ->
+    let s = lens_get idx lpre in
+    IO.bind (receive_raw (sel (unlin s))) (fun[@inline] var ->
+    IO.return (lens_put idx lpre (), {__lin=var}))
+  )}
+
+let[@inline] send_many idx sel f = {__m=(fun[@inline] lpre ->
+  let s = lens_get idx lpre in
+  IO.bind (send_many_raw (sel (unlin s)) (fun x->{data=f x})) (fun[@inline] t ->
+  IO.return (lens_put idx lpre (), {__lin=t}))
+)}
+
+let[@inline] receive_many idx sel = {__m=(fun[@inline] lpre ->
+  let s = lens_get idx lpre in
+  IO.bind (receive_many_raw (sel (unlin s))) (fun[@inline] var ->
+  IO.return (lens_put idx lpre (), {__lin=var}))
+)}
+
+let[@inline] close idx = {__m=(fun[@inline] lpre ->
+    let s = lens_get idx lpre in
+    IO.bind (close_raw (unlin s)) (fun[@inline] () ->
+    IO.return (lens_put idx lpre (), {data=()}))
+  )}
+
+let create_thread_lin idx idx' m =
+  {__m=(fun lpre ->
+        let s = lens_get idx lpre in
+        let lpost = lens_put idx lpre () in
+        let rec all_empty = `cons((), all_empty) in
+        let (_ : Thread.t) =
+          Thread.create
+            (fun s -> Syntax.Internal._run (m ()) (lens_put idx' all_empty s))
+            s
+        in
+        IO.return (lpost, {data=()})
+      )}
+
+module LinocamlStyle = struct
+  (* "root" index *)
+  let s0 = Other ((fun[@inline] x -> x), (fun[@inline] _ x -> x))
+
+  let[@inline] ( @* ) l1 l2 =
+    let open Linocaml in
+    let[@inline] get p =
+      let c,q = lens_get l2 p, lens_put l2 p () in
+      let a = lens_get l1 q in
+      a,c
+    and[@inline] put p b =
+      let q = lens_put l2 p () in
+      let r = lens_put l1 q b in
+      r
+    in
+    Other(get,put)
+
+  let[@inline] send sel v = {__m=(fun[@inline] lpre ->
+      let* s[@inline] = send_raw (sel (unlin lpre)) {data=v} in
+      IO.return ((), {__lin=s})
     )}
 
-  let deleg_send idx1 sel idx2 = {__m=(fun lpre ->
-      let t = lens_get idx2 lpre in
-      let lmid = lens_put idx2 lpre () in
-      let s = lens_get idx1 lmid in
-      let* u[@inline] = send_raw (sel (unlin s)) t in
-      IO.return (lens_put idx1 lmid (), {__lin=u})
+  let[@inline] deleg_send sel = {__m=(fun[@inline] lpre ->
+      let subj, obj = lpre in
+      let* ep[@inline] = send_raw (sel (unlin subj)) obj in
+      IO.return ((), {__lin=ep})
     )}
 
-  let[@inline] receive idx sel = {__m=(fun[@inline] lpre ->
-      let s = lens_get idx lpre in
-      IO.bind (receive_raw (sel (unlin s))) (fun[@inline] var ->
-      IO.return (lens_put idx lpre (), {__lin=var}))
+  let[@inline] receive sel = {__m=(fun[@inline] lpre ->
+      let* var[@inline] = receive_raw (sel (unlin lpre)) in
+      IO.return ((), {__lin=var})
     )}
 
-  let[@inline] close idx = {__m=(fun[@inline] lpre ->
-      let s = lens_get idx lpre in
-      IO.bind (close_raw (unlin s)) (fun[@inline] () ->
-      IO.return (lens_put idx lpre (), {data=()}))
+  let close = {__m=(fun[@inline] lpre ->
+      IO.bind (close_raw (unlin lpre)) (fun[@inline] () -> 
+      IO.return ((), {data=()}))
     )}
 
-  let create_thread_lin idx idx' m =
+  let create_thread_lin (m: unit -> ('a lin, unit, unit data) monad) =
     {__m=(fun lpre ->
-         let s = lens_get idx lpre in
-         let lpost = lens_put idx lpre () in
-         let rec all_empty = `cons((), all_empty) in
-         let (_ : Thread.t) =
-           Thread.create
-             (fun s -> Syntax.Internal._run (m ()) (lens_put idx' all_empty s))
-             s
-         in
-         IO.return (lpost, {data=()})
-       )}
-
-  module LinocamlStyle = struct
-    (* "root" index *)
-    let s0 = Other ((fun[@inline] x -> x), (fun[@inline] _ x -> x))
-
-    let[@inline] ( @* ) l1 l2 =
-      let open Linocaml in
-      let[@inline] get p =
-        let c,q = lens_get l2 p, lens_put l2 p () in
-        let a = lens_get l1 q in
-        a,c
-      and[@inline] put p b =
-        let q = lens_put l2 p () in
-        let r = lens_put l1 q b in
-        r
-      in
-      Other(get,put)
-
-    let[@inline] send sel v = {__m=(fun[@inline] lpre ->
-        let* s[@inline] = send_raw (sel (unlin lpre)) {data=v} in
-        IO.return ((), {__lin=s})
-      )}
-
-    let[@inline] deleg_send sel = {__m=(fun[@inline] lpre ->
-        let subj, obj = lpre in
-        let* ep[@inline] = send_raw (sel (unlin subj)) obj in
-        IO.return ((), {__lin=ep})
-      )}
-
-    let[@inline] receive sel = {__m=(fun[@inline] lpre ->
-        let* var[@inline] = receive_raw (sel (unlin lpre)) in
-        IO.return ((), {__lin=var})
-      )}
-
-    let close = {__m=(fun[@inline] lpre ->
-        IO.bind (close_raw (unlin lpre)) (fun[@inline] () -> 
-        IO.return ((), {data=()}))
-      )}
-
-    let create_thread_lin (m: unit -> ('a lin, unit, unit data) monad) =
-      {__m=(fun lpre ->
-           let (_ : Thread.t) =
-             Thread.create
-               (fun x -> Syntax.Internal._run (m ()) x)
-               lpre
-           in
-           IO.return ((), {data=()})
-         )}
-  end
+          let (_ : Thread.t) =
+            Thread.create
+              (fun x -> Syntax.Internal._run (m ()) x)
+              lpre
+          in
+          IO.return ((), {data=()})
+        )}
 end
-
-include Static
 
 let linret f = {Linocaml.__m=(fun pre -> IO.return (pre, {Linocaml.__lin=f ()}))}
 
@@ -193,13 +153,13 @@ let raw_get_ch = get_ch
 let get_ch r =
   let open Linocaml in
   {__m=(fun lpre ->
-     let g = lpre.__lin in
-     let ep, g' = get_ch_ r g in
-     IO.return ((), ({__lin=({__lin=g'},{__lin=ep})})))}
+      let g = lpre.__lin in
+      let ep, g' = get_ch_ r g in
+      IO.return ((), ({__lin=({__lin=g'},{__lin=ep})})))}
 
 let get_ch_list r =
   let open Linocaml in
   {__m=(fun lpre ->
-     let g = lpre.__lin in
-     let ep, g' = get_ch_list_ r g in
-     IO.return ((), ({__lin=({__lin=g'},{__lin=ep})})))}
+      let g = lpre.__lin in
+      let ep, g' = get_ch_list_ r g in
+      IO.return ((), ({__lin=({__lin=g'},{__lin=ep})})))}

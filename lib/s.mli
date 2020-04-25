@@ -2,6 +2,8 @@ open Concur_shims
 
 module type COMM = sig
 
+  (** {2 Bare Channel Types} *)
+
   type ('v, 's) out
   (** Output of type 'v, then continue to session 's *)
 
@@ -10,6 +12,11 @@ module type COMM = sig
 
   type close
   (** Termination of a session *)
+
+  type ('v, 's) scatter
+  type 'var gather
+
+  (** {2 Primitives} *)
 
   val send : ('v, 't) out -> 'v -> 't IO.io
   (** Output a value *)
@@ -20,9 +27,8 @@ module type COMM = sig
   val close : close -> unit IO.io
   (** Close the channel *)
 
-  type ('v, 's) scatter
-  type 'var gather
   val send_many : ('v, 't) scatter -> (int -> 'v) -> 't IO.io
+  
   val receive_many : 'var gather -> 'var IO.io
 end  
 
@@ -31,7 +37,7 @@ module type TYPES = sig
   type ('obj,'mt) method_ = ('obj,'mt) Types.method_ =
     {make_obj: 'mt -> 'obj; call_obj: 'obj -> 'mt} (* constraint 'obj = < .. > *)
 
-    (** Polymorphic lens; representing type-level indices *)
+  (** Polymorphic lens; representing type-level indices *)
   type ('a,'b,'xs,'ys) idx = ('a,'b,'xs,'ys) Types.idx =
     Zero : ('a, 'b, [`cons of 'a * 'tl], [`cons of 'b * 'tl]) idx
   | Succ : ('a, 'b, 'aa, 'bb) idx -> ('a, 'b, [`cons of 'hd * 'aa], [`cons of 'hd * 'bb]) idx
@@ -71,6 +77,8 @@ module type GLOBAL_COMBINATORS = sig
 
   type 'a lin
   (** Linear type constructor, which is expanded to 'a when dynamic linearity checking  *)
+
+  (** {2 Preamble} *)
 
   include TYPES
 
@@ -150,7 +158,21 @@ end
 
 module type GEN = sig
   
+
+end  
+
+module type GLOBAL_COMBINATORS_DYN = sig
+
+  (** {1 Communication Primitives} *)
+  include COMM
+
+  (** {1 Global Combinators} *)
   include GLOBAL_COMBINATORS
+    with type ('v,'t) out := ('v,'t) out
+    and type 'var inp := 'var inp
+    and type ('v,'t) scatter := ('v,'t) scatter
+    and type 'var gather := 'var gather
+    and type close := close
 
   (** {1 Extracting Channel Vectors From Global Combinators} *)
 
@@ -182,20 +204,6 @@ module type GEN = sig
   val effective_length : 't tup -> int
 
   val env : 't tup -> Env.t
-end  
-  
-module type GLOBAL_COMBINATORS_DYN = sig
-
-  (** {1 Communication Primitives} *)
-  include COMM
-
-  (** {1 Global Combinators} *)
-  include GEN
-    with type ('v,'t) out := ('v,'t) out
-    and type 'var inp := 'var inp
-    and type ('v,'t) scatter := ('v,'t) scatter
-    and type 'var gather := 'var gather
-    and type close := close
 end                                   
 
 module type SHARED =   sig
@@ -205,15 +213,6 @@ module type SHARED =   sig
   (** {1 Shared Channels} *)
 
   type kind = [ `IPCProcess | `Local | `Untyped ]
-
-  val ipc : int -> Env.epkind
-
-  val untyped : int -> Env.epkind
-
-  val rm_kind_of_kind :
-    rm_index:int ->
-    rm_size:int ->
-    [< `IPCProcess | `Local | `Untyped ] -> Env.role_metainfo
 
   type 't shared
 

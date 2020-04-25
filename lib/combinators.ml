@@ -5,7 +5,9 @@ module type LIN = sig
   val mklin : 'a -> 'a lin
 end
 
-module Make(DynLin:Dyn_lin.S)(Lin:LIN) : S.GLOBAL_COMBINATORS_DYN with type 'a lin = 'a Lin.lin = struct
+module Make(DynLin:Dyn_lin.S)(Lin:LIN) 
+: S.GLOBAL_COMBINATORS_DYN with type 'a lin = 'a Lin.lin 
+= struct
 
   module Channel = Channel.Make(struct
                        type 'a t = 'a DynLin.gen

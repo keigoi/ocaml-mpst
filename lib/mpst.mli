@@ -1,3 +1,5 @@
+(** Mpst *)
+
 (** {1 Multiparty Session Types in OCaml} *)
 
 include S.SHARED with type 'a lin := 'a
@@ -11,13 +13,17 @@ include S.SHARED with type 'a lin := 'a
            * and type 't ty = 't Combinators.Make(Dyn_lin.Check)(NoStaticLinearityChecking).ty
            * and type 't shared = 't Shared.Make(Dyn_lin.Check)(NoStaticLinearityChecking).shared *)
 
+(** {1 Exceptions } *)
+
 exception InvalidEndpoint
 exception UnguardedLoop
 exception UnguardedLoopSeq
+
+(** {1 Sub-modules } *)
 
 module S = S
 module Types = Types
 module Combinators = Combinators
 module Shared = Shared
 module Util = Util
-
+module Dyn_lin = Dyn_lin

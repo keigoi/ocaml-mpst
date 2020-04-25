@@ -9,15 +9,15 @@ module Make(DynLin:Dyn_lin.S)(Lin:LIN)
 : S.GLOBAL_COMBINATORS_DYN with type 'a lin = 'a Lin.lin 
 = struct
 
-  module Channel = Channel.Make(struct
+  module Low = Low_channel.Make(struct
                        type 'a t = 'a DynLin.gen
                        and 'a u = 'a Lin.lin
                        let fresh x = Lin.mklin @@ DynLin.fresh x
                      end)
 
-  module Single = Channel_vectors.MakeSingle(Channel)(DynLin)
+  module Single = Channel_vectors.MakeSingle(Low)(DynLin)
 
-  module ScatterGather = Channel_vectors.MakeScatterGather(Channel)(DynLin)
+  module ScatterGather = Channel_vectors.MakeScatterGather(Low)(DynLin)
 
   module Seq = Seq.Make(struct type 'a t = 'a DynLin.gen end)
 
@@ -50,9 +50,9 @@ module Make(DynLin:Dyn_lin.S)(Lin:LIN)
         let wrap = fun x ->
           label.var (x, Lin.mklin @@ DynLin.fresh @@ Mergeable.resolve sj')
         in
-        Channel.create wrap
+        Low.create wrap
       else
-        Channel.create_untyped env ~from:(int_of_idx ri.role_index) ~to_:(int_of_idx rj.role_index) label sj'
+        Low.create_untyped env ~from:(int_of_idx ri.role_index) ~to_:(int_of_idx rj.role_index) label sj'
     in
     let sj = Single.declare_inp ri.role_label inp sj' in
     let g1 = Seq.put rj.role_index g0 sj in
@@ -70,9 +70,9 @@ module Make(DynLin:Dyn_lin.S)(Lin:LIN)
       let wrap = fun x ->
         label.var (x, Lin.mklin @@ DynLin.fresh (Mergeable.resolve sj'))
       in
-      Channel.create_gather count wrap
+      Low.create_gather count wrap
     else
-      Channel.create_untyped_gather env ~from:(int_of_idx ri.role_index) ~to_:(int_of_idx rj.role_index) label sj'
+      Low.create_untyped_gather env ~from:(int_of_idx ri.role_index) ~to_:(int_of_idx rj.role_index) label sj'
     in
     let sj = ScatterGather.declare_gather ri.role_label gather sj' in
     let g1 = Seq.put rj.role_index g0 sj in
@@ -91,9 +91,9 @@ module Make(DynLin:Dyn_lin.S)(Lin:LIN)
           let sj' = List.nth sj' i in
           (fun x -> label.var (x, Lin.mklin @@ DynLin.fresh (Mergeable.resolve sj')))
         in
-        Channel.create_scatter count wrap
+        Low.create_scatter count wrap
       else
-        Channel.create_untyped_scatter env ~from:(int_of_idx ri.role_index) ~to_:(int_of_idx rj.role_index) label sj'
+        Low.create_untyped_scatter env ~from:(int_of_idx ri.role_index) ~to_:(int_of_idx rj.role_index) label sj'
     in
     let sj = List.map2 (Single.declare_inp ri.role_label) inps sj' in
     let g1 = Seq.put_list rj.role_index g0 sj in

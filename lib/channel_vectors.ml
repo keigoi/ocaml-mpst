@@ -20,7 +20,7 @@ module type LOW_COMM = sig
   val receive_many : 'a gather -> 'a IO.io
 end
    
-module MakeSingle(Local:LOW_COMM)(DynLin:Dyn_lin.S) : sig
+module MakeSingle(Low:LOW_COMM)(DynLin:Dyn_lin.S) : sig
   type 'a local = 'a DynLin.gen Mergeable.t
 
   type ('v, 's) out
@@ -34,12 +34,12 @@ module MakeSingle(Local:LOW_COMM)(DynLin:Dyn_lin.S) : sig
   val declare_out :
     ('obj, 'm) method_ ->
     ('m, ('v, 's) out) method_ ->
-    'v Local.out -> 's local ->
+    'v Low.out -> 's local ->
     'obj local
 
   val declare_inp :
     ('obj, 'var inp) method_ ->
-    'var Local.inp -> 's local -> 'obj local
+    'var Low.inp -> 's local -> 'obj local
 
   val declare_close : (unit -> unit IO.io) -> close local
   (** (Internal) Final state of a channel. *)
@@ -57,8 +57,8 @@ end = struct
   type 'a lin = 'a DynLin.lin
   type 'a local = 'a DynLin.gen Mergeable.t
 
-  type ('v, 's) out = ('v Local.out * 's local) lin
-  type 'var inp = 'var Local.inp lin
+  type ('v, 's) out = ('v Low.out * 's local) lin
+  type 'var inp = 'var Low.inp lin
   type close = (unit -> unit IO.io) lin
 
   let declare_out role label out cont =
@@ -69,7 +69,7 @@ end = struct
           DynLin.declare (out,cont)
     in
     let merge_out (n1,s1') (n2,s2') =
-      (Local.merge_out n1 n2, Mergeable.merge s1' s2')
+      (Low.merge_out n1 n2, Mergeable.merge s1' s2')
     in
     let merge_out_lin x y = DynLin.merge merge_out (Base.compose_method role label) x y in
     Mergeable.make
@@ -84,7 +84,7 @@ end = struct
       DynLin.wrap role.make_obj @@
         DynLin.declare inp
     in
-    let merge_inp_lin x y = DynLin.merge Local.merge_inp role x y in
+    let merge_inp_lin x y = DynLin.merge Low.merge_inp role x y in
     Mergeable.make
       ~value:ch
       ~cont:cont
@@ -99,12 +99,12 @@ end = struct
 
   let[@inline] send (out: ('v,'t) out) (v:'v) =
     IO.bind (DynLin.use out) (fun[@inline] (n,t) ->
-    IO.bind (Local.send n v) (fun[@inline] () ->
+    IO.bind (Low.send n v) (fun[@inline] () ->
     IO.return @@ DynLin.fresh (Mergeable.resolve t)))
 
   let[@inline] receive (ch: 'var inp) =
     IO.bind (DynLin.use ch) (fun[@inline] ch ->
-    Local.receive ch)
+    Low.receive ch)
 
   let[@inline] close (ep: close) =
     IO.bind (DynLin.use ep) (fun[@inline] f ->

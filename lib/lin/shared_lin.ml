@@ -1,9 +1,9 @@
 open Concur_shims
 open Mpst
 
-include Shared.Make(Dyn_lin.NoCheck)(Combinators_lin.Lin)
+include Shared.Make(Dyn_lin.NoCheck)(Global_combinators_lin.Lin)
 
-include Combinators_lin
+include Global_combinators_lin
 
 let accept sh r =
   {Linocaml.__m=(fun lpre ->

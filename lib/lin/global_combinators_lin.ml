@@ -8,8 +8,8 @@ end
 type 'a data = 'a Linocaml.data
 
 open Linocaml
-include Mpst.Combinators.Make(Mpst.Dyn_lin.NoCheck)(Lin)
-      
+include Mpst.Global_combinators.Make(Mpst.Dyn_lin.NoCheck)(Lin)
+
 let (let*) = IO.bind
 
 let[@inline] unlin x = x.__lin

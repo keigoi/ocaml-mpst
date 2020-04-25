@@ -1,19 +1,19 @@
 
-module Make(DynLin:Dyn_lin.S)(Lin:Combinators.LIN)
+module Make(DynLin:Dyn_lin.S)(Lin:Global_combinators.LIN)
        : S.SHARED
        with type 'a lin = 'a Lin.lin
-        and type ('v,'t) out = ('v,'t) Combinators.Make(DynLin)(Lin).out
-        and type 'var inp = 'var Combinators.Make(DynLin)(Lin).inp
-        and type close = Combinators.Make(DynLin)(Lin).close
-        and type ('v,'t) scatter = ('v,'t) Combinators.Make(DynLin)(Lin).scatter
-        and type 'var gather = 'var Combinators.Make(DynLin)(Lin).gather
-        and type 't global = 't Combinators.Make(DynLin)(Lin).global
-        and type 't tup = 't Combinators.Make(DynLin)(Lin).tup
-        and type 't ty = 't Combinators.Make(DynLin)(Lin).ty
+        and type ('v,'t) out = ('v,'t) Global_combinators.Make(DynLin)(Lin).out
+        and type 'var inp = 'var Global_combinators.Make(DynLin)(Lin).inp
+        and type close = Global_combinators.Make(DynLin)(Lin).close
+        and type ('v,'t) scatter = ('v,'t) Global_combinators.Make(DynLin)(Lin).scatter
+        and type 'var gather = 'var Global_combinators.Make(DynLin)(Lin).gather
+        and type 't global = 't Global_combinators.Make(DynLin)(Lin).global
+        and type 't tup = 't Global_combinators.Make(DynLin)(Lin).tup
+        and type 't ty = 't Global_combinators.Make(DynLin)(Lin).ty
   = struct
 
   open Concur_shims
-  include Combinators.Make(DynLin)(Lin)
+  include Global_combinators.Make(DynLin)(Lin)
 
   type kind = [`Local | `IPCProcess | `Untyped]
   (** kind *)

@@ -13,6 +13,6 @@ exception UnguardedLoopSeq
 (** {1 Sub-modules } *)
 
 module S = S
-module Combinators = Combinators_lin
+module Global_combinators_lin = Global_combinators_lin
 module Shared = Shared_lin
 module Util = Mpst.Util

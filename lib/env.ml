@@ -1,4 +1,4 @@
-open Base
+open Types
 
 type epkind =
     EpLocal
@@ -48,7 +48,7 @@ let rm_kind env idx cnt =
 
 
 let make_metainfo ?size env role =
-  let rm_index = int_of_idx role.role_index in
+  let rm_index = Base.int_of_idx role.role_index in
   let rm_size = of_option size ~dflt:(rm_size env rm_index) in
   let rm_kind = rm_kind env rm_index rm_size in
   {rm_index; rm_kind; rm_size}

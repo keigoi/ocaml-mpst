@@ -1,5 +1,5 @@
 open Concur_shims
-open Mpst.Internal
+open Mpst
 
 let (let*) = IO.bind
 

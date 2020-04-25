@@ -1,7 +1,6 @@
 open Concur_shims
 
-open Mpst.Internal
-open Mpst.Internal.Base
+open Mpst
 
 module Lin : Combinators.LIN with type 'a lin = 'a Linocaml.lin = struct
   type 'a lin = 'a Linocaml.lin

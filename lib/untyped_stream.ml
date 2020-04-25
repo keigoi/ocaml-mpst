@@ -1,4 +1,4 @@
-open Base
+open Types
 
 type 'v stream = 'v Name.out * 'v Name.inp
 type 'v t = {me:'v stream; othr:'v stream}

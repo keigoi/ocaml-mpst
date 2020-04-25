@@ -1,5 +1,5 @@
 open Concur_shims
-open Base
+open Types
 
 type pipe = {inp: IO.in_channel; out: IO.out_channel}
 type t = {me:pipe; othr:pipe}

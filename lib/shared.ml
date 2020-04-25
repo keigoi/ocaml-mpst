@@ -1,12 +1,22 @@
 
-module Make(DynLin:Dyn_lin.S)(Lin:Combinators.LIN) = struct
-  module Com = Combinators.Make(DynLin)(Lin)
-  open Com
-
-  type kind = [`Local | `IPCProcess | `Untyped]
+module Make(DynLin:Dyn_lin.S)(Lin:Combinators.LIN)
+       : S.SHARED
+       with type 'a lin = 'a Lin.lin
+        and type ('v,'t) out = ('v,'t) Combinators.Make(DynLin)(Lin).out
+        and type 'var inp = 'var Combinators.Make(DynLin)(Lin).inp
+        and type close = Combinators.Make(DynLin)(Lin).close
+        and type ('v,'t) scatter = ('v,'t) Combinators.Make(DynLin)(Lin).scatter
+        and type 'var gather = 'var Combinators.Make(DynLin)(Lin).gather
+        and type 't global = 't Combinators.Make(DynLin)(Lin).global
+        and type 't tup = 't Combinators.Make(DynLin)(Lin).tup
+        and type 't ty = 't Combinators.Make(DynLin)(Lin).ty
+  = struct
 
   open Concur_shims
-  open Base
+  include Combinators.Make(DynLin)(Lin)
+
+  type kind = [`Local | `IPCProcess | `Untyped]
+  (** kind *)
 
   let ipc cnt =
     Env.EpDpipe (List.init cnt (fun _ -> Table.create ()))
@@ -71,7 +81,7 @@ module Make(DynLin:Dyn_lin.S)(Lin:Combinators.LIN) = struct
     let* () = Mutex.lock m.accept_lock in
     let tup = init_seq_ (Shared m) in
     (* sync with all threads *)
-    let me = int_of_idx r.role_index in
+    let me = Base.int_of_idx r.role_index in
     let* () = sync_all_ me m.connect_sync tup in
     (* get my ep *)
     let ep = get_ch r tup in
@@ -80,7 +90,7 @@ module Make(DynLin:Dyn_lin.S)(Lin:Combinators.LIN) = struct
   
   let connect_ (Shared m) r =
     let (let*) = IO.bind in
-    let roleid = int_of_idx r.role_index in
+    let roleid = Base.int_of_idx r.role_index in
     let c = List.nth m.connect_sync roleid in
     let* tup = Event.sync (Event.receive c) in
     IO.return (get_ch r tup)
@@ -91,5 +101,3 @@ module Make(DynLin:Dyn_lin.S)(Lin:Combinators.LIN) = struct
   let connect sh r =
     connect_ sh r
 end
-
-module Dyn = Make(Dyn_lin.Check)(Combinators.NoStatic)

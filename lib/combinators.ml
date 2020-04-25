@@ -1,4 +1,3 @@
-open Base
 open Concur_shims
 
 module type LIN = sig
@@ -6,115 +5,7 @@ module type LIN = sig
   val mklin : 'a -> 'a lin
 end
 
-module NoStatic : LIN with type 'a lin = 'a = struct
-  type 'a lin = 'a
-  let mklin x = x
-end
-
-module Make(DynLin:Dyn_lin.S)(Lin:LIN) : sig
-  type 'a lin = 'a Lin.lin
-
-  type ('v, 's) out
-  type 'var inp
-  type close
-  type ('v, 's) scatter
-  type 'var gather
-
-  val send : ('v, 't) out -> 'v -> 't IO.io
-  val receive : 'var inp -> 'var IO.io
-  val close : close -> unit IO.io
-  val send_many : ('v, 't) scatter -> (int -> 'v) -> 't IO.io
-  val receive_many : 'var gather -> 'var IO.io
-
-  type 't global
-  type 't tup
-
-  val ( --> ) :
-    ('a one, 'b one, 'c, 'd, 'e, 'f inp) role ->
-    ('g one, 'e one, 'h, 'c, 'b, 'i) role ->
-    ('i, ('j, 'a) out, [>] as 'f, 'j * 'g lin) label -> 'h global -> 'd global
-
-  val gather :
-    ('a list, 'b list, 'c, 'd, 'e, 'f gather) role ->
-    ('g one, 'e one, 'h, 'c, 'b, 'i) role ->
-    ('i, ('j, 'a) out, [>] as 'f, 'j list * 'g lin) label ->
-    'h global -> 'd global
-
-  val scatter :
-    ('a one, 'b one, 'c, 'd, 'e, 'f inp) role ->
-    ('g list, 'e list, 'h, 'c, 'b, 'i) role ->
-    ('i, ('j, 'a) scatter, [>] as 'f, 'j * 'g lin) label ->
-    'h global -> 'd global
-
-  val choice_at :
-    ('a one, 'b one, 'c, 'd, 'e, 'f) role ->
-    ('b, 'g, 'h) disj ->
-    ('g one, unit one, 'i, 'c, 'j, 'k) role * 'i global ->
-    ('h one, unit one, 'm, 'c, 'n, 'o) role * 'm global ->
-    'd global
-
-  val fix : ('g global -> 'g global) -> 'g global
-
-  val finish : ([ `cons of close one * 'a ] as 'a) global
-
-  val finish_with_multirole :
-    at:(close one, close list, [ `cons of close one * 'a ] as 'a, 'g, _, _) role ->
-    'g global
-
-  val with_multirole :
-    at:(close one, close list, 'g0, 'g1, 'a, 'b) role ->
-    'g0 global -> 'g1 global
-
-  val closed_at :
-    (close one, close one, 'g, 'g, 'a, 'b) role ->
-    'g global -> 'g global
-
-  val closed_list_at :
-    (close list, close list, 'g, 'g, 'a, 'b) role ->
-    'g global -> 'g global
-
-  val gen_with_env : Env.t -> 'a global -> 'a tup
-
-  val gen : 'a global -> 'a tup
-
-  val gen_mult : int list -> 'a global -> 'a tup
-
-  val gen_with_kinds: [< `IPCProcess | `Local | `Untyped ] list -> 'a global -> 'a tup
-
-  val gen_with_kinds_mult: ([< `IPCProcess | `Local | `Untyped ] * int) list -> 'a global -> 'a tup
-
-  val get_ch : ('a one, 'b, 'c, 'd, 'e, 'f) role -> 'c tup -> 'a
-
-  val get_ch_list : ('a list, 'b, 'c, 'd, 'e, 'f) role -> 'c tup -> 'a list
-
-  val get_ch_ : ('a one, close one, 'c, 'd, 'e, 'f) role -> 'c tup -> 'a * 'd tup
-
-  val get_ch_list_ : ('a list, close one, 'c, 'd, 'e, 'f) role -> 'c tup -> 'a list * 'd tup
-
-  type 'a ty
-
-  val get_ty : ('a one, 'b, 'c, 'd, 'e, 'f) role -> 'c global -> 'a lin ty
-
-  val get_ty_ : ('a one, 'b, 'c, 'd, 'e, 'f) role -> 'c tup -> 'a lin ty
-
-  val get_ty_list : ('a list, 'b, 'c, 'd, 'e, 'f) role -> 'c global -> 'a lin ty
-
-  val get_ty_list_ : ('a list, 'b, 'c, 'd, 'e, 'f) role -> 'c tup -> 'a lin ty
-
-  val (>:) :
-    ('obj,('v, 'epA) out, 'var, 'v * 'epB) label ->
-    'v ty ->
-    ('obj,('v, 'epA) out, 'var, 'v * 'epB) label
-
-  val (>>:) :
-    ('obj,('v, 'epA) scatter, 'var, 'v * 'epB) label ->
-    'v ty ->
-    ('obj,('v, 'epA) scatter, 'var, 'v * 'epB) label
-
-  val effective_length : 't tup -> int
-
-  val env : 't tup -> Env.t
-end = struct
+module Make(DynLin:Dyn_lin.S)(Lin:LIN) : S.GLOBAL_COMBINATORS_DYN with type 'a lin = 'a Lin.lin = struct
 
   module Channel = Channel.Make(struct
                        type 'a t = 'a DynLin.gen
@@ -122,11 +13,14 @@ end = struct
                        let fresh x = Lin.mklin @@ DynLin.fresh x
                      end)
 
-  module Single = Channel_vectors.Single(Channel)(DynLin)
+  module Single = Channel_vectors.MakeSingle(Channel)(DynLin)
 
-  module ScatterGather = Channel_vectors.ScatterGather(Channel)(DynLin)
+  module ScatterGather = Channel_vectors.MakeScatterGather(Channel)(DynLin)
 
   module Seq = Seq.Make(struct type 'a t = 'a DynLin.gen end)
+
+  include Types
+  open Base
 
   type 't global = Env.t -> 't Seq.t
 
@@ -389,5 +283,3 @@ end = struct
   include Single
   include ScatterGather
 end[@@inline]
-
-module Dyn = Make(Dyn_lin.Check)(NoStatic)

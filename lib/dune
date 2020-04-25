@@ -13,4 +13,6 @@
   (select mutex_flag.ml from
 		  (core.nano_mutex -> mutex_flag.nanomutex.ml)
 		  (threads -> mutex_flag.threads.ml))
-  ))
+  )
+ (modules_without_implementation types)
+)

@@ -1,5 +1,5 @@
 open Concur_shims
-open Base
+open Types
 
 exception InvalidEndpoint = Mutex_flag.InvalidEndpoint
 

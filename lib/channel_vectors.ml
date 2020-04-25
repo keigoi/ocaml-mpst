@@ -1,7 +1,26 @@
 open Concur_shims
-open Base
+open Types
 
-module Single(Local:S.LOCAL)(DynLin:Dyn_lin.S) : sig
+module type LOW_COMM = sig
+  type 'a out
+  type 'a inp
+  type 'a scatter
+  type 'a gather
+
+  val merge_out : 'a out -> 'a out -> 'a out
+  val merge_inp : 'a inp -> 'a inp -> 'a inp
+
+  val send : 'a out -> 'a -> unit IO.io
+  val receive : 'a inp -> 'a IO.io
+
+  val merge_scatter : 'a scatter -> 'a scatter -> 'a scatter
+  val send_many : 'a scatter -> (int -> 'a) -> unit IO.io
+
+  val merge_gather : 'a gather -> 'a gather -> 'a gather
+  val receive_many : 'a gather -> 'a IO.io
+end
+   
+module MakeSingle(Local:LOW_COMM)(DynLin:Dyn_lin.S) : sig
   type 'a local = 'a DynLin.gen Mergeable.t
 
   type ('v, 's) out
@@ -52,7 +71,7 @@ end = struct
     let merge_out (n1,s1') (n2,s2') =
       (Local.merge_out n1 n2, Mergeable.merge s1' s2')
     in
-    let merge_out_lin x y = DynLin.merge merge_out (compose_method role label) x y in
+    let merge_out_lin x y = DynLin.merge merge_out (Base.compose_method role label) x y in
     Mergeable.make
       ~value:ch
       ~cont:cont
@@ -93,7 +112,7 @@ end = struct
 end[@@inline]
 
 
-module ScatterGather(Local:S.LOCAL)(DynLin:Dyn_lin.S) : sig
+module MakeScatterGather(Local:LOW_COMM)(DynLin:Dyn_lin.S) : sig
   type 'a local = 'a DynLin.gen Mergeable.t
 
   type ('v, 's) scatter
@@ -130,7 +149,7 @@ end = struct
     let merge_scatter (n1,s1') (n2,s2') =
       (Local.merge_scatter n1 n2, Mergeable.merge s1' s2')
     in
-    let merge_scatter_lin = DynLin.merge merge_scatter (compose_method role label) in
+    let merge_scatter_lin = DynLin.merge merge_scatter (Base.compose_method role label) in
     Mergeable.make
       ~value:ch
       ~cont:cont

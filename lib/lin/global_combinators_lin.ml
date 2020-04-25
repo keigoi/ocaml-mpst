@@ -12,6 +12,10 @@ include Mpst.Global_combinators.Make(Mpst.Dyn_lin.NoCheck)(Lin)
 
 let (let*) = IO.bind
 
+type all_empty = Linocaml.all_empty
+type ('a,'b,'c,'d) lens = ('a,'b,'c,'d) Linocaml.lens
+type ('a,'b,'c) monad = ('a,'b,'c) Linocaml.monad
+
 let[@inline] unlin x = x.__lin
 
 let send_raw = send

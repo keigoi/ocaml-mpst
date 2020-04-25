@@ -23,7 +23,12 @@ exception UnguardedLoopSeq = Seq.UnguardedLoopSeq
 
 module S = S
 module Types = Types
-module Combinators = Combinators
+module Global_combinators = Global_combinators
 module Shared = Shared
 module Util = Util
 module Dyn_lin = Dyn_lin
+
+module Internal = struct
+  module Flag = Mutex_flag
+  module Stream_opt = Stream_opt
+end

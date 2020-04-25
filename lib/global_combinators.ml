@@ -22,6 +22,7 @@ module Make(DynLin:Dyn_lin.S)(Lin:LIN)
   module Seq = Seq.Make(struct type 'a t = 'a DynLin.gen end)
 
   include Types
+  
   open Base
 
   type 't global = Env.t -> 't Seq.t

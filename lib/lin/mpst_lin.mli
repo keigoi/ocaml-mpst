@@ -2,7 +2,7 @@
 
 (** {1 Multiparty Session Types in OCaml} *)
 
-include S.GLOBAL_COMBINATORS_LIN
+include S.SHARED_LIN
 
 (** {1 Exceptions } *)
 

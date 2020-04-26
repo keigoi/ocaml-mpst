@@ -13,8 +13,8 @@ module Make(DynLin:Dyn_lin.S)(Lin:LIN)
     with type 'a lin = 'a Lin.lin
     and type ('v,'t) out := ('v,'t) out
     and type 'var inp := 'var inp
-    and type ('v,'t) scatter := ('v,'t) scatter
-    and type 'var gather := 'var gather
+    and type ('v,'t) out_many := ('v,'t) out_many
+    and type 'var inp_many := 'var inp_many
     and type close := close
 
   include S.GEN
@@ -89,16 +89,16 @@ end
     let count = Env.rm_size env (int_of_idx ri.role_index) in
     let g0 = g0 env in
     let sj' = Seq.get rj.role_index g0 in
-    let outs, gather =
+    let outs, inpmany =
     if is_typed env ri rj then
       let wrap = fun x ->
         label.var (x, Lin.mklin @@ DynLin.fresh (Mergeable.resolve sj'))
       in
-      Low.create_gather count wrap
+      Low.create_inp_many count wrap
     else
-      Low.create_untyped_gather env ~from:(int_of_idx ri.role_index) ~to_:(int_of_idx rj.role_index) label sj'
+      Low.create_untyped_inp_many env ~from:(int_of_idx ri.role_index) ~to_:(int_of_idx rj.role_index) label sj'
     in
-    let sj = ScatterGather.declare_gather ri.role_label gather sj' in
+    let sj = ScatterGather.declare_inp_many ri.role_label inpmany sj' in
     let g1 = Seq.put rj.role_index g0 sj in
     let si' = Seq.get_list ~size:count ri.role_index g1 in
     let si = List.map2 (Single.declare_out rj.role_label label.obj) outs si' in
@@ -109,20 +109,20 @@ end
     let count = Env.rm_size env (int_of_idx rj.role_index) in
     let g0 = g0 env in
     let sj' = Seq.get_list rj.role_index ~size:count g0 in
-    let scatter, inps =
+    let out_many, inps =
       if is_typed env ri rj then
         let wrap i =
           let sj' = List.nth sj' i in
           (fun x -> label.var (x, Lin.mklin @@ DynLin.fresh (Mergeable.resolve sj')))
         in
-        Low.create_scatter count wrap
+        Low.create_out_many count wrap
       else
-        Low.create_untyped_scatter env ~from:(int_of_idx ri.role_index) ~to_:(int_of_idx rj.role_index) label sj'
+        Low.create_untyped_out_many env ~from:(int_of_idx ri.role_index) ~to_:(int_of_idx rj.role_index) label sj'
     in
     let sj = List.map2 (Single.declare_inp ri.role_label) inps sj' in
     let g1 = Seq.put_list rj.role_index g0 sj in
     let si' = Seq.get ri.role_index g1 in
-    let si = ScatterGather.declare_scatter rj.role_label label.obj scatter si' in
+    let si = ScatterGather.declare_out_many rj.role_label label.obj out_many si' in
     let g2 = Seq.put ri.role_index g1 si in
     g2
 
@@ -301,8 +301,6 @@ end
     get_ty_list_ r (gen g)
 
   let (>:) l _ = l
-
-  let (>>:) l _ = l
 
   let env (env, _) = env
 

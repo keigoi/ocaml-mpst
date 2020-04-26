@@ -12,8 +12,8 @@ include S.GLOBAL_COMBINATORS
     with type 'a lin := 'a
     and type ('v,'t) out := ('v,'t) out
     and type 'var inp := 'var inp
-    and type ('v,'t) scatter := ('v,'t) scatter
-    and type 'var gather := 'var gather
+    and type ('v,'t) out_many := ('v,'t) out_many
+    and type 'var inp_many := 'var inp_many
     and type close := close
 
 (** {1 Creating Channels} *)

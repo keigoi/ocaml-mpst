@@ -11,9 +11,9 @@ module type COMM_LIN = sig
     type close
     (** Termination of a session *)
 
-    type ('v, 's) scatter
+    type ('v, 's) out_many
 
-    type 'var gather
+    type 'var inp_many
 
     (** {2 Preamble} *)
 
@@ -50,11 +50,11 @@ module type COMM_LIN = sig
 
     val send_many :
         ('a lin, unit, 'b, 'c) lens ->
-        ((< .. > as 'a) -> ('d data, 'e) scatter) -> (int -> 'd) -> ('b, 'c, 'e lin) monad
+        ((< .. > as 'a) -> ('d data, 'e) out_many) -> (int -> 'd) -> ('b, 'c, 'e lin) monad
 
     val receive_many :
         ('a lin, unit, 'b, 'c) lens -> 
-        ('a -> 'd gather) -> ('b, 'c, 'd lin) monad
+        ('a -> 'd inp_many) -> ('b, 'c, 'd lin) monad
 
     val close :
         (close lin, unit, 'pre, 'post) lens ->

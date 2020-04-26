@@ -4,8 +4,8 @@ open Types
 module type LOW_COMM = sig
   type 'a out
   type 'a inp
-  type 'a scatter
-  type 'a gather
+  type 'a out_many
+  type 'a inp_many
 
   val merge_out : 'a out -> 'a out -> 'a out
   val merge_inp : 'a inp -> 'a inp -> 'a inp
@@ -13,11 +13,11 @@ module type LOW_COMM = sig
   val send : 'a out -> 'a -> unit IO.io
   val receive : 'a inp -> 'a IO.io
 
-  val merge_scatter : 'a scatter -> 'a scatter -> 'a scatter
-  val send_many : 'a scatter -> (int -> 'a) -> unit IO.io
+  val merge_out_many : 'a out_many -> 'a out_many -> 'a out_many
+  val send_many : 'a out_many -> (int -> 'a) -> unit IO.io
 
-  val merge_gather : 'a gather -> 'a gather -> 'a gather
-  val receive_many : 'a gather -> 'a IO.io
+  val merge_inp_many : 'a inp_many -> 'a inp_many -> 'a inp_many
+  val receive_many : 'a inp_many -> 'a IO.io
 end
    
 module MakeSingle(Low:LOW_COMM)(DynLin:Dyn_lin.S) : sig
@@ -115,68 +115,68 @@ end[@@inline]
 module MakeScatterGather(Local:LOW_COMM)(DynLin:Dyn_lin.S) : sig
   type 'a local = 'a DynLin.gen Mergeable.t
 
-  type ('v, 's) scatter
-  type 'var gather
+  type ('v, 's) out_many
+  type 'var inp_many
 
-  val declare_scatter :
+  val declare_out_many :
     ('obj, 'm) method_ ->
-    ('m, ('v, 's) scatter) method_ ->
-    'v Local.scatter -> 's local ->
+    ('m, ('v, 's) out_many) method_ ->
+    'v Local.out_many -> 's local ->
     'obj local
 
-  val declare_gather :
-    ('obj, 'var gather) method_ ->
-    'var Local.gather -> 's local -> 'obj local
+  val declare_inp_many :
+    ('obj, 'var inp_many) method_ ->
+    'var Local.inp_many -> 's local -> 'obj local
 
-  val send_many : ('v, 't) scatter -> (int -> 'v) -> 't IO.io
+  val send_many : ('v, 't) out_many -> (int -> 'v) -> 't IO.io
 
-  val receive_many : 'var gather -> 'var IO.io
+  val receive_many : 'var inp_many -> 'var IO.io
 
 end = struct
   type 'a local = 'a DynLin.gen Mergeable.t
   type 'a lin = 'a DynLin.lin
 
-  type ('v, 's) scatter = ('v Local.scatter * 's local) lin
-  type 'var gather = 'var Local.gather lin
+  type ('v, 's) out_many = ('v Local.out_many * 's local) lin
+  type 'var inp_many = 'var Local.inp_many lin
 
-  let declare_scatter role label out cont =
+  let declare_out_many role label out cont =
     let ch =
       (* <role_rj = <lab = (ch,si) > > *)
       DynLin.wrap role.make_obj @@
         DynLin.wrap label.make_obj @@
           DynLin.declare (out,cont)
     in
-    let merge_scatter (n1,s1') (n2,s2') =
-      (Local.merge_scatter n1 n2, Mergeable.merge s1' s2')
+    let merge_out_many (n1,s1') (n2,s2') =
+      (Local.merge_out_many n1 n2, Mergeable.merge s1' s2')
     in
-    let merge_scatter_lin = DynLin.merge merge_scatter (Base.compose_method role label) in
+    let merge_out_many_lin = DynLin.merge merge_out_many (Base.compose_method role label) in
     Mergeable.make
       ~value:ch
       ~cont:cont
-      ~mergefun:merge_scatter_lin
+      ~mergefun:merge_out_many_lin
       ()
 
-  let declare_gather role inp cont =
+  let declare_inp_many role inp cont =
     let ch =
       (* <role_ri = wrap (receive ch) (λx.`lab(x,sj)) > *)
       DynLin.wrap role.make_obj @@
         DynLin.declare inp
     in
-    let merge_gather_lin = DynLin.merge Local.merge_gather role in
+    let merge_inp_many_lin = DynLin.merge Local.merge_inp_many role in
     Mergeable.make
       ~value:ch
       ~cont:cont
-      ~mergefun:merge_gather_lin
+      ~mergefun:merge_inp_many_lin
       ()
 
   let (let*) = IO.bind
 
-  let send_many (scatter: ('v,'t) scatter) f =
-    let* (n,t) = DynLin.use scatter in
+  let send_many (out_many: ('v,'t) out_many) f =
+    let* (n,t) = DynLin.use out_many in
     let* () = Local.send_many n f in
     IO.return @@ DynLin.fresh (Mergeable.resolve t)
 
-  let receive_many (ch: 'var gather) =
+  let receive_many (ch: 'var inp_many) =
     let* ch = DynLin.use ch in
     Local.receive_many ch
 end[@@inline]

@@ -13,8 +13,11 @@ module type COMM = sig
   type close
   (** Termination of a session *)
 
-  type ('v, 's) scatter
-  type 'var gather
+  type ('v, 's) out_many
+  (** Output values of type 'v to multiple recipients *)
+
+  type 'var inp_many
+  (** Input values from multiple senders *)
 
   (** {2 Primitives} *)
 
@@ -27,9 +30,9 @@ module type COMM = sig
   val close : close -> unit IO.io
   (** Close the channel *)
 
-  val send_many : ('v, 't) scatter -> (int -> 'v) -> 't IO.io
+  val send_many : ('v, 't) out_many -> (int -> 'v) -> 't IO.io
   
-  val receive_many : 'var gather -> 'var IO.io
+  val receive_many : 'var inp_many -> 'var IO.io
 end  
 
 module type GLOBAL_COMBINATORS = sig
@@ -40,8 +43,8 @@ module type GLOBAL_COMBINATORS = sig
 
   type ('v,'t) out
   type 'var inp
-  type ('v,'t) scatter
-  type 'var gather
+  type ('v,'t) out_many
+  type 'var inp_many
   type close
 
   (** {2 Common types} *)
@@ -69,7 +72,7 @@ module type GLOBAL_COMBINATORS = sig
   (** Communication combinator. *)
 
   val gather :
-    ('a list, 'b list, 'c, 'd, 'e, 'f gather) role ->
+    ('a list, 'b list, 'c, 'd, 'e, 'f inp_many) role ->
     ('g one, 'e one, 'h, 'c, 'b, 'i) role ->
     ('i, ('j, 'a) out, [>] as 'f, 'j list * 'g lin) label ->
     'h global -> 'd global
@@ -77,7 +80,7 @@ module type GLOBAL_COMBINATORS = sig
   val scatter :
     ('a one, 'b one, 'c, 'd, 'e, 'f inp) role ->
     ('g list, 'e list, 'h, 'c, 'b, 'i) role ->
-    ('i, ('j, 'a) scatter, [>] as 'f, 'j * 'g lin) label ->
+    ('i, ('j, 'a) out_many, [>] as 'f, 'j * 'g lin) label ->
     'h global -> 'd global
 
   val choice_at :
@@ -116,14 +119,9 @@ module type GLOBAL_COMBINATORS = sig
   val get_ty_list : ('a list, 'b, 'c, 'd, 'e, 'f) role -> 'c global -> 'a lin ty
 
   val (>:) :
-    ('obj,('v, 'epA) out, 'var, 'v * 'epB) label ->
+    ('obj, 'out, 'var, 'v * 'epB) label ->
     'v ty ->
-    ('obj,('v, 'epA) out, 'var, 'v * 'epB) label
-
-  val (>>:) :
-    ('obj,('v, 'epA) scatter, 'var, 'v * 'epB) label ->
-    'v ty ->
-    ('obj,('v, 'epA) scatter, 'var, 'v * 'epB) label
+    ('obj, 'out, 'var, 'v * 'epB) label
 end
 
 module type GEN = sig

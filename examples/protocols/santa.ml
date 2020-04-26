@@ -19,6 +19,6 @@ let finish =
   finish
 
 let main () =
-  scatter santa elf (start >>: get_ty_list elf (elf_session ())) @@
-  scatter santa reindeer (start >>: get_ty_list reindeer (reindeer_session ())) @@
+  scatter santa elf (start >: get_ty_list elf (elf_session ())) @@
+  scatter santa reindeer (start >: get_ty_list reindeer (reindeer_session ())) @@
   finish

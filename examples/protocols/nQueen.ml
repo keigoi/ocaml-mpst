@@ -19,7 +19,7 @@ let g () =
   fix (fun t ->
       choice_at mst (to_wrk work_or_stop)
         (mst,
-         (scatter mst wrk) (work >>: get_ty wrk (reply ())) @@
+         (scatter mst wrk) (work >: get_ty wrk (reply ())) @@
          t)
         (mst,
          (scatter mst wrk) stop @@

@@ -26,16 +26,16 @@ and _ out_ref =
 and _ inp_ref =
     InpRef : 't inp * ('u -> 't option) -> 'u inp_ref
 
-type ('w, 'u) gather0 =
+type ('w, 'u) inp_many0 =
   {g_inplist : 'u inp list;
    g_wrap: ('u list -> 'w);
-   g_merged: 'w gather list}
-and _ gather_ =
-    Gather : ('w, 'u) gather0 -> 'w gather_
-and 'w gather =
-  'w gather_ ref
+   g_merged: 'w inp_many list}
+and _ inp_many_ =
+    Gather : ('w, 'u) inp_many0 -> 'w inp_many_
+and 'w inp_many =
+  'w inp_many_ ref
 
-type 'v scatter =
+type 'v out_many =
   'v out list
 
 type ('a, 'b) either = Left of 'a | Right of 'b
@@ -155,25 +155,25 @@ let hetero_merge_inp : type t u. t inp -> u inp -> (t,u) either inp =
     inp := inp_;
     inp
 
-let merge_scatter = fun outLs outRs ->
+let merge_out_many = fun outLs outRs ->
   List.map2 merge_out outLs outRs
 
-let merge_gather : type t. t gather -> t gather -> t gather = fun gl gr ->
+let merge_inp_many : type t. t inp_many -> t inp_many -> t inp_many = fun gl gr ->
   match gl, gr with
   | {contents=Gather {g_inplist=inpsL; g_wrap=wrapL; g_merged=mergedL}},
     {contents=Gather {g_inplist=inpsR; g_wrap=wrapR; g_merged=mergedR}} ->
     let inps = List.map2 hetero_merge_inp inpsL inpsR in
     let wrap_left = function
       | Left x -> x
-      | Right _ -> failwith "gather: reception failure: Right"
+      | Right _ -> failwith "inp_many: reception failure: Right"
     and wrap_right = function
       | Right x -> x
-      | Left _ -> failwith "gather: reception failure: Left"
+      | Left _ -> failwith "inp_many: reception failure: Left"
     in
     let wrap = function
       | Left x::xs -> wrapL @@ x::List.map wrap_left xs
       | Right x::xs -> wrapR @@ x::List.map wrap_right xs
-      | [] -> failwith "gather: reception failure: empty"
+      | [] -> failwith "inp_many: reception failure: empty"
     in
     let merged = mergedL @ mergedR in
     let g0 = Gather {g_inplist = inps; g_wrap = wrap; g_merged = merged} in
@@ -188,14 +188,14 @@ let create f =
   in
   out, inp
 
-let create_scatter cnt f =
+let create_out_many cnt f =
   let outs, inps = List.split @@ List.init cnt (fun i -> create (f i)) in
   outs, inps
 
-let create_gather cnt (f : 'v list -> 't) =
+let create_inp_many cnt (f : 'v list -> 't) =
   let outs, inps = List.split @@ List.init cnt (fun _ -> create id) in
-  let rec gather = {contents=Gather {g_inplist = inps; g_wrap = f; g_merged = [gather]}} in
-  outs, gather
+  let rec inp_many = {contents=Gather {g_inplist = inps; g_wrap = f; g_merged = [inp_many]}} in
+  outs, inp_many
 
 let[@inline] send {contents=Out({o_st; o_wrap; _})} v =
   Stream_opt.send o_st (o_wrap v)
@@ -206,6 +206,6 @@ let[@inline] receive {contents=Inp({i_st; i_wrap; _})} =
 let send_many outs f =
   Lwt_list.iteri_p (fun i out -> send out (f i)) outs
 
-let receive_many : type t. t gather -> t Lwt.t =
+let receive_many : type t. t inp_many -> t Lwt.t =
   function {contents=Gather{g_inplist = inps; g_wrap = wrap; _}} ->
     Lwt.map wrap (Lwt_list.map_s receive inps)

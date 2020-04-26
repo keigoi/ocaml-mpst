@@ -5,39 +5,41 @@ module type COMM = sig
   (** {2 Channel Types}  *)
 
   (** 
-    Channels in [ocaml-mpst] is {i structured} inside OCaml's {i objects}, 
-    showing communication protocols via {i session types}. 
-    They have three modes: {b output}, {b input} and {b closing} and sometimes may 
-    also have {b loops}. 
+    Channels in [ocaml-mpst] are nested inside objects, 
+    reflecting {i communication protocols} projected from a {i global combinator} ({! global}). 
+    Channels have three modes, {b output}, {b input} and {b closing}, and may 
+    also have {b loops}, as follows:
 
     {[
       Mode   | Type                                                                         |
       -------+------------------------------------------------------------------------------+
-      Output | <role_R: <label1: ('v1, 't1) out; ...; labeln: ('vn, 'tn) out> >             |
-      Input  | <role_R: [`label1 of 'v1 * 't1; ...; `labeln of 'vn * 'tn] inp >             |
+      Output | <role_R: <label1: ('v1,'t1) out; ...; labeln: ('vn,'tn) out> >             |
+      Input  | <role_R: [`label1 of 'v1*'t1; ...; `labeln of 'vn*'tn] inp >             |
       Close  | close                                                                        |
       Loop   | (t as 'a), where 'a is bound to the loop body t itself (equi-recursion)      | 
     ]}
 
-    Output and input has {b destination role method} (denoted by [role_R]) showing from/to which
-    peer it should receive/send on the channel, respectively.
-    Output is again nested inside {b label methods} [label1 .. labeln].
-    Type [('v,'t) out] denotes an {i output} of type ['v] and the {i continuation} 
-    (i.e. next state), which can be performed by [send] primitive below. 
-    Thus, to send something on a channel [s] to role [R] with [labelx] and [payload], 
-    you will write as:
+    Output and input are wrapped by destination {b role} (denoted by [role_R]) showing from/to which
+    peer it should receive/send on that channel, respectively.
+    Output is again nested inside {b labels} [label1 .. labeln].
+    Then, {b bare output channel} {! out} of form [('v,'t) out] denotes an output of {b payload} ['v] 
+    and a {b continuation} (i.e. next state), which can be performed by {! send} primitive below. 
+    Thus, to send something on a channel [s] to role [Dst] with [labelX] and [payload], 
+    you will write as follows:
 
-      {[send s#role_R#labelx payload]}
+      {[send s#role_Dst#labelX payload]}
 
-    Note that it is parsed as [(send (s#role_R#labelx) payload)]. 
+    It is parsed as [(send (s#role_Dst#labelx) payload)]. 
     Furthermore, to follow the protocol on [s], the best practice is to bind the continuation
     to the same variable [s]. Thus, the sender side will look like:
 
-      {[let s = send s#role_R#labelx payload in ...]}
+      {[let s = send s#role_Dst#labelX payload in ...]}
 
-    On the receiver's side, the label chosen by the sender appears as a variant tag received by
-    [receive] primitive, having both a payload and the continuation the receiver must follow.
-    As it must be immediately pattern-matched, the typical receiver's code will look like:
+    On the other hand, a {b bare input channel} {! inp} of form[[`label1 of 'v1*'t1|…] inp] is 
+    directly inside the destination role. The label chosen by the sender appears as 
+    a variant tag received by {! receive} primitive, having both a payload ['v] and 
+    the continuation ['t] the receiver must follow.
+    The typical receiver's code will look like:
     
     {[
       match s#role_R with
@@ -46,7 +48,17 @@ module type COMM = sig
       | `labeln(x, s) -> ...
     ]}
 
-    In case only a single tag is expected, you may write as:
+    (In case you are using {i lwt}, you must first bind the retuned value then pattern-match on
+    it, like the following:
+    
+    {[
+      let* var = receive s#role_R in 
+      match var with | `label1(x, s) -> ...
+    ]}
+  
+    where [let*] is defined like [let (let* ) = Lwt.bind].)
+
+    In case a single tag is expected, you may write as follows:
 
     {[
       let `label(x, s) = receive s#role_R in ...
@@ -58,12 +70,12 @@ module type COMM = sig
     {[
       let () = close s in ...
     ]}
-    or, just
+    or, just:
     {[ 
       close s
     ]}
 
-    The programmer does not need to care about loops, thanks to equi-recursive nature of
+    Loops are handled transparently, thanks to equi-recursive nature of
     recursive types in OCaml.
     
       Communication can be synchronous (i.e. output is blocking)  or

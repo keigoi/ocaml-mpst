@@ -51,6 +51,8 @@ end
 
   type 'a one = 'a Types.one
 
+  exception InvalidEndpoint = Dyn_lin.InvalidEndpoint
+
   open Types
   open Base
 

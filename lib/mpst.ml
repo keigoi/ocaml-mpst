@@ -6,6 +6,8 @@ module NoStaticLinearityChecking = struct
   let mklin x = x
 end
 
+include Types
+
 include Global_combinators.Make(Dyn_lin.Check)(NoStaticLinearityChecking)
 include Shared.Make(Dyn_lin.Check)(NoStaticLinearityChecking)
 

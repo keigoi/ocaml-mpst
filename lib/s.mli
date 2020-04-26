@@ -2,44 +2,135 @@ open Concur_shims
 
 module type COMM = sig
 
-  (** {2 Bare Channel Types} *)
+  (** {2 Channel Types}  *)
+
+  (** 
+    Channels in [ocaml-mpst] is {i structured} inside OCaml's {i objects}, 
+    showing communication protocols via {i session types}. 
+    They have three modes: {b output}, {b input} and {b closing} and sometimes may 
+    also have {b loops}. 
+
+    {[
+      Mode   | Type                                                                         |
+      -------+------------------------------------------------------------------------------+
+      Output | <role_R: <label1: ('v1, 't1) out; ...; labeln: ('vn, 'tn) out> >             |
+      Input  | <role_R: [`label1 of 'v1 * 't1; ...; `labeln of 'vn * 'tn] inp >             |
+      Close  | close                                                                        |
+      Loop   | (t as 'a), where 'a is bound to the loop body t itself (equi-recursion)      | 
+    ]}
+
+    Output and input has {b destination role method} (denoted by [role_R]) showing from/to which
+    peer it should receive/send on the channel, respectively.
+    Output is again nested inside {b label methods} [label1 .. labeln].
+    Type [('v,'t) out] denotes an {i output} of type ['v] and the {i continuation} 
+    (i.e. next state), which can be performed by [send] primitive below. 
+    Thus, to send something on a channel [s] to role [R] with [labelx] and [payload], 
+    you will write as:
+
+      {[send s#role_R#labelx payload]}
+
+    Note that it is parsed as [(send (s#role_R#labelx) payload)]. 
+    Furthermore, to follow the protocol on [s], the best practice is to bind the continuation
+    to the same variable [s]. Thus, the sender side will look like:
+
+      {[let s = send s#role_R#labelx payload in ...]}
+
+    On the receiver's side, the label chosen by the sender appears as a variant tag received by
+    [receive] primitive, having both a payload and the continuation the receiver must follow.
+    As it must be immediately pattern-matched, the typical receiver's code will look like:
+    
+    {[
+      match s#role_R with
+      | `label1(x, s) -> ...
+      | ...
+      | `labeln(x, s) -> ...
+    ]}
+
+    In case only a single tag is expected, you may write as:
+
+    {[
+      let `label(x, s) = receive s#role_R in ...
+    ]}
+
+    On closing, [close] primitive will not return anything but a unit value. 
+    Thus, the channel will be closed as follows:
+
+    {[
+      let () = close s in ...
+    ]}
+    or, just
+    {[ 
+      close s
+    ]}
+
+    The programmer does not need to care about loops, thanks to equi-recursive nature of
+    recursive types in OCaml.
+    
+      Communication can be synchronous (i.e. output is blocking)  or
+      asynchronous (i.e. output is non-blocking), depending on the underlying communication medium.
+    *)
+
+  exception InvalidEndpoint
+  (** 
+    Raised if linearity is violated (i.e. a channel of the same state is used more than once).
+   *)
 
   type ('v, 's) out
-  (** Output of type 'v, then continue to session 's *)
+  (** Output of ['v] then continue to session ['s]. *)
 
   type 'var inp
-  (** Input of type 'var *)
+  (** Input of type ['var] having the form of 
+      [[`label1 of 'v1 * 's1 | ... | `labeln of 'vn * 'sn]].
+    *)
 
   type close
-  (** Termination of a session *)
+  (** Termination of a session. *)
 
   type ('v, 's) out_many
-  (** Output values of type 'v to multiple recipients *)
+  (** Output of 'v to multiple peers. See [scatter] in the global combinator section. *)
 
   type 'var inp_many
-  (** Input values from multiple senders *)
+  (** Input of type ['var] from multiple peers, where ['var] is of form
+      [[`label1 of 'v1 list * 's1 | ... ]].
+      See [gather] in the global combinator section. 
+    *)
 
   (** {2 Primitives} *)
 
   val send : ('v, 't) out -> 'v -> 't IO.io
-  (** Output a value *)
+  (** [send b v] outputs a value [v] on the bare output channel [b], 
+      returning a continuation. 
+      @raise InvalidEndpoint The channel is already consumed (i.e. linearity is violated).
+    *)
 
   val receive : 'var inp -> 'var IO.io
-  (** Input a value *)
+  (** [receive b] receives on [b] a value (wrapped in a variant tag).
+      @raise InvalidEndpoint
+    *)
 
   val close : close -> unit IO.io
-  (** Close the channel *)
+  (** Close the channel. 
+      @raise InvalidEndpoint
+    *)
 
   val send_many : ('v, 't) out_many -> (int -> 'v) -> 't IO.io
+  (**
+      [send_many b f] outputs values [f i] to multiple peers
+      where [i] is the index of the peer.
+      @raise InvalidEndpoint
+    *)
   
   val receive_many : 'var inp_many -> 'var IO.io
+  (**
+      [receive_many b] inputs values from multiple peers.
+      @raise InvalidEndpoint
+    *)
 end  
 
 module type GLOBAL_COMBINATORS = sig
 
-  (** *)
 
-  (** {2 Bare Channel Types (erased, ignore this)} *)
+  (**/**)
 
   type ('v,'t) out
   type 'var inp
@@ -47,13 +138,17 @@ module type GLOBAL_COMBINATORS = sig
   type 'var inp_many
   type close
 
-  (** {2 Common types} *)
+  (**/**)
+
+  (** {2 Types} *)
      
   type 't global
   (** Type of a global protocol specification, where 't is of form [`cons of 't1 * [`cons of 't2 * ...]] *)
 
   type 'a lin
   (** Linear type constructor, which is expanded to 'a when dynamic linearity checking  *)
+
+  (**/**)
 
   type ('obj,'ot,'var,'vt) label = ('obj,'ot,'var,'vt) Types.label 
 
@@ -62,6 +157,8 @@ module type GLOBAL_COMBINATORS = sig
   type ('lr, 'l, 'r) disj = ('lr, 'l, 'r) Types.disj
 
   type 'a one = 'a Types.one
+
+  (**/**)
 
   (** {2 Combinators} *)
 
@@ -126,16 +223,16 @@ end
 
 module type GEN = sig
 
-  (** {2 Preamble} *)
+  (**/**)
 
   type 't global
   type 'a lin
   type 'a ty
-
   type close
-
   type ('a, 'b, 'c, 'e, 'f, 'g) role = ('a, 'b, 'c, 'e, 'f, 'g) Types.role
   type 'a one = 'a Types.one
+
+  (**/**)
 
   (** {1 Extracting Channel Vectors From Global Combinators} *)
 
@@ -171,11 +268,13 @@ end
 
 module type PORTS =   sig
 
-  type 't global
-  
-  type 'a one = 'a Types.one
+  (**/**)
 
+  type 't global
+  type 'a one = 'a Types.one
   type ('a, 'b, 'c, 'e, 'f, 'g) role = ('a, 'b, 'c, 'e, 'f, 'g) Types.role
+
+  (**/**)
 
   (** {1 Shared Channels} *)
 

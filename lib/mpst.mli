@@ -6,6 +6,10 @@
 
 include S.COMM
 
+(** {1 Auxiliary Types} *)
+
+include module type of Types
+
 (** {1 Global Combinators} *)
 
 include S.GLOBAL_COMBINATORS
@@ -22,16 +26,12 @@ include S.GEN
     with type 't global := 't global
     and type 't ty := 't ty
     and type 't lin := 't
-    and type 'a one := 'a one
-    and type ('a,'b,'c,'d,'e,'f) role := ('a,'b,'c,'d,'e,'f) role
     and type close := close
 
 (** {1 Creating Ports} *)
 
 include S.PORTS
     with type 't global := 't global
-    and type ('a,'b,'c,'d,'e,'f) role := ('a,'b,'c,'d,'e,'f) role
-    and type 'a one := 'a one
 
 (** {1 Exceptions } *)
 

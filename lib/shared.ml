@@ -1,19 +1,19 @@
+open Types
 
 module Make(DynLin:Dyn_lin.S)(Lin:Global_combinators.LIN)
-       : S.SHARED
-       with type 'a lin = 'a Lin.lin
-        and type ('v,'t) out = ('v,'t) Global_combinators.Make(DynLin)(Lin).out
-        and type 'var inp = 'var Global_combinators.Make(DynLin)(Lin).inp
-        and type close = Global_combinators.Make(DynLin)(Lin).close
-        and type ('v,'t) scatter = ('v,'t) Global_combinators.Make(DynLin)(Lin).scatter
-        and type 'var gather = 'var Global_combinators.Make(DynLin)(Lin).gather
-        and type 't global = 't Global_combinators.Make(DynLin)(Lin).global
-        and type 't tup = 't Global_combinators.Make(DynLin)(Lin).tup
-        and type 't ty = 't Global_combinators.Make(DynLin)(Lin).ty
+       : 
+sig
+  include S.PORTS
+  with type 't global = 't Global_combinators.Make(DynLin)(Lin).global
+end
   = struct
 
   open Concur_shims
-  include Global_combinators.Make(DynLin)(Lin)
+  open Global_combinators.Make(DynLin)(Lin)
+
+  type 't global = 't Global_combinators.Make(DynLin)(Lin).global
+  type 'a one = 'a Global_combinators.Make(DynLin)(Lin).one
+  type ('a,'b,'c,'d,'e,'f) role = ('a,'b,'c,'d,'e,'f) Global_combinators.Make(DynLin)(Lin).role
 
   type kind = [`Local | `IPCProcess | `Untyped]
   (** kind *)

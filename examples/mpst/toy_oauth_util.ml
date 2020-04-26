@@ -1,4 +1,4 @@
-open Mpst
+open Mpst.Types
 open Mpst.Util
 
 

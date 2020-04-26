@@ -3,6 +3,7 @@
 
 open Concur_shims
 open Mpst
+open Mpst.Types
 open Mpst.Util
 
 module Util = struct

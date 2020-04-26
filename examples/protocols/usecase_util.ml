@@ -1,4 +1,4 @@
-open Mpst
+open Mpst.Types
 open Mpst.Util
 
 let p = {role_index=Zero; role_label={make_obj=(fun v -> object method role_P=v end); call_obj=(fun o->o#role_P)}}

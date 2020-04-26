@@ -1,5 +1,6 @@
 open Concur_shims
 open Mpst_lin
+open Mpst_lin.Types
 open Mpst_lin.Util
 open Mpst_lin.LinocamlStyle
 open Linocaml

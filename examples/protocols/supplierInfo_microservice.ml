@@ -1,4 +1,5 @@
 open Mpst
+open Mpst.Types
 open Usecase_util
 
 

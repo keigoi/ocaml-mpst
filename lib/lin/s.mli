@@ -1,13 +1,5 @@
 module type COMM_LIN = sig
 
-    (** {2 Preamble} *)
-
-    type ('pre,'post,'a) monad = ('pre,'post,'a) Linocaml.monad
-    type ('a,'b,'c,'d) lens = ('a,'b,'c,'d) Linocaml.lens
-    type 'a lin = 'a Linocaml.lin
-    type 'a data = 'a Linocaml.data
-    type all_empty = Linocaml.all_empty
-
     (** {2 Bare Channel Types} *)
 
     type ('v, 's) out
@@ -22,6 +14,18 @@ module type COMM_LIN = sig
     type ('v, 's) scatter
 
     type 'var gather
+
+    (** {2 Preamble} *)
+
+    type ('pre,'post,'a) monad = ('pre,'post,'a) Linocaml.monad
+
+    type ('a,'b,'c,'d) lens = ('a,'b,'c,'d) Linocaml.lens
+
+    type 'a lin = 'a Linocaml.lin
+
+    type 'a data = 'a Linocaml.data
+    
+    type all_empty = Linocaml.all_empty
 
     (** {2 Primitives} *)
 
@@ -87,29 +91,29 @@ module type COMM_LIN = sig
     end
 end
 
-module type GLOBAL_COMBINATORS_LIN = sig
+module type GEN_LIN = sig
     
-    (** {1 Communication Primitives (Linearly Typed)} *)
-    include COMM_LIN
-
-    (** {1 Global Combinators (Linearly Typed)} *)
-    include Mpst.S.GLOBAL_COMBINATORS
-        with type 'a lin = 'a lin
-        and type ('v,'t) out := ('v,'t) out
-        and type 'var inp := 'var inp
-        and type ('v,'t) scatter := ('v,'t) scatter
-        and type 'var gather := 'var gather
-        and type close := close
-
     type kind = [ `IPCProcess | `Local | `Untyped ]
 
     type 'a tup
 
-    val create_thread_lin :
-        ('s lin, unit, 'pre, 'post) lens ->
-        (unit, 's lin, all_empty, 'pre2) lens ->
-        (unit -> ('pre2, all_empty, unit data) monad) ->
-        ('pre, 'post, unit data) monad
+    type 't global
+
+    type close
+
+    type ('pre,'post,'a) monad = ('pre,'post,'a) Linocaml.monad
+
+    type ('a,'b,'c,'d) lens = ('a,'b,'c,'d) Linocaml.lens
+
+    type 'a lin = 'a Linocaml.lin
+
+    type 'a data = 'a Linocaml.data
+    
+    type all_empty = Linocaml.all_empty
+
+    type 'a one = 'a Mpst.Types.one
+
+    type ('a, 'b, 'c, 'd, 'e, 'f) role =  ('a, 'b, 'c, 'd, 'e, 'f) Mpst.Types.role
 
 
   (** {1 Extracting Channel Vectors From Global Combinators (Linearly-Typed)} *)
@@ -151,16 +155,23 @@ module type GLOBAL_COMBINATORS_LIN = sig
     val raw_get_ch : ('a one, 'b, 'c, 'd, 'e, 'f) role -> 'c tup -> 'a
 end
 
-module type SHARED_LIN = sig
-
-    include GLOBAL_COMBINATORS_LIN
+module type PORTS_LIN = sig
+    type kind = [ `IPCProcess | `Local | `Untyped ]
 
     type 't shared
+
+    type 't global
+
+    type ('pre,'post,'a) monad = ('pre,'post,'a) Linocaml.monad
+    type 'a lin = 'a Linocaml.lin
+    type 'a one = 'a Mpst.Types.one
+    type ('a, 'b, 'c, 'd, 'e, 'f) role =  ('a, 'b, 'c, 'd, 'e, 'f) Mpst.Types.role
 
     val create_shared :
       ?kinds:(kind * int) list ->
       [ `cons of 'a * 'b ] global -> [ `cons of 'a * 'b ] shared
 
+      (* 
     val accept_ :
       [ `cons of 'a * 'b ] shared ->
       ('c one, 'd, [ `cons of 'a * 'b ], 'e, 'f, 'g) role ->
@@ -169,7 +180,7 @@ module type SHARED_LIN = sig
     val connect_ :
       [ `cons of 'a * 'b ] shared ->
       ('c one, 'd, [ `cons of 'a * 'b ], 'e, 'f, 'g) role ->
-      'c Concur_shims.IO.io
+      'c Concur_shims.IO.io *)
 
     val accept :
       [ `cons of 'a * 'b ] shared ->

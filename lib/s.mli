@@ -32,45 +32,19 @@ module type COMM = sig
   val receive_many : 'var gather -> 'var IO.io
 end  
 
-module type TYPES = sig
-  (** First-class methods *)
-  type ('obj,'mt) method_ = ('obj,'mt) Types.method_ =
-    {make_obj: 'mt -> 'obj; call_obj: 'obj -> 'mt} (* constraint 'obj = < .. > *)
-
-  (** Polymorphic lens; representing type-level indices *)
-  type ('a,'b,'xs,'ys) idx = ('a,'b,'xs,'ys) Types.idx =
-    Zero : ('a, 'b, [`cons of 'a * 'tl], [`cons of 'b * 'tl]) idx
-  | Succ : ('a, 'b, 'aa, 'bb) idx -> ('a, 'b, [`cons of 'hd * 'aa], [`cons of 'hd * 'bb]) idx
-
-  (** Message labels for global combinators. See examples. *)
-  type ('obj,'ot,'var,'vt) label = ('obj,'ot,'var,'vt) Types.label =
-    {obj: ('obj, 'ot) method_; var: 'vt -> 'var} (* constraint 'var = [>] *)
-
-  (** Role types for global combinators. See examples *)
-  type ('ts, 't, 'us, 'u, 'robj, 'mt) role = ('ts, 't, 'us, 'u, 'robj, 'mt) Types.role =
-    {
-      role_index: ('ts,'t,'us,'u) idx;
-      (** The index of a role. Zero is "('x1*'y*'z, 'x1, 'x2*'y*'z, 'x2) idx" For three-role case. *)
-      role_label:('robj,'mt) method_
-      (** The label of a role. Normally it looks like (<role_A: 't>, 't) method_  *)
-    }
-
-  (** Disjoint concatenation/splitting of two objects  *)
-  type ('lr, 'l, 'r) disj = ('lr, 'l, 'r) Types.disj =
-    {disj_concat: 'l -> 'r -> 'lr;
-    disj_splitL: 'lr -> 'l;
-    disj_splitR: 'lr -> 'r;
-    }
-    (* constraint 'lr = < .. >
-    * constraint 'l = < .. >
-    * constraint 'r = < .. > *)
-
-  type 'a one = 'a Types.one = One of 'a
-end
-
 module type GLOBAL_COMBINATORS = sig
 
-  (** Common types *)
+  (** *)
+
+  (** {2 Bare Channel Types (erased, ignore this)} *)
+
+  type ('v,'t) out
+  type 'var inp
+  type ('v,'t) scatter
+  type 'var gather
+  type close
+
+  (** {2 Common types} *)
      
   type 't global
   (** Type of a global protocol specification, where 't is of form [`cons of 't1 * [`cons of 't2 * ...]] *)
@@ -78,17 +52,13 @@ module type GLOBAL_COMBINATORS = sig
   type 'a lin
   (** Linear type constructor, which is expanded to 'a when dynamic linearity checking  *)
 
-  (** {2 Preamble} *)
+  type ('obj,'ot,'var,'vt) label = ('obj,'ot,'var,'vt) Types.label 
 
-  include TYPES
+  type ('ts, 't, 'us, 'u, 'robj, 'mt) role = ('ts, 't, 'us, 'u, 'robj, 'mt) Types.role
 
-  (** {2 Erased Types (ignore this)} *)
+  type ('lr, 'l, 'r) disj = ('lr, 'l, 'r) Types.disj
 
-  type ('v,'t) out
-  type 'var inp
-  type ('v,'t) scatter
-  type 'var gather
-  type close
+  type 'a one = 'a Types.one
 
   (** {2 Combinators} *)
 
@@ -157,22 +127,17 @@ module type GLOBAL_COMBINATORS = sig
 end
 
 module type GEN = sig
-  
 
-end  
+  (** {2 Preamble} *)
 
-module type GLOBAL_COMBINATORS_DYN = sig
+  type 't global
+  type 'a lin
+  type 'a ty
 
-  (** {1 Communication Primitives} *)
-  include COMM
+  type close
 
-  (** {1 Global Combinators} *)
-  include GLOBAL_COMBINATORS
-    with type ('v,'t) out := ('v,'t) out
-    and type 'var inp := 'var inp
-    and type ('v,'t) scatter := ('v,'t) scatter
-    and type 'var gather := 'var gather
-    and type close := close
+  type ('a, 'b, 'c, 'e, 'f, 'g) role = ('a, 'b, 'c, 'e, 'f, 'g) Types.role
+  type 'a one = 'a Types.one
 
   (** {1 Extracting Channel Vectors From Global Combinators} *)
 
@@ -206,9 +171,13 @@ module type GLOBAL_COMBINATORS_DYN = sig
   val env : 't tup -> Env.t
 end                                   
 
-module type SHARED =   sig
+module type PORTS =   sig
+
+  type 't global
   
-  include GLOBAL_COMBINATORS_DYN
+  type 'a one = 'a Types.one
+
+  type ('a, 'b, 'c, 'e, 'f, 'g) role = ('a, 'b, 'c, 'e, 'f, 'g) Types.role
 
   (** {1 Shared Channels} *)
 

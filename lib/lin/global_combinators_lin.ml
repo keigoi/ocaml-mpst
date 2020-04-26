@@ -10,6 +10,9 @@ type 'a data = 'a Linocaml.data
 open Linocaml
 include Mpst.Global_combinators.Make(Mpst.Dyn_lin.NoCheck)(Lin)
 
+
+type kind = [ `IPCProcess | `Local | `Untyped ]
+
 let (let*) = IO.bind
 
 type all_empty = Linocaml.all_empty
@@ -134,9 +137,6 @@ let raw_gen_mult = gen_mult
 (* let raw_gen_mult_ipc = gen_mult_ipc *)
 let raw_gen_with_kinds = gen_with_kinds
 let raw_gen_with_kinds_mult = gen_with_kinds_mult
-
-let gen_raw g = gen g
-
 let gen g = linret (fun () -> gen g)
 
 (* let gen_ipc g = linret (fun () -> gen_ipc g) *)

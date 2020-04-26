@@ -6,7 +6,23 @@ module type LIN = sig
 end
 
 module Make(DynLin:Dyn_lin.S)(Lin:LIN) 
-: S.GLOBAL_COMBINATORS_DYN with type 'a lin = 'a Lin.lin 
+: sig
+  include S.COMM
+
+  include S.GLOBAL_COMBINATORS 
+    with type 'a lin = 'a Lin.lin
+    and type ('v,'t) out := ('v,'t) out
+    and type 'var inp := 'var inp
+    and type ('v,'t) scatter := ('v,'t) scatter
+    and type 'var gather := 'var gather
+    and type close := close
+
+  include S.GEN
+    with type 't global := 't global
+    and type 'a lin := 'a lin
+    and type 'a ty := 'a ty
+    and type close := close
+end
 = struct
 
   module Low = Low_channel.Make(struct
@@ -20,16 +36,23 @@ module Make(DynLin:Dyn_lin.S)(Lin:LIN)
   module ScatterGather = Channel_vectors.MakeScatterGather(Low)(DynLin)
 
   module Seq = Seq.Make(struct type 'a t = 'a DynLin.gen end)
-
-  include Types
   
-  open Base
-
   type 't global = Env.t -> 't Seq.t
 
   type 'a lin = 'a Lin.lin
 
   type close_ = Single.close
+
+  type ('obj,'ot,'var,'vt) label = ('obj,'ot,'var,'vt) Types.label 
+
+  type ('ts, 't, 'us, 'u, 'robj, 'mt) role = ('ts, 't, 'us, 'u, 'robj, 'mt) Types.role
+
+  type ('lr, 'l, 'r) disj = ('lr, 'l, 'r) Types.disj
+
+  type 'a one = 'a Types.one
+
+  open Types
+  open Base
 
   let is_typed env from to_ =
     let from = int_of_idx from.role_index

@@ -60,6 +60,8 @@ let (_:unit IO.io) =
  * extending server with label "current"
  *)
 
+open Mpst.Types
+
 (* custom label declaration *)
 let current =
   {obj={make_obj=(fun v-> object method current=v end);

@@ -1,5 +1,6 @@
 open Concur_shims
 open Mpst
+open Mpst.Types
 open Mpst.Util
 open Calc_util
 

@@ -1,4 +1,4 @@
-open Mpst
+open Mpst.Types
 
 let cli = {role_index=Zero;
            role_label={make_obj=(fun v->object method role_Cli=v end);

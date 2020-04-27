@@ -41,13 +41,19 @@ type ('obj,'ot,'var,'vt) label =
     A message label [lab] is constructed by the following:
 
     {[
-        {
+        let lab = {
             obj={make_obj=(fun x -> object method lab=x end); call_obj=(fun obj -> obj#lab)};
             var=(fun x -> `lab(x))
         }
     ]}
     
     The same method and variant tag {i names} must be defined in a message label.
+
+    Note that the variant part of the above has {i open (>)} type as following:
+
+    {[
+        val lab : (<lab: 'mt>, 'mt, [> `lab of 'vt], 'vt) label
+    ]}
 *)
 
 (** The {b type-level indices} of a type-level [cons]-list, i.e., 

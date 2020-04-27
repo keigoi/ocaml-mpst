@@ -155,10 +155,15 @@ module type GLOBAL_COMBINATORS = sig
   (** {2 Types} *)
      
   type 't global
-  (** Type of a global protocol specification, where 't is of form [`cons of 't1 * [`cons of 't2 * ...]] *)
+  (** Type of a global protocol specification. In type ['t global], ['t] is of form 
+      [[`cons of 't1 * [`cons of 't2 * ...]]] 
+      where ['t1] is the channel type for the 1st role, ['t2] for the 2nd role, etc.
+    *)
 
   type 'a lin
-  (** Linear type constructor, which is expanded to 'a when dynamic linearity checking  *)
+  (** Linear type constructor, which is expanded to ['a] when linearity is dynamically checked,
+      and ['a Linocaml.lin] when it is statically checked via Linocaml.
+    *)
 
   (**/**)
 
@@ -174,30 +179,94 @@ module type GLOBAL_COMBINATORS = sig
 
   (** {2 Combinators} *)
 
+  (** {b Communication combinator} declaring a transmission of a single label (and a payload). 
+      The protocol [((ri --> rj) lab g)] is a transmission of label [lab] from [ri] to [rj], 
+      then continues to [g] (the payload type is inferred by typechecker).
+    *)
   val ( --> ) :
-    ('a one, 'b one, 'c, 'd, 'e, 'f inp) role ->
-    ('g one, 'e one, 'h, 'c, 'b, 'i) role ->
-    ('i, ('j, 'a) out, [>] as 'f, 'j * 'g lin) label -> 'h global -> 'd global
-  (** Communication combinator. *)
+    ('si one, 'rj one, 'mid, 'cur, 'ri, 'var inp) role ->
+    ('sj one, 'ri one, 'nxt, 'mid, 'rj, 'obj) role ->
+    ('obj, ('v, 'si) out, [>] as 'var, 'v * 'sj lin) label -> 'nxt global -> 'cur global
+  (** The following type signature of {! (-->)} embodies {b endpoint projection} of MPST theory 
+      from global types to local types, in flavour of type-manipulation techs developed above.
 
+      {[
+      val ( --> ) :
+        ('si one, 'rj one, 'mid, 'cur, 'ri, 'var inp) role ->
+        ('sj one, 'ri one, 'nxt, 'mid, 'rj, 'obj) role ->
+        ('obj, ('v, 'si) out, [>] as 'var, 'v * 'sj lin) label -> 'nxt global -> 'cur global
+      ]}
+
+      (Hereafter, we assume that the indices of [ri] and [rj] are i-th and j-th respectively.)
+      
+      In [(ri --> rj) lab g], the type ['nxt] in [(g : 'nxt global)] has the form:
+
+      {[
+        ['s0; ...; 'si; ...; 'sj; ...]
+      ]}
+
+      which is the type-level list ([[`cons of ...]]) written in the OCaml's list syntax,
+      where [s0], [si] and [sj] are the first, i-th and j-th element in ['nxt].
+
+      This is firstly updated to ['mid], having the following form:
+
+      {[
+        ['s0; ...; 'si; ...; <role_Ri:[> `lab of 'v*'sj] inp>; ...]
+      ]}
+
+      and then updated to ['cur]:
+
+      {[
+        ['s0; ...; <role_Rj:<lab:('v,'si) out>>; ...; <role_Ri:[>`lab of 'v*'sj] inp>; ...]
+      ]}
+
+      The resulting type ['cur] says that:
+      - Role [Ri] outputs to [Rj] with label [lab] and payload ['v], then continues to [si], 
+      - Role [Rj] inputs from [Ri] with label [lab] and payload ['v], then continues to [sj], and
+      - The behaviour of the rest of roles are unchanged.
+      
+      Which exactly follows the end point projection from a single-labelled global type.
+      
+      The type {! one} says that it is one-to-one communication, as opposed to 
+      {! scatter} and {! gather} developed later.
+    *)
+
+  (** Many-to-one communication. *)
   val gather :
     ('a list, 'b list, 'c, 'd, 'e, 'f inp_many) role ->
     ('g one, 'e one, 'h, 'c, 'b, 'i) role ->
     ('i, ('j, 'a) out, [>] as 'f, 'j list * 'g lin) label ->
     'h global -> 'd global
 
+  (** One-to-many communication. *)
   val scatter :
     ('a one, 'b one, 'c, 'd, 'e, 'f inp) role ->
     ('g list, 'e list, 'h, 'c, 'b, 'i) role ->
     ('i, ('j, 'a) out_many, [>] as 'f, 'j * 'g lin) label ->
     'h global -> 'd global
 
+  (** {b Branching combinator} declares a binary choice in a protocol.
+      In protocol [(choice_at r disj (r,g1) (r,g2))], role [r] decides the branching between [g1] and [g2],
+      where [disj] is the concatenation {!disj} of two outputs at [r] in [g1] and [g2].
+      The three occurrences of [r] must be the same.
+   *)
   val choice_at :
-    ('a one, 'b one, 'c, 'd, 'e, 'f) role ->
-    ('b, 'g, 'h) disj ->
-    ('g one, unit one, 'i, 'c, 'j, 'k) role * 'i global ->
-    ('h one, unit one, 'm, 'c, 'n, 'o) role * 'm global ->
-    'd global
+    (unit one, 'r one, 'mid, 'cur, 'r, _) role ->
+    ('r, 'rL, 'rR) disj ->
+    ('rL one, unit one, 'nxtL, 'mid, 'rL, _) role * 'nxtL global ->
+    ('rR one, unit one, 'nxtR, 'mid, 'rR, _) role * 'nxtR global ->
+    'cur global
+  (**
+    {[
+      val choice_at :
+        (unit one, 'r one, 'mid, 'cur, 'r, _) role ->
+        ('r, 'rL, 'rR) disj ->
+        ('rL one, unit one, 'nxtL, 'mid, 'rL, _) role * 'nxtL global ->
+        ('rR one, unit one, 'nxtR, 'mid, 'rR, _) role * 'nxtR global ->
+        'cur global
+
+    ]}
+  *)
 
   val fix : ('g global -> 'g global) -> 'g global
 

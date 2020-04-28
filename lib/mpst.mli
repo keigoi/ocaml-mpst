@@ -35,7 +35,6 @@ include S.PORTS
 
 (** {1 Exceptions } *)
 
-exception InvalidEndpoint
 exception UnguardedLoop
 exception UnguardedLoopSeq
 

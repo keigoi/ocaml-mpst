@@ -120,9 +120,15 @@ The easiest way to explore the channel vectors inferred by running the global co
 choose some of the files from the protocol folder, and hover over the type of the global combinator. 
 If you plan to use VS code, before opening it, first build all examples from the terminal in watch mode: 
 
+To enable the ```--watch``` command, install the ```inotify-tools```: 
+
+``` sudo apt install inotify-tools ```
+Then build the examples: 
+
 ```
 dune build --watch @example/all
 ```
+
 
 ## Step 4: Other examples and implementing your own protocols (Optional)
 1. Check if protocols are correct 

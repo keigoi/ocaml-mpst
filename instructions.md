@@ -123,6 +123,7 @@ If you plan to use VS code, before opening it, first build all examples from the
 To enable the ```--watch``` command, install the ```inotify-tools```: 
 
 ``` sudo apt install inotify-tools ```
+
 Then build the examples: 
 
 ```

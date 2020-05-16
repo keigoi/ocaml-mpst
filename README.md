@@ -4,7 +4,7 @@
 
 `ocaml-mpst` is  a communication library powered by  __Multiparty Session Types__ (abbreviated as MPST) in OCaml. Thus it ensures: 
 
-* __Dadlock-freedom__, 
+* __Deadlock-freedom__, 
 * __Protocol fidelity__ (communication will take place according to a prescribed protocol) and 
 * __Communication safety__ (you do not get any type-mismatch errors)
 

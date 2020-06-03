@@ -44,6 +44,12 @@ dune build @examples/all
 ./benchmark/run_all.sh
 ``` 
 
+You can supply optional quota parameter for running time of each test (2s).
+
+```
+./benchmark/run_all.sh 2s
+``` 
+
 * Display the graphs from the paper using jupyter-notebook
 ```
 jupyter-notebook benchmark/graphs/Graphs.ipynb

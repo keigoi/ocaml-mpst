@@ -57,19 +57,25 @@ More information about the source of the benchmarks is available [here](benchmar
 __Note__: Bear in mind that the benchmark data in the paper was generated using  machine with Intel Core i7-7700K CPU (4.20GHz, 4 cores), Ubuntu 17.10, Linux 4.13.0-46-generic, 16GB, while the script attached here are tailored to a single-core VM. 
 The benchmarks in the VM may show deviations if the VM does not have sufficient resources(i.e 1. the host hardware is not enough, or 2. other apps are running in the host). To minimise deviation, please run the VM in a host with sufficient hardware specs (16 GB RAM, 4 CPU cores). Make sure that you do not have any other applications running in your host machine, while performing the benchmarks. 
 
-## STEP 2: Run applications, written with mpst-ocaml (Section 6.2 and 6.3)
-### STEP 2.1: Run an oAuth use case (Section 6.3)
-* run the `run_oauth` script 
+## STEP 2: Run applications, written with ocaml-mpst (Section 6.2 and 6.3)
+### STEP 2.1: Run an OAuth use case (Section 6.3)
+
+* Prepare an HTTPS server with a proper SSL certificate (e.g. Let's Encrypt)
+
+* Register your Facebook app at https://developers.facebook.com/apps/ and modify parameters in [oauth.ml](examples/oauth/oauth.ml) appropriately.
+
+* Then, run the `run_oauth` script:
+
 ```
 ./examples/run_oauth.sh
 ```
 
-This will trigger a facebook authentication (a tab in firefox will open). 
-You can either use your own facebook account to login, or use our test account. 
-The test account is: username: ecoop.91.2020@gmail.com  password: ecoop2020
+This will start an OAuth application process.
+Open your server's entry point using a web browser. 
+It will be forward you to Facebook login page; please use your own facebook account to login.
 
 * After your enter the test account credentials, you will see an *acccess accepted* message. 
-* the source code of the example is in [oauth.ml in the examples/ folder](examples/oauth/oauth.ml).
+* The source code of the example is in [oauth.ml in the examples/ folder](examples/oauth/oauth.ml).
 
 ### STEP 2.2: Run a dns server (Section 6.2)
 

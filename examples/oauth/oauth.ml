@@ -12,25 +12,33 @@ open Mpst_http.SLabels
 let (let*) = Lwt.(>>=)
 
 (*
-  (replace keigoimai.info with appropriate domain)
+  Instructions:
+  1. Replace your.domain in Params.callback_url with appropriate domain you own
+  2. Register your Facebook via https://developers.facebook.com/apps/
+  3. Replace Params.client_id below.
+
+  Then, do the following:
 
   $ opam install lwt_ssl
   $ ssh ben -R127.0.0.1:8080:127.0.0.1:8080
   $ dune build --profile=release examples/oauth/oauth.exe
   $ _build/default/examples/oauth/oauth.exe
 
-  then open https://keigoimai.info/scribble/oauth
+  then, open https://your.domain/scribble/oauth 
+  and you will be forwarded to Facebook's login page.
+  Once you enter the correct username/password, it will 
+  redirect back to this app and shows "success" on the page.
  *)
 (*
-  In keigoimai.info, ssl.conf:
+  On your.domain server, configure Apache configuration as follows:
 
     ProxyPass /scribble http://127.0.0.1:8080/scribble
     ProxyPassReverse /scribble http://127.0.0.1:8080/scribble
  *)
 
 module Params = struct
-  let client_id = "1491337000919429"
-  let callback_url = "https://keigoimai.info/scribble/callback"
+  let client_id = "********"
+  let callback_url = "https://your.domain/scribble/callback"
 end
 
 (* prepare a HTTP server *)

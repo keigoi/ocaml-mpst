@@ -29,4 +29,5 @@ dune build @oauth/all
 #   killall oauth.exe
 #
 ../_build/default/examples/oauth/oauth.exe &
-firefox https://keigoimai.info/scribble/oauth
+
+echo Please open https://your.domain/scribble/oauth

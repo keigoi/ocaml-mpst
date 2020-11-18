@@ -6,15 +6,15 @@ and 'a ch_ = {channel:'a Event.channel; merged: 'a ch list}
 type 'a out = 'a ch
 type 'a inp = 'a Event.event
 
-type 'a scatter = 'a out list
+type 'a out_many = 'a out list
 
 type ('w, 'u) gather0 =
   {g_inplist : 'u inp list;
    g_wrap: ('u list -> 'w);
-   g_merged: 'w gather list}
+   g_merged: 'w inp_many list}
 and _ gather_ =
     Gather : ('w, 'u) gather0 -> 'w gather_
-and 'w gather =
+and 'w inp_many =
   'w gather_ ref
 
 type ('a, 'b) either = Left of 'a | Right of 'b
@@ -48,17 +48,17 @@ let send c v =
 let receive c =
   Event.sync c
 
-let create_scatter cnt f =
+let create_out_many cnt f =
   let outs, inps = List.split @@ List.init cnt (fun i -> create (f i)) in
   outs, inps
 
-let merge_scatter = fun outLs outRs ->
+let merge_out_many = fun outLs outRs ->
   List.map2 merge_out outLs outRs
 
 let send_many outs f =
   List.iteri (fun i out -> send out (f i)) outs
 
-let create_gather cnt (f : 'v list -> 't) =
+let create_inp_many cnt (f : 'v list -> 't) =
   let outs, inps = List.split @@ List.init cnt (fun _ -> create (fun x -> x)) in
   let rec gather = {contents=Gather {g_inplist = inps; g_wrap = f; g_merged = [gather]}} in
   outs, gather
@@ -68,7 +68,7 @@ let hetero_merge_inp : type t u. t inp -> u inp -> (t,u) either inp =
   Event.choose [Event.wrap cl (fun x -> Left x);
                 Event.wrap cr (fun y -> Right y)]
 
-let merge_gather : type t. t gather -> t gather -> t gather = fun gl gr ->
+let merge_inp_many : type t. t inp_many -> t inp_many -> t inp_many = fun gl gr ->
   match gl, gr with
   | {contents=Gather {g_inplist=inpsL; g_wrap=wrapL; g_merged=mergedL}},
     {contents=Gather {g_inplist=inpsR; g_wrap=wrapR; g_merged=mergedR}} ->
@@ -90,6 +90,6 @@ let merge_gather : type t. t gather -> t gather -> t gather = fun gl gr ->
     List.iter (fun g -> g := g0) merged;
     gl
 
-let receive_many : type t. t gather -> t IO.io =
+let receive_many : type t. t inp_many -> t IO.io =
   function {contents=Gather{g_inplist = inps; g_wrap = wrap; _}} ->
     wrap (List.map receive inps)

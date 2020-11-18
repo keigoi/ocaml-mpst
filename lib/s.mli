@@ -270,6 +270,16 @@ module type GLOBAL_COMBINATORS = sig
 
   val fix : ('g global -> 'g global) -> 'g global
 
+  module Fix : sig
+    type (_, _) idxs =
+        [] : ('aa, 'aa) idxs
+      | (::) : ('a,'b,'aa,'bb,_,_) role * ('bb, 'cc) idxs -> ('aa, 'cc) idxs
+
+    val fix :
+      ('g, [ `cons of close one * 'a ] as 'a) idxs ->
+      ('g global -> 'g global) -> 'g global
+  end
+
   val finish : ([ `cons of close one * 'a ] as 'a) global
 
   val finish_with_multirole :

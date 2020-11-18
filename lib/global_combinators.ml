@@ -149,6 +149,22 @@ end
         in
         g2
 
+  module Fix = struct
+    type (_,_) idxs =
+        | [] : ('aa, 'aa) idxs
+        | (::) : ('a,'b,'aa,'bb,_,_) role * ('bb, 'cc) idxs -> ('aa, 'cc) idxs
+
+    let fix : type g. (g,[`cons of close_ one * 'a] as 'a) idxs -> (g global -> g global) -> g global = fun _idxs f env ->
+      let rec body =
+        lazy ((f ((fun _ -> Seq.recvar body))) env)
+      in
+      (* A "fail-fast" approach to detect unguarded loops.
+      * Seq.partial_force tries to fully evaluate unguarded recursion variables
+      * in the body.
+      *)
+      Seq.resolve_merge (Lazy.force body)
+  end
+
   let fix : type g. (g global -> g global) -> g global = fun f env ->
     let rec body =
       lazy ((f ((fun _ -> Seq.recvar body))) env)

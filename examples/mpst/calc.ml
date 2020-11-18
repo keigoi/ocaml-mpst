@@ -6,7 +6,7 @@ let (let*) = IO.bind
 
 type op = Add | Sub | Mul | Div
 let calc =
-  fix (fun t ->
+  Fix.(fix [cli;srv]) (fun t -> (* equivalent to fix (fun t -> ...) *)
     choice_at cli (to_srv compute_or_result)
            (cli, (cli --> srv) compute @@
                  t)

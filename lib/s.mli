@@ -251,18 +251,18 @@ module type GLOBAL_COMBINATORS = sig
       The three occurrences of [r] must be the same.
    *)
   val choice_at :
-    (unit one, 'r one, 'mid, 'cur, 'r, _) role ->
-    ('r, 'rL, 'rR) disj ->
-    ('rL one, unit one, 'nxtL, 'mid, 'rL, _) role * 'nxtL global ->
-    ('rR one, unit one, 'nxtR, 'mid, 'rR, _) role * 'nxtR global ->
+    (unit one, 'rLR one, 'mid, 'cur, 'r, _) role ->
+    ('rLR, 'rL, 'rR) disj ->
+    ('rL one, unit one, 'nxtL, 'mid, 'r, _) role * 'nxtL global ->
+    ('rR one, unit one, 'nxtR, 'mid, 'r, _) role * 'nxtR global ->
     'cur global
   (**
     {[
       val choice_at :
-        (unit one, 'r one, 'mid, 'cur, 'r, _) role ->
-        ('r, 'rL, 'rR) disj ->
-        ('rL one, unit one, 'nxtL, 'mid, 'rL, _) role * 'nxtL global ->
-        ('rR one, unit one, 'nxtR, 'mid, 'rR, _) role * 'nxtR global ->
+        (unit one, 'rLR one, 'mid, 'cur, 'r, _) role ->
+        ('rLR, 'rL, 'rR) disj ->
+        ('rL one, unit one, 'nxtL, 'mid, 'r, _) role * 'nxtL global ->
+        ('rR one, unit one, 'nxtR, 'mid, 'r, _) role * 'nxtR global ->
         'cur global
 
     ]}

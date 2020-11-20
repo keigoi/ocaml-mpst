@@ -5,6 +5,7 @@ open Concur_shims
 open Mpst
 open Mpst.Types
 open Mpst.Util
+open Printf
 
 module Util = struct
   let s = {role_index=Zero;
@@ -36,79 +37,76 @@ module Util = struct
     {disj_concat=(fun l r -> object method role_C=l#role_C method role_S=r#role_S end);
      disj_splitL=(fun lr -> (lr :> <role_C : _>));
      disj_splitR=(fun lr -> (lr :> <role_S : _>))}
+
+  let offer_or_result =
+      {disj_concat=(fun l r -> object method offer=l#offer method result=r#result end);
+       disj_splitL=(fun lr -> (lr :> <offer : _>));
+       disj_splitR=(fun lr -> (lr :> <result : _>))}
+
+  let result_or_offer =
+    {disj_concat=(fun l r -> object method result=l#result method offer=r#offer end);
+      disj_splitL=(fun lr -> (lr :> <result : _>));
+      disj_splitR=(fun lr -> (lr :> <offer : _>))}
 end
 open Util
 
+
+(* two buyer protocol, s: seller, b: bob, c: carol *)
+
 let g =
-  gen @@
-  (s --> b) item @@
-  fix (fun t ->
-  choice_at b to_c_or_s
-  (b, (b --> c) offer @@
-      (c --> b) counter @@
-      t)
-  (b, (b --> s) final @@
-      (b --> c) result @@
-      finish))
+    (s --> b) item @@
+    fix (fun t ->
+      choice_at b (to_c result_or_offer)
+      (b, (b --> c) result @@
+          (b --> s) final @@
+          finish)
+      (b, (b --> c) offer @@
+          (c --> b) counter @@
+          t))
 
-let () = Random.self_init ()
-let (let*) m f = IO.bind m (fun x -> IO.bind (Unix.sleepf (Random.float 0.1)) (fun () -> f x))
-let return = IO.return
+let channels = gen g
 
-let ts () =
-  let debug s = IO.printl ("s) " ^ s) in
-  let (ch:'c) = get_ch s g in
-  let itemname = "item0" in
-  let* () = debug @@ "sending item name " ^ itemname ^ " to b" in
-  let* ch = send ch#role_B#item itemname in
-  let* () = debug "sent. receiving the final price from b.." in
-  let* `final(price, ch) = receive ch#role_B in
-  let* () = debug ("received the final price: " ^ string_of_int price) in
-  close ch
+let chs = get_ch s channels
+let chb = get_ch b channels
+let chc = get_ch c channels
+
+let seller initial () =
+  let chs = send chs#role_B#item (initial) in
+  let `final(_price, chs) = receive chs#role_B in
+  close chs
     
-let tb init_price () =
-  let debug s = IO.printl ("b) " ^ s) in
-  let ch = get_ch b g in
-  let* () = debug "receiving item name from s" in
-  let* `item(name,(ch:'c)) = receive ch#role_S in
-  let* () = debug @@ "received: "^name in
-  let rec loop (ch:'c) pr =
-    if pr>100 then begin
-        let* () = debug @@ "offering price to c:" ^ string_of_int pr in
-        let* ch = send ch#role_C#offer pr in
-        let* () = debug "receiving new price from c" in
-        let* `counter((pr':int), ch) = receive ch#role_C in
-        let* () = debug @@ "received from c:" ^ string_of_int pr' in
-        loop ch pr'
+let bob () =
+  let `item(initial,(ch:'c)) = receive chb#role_S in
+  let rec loop (ch:'c) price =
+    printf "Bob: price: %d\n" price;
+    if price>100 then begin
+        let ch = send ch#role_C#offer (initial - price) in
+        let `counter(pr', ch) = receive ch#role_C in
+        loop ch (initial - pr')
       end else begin
-        IO.return (ch,pr)
+        (ch,price)
       end
   in
-  let* (ch,pr) = loop ch init_price in
-  let* () = debug @@ "sending final price to s: " ^ string_of_int pr in
-  let* ch = send ch#role_S#final pr in
-  let* () = debug @@ "sending the result to c: " ^ string_of_int pr in
-  let* ch = send ch#role_C#result pr in
+  let (ch,price) = loop ch (initial/2) in
+  printf "Bob: the final price: %d\n" price;
+  let ch = send ch#role_C#result (initial - price) in
+  let ch = send ch#role_S#final price in
   close ch
 
-let tc () =
-  let debug s = IO.printl ("c) " ^ s) in
-  let (ch:'c) = get_ch c g in
-  let rec loop (ch:'c) =
-    let* () = debug "waiting b" in
-    let* lab = receive ch#role_B in
-    match lab with
-    | `offer(price,ch) ->
-       let* () = debug @@ "received offer from b:" ^ string_of_int price in
-       let newpr = price/2 in
-       let* () = debug @@ "sending new price (counter) to b:" ^ string_of_int newpr in
-       let* ch = send ch#role_B#counter newpr in
-       loop ch
-    | `result(pr,ch) ->
-       let* () = debug @@ "received the result from b:" ^ string_of_int pr in
-       close ch
+let carol () =
+  let rec loop (chc:'c) =
+    match receive chc#role_B with
+    | `offer(price,chc) ->
+      printf "Carol: price: %d\n" price;
+      let chc = send chc#role_B#counter (price + 10) in
+       loop chc
+    | `result(price,chc) ->
+      printf "Carol: the final price: %d\n" price;
+       close chc
   in
-  loop ch
+  loop chc
   
 let () =
-  IO.main_run (IO_list.iter Thread.join (List.map (fun f -> Thread.create f ()) [ts; tb 250; tc]))
+  List.iter
+    Thread.join (List.map (fun f -> Thread.create f ())
+    [seller 250; bob; carol])

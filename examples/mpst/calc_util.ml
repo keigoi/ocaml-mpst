@@ -9,13 +9,16 @@ let srv = {role_index=Succ Zero;
 
 let compute = {obj={make_obj=(fun v-> object method compute=v end);
                     call_obj=(fun o->o#compute)};
-               var=(fun v -> `compute(v))}
+               var={make_var=(fun v -> `compute(v));
+                    match_var=(function `compute(v) -> Some(v) | _ -> None)}}
 let result = {obj={make_obj=(fun v-> object method result=v end);
                    call_obj=(fun o->o#result)};
-              var=(fun v -> `result(v))}
+              var={make_var=(fun v -> `result(v));
+                   match_var=(function `result(v) -> Some v | _ -> None)}}
 let answer = {obj={make_obj=(fun v-> object method answer=v end);
                    call_obj=(fun o->o#answer)};
-              var=(fun v -> `answer(v))}
+              var={make_var=(fun v -> `answer(v));
+                   match_var=(function `answer(v) -> Some v | _ -> None)}}
 let compute_or_result =
   {disj_concat=(fun l r -> object method compute=l#compute method result=r#result end);
    disj_splitL=(fun lr -> (lr :> <compute : _>));

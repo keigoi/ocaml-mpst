@@ -12,31 +12,40 @@ let c = {role_index=Succ (Succ Zero);
 
 let plane = {obj={make_obj=(fun v-> object method plane=v end);
                   call_obj=(fun o->o#plane)};
-             var=(fun v -> `plane(v))}
+             var={make_var=(fun v -> `plane(v));
+                  match_var=(function `plane(v) -> Some v | _ -> None)}}
 let is_above = {obj={make_obj=(fun v-> object method is_above=v end);
                      call_obj=(fun o->o#is_above)};
-                var=(fun v -> `is_above(v))}
+                var={make_var=(fun v -> `is_above(v));
+                     match_var=(function `is_above(v) -> Some v | _ -> None)}}
 let both_in = {obj={make_obj=(fun v-> object method both_in=v end);
                     call_obj=(fun o->o#both_in)};
-               var=(fun v -> `both_in(v))}
+               var={make_var=(fun v -> `both_in(v));
+                    match_var=(function `both_in(v) -> Some v | _ -> None)}}
 let both_out = {obj={make_obj=(fun v-> object method both_out=v end);
                      call_obj=(fun o->o#both_out)};
-                var=(fun v -> `both_out(v))}
+                var={make_var=(fun v -> `both_out(v));
+                     match_var=(function `both_out(v) -> Some v | _ -> None)}}
 let intersect = {obj={make_obj=(fun v-> object method intersect=v end);
                       call_obj=(fun o->o#intersect)};
-                 var=(fun v -> `intersect(v))}
+                 var={make_var=(fun v -> `intersect(v));
+                      match_var=(function `intersect(v) -> Some v | _ -> None)}}
 let res = {obj={make_obj=(fun v-> object method res=v end);
                 call_obj=(fun o->o#res)};
-           var=(fun v -> `res(v))}
+           var={make_var=(fun v -> `res(v));
+                match_var=(function `res(v) -> Some v | _ -> None)}}
 let secout = {obj={make_obj=(fun v-> object method secout=v end);
                    call_obj=(fun o->o#secout)};
-              var=(fun v -> `secout(v))}
+              var={make_var=(fun v -> `secout(v));
+                   match_var=(function `secout(v) -> Some v | _ -> None)}}
 let secin = {obj={make_obj=(fun v-> object method secin=v end);
                   call_obj=(fun o->o#secin)};
-             var=(fun v -> `secin(v))}
+             var={make_var=(fun v -> `secin(v));
+                  match_var=(function `secin(v) -> Some v | _ -> None)}}
 let close_ = {obj={make_obj=(fun v-> object method close=v end);
                    call_obj=(fun o->o#close)};
-              var=(fun v -> `close(v))}
+              var={make_var=(fun v -> `close(v));
+                   match_var=(function `close(v) -> Some v | _ -> None)}}
 
 let isabove_or_close =
   {disj_concat=(fun l r -> object method is_above=l#is_above method close=r#close end);

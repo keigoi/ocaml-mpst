@@ -74,7 +74,7 @@ end
     let out, inp =
       if is_typed env ri rj then
         let wrap = fun x ->
-          label.var (x, Lin.mklin @@ DynLin.fresh @@ Mergeable.resolve sj')
+          label.var.make_var (x, Lin.mklin @@ DynLin.fresh @@ Mergeable.resolve sj')
         in
         Low.create wrap
       else
@@ -94,7 +94,7 @@ end
     let outs, inpmany =
     if is_typed env ri rj then
       let wrap = fun x ->
-        label.var (x, Lin.mklin @@ DynLin.fresh (Mergeable.resolve sj'))
+        label.var.make_var (x, Lin.mklin @@ DynLin.fresh (Mergeable.resolve sj'))
       in
       Low.create_inp_many count wrap
     else
@@ -115,7 +115,7 @@ end
       if is_typed env ri rj then
         let wrap i =
           let sj' = List.nth sj' i in
-          (fun x -> label.var (x, Lin.mklin @@ DynLin.fresh (Mergeable.resolve sj')))
+          (fun x -> label.var.make_var (x, Lin.mklin @@ DynLin.fresh (Mergeable.resolve sj')))
         in
         Low.create_out_many count wrap
       else

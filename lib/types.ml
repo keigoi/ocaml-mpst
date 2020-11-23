@@ -29,6 +29,20 @@ type ('obj,'mt) method_ =
     ]}
 *)
 
+(* Polymorphic variant constructor as a first-class value. *)
+type ('var,'t) constr =
+{
+    make_var: 't -> 'var;
+    match_var: 'var -> 't option;
+}
+(**
+  An example denoting a constructor [C]:
+
+  {[
+      let c : ([> `C of 't], 't) constr =
+        {make_var=(fun x -> `C x); match_var=(function `C(x) -> Some x | _ -> None)}
+  ]}
+ *)
 
 (** {b Message labels} for global combinators, which is a pair of a first-class method and 
     a {i variant constructor}.
@@ -36,7 +50,7 @@ type ('obj,'mt) method_ =
     is constructed. 
   *)
 type ('obj,'ot,'var,'vt) label =
-{obj: ('obj, 'ot) method_; var: 'vt -> 'var} (* constraint 'var = [>] *)
+{obj: ('obj, 'ot) method_; var: ('var,'vt) constr} (* constraint 'var = [>] *)
 (**
     A message label [lab] is constructed by the following:
 

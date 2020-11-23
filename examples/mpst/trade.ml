@@ -15,23 +15,28 @@ module Util = struct
   let item =
     {obj={make_obj=(fun v -> object method item=v end);
           call_obj=(fun o -> o#item)};
-     var=(fun v -> `item v)}
+     var={make_var=(fun v -> `item v);
+          match_var=(function `item(v) -> Some v | _ -> None)}}
   let offer =
     {obj={make_obj=(fun v -> object method offer=v end);
           call_obj=(fun o -> o#offer)};
-     var=(fun v -> `offer v)}
+     var={make_var=(fun v -> `offer v);
+          match_var=(function `offer(v) -> Some v | _ -> None)}}
   let counter =
     {obj={make_obj=(fun v -> object method counter=v end);
           call_obj=(fun o -> o#counter)};
-     var=(fun v -> `counter v)}
+     var={make_var=(fun v -> `counter v);
+          match_var=(function `counter(v) -> Some v | _ -> None)}}
   let final =
     {obj={make_obj=(fun v -> object method final=v end);
           call_obj=(fun o -> o#final)};
-     var=(fun v -> `final v)}
+     var={make_var=(fun v -> `final v); 
+          match_var=(function `final(v) -> Some v | _ -> None)}}
   let result =
     {obj={make_obj=(fun v -> object method result=v end);
           call_obj=(fun o -> o#result)};
-     var=(fun v -> `result v)}
+     var={make_var=(fun v -> `result v);
+          match_var=(function `result(v) -> Some v | _ -> None)}}
 
   let to_c_or_s =
     {disj_concat=(fun l r -> object method role_C=l#role_C method role_S=r#role_S end);

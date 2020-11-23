@@ -16,31 +16,38 @@ let d = {role_label={make_obj=(fun v->object method role_D=v end);
 let msg =
   {obj={make_obj=(fun f -> object method msg=f end);
         call_obj=(fun o -> o#msg)};
-   var=(fun v -> `msg(v))}
+   var={make_var=(fun v -> `msg(v));
+        match_var=(function `msg(v) -> Some v | _ -> None)}}
 let left =
   {obj={make_obj=(fun f -> object method left=f end);
         call_obj=(fun o -> o#left)};
-   var=(fun v -> `left(v))}
+   var={make_var=(fun v -> `left(v));
+        match_var=(function `left(v) -> Some v | _ -> None)}}
 let right =
   {obj={make_obj=(fun f -> object method right=f end);
         call_obj=(fun o -> o#right)};
-   var=(fun v -> `right(v))}
+   var={make_var=(fun v -> `right(v));
+        match_var=(function `right(v) -> Some v | _ -> None)}}
 let middle =
   {obj={make_obj=(fun f -> object method middle=f end);
         call_obj=(fun o -> o#middle)};
-   var=(fun v -> `middle(v))}
+   var={make_var=(fun v -> `middle(v));
+        match_var=(function `middle(v) -> Some v | _ -> None)}}
 let ping =
   {obj={make_obj=(fun f -> object method ping=f end);
         call_obj=(fun o -> o#ping)};
-   var=(fun v -> `ping(v))}
+   var={make_var=(fun v -> `ping(v));
+        match_var=(function `ping(v) -> Some v | _ -> None)}}
 let pong =
   {obj={make_obj=(fun f -> object method pong=f end);
         call_obj=(fun o -> o#pong)};
-   var=(fun v -> `pong(v))}
+   var={make_var=(fun v -> `pong(v));
+        match_var=(function `pong(v) -> Some v | _ -> None)}}
 let fini =
   {obj={make_obj=(fun f -> object method fini=f end);
         call_obj=(fun o -> o#fini)};
-   var=(fun v -> `fini(v))}
+   var={make_var=(fun v -> `fini(v));
+        match_var=(function `fini(v) -> Some v | _ -> None)}}
 
 let left_or_right =
   {disj_concat=(fun l r -> object method left=l#left method right=r#right end);

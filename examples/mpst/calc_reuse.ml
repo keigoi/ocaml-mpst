@@ -66,7 +66,8 @@ open Mpst.Types
 let current =
   {obj={make_obj=(fun v-> object method current=v end);
         call_obj=(fun o->o#current)};
-   var=(fun v -> `current(v))}
+   var={make_var=(fun v -> `current(v));
+        match_var=(function `current(v) -> Some v | _ -> None)}}
 
 (* merger *)
 let compute_result_or_current =

@@ -1,7 +1,7 @@
 open Concur_shims
 open Types
 
-module Make(X:sig type 'a t and 'a u val fresh : 'a t -> 'a u end) : sig
+module Make(X:sig type 'a t and 'a u val fresh : 'a t -> 'a u val unfresh_ : 'a u -> 'a t end) : sig
 
   type 'a out
   type 'a inp

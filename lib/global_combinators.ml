@@ -29,6 +29,7 @@ end
   module Low = Low_channel.Make(struct
                        type 'a t = 'a DynLin.gen
                        and 'a u = 'a Lin.lin
+                       let unfresh_ x = DynLin.declare_unlimited @@ Lin.unlin_ x
                        let fresh x = Lin.mklin @@ DynLin.fresh x
                      end)
 

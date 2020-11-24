@@ -32,3 +32,8 @@
  (name loop_parallel)
  (modules loop_parallel)
  (libraries mpst))
+
+(executable
+ (name fourparty_concurrent)
+ (modules fourparty_concurrent)
+ (libraries mpst))

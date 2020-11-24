@@ -107,7 +107,7 @@ let make_disj : 'lr 'l 'r. ('lr,'l,'r) disj -> 'l t -> 'r t -> 'lr t = fun mrg l
      (* prerr_endline "WARNING: internal choice involves recursion variable"; *)
      in d
 
-let resolve : type x. x t -> x = fun t ->
+let resolve_ : type x. x t -> x mvalue = fun t ->
   let b =
     match t with
     | Value b ->
@@ -120,7 +120,9 @@ let resolve : type x. x t -> x = fun t ->
     | Merge (_,_,d) ->
       Lazy.force d
   in
-  b.value
+  b
+
+let resolve t = (resolve_ t).value
 
 let make ~value ~mergefun ?cont () =
   let hook =
@@ -129,3 +131,6 @@ let make ~value ~mergefun ?cont () =
     | Some cont -> lazy (ignore (resolve cont))
   in
   Value {mergefun;value;hook}
+
+let mergefun_ t =
+  (resolve_ t).mergefun

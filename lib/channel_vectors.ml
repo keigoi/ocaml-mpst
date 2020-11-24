@@ -61,6 +61,8 @@ end = struct
   type 'var inp = 'var Low.inp lin
   type close = (unit -> unit IO.io) lin
 
+  let mergeopt m x y = if x==y then x else m x y
+
   let declare_out role label out cont =
     let ch =
       (* <role_rj = <lab = (ch,si) > > *)
@@ -71,7 +73,7 @@ end = struct
     let merge_out (n1,s1') (n2,s2') =
       (Low.merge_out n1 n2, Mergeable.merge s1' s2')
     in
-    let merge_out_lin x y = DynLin.merge merge_out (Base.compose_method role label) x y in
+    let merge_out_lin x y = DynLin.merge (mergeopt merge_out) (Base.compose_method role label) x y in
     Mergeable.make
       ~value:ch
       ~cont:cont
@@ -84,7 +86,7 @@ end = struct
       DynLin.wrap role.make_obj @@
         DynLin.declare inp
     in
-    let merge_inp_lin x y = DynLin.merge Low.merge_inp role x y in
+    let merge_inp_lin x y = DynLin.merge (mergeopt Low.merge_inp) role x y in
     Mergeable.make
       ~value:ch
       ~cont:cont
@@ -139,6 +141,8 @@ end = struct
   type ('v, 's) out_many = ('v Local.out_many * 's local) lin
   type 'var inp_many = 'var Local.inp_many lin
 
+  let mergeopt m x y = if x==y then x else m x y
+
   let declare_out_many role label out cont =
     let ch =
       (* <role_rj = <lab = (ch,si) > > *)
@@ -149,7 +153,7 @@ end = struct
     let merge_out_many (n1,s1') (n2,s2') =
       (Local.merge_out_many n1 n2, Mergeable.merge s1' s2')
     in
-    let merge_out_many_lin = DynLin.merge merge_out_many (Base.compose_method role label) in
+    let merge_out_many_lin = DynLin.merge (mergeopt merge_out_many) (Base.compose_method role label) in
     Mergeable.make
       ~value:ch
       ~cont:cont
@@ -162,7 +166,7 @@ end = struct
       DynLin.wrap role.make_obj @@
         DynLin.declare inp
     in
-    let merge_inp_many_lin = DynLin.merge Local.merge_inp_many role in
+    let merge_inp_many_lin = DynLin.merge (mergeopt Local.merge_inp_many) role in
     Mergeable.make
       ~value:ch
       ~cont:cont

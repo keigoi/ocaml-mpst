@@ -2,6 +2,7 @@
 module Lin : sig
   type +'a lin
   val mklin : 'a -> 'a lin
+  val unlin_ : 'a lin -> 'a
 end
 
 include S.COMM_LIN

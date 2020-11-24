@@ -3,6 +3,7 @@ open Concur_shims
 module type LIN = sig
   type +'a lin
   val mklin : 'a -> 'a lin
+  val unlin_ : 'a lin -> 'a 
 end
 
 module Make(DynLin:Dyn_lin.S)(Lin:LIN) 

@@ -12,24 +12,33 @@ let may_tuple ?loc tup = function
   | [x] -> Some x
   | l -> Some (tup ?loc ?attrs:None l)
 
-let lid ?(loc = !default_loc) s =
-  match Longident.unflatten [s] with
+let lid ?(loc = !default_loc) ~quals s =
+  match Longident.unflatten (quals @ [s]) with
   | Some s -> Location.mkloc s loc
   | None -> assert false
-let app ?loc ?attrs f l = if l = [] then f else Exp.apply ?loc ?attrs f (List.map (fun a -> Nolabel, a) l)
-let evar ?loc ?attrs s = Exp.ident ?loc ?attrs (lid ?loc s)
+let app ?loc ?attrs f l =
+  if l = []
+  then f
+  else Exp.apply ?loc ?attrs f (List.map (fun a -> Nolabel, a) l)
 let lam ?loc ?(attrs=[]) ?(label = Nolabel) ?default pat exp =
   Exp.fun_ ?loc ~attrs:attrs label default pat exp
-let record ?loc ?attrs ?over l =
-  Exp.record ?loc ?attrs (List.map (fun (s, e) -> (lid ~loc:e.pexp_loc s, e)) l) over
-let constr ?loc ?attrs s args = Exp.construct ?loc ?attrs (lid ?loc s) (may_tuple ?loc Exp.tuple args)
+
+let evar ?loc ?attrs ~quals id =
+  Exp.ident ?loc ?attrs (lid ?loc ~quals id)
+let record ?loc ?attrs ?over ?(quals=[]) l =
+  Exp.record ?loc ?attrs (List.map (fun (s, e) -> (lid ~loc:e.pexp_loc ~quals s, e)) l) over
+let constr ?loc ?attrs ~quals s args = Exp.construct ?loc ?attrs (lid ?loc ~quals s) (may_tuple ?loc Exp.tuple args)
+let precord ?loc ?attrs ?(closed = Open) ~quals l =
+  Pat.record ?loc ?attrs (List.map (fun (s, e) -> (lid ~loc:e.ppat_loc ~quals s, e)) l) closed
+let tconstr ?loc ?attrs ~quals c l = Typ.constr ?loc ?attrs (lid ?loc ~quals c) l
 let unit ?loc ?attrs () = constr ?loc ?attrs "()" []
-let pvar ?(loc = !default_loc) ?attrs s = Pat.var ~loc ?attrs (Location.mkloc s loc)
-let pconstr ?loc ?attrs s args = Pat.construct ?loc ?attrs (lid ?loc s) (may_tuple ?loc Pat.tuple args)
-let punit ?loc ?attrs () = pconstr ?loc ?attrs "()" []
-let precord ?loc ?attrs ?(closed = Open) l =
-  Pat.record ?loc ?attrs (List.map (fun (s, e) -> (lid ~loc:e.ppat_loc s, e)) l) closed
-let tconstr ?loc ?attrs c l = Typ.constr ?loc ?attrs (lid ?loc c) l
+
+let pconstr ?loc ?attrs s args =
+  Pat.construct ?loc ?attrs (lid ?loc ~quals:[] s) (may_tuple ?loc Pat.tuple args)
+let punit ?loc ?attrs () =
+  pconstr ?loc ?attrs "()" []
+let pvar ?(loc = !default_loc) ?attrs s =
+  Pat.var ~loc ?attrs (Location.mkloc s loc)
 
 let newname =
   let r = ref 0 in
@@ -40,25 +49,25 @@ let newname =
 
 let root_module = ref "Syntax"
 
-let longident ?loc str = evar ?loc str
+let longident ?(loc= !default_loc) ~quals id = evar ~loc ~quals id
 
 let monad_bind_data () =
-  longident (!root_module ^ ".bind_data")
+  longident ~quals:[!root_module] "bind_data"
 
 let monad_bind_lin () =
-  longident (!root_module ^ ".bind_lin")
+  longident ~quals:[!root_module] "bind_lin"
 
 let monad_return_lin () =
-  longident (!root_module ^ ".return_lin")
+  longident ~quals:[!root_module] "return_lin"
 
 let get_lin () =
-  longident (!root_module ^ ".get_lin")
+  longident ~quals:[!root_module] "get_lin"
 
 let put_linval () =
-  longident (!root_module ^ ".put_linval")
+  longident ~quals:[!root_module] "put_linval"
 
 let mkbind () =
-  longident (!root_module ^ ".Internal._mkbind")
+  longident ~quals:[!root_module; "Internal"] "_mkbind"
 
 let error loc (s:string) =
   Location.raise_errorf ~loc "%s" s
@@ -66,7 +75,7 @@ let error loc (s:string) =
 
 let add_putval es expr =
   let insert_expr (linvar, newvar) =
-    app (* ~loc:oldpat.ppat_loc *) (put_linval ()) [Exp.ident ~loc:linvar.loc linvar; evar ~loc:linvar.loc newvar]
+    app (* ~loc:oldpat.ppat_loc *) (put_linval ()) [Exp.ident ~loc:linvar.loc linvar; evar ~loc:linvar.loc ~quals:[] newvar]
   in
   List.fold_right (fun e expr ->
       app
@@ -89,9 +98,9 @@ let convert_pattern (p : pattern) : pattern * (Longident.t Location.loc * string
   let replace_linpat ({loc; _} as linvar) =
     let newvar = newname "match" in
     lin_vars := (linvar,newvar) :: !lin_vars;
-    precord ~loc [("Linocaml.__lin", pvar ~loc newvar)]
+    precord ~loc ~quals:["Linocaml"] [("__lin", pvar ~loc newvar)]
   and wrap_datapat ({ppat_loc=loc; _} as pat) =
-    precord ~loc [("Linocaml.data", pat)]
+    precord ~loc ~quals:["Linocaml"][("data", pat)]
   in
   let rec traverse ({ppat_desc; _} as patouter) =
   match ppat_desc with
@@ -177,7 +186,7 @@ let lin_pattern oldpat : pattern * (Longident.t Location.loc * string) list=
       if is_linpat oldpat then
         newpat (* not to duplicate Lin pattern *)
       else
-        precord ~loc:ppat_loc [("Linocaml.__lin", newpat)]
+        precord ~loc:ppat_loc ~quals:["Linocaml"] [("__lin", newpat)]
     in
     newpat, lin_vars
   in
@@ -197,7 +206,7 @@ let rec linval ({pexp_desc;pexp_loc;_(*pexp_loc_stack*)} as outer) =
 
   | Pexp_apply ({pexp_desc=Pexp_ident {txt=Lident"!!"; _};_} , [(Nolabel,exp)]) ->
      let newvar = newname "linval" in
-     longident ~loc:pexp_loc newvar, [(newvar,exp)]
+     longident ~loc:pexp_loc ~quals:[""] newvar, [(newvar,exp)]
 
   | Pexp_tuple (exprs) ->
     let exprs, bindings = List.split (List.map linval exprs) in

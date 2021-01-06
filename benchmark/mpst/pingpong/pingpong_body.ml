@@ -1,6 +1,7 @@
 open Concur_shims
 open Bench_util.Util
 open Bench_util.Testbase
+open Linocaml
 
 let global_cnt = ref 0
 
@@ -46,7 +47,7 @@ module MakeDyn
       let payload = List.assoc param big_arrays in
       Core.Staged.stage @@ fun () ->
       let sa = !stored in
-      IO.bind (send sa#role_B#ping payload) (fun[@Inline] sa ->
+      IO.bind (send sa#role_B#ping payload) (fun[@inline] sa ->
       IO.bind (receive sa#role_B) (fun[@inline] (`pong(c,sa)) ->
       stored := sa;
       IO.return_unit))

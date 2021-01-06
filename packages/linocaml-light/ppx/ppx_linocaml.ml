@@ -12,8 +12,10 @@ let may_tuple ?loc tup = function
   | [x] -> Some x
   | l -> Some (tup ?loc ?attrs:None l)
 
-(* FIXME *)
-let lid ?(loc = !default_loc) s = Location.mkloc (Longident.parse s) loc
+let lid ?(loc = !default_loc) s =
+  match Longident.unflatten [s] with
+  | Some s -> Location.mkloc s loc
+  | None -> assert false
 let app ?loc ?attrs f l = if l = [] then f else Exp.apply ?loc ?attrs f (List.map (fun a -> Nolabel, a) l)
 let evar ?loc ?attrs s = Exp.ident ?loc ?attrs (lid ?loc s)
 let lam ?loc ?(attrs=[]) ?(label = Nolabel) ?default pat exp =

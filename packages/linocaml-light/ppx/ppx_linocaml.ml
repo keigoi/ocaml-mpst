@@ -12,6 +12,8 @@ let may_tuple ?loc tup = function
   | [x] -> Some x
   | l -> Some (tup ?loc ?attrs:None l)
 
+let inline = [Attr.mk (Location.mknoloc "inline") (PStr[])]
+
 let lid ?(loc = !default_loc) ~quals s =
   match Longident.unflatten (quals @ [s]) with
   | Some s -> Location.mkloc s loc
@@ -21,7 +23,7 @@ let app ?loc ?attrs f l =
   then f
   else Exp.apply ?loc ?attrs f (List.map (fun a -> Nolabel, a) l)
 let lam ?loc ?(attrs=[]) ?(label = Nolabel) ?default pat exp =
-  Exp.fun_ ?loc ~attrs:attrs label default pat exp
+  Exp.fun_ ?loc ~attrs:(inline@attrs) label default pat exp
 
 let evar ?loc ?attrs ~quals id =
   Exp.ident ?loc ?attrs (lid ?loc ~quals id)

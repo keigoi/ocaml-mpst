@@ -78,6 +78,7 @@ module Syntax : sig
   val return_lin : 'a -> ('p,'p,'a lin) monad
   val get_lin : ('a lin, unit, 'pre, 'post) lens -> ('pre,'post,'a lin) monad
   val put_linval : (unit,'a lin,'pre,'post) lens -> 'a -> ('pre,'post,unit data) monad
+  val lens_put' : ('x,'y,'xs,'ys) lens -> 'y -> 'xs -> 'ys
 
   module Internal : sig
     val _mkbind : 'f -> 'f bind
@@ -86,5 +87,8 @@ module Syntax : sig
     val _peek : ('pre -> ('pre, 'post, 'a) monad) -> ('pre, 'post, 'a) monad
     val _poke : 'post -> ('pre, 'post, unit data) monad
     val _map_lin : ('a -> 'b) -> ('a lin, 'b lin, 'pre, 'post) lens -> ('pre, 'post, unit data) monad
+    val _modify : ('pre -> 'mid)
+            -> ('mid, 'post, 'a) monad
+            -> ('pre, 'post, 'a) monad
   end
 end

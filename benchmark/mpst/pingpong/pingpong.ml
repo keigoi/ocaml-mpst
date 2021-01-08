@@ -22,10 +22,10 @@ let test = [
      * 2) Dynamic checkings are removed (and use static checking from Linocaml instead)
      * Linocaml allocates more memory for closures, it does not affect running times.
      *)
-    create ~name:(prefix^"dynamic") (let module M = MakeDyn(Shmem)() in run M.runtest);
-    create ~name:(prefix^"dynamic_untyped") (let module M = MakeDyn(Untyped)() in run M.runtest);
-    create ~name:(prefix^"static") @@ (let module M = MakeStatic(Shmem)() in run M.runtest);
-    create ~name:(prefix^"static_untyped") @@ (let module M = MakeStatic(Untyped)() in run M.runtest);
+    create_indexed ~args:[1;10;100] ~name:(prefix^"dynamic") (let module M = MakeDyn(Shmem)() in M.runtest);
+    (* create_indexed ~args:[1;10;100] ~name:(prefix^"dynamic_untyped") (let module M = MakeDyn(Untyped)() in M.runtest); *)
+    create_indexed ~args:[1;10;100] ~name:(prefix^"static") @@ (let module M = MakeStatic(Shmem)() in M.runtest);
+    (* create_indexed ~args:[1;10;100] ~name:(prefix^"static_untyped") @@ (let module M = MakeStatic(Untyped)() in M.runtest); *)
   ]
 
 let test_ipc =

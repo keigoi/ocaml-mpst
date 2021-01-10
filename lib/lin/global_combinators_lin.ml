@@ -152,18 +152,36 @@ let gen_with_kinds_mult ps g = linret (fun () -> gen_with_kinds_mult ps g)
 let degen : (([`cons of close one * 't] as 't) tup lin, unit, unit data) Linocaml.monad =
   {Linocaml.__m=(fun _ -> IO.return ((), {Linocaml.data=()}))}
 
+let degen_ : (([`cons of close one * 't] as 't) tup lin, unit, 'pre, 'post) lens -> ('pre, 'post, unit data) Linocaml.monad =
+  fun s ->
+  {Linocaml.__m=(fun lpre -> IO.return (lens_put s lpre (), {Linocaml.data=()}))}
+
 let raw_get_ch = get_ch
 
 let get_ch r =
   let open Linocaml in
   {__m=(fun lpre ->
-      let g = lpre.__lin in
-      let ep, g' = get_ch_ r g in
-      IO.return ((), ({__lin=({__lin=g'},{__lin=ep})})))}
+     let g = lpre.__lin in
+     let ep, g' = get_ch_ r g in
+     IO.return ((), ({__lin=({__lin=g'},{__lin=ep})})))}
 
 let get_ch_list r =
   let open Linocaml in
   {__m=(fun lpre ->
-      let g = lpre.__lin in
+     let g = lpre.__lin in
+     let ep, g' = get_ch_list_ r g in
+     IO.return ((), ({__lin=({__lin=g'},{__lin=ep})})))}
+
+let get_ch_ s r =
+  let open Linocaml in
+  {__m=(fun lpre ->
+      let g = (lens_get s lpre).__lin in
+      let ep, g' = get_ch_ r g in
+      IO.return (lens_put s lpre (), ({__lin=({__lin=g'},{__lin=ep})})))}
+
+let get_ch_list_ s r =
+  let open Linocaml in
+  {__m=(fun lpre ->
+      let g = (lens_get s lpre).__lin in
       let ep, g' = get_ch_list_ r g in
-      IO.return ((), ({__lin=({__lin=g'},{__lin=ep})})))}
+      IO.return (lens_put s lpre (), ({__lin=({__lin=g'},{__lin=ep})})))}

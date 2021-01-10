@@ -66,8 +66,14 @@ let get_lin () =
 let put_linval () =
   longident ~quals:[!root_module] "put_linval"
 
+let lens_put' () =
+  longident ~quals:[!root_module] "lens_put'"
+
 let mkbind () =
   longident ~quals:[!root_module; "Internal"] "_mkbind"
+
+let modify () =
+  longident ~quals:[!root_module; "Internal"] "_modify"
 
 let error loc (s:string) =
   Location.raise_errorf ~loc "%s" s
@@ -75,12 +81,12 @@ let error loc (s:string) =
 
 let add_putval es expr =
   let insert_expr (linvar, newvar) =
-    app (* ~loc:oldpat.ppat_loc *) (put_linval ()) [Exp.ident ~loc:linvar.loc linvar; evar ~loc:linvar.loc ~quals:[] newvar]
+    app (modify ()) [app (lens_put' ()) [Exp.ident ~loc:linvar.loc linvar; evar ~loc:linvar.loc ~quals:[] newvar]]
   in
   List.fold_right (fun e expr ->
       app
-        (monad_bind_data ())
-        [insert_expr e; lam (punit ()) expr]) es expr
+        (insert_expr e)
+        [expr]) es expr
 
 let add_takeval es expr =
   List.fold_right

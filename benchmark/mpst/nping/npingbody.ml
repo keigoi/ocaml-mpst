@@ -117,7 +117,7 @@ module MakeStatic
             ) Syntax.Internal._all_empty
         in
         rsb := sb;
-        Lwt.return_unit
+        IO.return_unit
       )
 
     let (let/) = Linocaml.bind
@@ -135,7 +135,7 @@ module MakeStatic
             ) Syntax.Internal._all_empty
           in
           sa_stored := Some sa;
-          Lwt.return_unit
+          IO.return_unit
         )
   end
 

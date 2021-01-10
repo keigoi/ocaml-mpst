@@ -97,7 +97,7 @@ module MakeStatic
           ) Syntax.Internal._all_empty
       in
       store := sa;
-      Lwt.return_unit
+      IO.return_unit
 
     let client_step param =
       let store = ref !sa_init in
@@ -112,7 +112,7 @@ module MakeStatic
              ) Syntax.Internal._all_empty
           in
           store := sb;
-          Lwt.return_unit;
+          IO.return_unit;
         )
   end
 

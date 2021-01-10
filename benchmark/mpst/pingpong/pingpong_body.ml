@@ -68,7 +68,6 @@ module MakeStatic
     open Mpst_lin
     open Mpst.Util
     open Linocaml
-    open LinocamlStyle
 
     let prot =
       fix (fun t ->
@@ -78,8 +77,6 @@ module MakeStatic
     let sa_init, sb_init =
       let g = raw_gen_with_kinds [Med.medium;Med.medium;] prot in
       ref (raw_get_ch a g), ref (raw_get_ch b g)
-
-    let (let*) = Linocaml.bind
 
     let s = Linocaml.Zero
 
@@ -91,32 +88,32 @@ module MakeStatic
 
     let server_step _ =
       let store = ref !sb_init in
-      Linocaml.run
-        (fun[@inline] () ->
-        Linocaml.bind (put_linval s !store) (fun[@inline] () ->
-        let%lin `ping(_,#s) = s <@ receive (fun[@inline] x->x#role_A) in
-        let%lin #s = s <@ send (fun[@inline] x-> x#role_A#pong) () in
-        {__m=(fun[@inline] pre ->
-           store := (Linocaml.lens_get s pre).__lin;
-           IO.return (Linocaml.lens_put s pre (), {Linocaml.data=()})
-        )}
-      ))
+      fun _ ->
+      let* (_:all_empty), {__lin=sa} =
+        Syntax.Internal._run
+          (Syntax.Internal._modify (Syntax.lens_put' s !store) @@
+             let%lin `ping(_,#s) = receive s (fun[@inline] x->x#role_A) in
+             send s (fun[@inline] x-> x#role_A#pong) ()
+          ) Syntax.Internal._all_empty
+      in
+      store := sa;
+      Lwt.return_unit
 
     let client_step param =
       let store = ref !sa_init in
       let payload = List.assoc param big_arrays in
       Core.Staged.stage
-        (Linocaml.run
-           (fun[@inline] () ->
-             Linocaml.bind (put_linval s !store) (fun[@inline] () ->
-             let%lin #s = s <@ send (fun[@inline] x->x#role_B#ping) payload in
-             let%lin `pong({Linocaml.data=()},#s) = s <@ receive (fun[@inline] x->x#role_B) in
-             {__m=(fun[@inline] pre ->
-                store := (Linocaml.lens_get s pre).__lin;
-                IO.return (Linocaml.lens_put s pre (), {Linocaml.data=()})
-             )}
-        )))
-
+        (fun _ ->
+          let* (_:all_empty), {__lin=`pong({Linocaml.data=()},{__lin=sb})} =
+            Syntax.Internal._run
+             (Syntax.Internal._modify (Syntax.lens_put' s !store) @@
+               let%lin #s = send s (fun[@inline] x->x#role_B#ping) payload in
+               receive s (fun[@inline] x->x#role_B)
+             ) Syntax.Internal._all_empty
+          in
+          store := sb;
+          Lwt.return_unit;
+        )
   end
 
   include MakeTestBase(Test)(Med)()

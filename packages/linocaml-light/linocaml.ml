@@ -111,16 +111,17 @@ module Syntax = struct
   let return_lin = return_lin
   let get_lin = get_lin
   let put_linval = put_linval
+  let[@inline] lens_put' l v xs = lens_put l xs {__lin=v}
 
   module Internal = struct
     let[@inline] _lin x = {__lin=x}
     let[@inline] _unlin ({__lin=x}) = x
-    (* let _mkbind : 'f. 'f -> 'f bind =
-      fun[@inline] f -> f *)
-    external _mkbind : 'a -> 'a = "%identity"
-    let _run : 'pre 'post 'a. ('pre,'post,'a data) monad -> 'pre -> 'a IO.io =
-      fun[@inline] m pre ->
-         IO.bind (m.__m pre) (fun[@inline] (_, {data=v}) -> IO.return v)
+    let _mkbind : 'f. 'f -> 'f bind =
+      fun[@inline] f -> f
+    (* external _mkbind : 'a -> 'a = "%identity" *)
+    let _run : 'pre 'post 'a. ('pre,'post,'a) monad -> 'pre -> ('post * 'a) IO.io =
+      fun[@inline] m pre -> m.__m pre
+    let _all_empty = all_empty
     let[@inline] _dispose_env m =
       {__m=(fun[@inline] pre ->
          IO.bind (m.__m pre) (fun[@inline] (_,a) -> IO.return ((), a)))}
@@ -133,5 +134,9 @@ module Syntax = struct
     let _map_lin : 'a 'b 'pre 'post. ('a -> 'b) -> ('a lin, 'b lin, 'pre, 'post) lens -> ('pre, 'post, unit data) monad
       = fun[@inline] f l ->
       {__m=fun[@inline] pre -> IO.return (lens_put l pre @@ _lin (f (_unlin @@ lens_get l pre)), {data=()})}
+    let _modify : 'pre 'mid 'post 'a. ('pre -> 'mid)
+            -> ('mid, 'post, 'a) monad
+            -> ('pre, 'post, 'a) monad = fun f m ->
+        {__m=(fun[@inline] pre -> m.__m (f pre))}
   end
 end

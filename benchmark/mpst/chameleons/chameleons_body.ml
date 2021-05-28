@@ -140,25 +140,23 @@ module MakeStatic
 
     let rec start_server n =
       let open Linocaml in
-      let open LinocamlStyle in
       if n=0 then return () else begin
         let%lin #sb1 = accept entrypoint b in
         let%lin #sb2 = accept entrypoint b in
         let%lin #g = gen_with_kinds [Med.medium;Med.medium;] pingpong in
-        let%lin #g,#ta = g <@ get_ch a in
-        let%lin #g,#tb = g <@ get_ch b in
-        let/ () = g <@ degen in
-        let%lin #sb1 = (sb1@*ta) <@ deleg_send (fun x -> x#role_A#left) in
-        let/ () = sb1 <@ close in
-        let%lin #sb2 = (sb2@*tb) <@ deleg_send (fun x -> x#role_A#right) in
-        let/ () = sb2 <@ close in
+        let%lin #g,#ta = get_ch_ g a in
+        let%lin #g,#tb = get_ch_ g b in
+        let/ () = degen_ g in
+        let%lin #sb1 = deleg_send sb1 (fun x -> x#role_A#left) ta in
+        let/ () = close sb1 in
+        let%lin #sb2 = deleg_send sb2 (fun x -> x#role_A#right) tb in
+        let/ () = close sb2 in
         start_server (n-1)
       end
 
 
     let start_client i () =
       let open Linocaml in
-      let open LinocamlStyle in
       let debug str =
         (* Printf.printf "(%d): %s\n" i str;
          * flush stdout; *)
@@ -168,19 +166,19 @@ module MakeStatic
       let/ () = lift @@ IO.yield () in
       let%lin #sa = connect entrypoint a in
       debug "connected.";
-      match%lin sa <@ receive (fun x->x#role_B) with
+      match%lin receive sa (fun x->x#role_B) with
       | `left(#sa2,#sa) ->
          debug "left.";
-         let%lin #sa2 = sa2 <@ send (fun x->x#role_B#msg) () in
-         let%lin `msg(_,#sa2) = sa2 <@ receive (fun x ->x#role_B) in
-         let/ () = sa2 <@ close in
-         sa <@ close
+         let%lin #sa2 = send sa2 (fun x->x#role_B#msg) () in
+         let%lin `msg(_,#sa2) = receive sa2 (fun x ->x#role_B) in
+         let/ () = close sa2 in
+         close sa
       | `right(#sb2,#sa) ->
          debug "right.";
-         let%lin `msg(_,#sb2) = sb2 <@ receive (fun x->x#role_A) in
-         let%lin #sb2 = sb2 <@ send (fun x ->x#role_A#msg) () in
-         let/ () = sb2 <@ close in
-         sa <@ close
+         let%lin `msg(_,#sb2) = receive sb2 (fun x->x#role_A) in
+         let%lin #sb2 = send sb2 (fun x ->x#role_A#msg) () in
+         let/ () = close sb2 in
+         close sa
 
     let rec loop f x = IO.bind (f x) (fun () -> loop f x)
 

@@ -134,6 +134,11 @@ module type GEN_LIN = sig
         (([ `cons of close one * 'a ] as 'a) tup lin, unit, unit data)
         monad
 
+    val degen_ :
+        (([ `cons of close one * 'a ] as 'a) tup lin, unit, 'pre, 'post) lens ->
+        ('pre, 'post, unit data)
+        monad
+
     val get_ch :
         ('a one, close one, 'b, 'c, 'd, 'e) role ->
         ('b tup lin, unit, ('c tup lin * 'a lin) lin) monad
@@ -141,6 +146,16 @@ module type GEN_LIN = sig
     val get_ch_list :
         ('a list, close one, 'b, 'c, 'd, 'e) role ->
         ('b tup lin, unit, ('c tup lin * 'a list lin) lin) monad
+
+    val get_ch_ :
+        ('b tup lin, unit, 'pre, 'post) lens ->
+        ('a one, close one, 'b, 'c, 'd, 'e) role ->
+        ('pre, 'post, ('c tup lin * 'a lin) lin) monad
+
+    val get_ch_list_ :
+        ('b tup lin, unit, 'pre, 'post) lens ->
+        ('a list, close one, 'b, 'c, 'd, 'e) role ->
+        ('pre, 'post, ('c tup lin * 'a list lin) lin) monad
 
     val raw_gen : 'a global -> 'a tup
 

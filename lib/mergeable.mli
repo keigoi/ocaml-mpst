@@ -19,3 +19,6 @@ val make_disj : ('lr,'l,'r) disj -> 'l t -> 'r t -> 'lr t
 
 val resolve : 'a t -> 'a
 (** Extract the value from a mergeable *)
+
+val mergefun_ : 'a t -> ('a -> 'a -> 'a)
+(** Resolve a mergeable and extract merging function from it *)

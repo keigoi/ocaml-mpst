@@ -67,13 +67,9 @@ module Check : S
     let l = meth.call_obj ll.gen_value
     and r = meth.call_obj rr.gen_value
     in
-    let v = meth.make_obj {store_ref=l.store_ref; value = f l.value r.value}
-    in
-    {gen_value=v;
-     gen_store_ref=ll.gen_store_ref;
-     gen_store_assign=ll.gen_store_assign;
-    }
-
+    let v = f l.value r.value in
+    wrap meth.make_obj @@ declare v
+  
   let lift_disj mrg =
     {disj_concat=(fun l r ->
        r.gen_store_assign !(l.gen_store_ref); (* track and use the same linearity flag *)

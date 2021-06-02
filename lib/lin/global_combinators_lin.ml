@@ -3,6 +3,7 @@ open Concur_shims
 module Lin = struct
   type 'a lin = 'a Linocaml.lin
   let[@inline] mklin x = {Linocaml.__lin=x}
+  let[@inline] unlin_ x = x.Linocaml.__lin
 end
 
 type 'a data = 'a Linocaml.data

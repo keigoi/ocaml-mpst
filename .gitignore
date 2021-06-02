@@ -40,3 +40,5 @@ ppx_tools/ppx_tools.install
 # jupyter
 .ipynb_checkpoints
 
+_opam
+

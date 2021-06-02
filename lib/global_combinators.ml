@@ -3,6 +3,7 @@ open Concur_shims
 module type LIN = sig
   type +'a lin
   val mklin : 'a -> 'a lin
+  val unlin_ : 'a lin -> 'a 
 end
 
 module Make(DynLin:Dyn_lin.S)(Lin:LIN) 
@@ -28,6 +29,7 @@ end
   module Low = Low_channel.Make(struct
                        type 'a t = 'a DynLin.gen
                        and 'a u = 'a Lin.lin
+                       let unfresh_ x = DynLin.declare_unlimited @@ Lin.unlin_ x
                        let fresh x = Lin.mklin @@ DynLin.fresh x
                      end)
 
@@ -73,10 +75,7 @@ end
     let sj' = Seq.get rj.role_index g0 in
     let out, inp =
       if is_typed env ri rj then
-        let wrap = fun x ->
-          label.var (x, Lin.mklin @@ DynLin.fresh @@ Mergeable.resolve sj')
-        in
-        Low.create wrap
+        Low.create label.var sj'
       else
         Low.create_untyped env ~from:(int_of_idx ri.role_index) ~to_:(int_of_idx rj.role_index) label sj'
     in
@@ -93,10 +92,7 @@ end
     let sj' = Seq.get rj.role_index g0 in
     let outs, inpmany =
     if is_typed env ri rj then
-      let wrap = fun x ->
-        label.var (x, Lin.mklin @@ DynLin.fresh (Mergeable.resolve sj'))
-      in
-      Low.create_inp_many count wrap
+      Low.create_inp_many count label.var sj'
     else
       Low.create_untyped_inp_many env ~from:(int_of_idx ri.role_index) ~to_:(int_of_idx rj.role_index) label sj'
     in
@@ -113,11 +109,7 @@ end
     let sj' = Seq.get_list rj.role_index ~size:count g0 in
     let out_many, inps =
       if is_typed env ri rj then
-        let wrap i =
-          let sj' = List.nth sj' i in
-          (fun x -> label.var (x, Lin.mklin @@ DynLin.fresh (Mergeable.resolve sj')))
-        in
-        Low.create_out_many count wrap
+        Low.create_out_many label.var sj'
       else
         Low.create_untyped_out_many env ~from:(int_of_idx ri.role_index) ~to_:(int_of_idx rj.role_index) label sj'
     in

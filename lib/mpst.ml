@@ -4,6 +4,7 @@ include Types
 module NoStaticLinearityChecking = struct
   type 'a lin = 'a
   let mklin x = x
+  let unlin_ x = x
 end
 
 include Types

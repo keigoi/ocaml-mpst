@@ -1,7 +1,4 @@
 (* TODO: replace "failwith" with proper error-handling *)
-open Migrate_parsetree
-open Ast_408
-
 open Asttypes
 open Longident
 open Parsetree
@@ -383,11 +380,8 @@ let mapper =
   in
   {default_mapper with expr}
 
-let migration =
-  Versions.migrate Versions.ocaml_405 Versions.ocaml_current
-
 let () =
-  Driver.register
-    ~name:"ppx_linocaml"
-    Versions.ocaml_408
-    (fun _config _cookies -> mapper)
+  Ppxlib.Driver.register_transformation 
+    ~impl:(mapper.structure mapper)
+    "ppx_linocaml"
+    

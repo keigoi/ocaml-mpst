@@ -7,6 +7,8 @@ open Mpst.Types
 open Mpst.Util
 open Printf
 
+let (let*) = Lwt.bind
+
 module Util = struct
   let s = {role_index=Zero;
            role_label=
@@ -76,42 +78,44 @@ let chb = get_ch b channels
 let chc = get_ch c channels
 
 let seller initial () =
-  let chs = send chs#role_B#item (initial) in
-  let `final(_price, chs) = receive chs#role_B in
+  let* chs = send chs#role_B#item (initial) in
+  let* `final(_price, chs) = receive chs#role_B in
   close chs
-    
+
 let bob () =
-  let `item(initial,(ch:'c)) = receive chb#role_S in
+  let* `item(initial,(ch:'c)) = receive chb#role_S in
   let rec loop (ch:'c) price =
     printf "Bob: price: %d\n" price;
     if price>100 then begin
-        let ch = send ch#role_C#offer (initial - price) in
-        let `counter(pr', ch) = receive ch#role_C in
+        let* ch = send ch#role_C#offer (initial - price) in
+        let* `counter(pr', ch) = receive ch#role_C in
         loop ch (initial - pr')
       end else begin
-        (ch,price)
+        IO.return (ch,price)
       end
   in
-  let (ch,price) = loop ch (initial/2) in
+  let* (ch,price) = loop ch (initial/2) in
   printf "Bob: the final price: %d\n" price;
-  let ch = send ch#role_C#result (initial - price) in
-  let ch = send ch#role_S#final price in
+  let* ch = send ch#role_C#result (initial - price) in
+  let* ch = send ch#role_S#final price in
   close ch
 
 let carol () =
   let rec loop (chc:'c) =
-    match receive chc#role_B with
+    let* res = receive chc#role_B in
+    match res with
     | `offer(price,chc) ->
-      printf "Carol: price: %d\n" price;
-      let chc = send chc#role_B#counter (price + 10) in
+       printf "Carol: price: %d\n" price;
+       let* chc = send chc#role_B#counter (price + 10) in
        loop chc
     | `result(price,chc) ->
-      printf "Carol: the final price: %d\n" price;
+       printf "Carol: the final price: %d\n" price;
        close chc
   in
   loop chc
   
-let () =
-  List.iter
+let _ =
+  IO.main_run @@
+  IO_list.iter
     Thread.join (List.map (fun f -> Thread.create f ())
     [seller 250; bob; carol])

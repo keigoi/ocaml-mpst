@@ -3,6 +3,11 @@ open Mpst
 open Mpst.Types
 open Mpst.Util
 
+let (let*) = IO.bind
+let return = IO.return
+
+let (>>=) = IO.bind
+
 let d = {role_index=Succ(Succ(Succ Zero)); role_label={make_obj=(fun x -> object method role_D=x end); call_obj=(fun obj->obj#role_D)}}
 
 
@@ -35,7 +40,7 @@ let () = print_endline "start."
  *)
 let (ta:Thread.t) =
   let rec f sa =
-    let sa = send sa#role_B#left () in
+    let* sa = send sa#role_B#left () in
     f sa
   in
   Thread.create f sa
@@ -45,11 +50,15 @@ let (ta:Thread.t) =
  *)
 let (tb:Thread.t) =
   let rec f sb =
-      match receive sb#role_A with
-      | `left((), sb) ->
-        f (send sb#role_D#left ())
-      | `right((), sb) ->
-        f (send sb#role_D#right ())
+      let* ret = receive sb#role_A in 
+      let* sb = 
+        match ret with
+        | `left((), sb) ->
+          send sb#role_D#left ()
+        | `right((), sb) ->
+          send sb#role_D#right ()
+      in
+      f sb
   in
   Thread.create f sb
 
@@ -58,27 +67,30 @@ let (tb:Thread.t) =
  *)
 let (tc:Thread.t) =
   let rec f sc =
-    f (send sc#role_D#msg ())
+    send sc#role_D#msg () >>= f
   in
   Thread.create f sc
 
 (*
  * D (deadlock)
  *)  
-let () =
+let (td:Thread.t) =
   let rec f sd =
     (* sd is non-deterministically chosen between 1: and 2: above *)
-    let `msg((),sd) = receive sd#role_C in 
+    let* `msg((),sd) = receive sd#role_C in 
     print_endline "D";
-    match receive sd#role_B with (* if sd is 2: above, it stucks (deadlock) *)
+    let* ret = receive sd#role_B in
+    match ret with (* if sd is 2: above, it stucks (deadlock) *)
     | `left((),sd) -> 
       print_endline "left";
       f sd
     | `right((),sd) -> 
       f sd
   in 
-  f sd
+  Thread.create f sd
 
+let () =
+  IO.main_run (IO_list.iter Thread.join [ta;tb;tc;td])
 
 (*
  * The fix would involve a whole change of communication APIs.

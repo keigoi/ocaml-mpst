@@ -1,0 +1,44 @@
+*.annot
+*.cmo
+*.cma
+*.cmi
+*.a
+*.o
+*.cmx
+*.cmxs
+*.cmxa
+*.cmt
+
+# ocamlbuild working directory
+_build/
+
+# ocamlbuild targets
+*.byte
+*.native
+
+# oasis generated files
+setup.data
+setup.log
+
+# jbuilder generated files
+*.install
+*.exe
+
+# emacs
+\#*
+\.\#*
+
+# jbuilder creates/updates .merlin
+.merlin
+
+*~
+.DS_Store
+a.out
+dune-workspace
+ppx_tools/ppx_tools.install
+
+# jupyter
+.ipynb_checkpoints
+
+_opam
+

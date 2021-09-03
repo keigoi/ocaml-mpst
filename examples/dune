@@ -1,0 +1,9 @@
+(executable
+ (name ex)
+ (modules ex)
+ (libraries must threads))
+
+(executable
+ (name ex2)
+ (modules ex2)
+ (libraries must threads))

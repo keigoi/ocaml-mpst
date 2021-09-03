@@ -58,7 +58,7 @@ let query =
             var=(fun v -> `query(v))};
      handler=
        {write=(fun ({fd; peer_addr; _} as r) query -> (* XXX move dstaddr to connection type??*)
-          r.query_id <- query.Dns.Packet.id;
+          r.query_id <- fst query.Dns.Packet.header;
           let buf = Dns.Packet.marshal query in
           Cstruct.(Lwt_bytes.sendto fd buf.buffer buf.off buf.len [] peer_addr) >>= fun _ ->
           Lwt.return_unit

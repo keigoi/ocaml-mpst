@@ -64,13 +64,11 @@ type visited = V : 'a state_id -> visited
 type 'a head = {
   head: 'a; 
   merge: 'a -> 'a -> 'a; 
-  determinise_next: context -> 'a -> unit;
+  determinise_next: dict -> 'a -> unit;
 }
 (* determinisation context *)
 and binding = B : 'a keyset * 'a head -> binding
-and context = {visited:visited list; dict:binding list}
-
-type dict = binding list
+and dict = binding list
 
 let mkbind  k v = [B(k,v)]
 
@@ -78,8 +76,8 @@ let union x y = x @ y
 
 let empty = []
 
-let lookup : type a. binding list -> a keyset -> a head option = fun d (k,ws) ->
-  let rec find : binding list -> a head option = function
+let lookup : type a. dict -> a keyset -> a head option = fun d (k,ws) ->
+  let rec find : dict -> a head option = function
   | [] -> None
   | B ((k',ws'), v) :: bs ->
       match eq k k' with

@@ -3,7 +3,7 @@ open Must.Types
 open Must.StateHash
 
 type 'a mergefun = 'a -> 'a -> 'a
-type 'a detfun = context -> 'a -> unit
+type 'a detfun = dict -> 'a -> unit
 
 (* non-deterministic state *)
 type 'a state = ('a state_id * 'a nondet) ref
@@ -16,99 +16,88 @@ and 'a nondet =
     (** Internal choice (lazy) *)
   | Unbound
 
-type 'a loop_or_success = ('a state list, ('a state_id * 'a head) * dict) Either.t
 exception UnguardedLoop of string
 
 let fail_unguarded msg = raise (UnguardedLoop msg)
 
-let merge_session : 'a. 'a head -> 'a head -> 'a head = fun dl dr ->
+let merge_head : 'a. 'a head -> 'a head -> 'a head = fun dl dr ->
   let d' = dl.merge dl.head dr.head in
   {head = d';merge = dl.merge; determinise_next=dl.determinise_next}
 
-let rec determinise_head
-: 'a. seen:'a state_id list -> dict:dict -> 'a state -> 'a loop_or_success
-= fun ~seen ~dict st ->
-  let old_sid = fst !st in
-  match snd !st with
-  | Determinised v -> 
-    Right((old_sid, v), StateHash.empty)
-  | Epsilon nds ->
-    if List.mem old_sid seen then
-      (* loop detection *)
-      Left [st]
-    else
-      (* add current state to the loop set *)
-      (* determinise states with outgoing epsilon transitions *)
-      let cycles, success = List.partition_map (determinise_head ~seen:(old_sid::seen) ~dict) nds in
-      let cycles = List.concat cycles in
-      if List.length success = 0 then
-        if List.exists (fun st -> List.mem (fst !st) seen) cycles then
-          Left (st::cycles)
-        else
-          fail_unguarded "determinise_first: unguarded loop: Epsilon"
-      else
-        let states, new_dicts = List.split success in
-        let sids, dets = List.split states in
-        let new_dict = List.fold_left StateHash.union dict new_dicts in
-        (* compute the new (power-)state id *)
-        let new_state_id = List.fold_left union_keys (List.hd sids) (List.tl sids) in
-        (* compute the new state *)
-        let det =
-          match lookup new_dict new_state_id with
-          | Some det -> 
-            (* already removed *)
-            det
-          | None -> 
-            (* merge all *)
-            List.fold_left merge_session (List.hd dets) (List.tl dets)
-        in
-        (* add new state to dict *)
-        let new_dict = StateHash.union (mkbind new_state_id det) new_dict in
-        (* overwrite the current state *)
-        st := (new_state_id, Determinised det);
-        (* collapse all epsilon loops *)
-        List.iter (fun nd -> nd := new_state_id, Determinised det) cycles;
-        Right((new_state_id, det), new_dict)
-  | Concat(sl,sr,disj) ->
-      (* remove epsilons in each branch *)
-      begin match determinise_head ~seen:[] ~dict sl, determinise_head ~seen:[] ~dict sr with
-      | Right((_, tl), dict1), Right((_,tr), dict2) ->
-        (* then concatenate it *)
-        let tlr = disj.disj_concat tl.head tr.head in
-        let merge lr1 lr2 =
-          (* merge splitted ones *)
-          let l = tl.merge (disj.disj_splitL lr1) (disj.disj_splitL lr2) in
-          let r = tr.merge (disj.disj_splitR lr1) (disj.disj_splitR lr2) in
-          (* then concatenate it *)
-          disj.disj_concat l r
-        in
-        let determinise_next ctx lr =
-          tl.determinise_next ctx (disj.disj_splitL lr);
-          tr.determinise_next ctx (disj.disj_splitR lr)
-        in
-        let det = {head=tlr; merge; determinise_next} in
-        let new_dict = StateHash.union dict1 dict2 in
-        st := (old_sid, Determinised det);
-        Right((old_sid, det), new_dict)
-      | _ -> 
-        fail_unguarded "determinise_first: unguarded loop: Concat"
-      end
-  | Unbound ->
-    fail_unguarded "determinise_first: unguarded loop: Unbound"
+type 'a merged_or_backward_epsilon =
+  ('a state_id * 'a head, 'a state_id list) Either.t
 
-let determinise : 'a. context:context -> 'a state -> 'a head = 
-  fun ~context nd ->
-  match determinise_head ~seen:[] ~dict:context.dict nd with
-  | Right((_,det), dict') ->
-    let sid = fst !nd in
-    begin if not (List.mem (V sid) context.visited) then
-      det.determinise_next 
-        {visited=(V(sid)::context.visited); dict=StateHash.union dict' context.dict}
-        det.head
-    end;
-    det
-  | Left(_) ->
-    fail_unguarded "determinise: unguarded loop"
+let rec traverse_epsilons : 'a. seen:'a state_id list -> dict:dict -> 'a state -> 'a merged_or_backward_epsilon =
+  let merged x = Either.Left x and backward_epsilon x = Either.Right x in
+  fun ~seen ~dict st ->
+  let old_sid = fst !st in
+  if List.mem old_sid seen then
+    backward_epsilon [old_sid]
+  else
+    match snd !st with
+    | Determinised v ->
+      merged (old_sid, v)
+    | Epsilon sts ->
+      let hds, cycles = List.partition_map (traverse_epsilons ~seen:(old_sid::seen) ~dict) sts in
+      if List.length hds = 0 then begin
+        let cycles = (List.filter (fun id -> List.mem id seen) (List.concat cycles)) in
+        if List.length cycles = 0 then
+          fail_unguarded "traverse_epsilons: unguarded"
+        else
+          backward_epsilon cycles
+      end else
+        let ids, hds = List.split hds in
+        let head = List.fold_left merge_head (List.hd hds) (List.tl hds) in
+        merged (List.fold_left union_keys (List.hd ids) (List.tl ids), head)
+    | Concat (tl, tr, disj) -> 
+      let _, tl = determinise_first ~dict tl
+      and _, tr = determinise_first ~dict tr
+      in 
+      let tlr = disj.disj_concat tl.head tr.head in
+      let merge lr1 lr2 =
+        (* merge splitted ones *)
+        let l = tl.merge (disj.disj_splitL lr1) (disj.disj_splitL lr2) in
+        let r = tr.merge (disj.disj_splitR lr1) (disj.disj_splitR lr2) in
+        (* then concatenate it *)
+        disj.disj_concat l r
+      in
+      let determinise_next ctx lr =
+        tl.determinise_next ctx (disj.disj_splitL lr);
+        tr.determinise_next ctx (disj.disj_splitR lr)
+      in
+      let det = {head=tlr; merge; determinise_next} in
+      merged (old_sid, det)
+  | Unbound -> 
+    fail_unguarded "epsilon: unguarded loop: Unbound"
+
+and determinise_first : 'a. dict:dict -> 'a state -> 'a state_id * 'a head =
+  fun ~dict st ->
+    let old_sid = fst !st in
+    match lookup dict old_sid with
+    | Some v -> 
+      st := (old_sid, Determinised v);
+      old_sid, v
+    | None ->
+      begin match traverse_epsilons ~seen:[] ~dict st with
+      | Left (sid, hd) ->
+        st := (sid, Determinised hd);
+        (sid, hd)
+      | Right _ ->
+        fail_unguarded "determinise_first: unguarded"
+      end
+
+let determinise : 'a. dict:dict -> 'a state -> 'a head =
+  fun ~dict st ->
+    let old_sid = fst !st in
+    match lookup dict old_sid with
+    | Some v -> 
+      st := (old_sid, Determinised v);
+      v
+    | None ->
+      let sid, hd = determinise_first ~dict st in
+      let dict = B (sid, hd)::dict in
+      hd.determinise_next dict hd.head;
+      hd
 
 let gen_state_id () =
   let w = StateHash.newkey () in
@@ -124,11 +113,12 @@ let make_determinised_state : 'a. ?state_id:'a state_id -> 'a mergefun -> 'a det
   in
   ref (state_id, Determinised det)
 
-let merge_state : 'a. 'a state -> 'a state -> 'a state = fun sl sr ->
-  ref (gen_state_id (), Epsilon [sl; sr])
-
 let concat_state : 'l 'r 'lr. 'l state -> 'r state -> ('lr,'l,'r) disj -> 'lr state = fun sl sr disj ->
   ref (gen_state_id (), Concat(sl,sr,disj))
+
+
+let merge_state : 'a. 'a state -> 'a state -> 'a state = fun sl sr ->
+  ref (union_keys (fst !sl) (fst !sr), Epsilon [sl; sr])
   
 type _ t =
   | SeqCons : 'hd state * 'tl t -> [`cons of 'hd  * 'tl] t
@@ -184,7 +174,7 @@ type 'a inp =
    this invokes further merging in some case, entering into infinite loop.
  *)
 
-let merge_wrapped_body (dict:dict) state_id (var1,n1,t1) (var2,n2,t2) =
+let merge_wrapped_body state_id (var1,n1,t1) (var2,n2,t2) =
   match var1.match_var (var2.make_var t2.head) with
   | Some t2' -> 
     (* two constructors are same! *)
@@ -192,25 +182,23 @@ let merge_wrapped_body (dict:dict) state_id (var1,n1,t1) (var2,n2,t2) =
     let t = t1.merge t1.head t2' in
     (* unify channel names *)
     unify_name n1 n2;
-    Some(WrappedName(var1, n1, make_determinised_state ~state_id t1.merge t1.determinise_next t), dict)
+    Some(WrappedName(var1, n1, make_determinised_state ~state_id t1.merge t1.determinise_next t))
   | None ->
     None
-
-let determinise_first_ ~dict st =
-  match determinise_head ~seen:[] ~dict st with
-  | Right((det,sid),dict) -> 
-    det, sid, dict
-  | Left _ -> 
-    fail_unguarded "merge_wrapped_name: unguarded loop"
 
 let merge_wrapped_name ~dict w1 w2 =
   match w1, w2 with
   | WrappedName(var1,n1,s1), WrappedName(var2,n2,s2) ->
-    let sid1, t1, dict = determinise_first_ ~dict s1 in
-    let sid2, t2, dict = determinise_first_ ~dict s2 in
-    match union_keys_generalised sid1 sid2 with
-    | Left sid_a -> merge_wrapped_body dict sid_a (var1,n1,t1) (var2,n2,t2)
-    | Right sid_b ->  merge_wrapped_body dict sid_b (var2,n2,t2) (var1,n1,t1)
+    let sid1, t1 = determinise_first ~dict s1 in
+    let dict = B(sid1,t1)::dict in
+    let sid2, t2 = determinise_first ~dict:dict s2 in
+    let dict = B(sid2,t2)::dict in
+    let t12 = 
+      match union_keys_generalised sid1 sid2 with
+      | Left sid_a -> merge_wrapped_body sid_a (var1,n1,t1) (var2,n2,t2)
+      | Right sid_b ->  merge_wrapped_body sid_b (var2,n2,t2) (var1,n1,t1)
+    in
+    Option.map (fun t12 -> t12, dict) t12
     
 let rec merge_wrapped_names ~dict = function
   | w1::ws -> 
@@ -236,9 +224,9 @@ let merge_inp dst_role sl sr =
   in
   dst_role.make_obj (ref (!wl @ !wr))
 
-let determinise_inp dst_role context s =
-  let ws, dict = merge_wrapped_names ~dict:context.dict !(dst_role.call_obj s) in
-  List.iter (fun (WrappedName(_,_,s)) -> ignore (determinise ~context:{context with dict} s)) ws
+let determinise_inp dst_role dict s =
+  let ws, dict = merge_wrapped_names ~dict !(dst_role.call_obj s) in
+  List.iter (fun (WrappedName(_,_,s)) -> ignore (determinise ~dict s)) ws
 
 let merge_out dst_role labobj sl sr =
   let (nl,sl') = labobj.call_obj @@ dst_role.call_obj sl
@@ -248,9 +236,9 @@ let merge_out dst_role labobj sl sr =
   let s = merge_state sl' sr' in
   dst_role.make_obj @@ labobj.make_obj (nl, s)
 
-let determinise_out dst_role labobj context s =
+let determinise_out dst_role labobj dict s =
   let _, s = labobj.call_obj @@ dst_role.call_obj s in
-  ignore @@ determinise ~context s
+  ignore @@ determinise ~dict s
 
 let rec finalise_names n1 =
   match !n1 with
@@ -369,7 +357,7 @@ let fix_with upd f =
 
 let rec extract : type u. u t -> u = function
   | SeqCons(st,tail) ->
-    `cons((determinise ~context:{visited=[];dict=StateHash.empty} st).head, extract tail)
+    `cons((determinise ~dict:StateHash.empty st).head, extract tail)
   | SeqNil ->
     let rec nil = `cons((),nil) in nil
 
@@ -897,6 +885,68 @@ let () =
     in
     Thread.join ta
   in
+  let () =
+    let _g9 =
+      extract @@
+      fix_with [a;b;c] (fun t1 -> 
+        choice_at a (to_b left_or_middle_right)
+        (a, (a --> b) left @@ (a --> c) left finish)
+        (a, fix_with [a;b;c] (fun t2 ->
+            choice_at a (to_b middle_or_right)
+            (a, (a --> b) middle @@ (a --> c) middle t2)
+            (a, (a --> b) right @@ t1))))
+    in
+    let `cons((sa:'sa9),`cons((sb:'sb9),`cons((sc:'sc9),_))) = _g9
+    in
+    let _ta = Thread.create (fun () -> 
+      let rec loop1 (sa:'sa9) x =
+        match x with
+        | _ when x < 0 -> 
+          print_endline "A: select left at loop1";
+          select (select sa#role_B#left)#role_C#left
+        | 1 -> 
+          print_endline "A: select middle at loop1";
+          loop2 (select (select sa#role_B#middle)#role_C#middle) (x-1)
+        | _ -> 
+          print_endline "A: select right at loop1";
+          loop1 (select sa#role_B#right) (x-1)
+      and loop2 sa x =
+        match x with
+        | _ when x  > 0 -> 
+          print_endline "A: select middle at loop2";
+          loop2 (select (select sa#role_B#middle)#role_C#middle) (x-1)
+        | _ -> 
+          print_endline "A: select right at loop2";
+          loop1 (select sa#role_B#right) (x-1)
+      in
+      loop1 sa 1
+      ) ()
+    and _tb = Thread.create (fun () -> 
+      let rec loop (sb:'sb9) =
+        match branch sb#role_A with
+        | `left(sb) -> 
+          print_endline "B: left";
+          close sb
+        | `middle(sb) -> 
+          print_endline "B: middle";
+          loop sb
+        | `right(sb) -> 
+          print_endline "B: right";
+          loop sb
+      in
+      loop sb
+      ) ()
+    and _tc = Thread.create (fun () -> 
+      let rec loop (sc:'sc9) =
+        match branch sc#role_A with
+        | `left(sc) -> print_endline "C: left"; close sc
+        | `middle(sc) -> print_endline "C: middle"; loop sc
+      in
+      loop sc
+      ) ()
+    in
+    List.iter Thread.join [_ta;_tb;_tc];
+    ()
+  in
   print_endline "ok";
   ()
-

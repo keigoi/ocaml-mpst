@@ -28,27 +28,29 @@ type 'a merged_or_backward_epsilon =
   ('a state_id * 'a head, 'a state_id list) Either.t
 
 let rec traverse_epsilons : 'a. seen:'a state_id list -> dict:dict -> 'a state -> 'a merged_or_backward_epsilon =
-  let merged x = Either.Left x and backward_epsilon x = Either.Right x in
+  let ret_merged x = Either.Left x and ret_backward_epsilon x = Either.Right x in
   fun ~seen ~dict st ->
   let old_sid = fst !st in
   if List.mem old_sid seen then
-    backward_epsilon [old_sid]
+    ret_backward_epsilon [old_sid]
   else
     match snd !st with
     | Determinised v ->
-      merged (old_sid, v)
+      ret_merged (old_sid, v)
     | Epsilon sts ->
       let hds, cycles = List.partition_map (traverse_epsilons ~seen:(old_sid::seen) ~dict) sts in
       if List.length hds = 0 then begin
         let cycles = (List.filter (fun id -> List.mem id seen) (List.concat cycles)) in
         if List.length cycles = 0 then
+          (* no backward links anymore *)
           fail_unguarded "traverse_epsilons: unguarded"
         else
-          backward_epsilon cycles
+          (* links pointing backward further *)
+          ret_backward_epsilon cycles
       end else
         let ids, hds = List.split hds in
         let head = List.fold_left merge_head (List.hd hds) (List.tl hds) in
-        merged (List.fold_left union_keys (List.hd ids) (List.tl ids), head)
+        ret_merged (List.fold_left union_keys (List.hd ids) (List.tl ids), head)
     | Concat (tl, tr, disj) -> 
       let _, tl = determinise_first ~dict tl
       and _, tr = determinise_first ~dict tr
@@ -66,7 +68,7 @@ let rec traverse_epsilons : 'a. seen:'a state_id list -> dict:dict -> 'a state -
         tr.determinise_next ctx (disj.disj_splitR lr)
       in
       let det = {head=tlr; merge; determinise_next} in
-      merged (old_sid, det)
+      ret_merged (old_sid, det)
   | Unbound -> 
     fail_unguarded "epsilon: unguarded loop: Unbound"
 
@@ -225,7 +227,9 @@ let merge_inp dst_role sl sr =
   dst_role.make_obj (ref (!wl @ !wr))
 
 let determinise_inp dst_role dict s =
-  let ws, dict = merge_wrapped_names ~dict !(dst_role.call_obj s) in
+  let r = dst_role.call_obj s in
+  let ws, dict = merge_wrapped_names ~dict !r in
+  r := ws;
   List.iter (fun (WrappedName(_,_,s)) -> ignore (determinise ~dict s)) ws
 
 let merge_out dst_role labobj sl sr =
@@ -947,6 +951,13 @@ let () =
     in
     List.iter Thread.join [_ta;_tb;_tc];
     ()
+  in
+  let () =
+    let _g10 = 
+      fix_with [a;b;c] (fun t -> choice_at a (to_b left_or_right) (a, (a --> b) left @@ (a --> c) msg t) (a, (a --> b) right @@ (a --> c) msg t))
+    in
+    let `cons(_,`cons(_,_)) = extract _g10
+    in ()
   in
   print_endline "ok";
   ()

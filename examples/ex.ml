@@ -42,7 +42,7 @@ let rec traverse_epsilons : 'a. seen:'a state_id list -> dict:dict -> 'a state -
       let hds, cycles = List.partition_map (traverse_epsilons ~seen:(old_sid::seen) ~dict) sts in
       if List.length hds = 0 then begin
         let cycles = List.concat cycles in
-        let cycles = (List.filter (fun id -> print_endline @@ str_of_keyset id; List.mem id seen) cycles) in
+        let cycles = (List.filter (fun id -> List.mem id seen) cycles) in
         if List.length cycles = 0 then
           (* no backward links anymore *)
           fail_unguarded "traverse_epsilons: unguarded"
@@ -89,7 +89,7 @@ and make_head : 'a. dict:dict -> 'a state -> 'a state_id * 'a head =
         st := (sid, Determinised head);
         (sid, head)
       | Right _ ->
-        fail_unguarded "subset_construction: unguarded"
+        fail_unguarded "make_head: unguarded"
       end
 
 let determinise_head ~dict sid hd =
@@ -198,7 +198,7 @@ let is_constr_same : ('var,'a) constr -> ('var,'b) constr -> 'b -> 'a option =
   fun var1 var2 b ->
     var1.match_var (var2.make_var b)
 
-let merge_wrapped_head_ =
+let merge_wrapped_head =
   fun ~dict newid (var1,n1,h1) (var2,n2,h2) ->
     begin match is_constr_same var1 var2 h2.head with
     | Some t2' -> 
@@ -222,8 +222,8 @@ let merge_wrapped_head_ =
 let merge_wrapped_head =
   fun ~dict (WrappedHead(var1,n1,id1,h1)) (WrappedHead(var2,n2,id2,h2)) ->
     match union_keys_generalised id1 id2 with
-    | Left newid -> merge_wrapped_head_ ~dict newid (var1,n1,h1) (var2,n2,h2)
-    | Right newid -> merge_wrapped_head_ ~dict newid (var2,n2,h2) (var1,n1,h1)
+    | Left newid -> merge_wrapped_head ~dict newid (var1,n1,h1) (var2,n2,h2)
+    | Right newid -> merge_wrapped_head ~dict newid (var2,n2,h2) (var1,n1,h1)
  
 let rec op_all = fun op ws ->
   match ws with
@@ -257,10 +257,11 @@ let rec make_wrapped_head : dict:dict -> 'a wrapped_nondet -> 'a wrapped_head li
 let determinise_wrapped_head : dict:dict -> 'a wrapped_head list -> unit = fun ~dict ws ->
   List.iter (fun (WrappedHead(_,_,id,hd)) -> determinise_head ~dict id hd) ws
 
-let determinise_wrapped ~dict ws =
-  let whs = make_wrapped_head ~dict !ws in
-  let whs = op_all (merge_wrapped_head ~dict) whs in
-  ws := WrappedDeterminised whs
+let determinise_wrapped ~dict r =
+  let ws = make_wrapped_head ~dict !r in
+  let ws = op_all (merge_wrapped_head ~dict) ws in
+  r := WrappedDeterminised ws;
+  determinise_wrapped_head ~dict ws
 
 let merge_inp dst_role sl sr =
   let wl : 'a inp = dst_role.call_obj sl
@@ -269,8 +270,8 @@ let merge_inp dst_role sl sr =
   dst_role.make_obj (ref (WrappedNondet([wl; wr])))
 
 let determinise_inp dst_role dict s =
-  let ws = dst_role.call_obj s in
-  determinise_wrapped ~dict ws
+  let r = dst_role.call_obj s in
+  determinise_wrapped ~dict r
 
 let merge_out dst_role labobj sl sr =
   let (nl,sl') = labobj.call_obj @@ dst_role.call_obj sl
@@ -281,7 +282,7 @@ let merge_out dst_role labobj sl sr =
   dst_role.make_obj @@ labobj.make_obj (nl, s)
 
 let determinise_out dst_role labobj dict s =
-  let _n, s = labobj.call_obj @@ dst_role.call_obj s in
+  let _, s = labobj.call_obj @@ dst_role.call_obj s in
   ignore @@ determinise ~dict s
 
 let rec finalise_names n1 =
@@ -520,7 +521,6 @@ let () =
     with
       (UnguardedLoop str) as _e -> 
         print_endline (str ^ " (expected: " ^ msg ^ ")");
-        (* raise _e *)
     end;
   in
   let bottom () = fix_with [a;b;c] (fun t -> t) in

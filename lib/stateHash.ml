@@ -14,6 +14,11 @@ type key_ex = KeyEx : 'a key -> key_ex
 
 type 'a keyset = 'a key * key_ex list
 
+let str_of_key (k:'a key) = string_of_int @@ Obj.magic k
+let str_of_keyset ((k,ks):'a keyset) = 
+  let keyex (KeyEx(k)) = str_of_key k in
+  str_of_key k ^ ";" ^ String.concat "," @@ List.map keyex ks
+
 let newkey () (type s) =
   let module M = struct
     type t = s

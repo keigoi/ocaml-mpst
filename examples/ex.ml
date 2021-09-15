@@ -55,8 +55,8 @@ let rec traverse_epsilons : 'a. seen:'a state_id list -> dict:dict -> 'a state -
         ret_merged (id, List.concat hds)
       end
     | Concat (tl, tr, disj) -> 
-      let _, tl = subset_construction ~dict tl
-      and _, tr = subset_construction ~dict tr
+      let _, tl = make_head ~dict tl
+      and _, tr = make_head ~dict tr
       in 
       let tlr = disj.disj_concat tl.head tr.head in
       let merge lr1 lr2 =

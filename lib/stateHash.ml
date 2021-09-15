@@ -64,7 +64,7 @@ type visited = V : 'a state_id -> visited
 type 'a head = {
   head: 'a; 
   merge: 'a -> 'a -> 'a; 
-  determinise_next: dict -> 'a -> unit;
+  determinise: dict -> 'a -> unit;
 }
 (* determinisation context *)
 and binding = B : 'a keyset * 'a head -> binding

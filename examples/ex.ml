@@ -149,6 +149,7 @@ let rec put : type a b xs ys. (a,b,xs,ys) idx -> xs t -> b state -> ys t =
   | Zero -> SeqCons(b, seq_tail xs)
   | Succ ln' -> SeqCons(seq_head xs, put ln' (seq_tail xs) b)
 
+
 type 'a name_ =
 | Name of 'a Event.channel
 | Link of 'a name
@@ -163,74 +164,76 @@ let rec unify_name (n1:'a name) (n2:'a name) =
     | Link n1, _ -> unify_name n1 n2
     | _, Link n2 -> unify_name n1 n2
 
-type 'var wrapped_name = 
-  WrappedName : ('var,'s) constr * unit name * 's state -> 'var wrapped_name
+type 'var wrapped_head = 
+  | WrappedHead : ('var,'s) constr * unit name * 's head -> 'var wrapped_head
+  
+type 'var wrapped_nondet = 
+  | WrappedState : ('var,'s) constr * unit name * 's state -> 'var wrapped_nondet
+  | WrappedNondet : 'var wrapped_state list -> 'var wrapped_nondet
+  | WrappedDeterminised : 'var wrapped_head list -> 'var wrapped_nondet
+and 'var wrapped_state = 'var wrapped_nondet ref
+
+type 'var inp = 'var wrapped_state
 
 type 's out = 
   unit name * 's state
 
-type 'a inp =
-  'a wrapped_name list ref 
-(* the use of reference cell is to 'delay' the merging of continuations;
-   to merge continuations of the same label, we need to get value of type 'a determinised.
-   this invokes further merging in some case, entering into infinite loop.
- *)
-
-let merge_wrapped_body state_id (var1,n1,t1) (var2,n2,t2) =
-  match var1.match_var (var2.make_var t2.head) with
-  | Some t2' -> 
-    (* two constructors are same! *)
-    (* merge the continuations *)
-    let t = t1.merge t1.head t2' in
-    (* unify channel names *)
-    unify_name n1 n2;
-    Some(WrappedName(var1, n1, make_determinised_state ~state_id t1.merge t1.determinise_next t))
-  | None ->
-    None
-
-let merge_wrapped_name ~dict w1 w2 =
-  match w1, w2 with
-  | WrappedName(var1,n1,s1), WrappedName(var2,n2,s2) ->
-    let sid1, t1 = determinise_first ~dict s1 in
-    let dict = B(sid1,t1)::dict in
-    let sid2, t2 = determinise_first ~dict:dict s2 in
-    let dict = B(sid2,t2)::dict in
-    let t12 = 
-      match union_keys_generalised sid1 sid2 with
-      | Left sid_a -> merge_wrapped_body sid_a (var1,n1,t1) (var2,n2,t2)
-      | Right sid_b ->  merge_wrapped_body sid_b (var2,n2,t2) (var1,n1,t1)
-    in
-    Option.map (fun t12 -> t12, dict) t12
-    
-let rec merge_wrapped_names ~dict = function
+let merge_wrapped_head =
+  fun (WrappedHead(var1,n1,h1)) (WrappedHead(var2,n2,h2)) ->
+    begin match var1.match_var (var2.make_var h2.head) with
+    | Some t2' -> 
+      (* two constructors are same! *)
+      (* merge the continuations *)
+      let t = h1.merge h1.head t2' in
+      (* unify channel names *)
+      unify_name n1 n2;
+      Some(WrappedHead(var1, n1, {h1 with head=t}))
+    | None ->
+      None
+    end
+ 
+let rec merge_wrapped_heads = function
   | w1::ws -> 
-    let w, ws, dict = List.fold_left (fun (w1,ws,dict) w2 -> 
+    let w, ws = List.fold_left (fun (w1,ws) w2 -> 
       if w1==w2 then
-        (w1, ws, dict)
+        (w1, ws)
       else
-        match merge_wrapped_name ~dict w1 w2 with
+        match merge_wrapped_head w1 w2 with
         | None -> 
-          (w1, w2::ws, dict)
-        | Some (w12, dict) -> 
-          (w12, ws, dict)
-      ) (w1, [], dict) ws
+          (w1, w2::ws)
+        | Some w12 -> 
+          (w12, ws)
+      ) (w1, []) ws
     in
-    let ws, dict = merge_wrapped_names ~dict ws in
-    w::ws, dict
+    let ws = merge_wrapped_heads ws in
+    w::ws
   | [] ->
-    [], dict
+    []
+
+let rec determinise_first_wrapped : dict:dict -> 'a wrapped_nondet -> 'a wrapped_head list = fun ~dict -> function
+    | WrappedDeterminised(ws) -> 
+      ws
+    | WrappedState(var,n,st) ->
+      let _, hd = determinise_first ~dict st in
+      [WrappedHead(var,n,hd)]
+    | WrappedNondet(ws) ->
+      List.concat_map (fun w -> let w' = determinise_first_wrapped ~dict !w in w := WrappedDeterminised(w'); w') ws
+
+let determinise_next_wrapped : dict:dict -> 'a wrapped_head list -> unit = fun ~dict ws ->
+  List.iter (fun (WrappedHead(_,_,hd)) -> hd.determinise_next dict hd.head) ws
 
 let merge_inp dst_role sl sr =
   let wl : 'a inp = dst_role.call_obj sl
   and wr : 'a inp = dst_role.call_obj sr
   in
-  dst_role.make_obj (ref (!wl @ !wr))
+  dst_role.make_obj (ref (WrappedNondet([wl; wr])))
 
 let determinise_inp dst_role dict s =
   let r = dst_role.call_obj s in
-  let ws, dict = merge_wrapped_names ~dict !r in
-  r := ws;
-  List.iter (fun (WrappedName(_,_,s)) -> ignore (determinise ~dict s)) ws
+  let ws = determinise_first_wrapped ~dict !r in
+  let ws = merge_wrapped_heads ws in
+  r := WrappedDeterminised ws;
+  determinise_next_wrapped ~dict ws
 
 let merge_out dst_role labobj sl sr =
   let (nl,sl') = labobj.call_obj @@ dst_role.call_obj sl
@@ -257,11 +260,16 @@ let determinised_of_state_ = function
     x
   | _ -> assert false
   
-let branch (ws:'a inp) =
-  let make_event (WrappedName(var,n,s))= 
-    Event.wrap (Event.receive (finalise_names n)) (fun () -> var.make_var (determinised_of_state_ s))
+let branch (inp:'a inp) =
+  let make_event (WrappedHead(var,n,hd))= 
+    Event.wrap (Event.receive (finalise_names n)) (fun () -> var.make_var hd.head)
   in
-  Event.sync @@ Event.choose (List.map make_event !ws)
+  match inp with
+  | {contents=WrappedDeterminised(ws)} ->
+    Event.sync @@ Event.choose (List.map make_event ws)
+  | _ ->
+    failwith "branch: not determinised -- possible bug in determinisation?"
+
 
 let select ((n,s):_ out) =
   Event.sync (Event.send (finalise_names n) ());
@@ -273,7 +281,7 @@ let (-->) ri rj lab cont =
   let name = ref @@ Name (Event.new_channel ()) in
   let tj = get rj.role_index cont in
   let tj' = 
-    ri.role_label.make_obj @@ (ref [WrappedName (lab.var, name, tj)] : _ inp)
+    ri.role_label.make_obj @@ ((ref (WrappedState (lab.var, name, tj))) : _ inp)
   in
   let tj' =
     make_determinised_state
@@ -599,6 +607,7 @@ let () =
     in
     let _tb = Thread.create (fun () -> 
         let rec loop (sb:'sb7) =
+          print_endline "g7 branch";
           match branch sb#role_A with
           | `left(sb) ->
             print_endline "g7: tb: left";

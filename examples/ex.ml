@@ -6,13 +6,13 @@ type 'a mergefun = 'a -> 'a -> 'a
 type 'a detfun = dict -> 'a -> unit
 
 (* non-deterministic state *)
-type 'a state = ('a state_id * 'a nondet) ref
+type 'a state = 'a nondet ref
 and 'a nondet =
-  | Determinised of 'a head
+  | Determinised of 'a state_id * 'a head
     (** Deterministic transition  *)
   | Epsilon of 'a state list
     (** Epsilon transition (session merging) *)
-  | Concat : 'l state * 'r state * ('lr, 'l, 'r) disj -> 'lr nondet
+  | Concat : 'lr state_id * 'l state * 'r state * ('lr, 'l, 'r) disj -> 'lr nondet
     (** Internal choice (lazy) *)
   | Unbound
 
@@ -28,23 +28,26 @@ let merge_heads hds =
   List.fold_left merge_head (List.hd hds) (List.tl hds)
 
 type 'a merged_or_backward_epsilon =
-  ('a state_id * 'a head list, 'a state_id list) Either.t
+  ('a state_id * 'a head list, 'a state list) Either.t
 
-let rec traverse_epsilons : 'a. seen:'a state_id list -> 'a state -> 'a merged_or_backward_epsilon =
+let rec phys_member k = function
+  | x::xs -> k==x || phys_member k xs
+  | [] -> false
+
+let rec traverse_epsilons : 'a. seen:'a state list -> 'a state -> 'a merged_or_backward_epsilon =
   let ret_merged x = Either.Left x and ret_backward_epsilon x = Either.Right x in
   fun ~seen st ->
-  let old_sid = fst !st in
-  if List.mem old_sid seen then begin
-    ret_backward_epsilon [old_sid]
+  if phys_member st seen then begin
+    ret_backward_epsilon [st]
   end else
-    match snd !st with
-    | Determinised v ->
-      ret_merged (old_sid, [v])
+    match !st with
+    | Determinised (sid,v) ->
+      ret_merged (sid, [v])
     | Epsilon sts ->
-      let hds, cycles = List.partition_map (traverse_epsilons ~seen:(old_sid::seen)) sts in
+      let hds, cycles = List.partition_map (traverse_epsilons ~seen:(st::seen)) sts in
       if List.length hds = 0 then begin
         let cycles = List.concat cycles in
-        let cycles = (List.filter (fun id -> List.mem id seen) cycles) in
+        let cycles = (List.filter (fun id -> phys_member id seen) cycles) in
         if List.length cycles = 0 then
           (* no backward links anymore *)
           fail_unguarded "traverse_epsilons: unguarded"
@@ -56,7 +59,7 @@ let rec traverse_epsilons : 'a. seen:'a state_id list -> 'a state -> 'a merged_o
         let id = List.fold_left union_keys (List.hd ids) (List.tl ids) in
         ret_merged (id, List.concat hds)
       end
-    | Concat (tl, tr, disj) -> 
+    | Concat (sid, tl, tr, disj) -> 
       let _idl, hls = traverse_epsilons_ tl
       and _idr, hrs = traverse_epsilons_ tr
       in 
@@ -76,7 +79,7 @@ let rec traverse_epsilons : 'a. seen:'a state_id list -> 'a state -> 'a merged_o
         hr.determinise ctx (disj.disj_splitR lr)
       in
       let det = {head=tlr; merge; determinise} in
-      ret_merged (old_sid, [det])
+      ret_merged (sid, [det])
   | Unbound -> 
     fail_unguarded "epsilon: unguarded loop: Unbound"
 
@@ -102,7 +105,7 @@ let determinise : 'a. dict:dict -> 'a state -> 'a head =
   fun ~dict st ->
     let sid, hds = traverse_epsilons_ st in
     let hd = determinise_heads ~dict sid hds in
-    st := (sid, Determinised hd);
+    st := Determinised (sid, hd);
     hd
 
 let gen_state_id () =
@@ -110,7 +113,7 @@ let gen_state_id () =
   (w, [KeyEx w])
 
 let make_unbound_state : 'a. unit -> 'a state = fun () ->
-  ref (gen_state_id (), Unbound)
+  ref Unbound
 
 let make_determinised_state : 'a. 'a mergefun -> 'a detfun -> 'a -> 'a state = 
   fun merge detfun body ->
@@ -118,20 +121,14 @@ let make_determinised_state : 'a. 'a mergefun -> 'a detfun -> 'a -> 'a state =
     let det = 
       {head=body; merge; determinise=detfun} 
     in
-    ref (state_id, Determinised det)
+    ref (Determinised (state_id, det))
 
 let concat_state : 'l 'r 'lr. 'l state -> 'r state -> ('lr,'l,'r) disj -> 'lr state = fun sl sr disj ->
-  ref (gen_state_id (), Concat(sl,sr,disj))
+  ref (Concat(gen_state_id (), sl,sr,disj))
 
 
 let merge_state : 'a. 'a state -> 'a state -> 'a state = fun sl sr ->
-  let kl = fst !sl and kr = fst !sr in
-  if kl=kr then 
-    sl 
-  else begin
-    let ks = union_keys kl kr in
-    ref (ks, Epsilon [sl; sr])
-  end
+  ref (Epsilon [sl; sr])
   
 type _ t =
   | SeqCons : 'hd state * 'tl t -> [`cons of 'hd  * 'tl] t
@@ -311,7 +308,7 @@ let branch (inp:'a inp) =
 let select ((n,s):_ out) =
   Event.sync (Event.send (finalise_names n) ());
   match s with
-  | {contents=(_,Determinised{head;_})} ->
+  | {contents=Determinised(_,{head;_})} ->
       head
   (* | s ->
     (determinise ~dict:StateHash.empty s).head *)
@@ -398,8 +395,8 @@ let finish = SeqNil
 let rec tying_unbound : type u. u t -> u t -> unit = fun self g ->
   match self with
   | SeqNil -> ()
-  | SeqCons({contents=(id,Unbound)} as st,self) -> 
-    st := (id, Epsilon [seq_head g]);
+  | SeqCons({contents=Unbound} as st,self) -> 
+    st := Epsilon [seq_head g];
     tying_unbound self (seq_tail g)
   | SeqCons(_,self) -> 
     tying_unbound self (seq_tail g)

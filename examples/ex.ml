@@ -12,8 +12,8 @@ and 'a nondet =
     (** Deterministic transition  *)
   | Epsilon of 'a state list
     (** Epsilon transition (session merging) *)
-  | Concat : 'lr state_id * 'l state * 'r state * ('lr, 'l, 'r) disj -> 'lr nondet
-    (** Internal choice (lazy) *)
+  | InternalChoice : 'lr state_id * 'l state * 'r state * ('lr, 'l, 'r) disj -> 'lr nondet
+    (** Internal choice *)
   | Unbound
 
 exception UnguardedLoop of string
@@ -30,66 +30,76 @@ let merge_heads hds =
 type 'a merged_or_backward_epsilon =
   ('a state_id * 'a head list, 'a state list) Either.t
 
-let rec phys_member k = function
-  | x::xs -> k==x || phys_member k xs
+let rec mem_phys k = function
+  | x::xs -> k==x || mem_phys k xs
   | [] -> false
 
-let rec traverse_epsilons : 'a. seen:'a state list -> 'a state -> 'a merged_or_backward_epsilon =
-  let ret_merged x = Either.Left x and ret_backward_epsilon x = Either.Right x in
-  fun ~seen st ->
-  if phys_member st seen then begin
-    ret_backward_epsilon [st]
-  end else
-    match !st with
-    | Determinised (sid,v) ->
-      ret_merged (sid, [v])
-    | Epsilon sts ->
-      let hds, cycles = List.partition_map (traverse_epsilons ~seen:(st::seen)) sts in
-      if List.length hds = 0 then begin
-        let cycles = List.concat cycles in
-        let cycles = (List.filter (fun id -> phys_member id seen) cycles) in
-        if List.length cycles = 0 then
-          (* no backward links anymore *)
-          fail_unguarded "traverse_epsilons: unguarded"
+let rec epsilon_closure : 'a. 'a state -> 'a state_id * 'a head list =
+  let ret_merged x = Either.Left x 
+  and ret_backward_epsilon x = Either.Right x 
+  in
+  let rec loop 
+    : 'a. visited:'a state list -> 'a state -> 'a merged_or_backward_epsilon =
+    fun ~visited st ->
+    if mem_phys st visited then
+      ret_backward_epsilon [st]
+    else
+      match !st with
+      | Determinised (sid,v) ->
+        ret_merged (sid, [v])
+      | Epsilon sts ->
+        (* epsilon transitions: compute epsilon-closure *)
+        let hds, cycles = 
+          List.partition_map (loop ~visited:(st::visited)) sts 
+        in
+        if List.length hds > 0 then
+          (* concrete transitons found - return the merged state ==== *)
+          let ids, hds = List.split hds in
+          let id = List.fold_left union_keys (List.hd ids) (List.tl ids) in
+          ret_merged (id, List.concat hds)
         else
-          (* links pointing backward further *)
-          ret_backward_epsilon cycles
-      end else begin
-        let ids, hds = List.split hds in
-        let id = List.fold_left union_keys (List.hd ids) (List.tl ids) in
-        ret_merged (id, List.concat hds)
-      end
-    | Concat (sid, tl, tr, disj) -> 
-      let _idl, hls = traverse_epsilons_ tl
-      and _idr, hrs = traverse_epsilons_ tr
-      in 
-      let hl = merge_heads hls (* XXX *)
-      and hr = merge_heads hrs 
-      in
-      let tlr = disj.disj_concat hl.head hr.head in
-      let merge lr1 lr2 =
-        (* merge splitted ones *)
-        let l = hl.merge (disj.disj_splitL lr1) (disj.disj_splitL lr2) in
-        let r = hr.merge (disj.disj_splitR lr1) (disj.disj_splitR lr2) in
-        (* then concatenate it *)
-        disj.disj_concat l r
-      in
-      let determinise ctx lr =
-        hl.determinise ctx (disj.disj_splitL lr);
-        hr.determinise ctx (disj.disj_splitR lr)
-      in
-      let det = {head=tlr; merge; determinise} in
-      ret_merged (sid, [det])
-  | Unbound -> 
-    fail_unguarded "epsilon: unguarded loop: Unbound"
-
-and traverse_epsilons_ : 'a. 'a state -> 'a state_id * 'a head list =
-  fun st ->
-    begin match traverse_epsilons ~seen:[] st with
+          (* all transitions are epsilon - verify guardedness ==== *)
+          let cycles = List.concat cycles in
+          let cycles =
+            (* filter out epsilons pointing to myself *)
+            List.filter (fun id -> mem_phys id visited) cycles
+          in
+          if List.length cycles > 0 then
+            (* there're backward epsilons yet -- return it *)
+            ret_backward_epsilon cycles
+          else
+            (* no backward epsilons anymore: unguarded recursion! *)
+            fail_unguarded "traverse_epsilons: unguarded"
+      | InternalChoice (sid, tl, tr, disj) ->
+        let _idl, hls = epsilon_closure tl
+        and _idr, hrs = epsilon_closure tr
+        in 
+        let hl = merge_heads hls
+        and hr = merge_heads hrs
+        in
+        let tlr = disj.disj_concat hl.head hr.head in
+        let merge lr1 lr2 =
+          (* merge splitted ones *)
+          let l = hl.merge (disj.disj_splitL lr1) (disj.disj_splitL lr2) in
+          let r = hr.merge (disj.disj_splitR lr1) (disj.disj_splitR lr2) in
+          (* then type-concatenate it *)
+          disj.disj_concat l r
+        in
+        let determinise ctx lr =
+          hl.determinise ctx (disj.disj_splitL lr);
+          hr.determinise ctx (disj.disj_splitR lr)
+        in
+        let det = {head=tlr; merge; determinise} in
+        ret_merged (sid, [det])
+    | Unbound -> 
+      fail_unguarded "traverse_epsilons_: unguarded loop: Unbound"
+    in
+    fun st ->
+    begin match loop ~visited:[] st with
     | Left (sid, hds) ->
       (sid, hds)
     | Right _ ->
-      fail_unguarded "make_head: unguarded"
+      fail_unguarded "traverse_epsilons: unguarded"
     end
 
 let determinise_heads ~dict sid hds =
@@ -103,7 +113,7 @@ let determinise_heads ~dict sid hds =
 
 let determinise : 'a. dict:dict -> 'a state -> 'a head =
   fun ~dict st ->
-    let sid, hds = traverse_epsilons_ st in
+    let sid, hds = epsilon_closure st in
     let hd = determinise_heads ~dict sid hds in
     st := Determinised (sid, hd);
     hd
@@ -123,9 +133,8 @@ let make_determinised_state : 'a. 'a mergefun -> 'a detfun -> 'a -> 'a state =
     in
     ref (Determinised (state_id, det))
 
-let concat_state : 'l 'r 'lr. 'l state -> 'r state -> ('lr,'l,'r) disj -> 'lr state = fun sl sr disj ->
-  ref (Concat(gen_state_id (), sl,sr,disj))
-
+let internal_choice : 'l 'r 'lr. 'l state -> 'r state -> ('lr,'l,'r) disj -> 'lr state = fun sl sr disj ->
+  ref (InternalChoice(gen_state_id (), sl,sr,disj))
 
 let merge_state : 'a. 'a state -> 'a state -> 'a state = fun sl sr ->
   ref (Epsilon [sl; sr])
@@ -189,38 +198,9 @@ type 's out =
   unit name * 's state
 
 let make_wrapped = fun var n st ->
-  WrappedNondet([WrappedHeadLazy(var,n,lazy (traverse_epsilons_ st))])
-  
-let is_constr_same : ('var,'a) constr -> ('var,'b) constr -> 'b -> 'a option =
-  fun var1 var2 b ->
-    var1.match_var (var2.make_var b)
-
-let merge_wrapped_head_nondet =
-  let do_merge newid (var1,n1,id1,hs1) (var2,n2,id2,hs2) =
-    begin match List.filter_map (is_constr_same var1 var2) (List.map (fun x -> x.head) hs2) with
-    | (_::_) as vs2 -> 
-      (* two constructors are same! *)          
-      (* unify channel names *)
-      unify_name n1 n2;
-      let hs = 
-        if key_eq id1 id2 then begin
-          hs1
-        end else
-          let h1 = List.hd hs1 in
-          let hs2 = List.map (fun v -> {h1 with head=v}) vs2 in
-          hs1@hs2
-        in
-      Some(WrappedHeadLazy(var1, n1, Lazy.from_val (newid, hs)))
-    | [] ->
-      None
-    end
-  in
-  fun (WrappedHeadLazy(var1,n1,lazy (id1,hs1))) (WrappedHeadLazy(var2,n2,lazy (id2,hs2))) ->
-    match union_keys_generalised id1 id2 with
-    | Left newid -> do_merge newid (var1,n1,id1,hs1) (var2,n2,id2,hs2)
-    | Right newid -> do_merge newid (var2,n2,id2,hs2) (var1,n1,id1,hs1)
+  WrappedNondet([WrappedHeadLazy(var,n,lazy (epsilon_closure st))])
  
-let rec op_all = fun op ws ->
+let rec classify = fun op ws ->
   match ws with
   | w1::ws -> 
     let w, ws = List.fold_left (fun (w1,ws) w2 -> 
@@ -234,12 +214,12 @@ let rec op_all = fun op ws ->
           (w12, ws)
       ) (w1, []) ws
     in
-    let ws = op_all op ws in
+    let ws = classify op ws in
     w::ws
   | [] ->
     []
 
-let make_wrapped_head : 'a wrapped_nondet -> 'a wrapped_head_lazy list = fun ws -> 
+let wrapped_heads : 'a wrapped_nondet -> 'a wrapped_head_lazy list = fun ws -> 
   match ws with
     | WrappedDeterminised(ws) -> 
       List.map (fun (WrappedHead(var,n,id,h)) -> WrappedHeadLazy(var,n,Lazy.from_val (id,[h]))) ws
@@ -259,14 +239,42 @@ let determinise_wrapped ~dict r =
     | WrappedDeterminised(ws) ->
       ws
 
+let cast_if_constrs_are_same : ('var,'a) constr -> ('var,'b) constr -> 'b -> 'a option =
+  fun var1 var2 b ->
+    var1.match_var (var2.make_var b)
+
+let concat_heads_if_constrs_are_same : 'a. 'a wrapped_head_lazy -> 'a wrapped_head_lazy -> 'a wrapped_head_lazy option =
+  let do_classify newid (var1,n1,_id1,hs1) (var2,n2,_id2,hs2) =
+    let vs2 = List.map (fun x -> x.head) hs2 in
+    begin match List.filter_map (cast_if_constrs_are_same var1 var2) vs2 with
+    | (_::_) as vs2 -> 
+      (* two constructors are same! *)          
+      (* unify channel names *)
+      unify_name n1 n2;
+      (* wrap them into heads again *)
+      let {merge;determinise;_} = List.hd hs1 in
+      let hs2 = List.map (fun v -> {head=v; merge; determinise}) vs2 in
+      (* and concatenate for later merging *)
+      Some(WrappedHeadLazy(var1, n1, Lazy.from_val (newid, hs1@hs2)))
+    | [] ->
+      None
+    end
+  in
+  fun (WrappedHeadLazy(var1,n1,lazy (id1,hs1))) (WrappedHeadLazy(var2,n2,lazy (id2,hs2))) ->
+    match union_keys_generalised id1 id2 with
+    | Left newid -> do_classify newid (var1,n1,id1,hs1) (var2,n2,id2,hs2)
+    | Right newid -> do_classify newid (var2,n2,id2,hs2) (var1,n1,id1,hs1)
+
+let classify_wrapped_names ws = classify concat_heads_if_constrs_are_same ws
+
 let merge_inp dst_role sl sr =
   let wl : 'a inp = dst_role.call_obj sl
   and wr : 'a inp = dst_role.call_obj sr
   in
-  let wl' = make_wrapped_head !wl
-  and wr' = make_wrapped_head !wr
+  let wl' = wrapped_heads !wl
+  and wr' = wrapped_heads !wr
   in
-  dst_role.make_obj (ref (WrappedNondet(op_all merge_wrapped_head_nondet (wl' @ wr'))))
+  dst_role.make_obj (ref (WrappedNondet(classify_wrapped_names (wl' @ wr'))))
 
 let determinise_inp dst_role dict s =
   let r = dst_role.call_obj s in
@@ -360,18 +368,7 @@ let choice_at r disj (r', left) (r'', right) =
   and right = put r''.role_index right closed
   in
   let mid = seq_merge left right in
-  put r.role_index mid (concat_state sl sr disj)
-
-(* let comm_opt ri rj lab disj (rj',cont1) (rj'',cont2) =
-  let sjl = get rj'.role_index cont1
-  and sjr = get rj''.role_index cont2
-  and cont1 = put rj'.role_index cont1 closed
-  and cont2 = put rj''.role_index cont2 closed
-  in
-  let mid = seq_merge cont1 cont2 in
-  let mid' = put rj.role_index mid (concat_state sjl sjr disj) in
-  let si = get ri.role_index mid' in
-  put ri.role_index mid' si *)
+  put r.role_index mid (internal_choice sl sr disj)
 
 type (_,_) upd =
 | [] : ('aa, 'aa) upd

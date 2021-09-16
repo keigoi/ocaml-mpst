@@ -14,6 +14,9 @@ type key_ex = KeyEx : 'a key -> key_ex
 
 type 'a keyset = 'a key * key_ex list
 
+let string_of_keyset : 'a. 'a keyset -> string = fun (_k,ks) ->
+   Printf.sprintf "%s" (String.concat "," @@ List.map (fun (KeyEx k) -> string_of_int @@ Obj.magic k) ks)
+
 let str_of_key (k:'a key) = string_of_int @@ Obj.magic k
 let str_of_keyset ((k,ks):'a keyset) = 
   let keyex (KeyEx(k)) = str_of_key k in
@@ -51,6 +54,9 @@ let union_sorted_lists (xs:'a list) (ys:'a list) =
     | [], ys -> List.rev aux @ ys
     | xs, [] -> List.rev aux @ xs
   in loop [] xs ys
+
+let key_eq : 'a 'b. 'a keyset -> 'b keyset -> bool =
+  fun (k1,ks1) (k2,ks2) -> KeyEx k1::ks1 = KeyEx k2::ks2
 
 let union_keys ((k1,ws1):'a keyset) ((k2,ws2):'a keyset) : 'a keyset =
   ((if k1 < k2 then k1 else k2), union_sorted_lists ws1 ws2)

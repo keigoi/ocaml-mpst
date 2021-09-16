@@ -22,7 +22,6 @@ let fail_unguarded msg = raise (UnguardedLoop msg)
 
 let merge_heads hds =
   let merge_head : 'a. 'a head -> 'a head -> 'a head = fun dl dr ->
-    print_endline "merge_head";
     let d' = dl.merge dl.head dr.head in
     {head = d';merge = dl.merge; determinise=dl.determinise}
   in  
@@ -30,7 +29,6 @@ let merge_heads hds =
 
 type 'a merged_or_backward_epsilon =
   ('a state_id * 'a head list, 'a state_id list) Either.t
-
 
 let rec traverse_epsilons : 'a. seen:'a state_id list -> 'a state -> 'a merged_or_backward_epsilon =
   let ret_merged x = Either.Left x and ret_backward_epsilon x = Either.Right x in
@@ -59,66 +57,57 @@ let rec traverse_epsilons : 'a. seen:'a state_id list -> 'a state -> 'a merged_o
         ret_merged (id, List.concat hds)
       end
     | Concat (tl, tr, disj) -> 
-      let _, tl = make_head ~dict:StateHash.empty tl
-      and _, tr = make_head ~dict:StateHash.empty tr
+      let _idl, hls = traverse_epsilons_ tl
+      and _idr, hrs = traverse_epsilons_ tr
       in 
-      let tlr = disj.disj_concat tl.head tr.head in
+      let hl = merge_heads hls (* XXX *)
+      and hr = merge_heads hrs 
+      in
+      let tlr = disj.disj_concat hl.head hr.head in
       let merge lr1 lr2 =
         (* merge splitted ones *)
-        let l = tl.merge (disj.disj_splitL lr1) (disj.disj_splitL lr2) in
-        let r = tr.merge (disj.disj_splitR lr1) (disj.disj_splitR lr2) in
+        let l = hl.merge (disj.disj_splitL lr1) (disj.disj_splitL lr2) in
+        let r = hr.merge (disj.disj_splitR lr1) (disj.disj_splitR lr2) in
         (* then concatenate it *)
         disj.disj_concat l r
       in
       let determinise ctx lr =
-        tl.determinise ctx (disj.disj_splitL lr);
-        tr.determinise ctx (disj.disj_splitR lr)
+        hl.determinise ctx (disj.disj_splitL lr);
+        hr.determinise ctx (disj.disj_splitR lr)
       in
       let det = {head=tlr; merge; determinise} in
       ret_merged (old_sid, [det])
   | Unbound -> 
     fail_unguarded "epsilon: unguarded loop: Unbound"
 
-and make_heads : 'a. 'a state -> 'a state_id * 'a head list =
+and traverse_epsilons_ : 'a. 'a state -> 'a state_id * 'a head list =
   fun st ->
     begin match traverse_epsilons ~seen:[] st with
     | Left (sid, hds) ->
-      print_endline @@ "make_heads:" ^ string_of_keyset sid;
       (sid, hds)
     | Right _ ->
       fail_unguarded "make_head: unguarded"
     end
-and make_head : 'a. dict:dict -> 'a state -> 'a state_id * 'a head = fun ~dict st ->
-  let old_sid = fst !st in
-  match lookup dict old_sid with
-  | Some v -> 
-    print_endline "make_head: found";
-    st := (old_sid, Determinised v);
-    old_sid, v
-  | None ->
-    print_endline "make_head: not found";
-    let sid, hds = make_heads st in
-    let head = merge_heads hds in
-    st := (sid, Determinised head);
-    sid, head
 
-
-let determinise_head ~dict hd =
-  hd.determinise dict hd.head
+let determinise_heads ~dict sid hds =
+  begin match lookup dict sid with
+  | Some hd -> hd
+  | None -> 
+    let hd = merge_heads hds in
+    hd.determinise (B(sid,hd)::dict) hd.head;
+    hd
+  end
 
 let determinise : 'a. dict:dict -> 'a state -> 'a head =
   fun ~dict st ->
-    print_endline "determinise";
-    let sid, hd = make_head ~dict st in
+    let sid, hds = traverse_epsilons_ st in
+    let hd = determinise_heads ~dict sid hds in
     st := (sid, Determinised hd);
-    determinise_head ~dict hd;
     hd
 
 let gen_state_id () =
   let w = StateHash.newkey () in
-  let ks = (w, [KeyEx w]) in
-  print_endline @@ string_of_keyset ks;
-  ks
+  (w, [KeyEx w])
 
 let make_unbound_state : 'a. unit -> 'a state = fun () ->
   ref (gen_state_id (), Unbound)
@@ -126,7 +115,6 @@ let make_unbound_state : 'a. unit -> 'a state = fun () ->
 let make_determinised_state : 'a. 'a mergefun -> 'a detfun -> 'a -> 'a state = 
   fun merge detfun body ->
     let state_id = gen_state_id () in
-    print_endline @@ "new state:" ^ string_of_keyset state_id;
     let det = 
       {head=body; merge; determinise=detfun} 
     in
@@ -142,7 +130,6 @@ let merge_state : 'a. 'a state -> 'a state -> 'a state = fun sl sr ->
     sl 
   else begin
     let ks = union_keys kl kr in
-    print_endline @@ "merge_state:" ^ string_of_keyset ks;
     ref (ks, Epsilon [sl; sr])
   end
   
@@ -204,15 +191,15 @@ type 'var inp = 'var wrapped_state
 type 's out = 
   unit name * 's state
 
+let make_wrapped = fun var n st ->
+  WrappedNondet([WrappedHeadLazy(var,n,lazy (traverse_epsilons_ st))])
+  
 let is_constr_same : ('var,'a) constr -> ('var,'b) constr -> 'b -> 'a option =
   fun var1 var2 b ->
     var1.match_var (var2.make_var b)
 
-
-
 let merge_wrapped_head_nondet =
   let do_merge newid (var1,n1,id1,hs1) (var2,n2,id2,hs2) =
-    print_endline @@ "do_merge:" ^ string_of_keyset newid;
     begin match List.filter_map (is_constr_same var1 var2) (List.map (fun x -> x.head) hs2) with
     | (_::_) as vs2 -> 
       (* two constructors are same! *)          
@@ -220,7 +207,6 @@ let merge_wrapped_head_nondet =
       unify_name n1 n2;
       let hs = 
         if key_eq id1 id2 then begin
-          print_endline "key equal";
           hs1
         end else
           let h1 = List.hd hs1 in
@@ -233,7 +219,6 @@ let merge_wrapped_head_nondet =
     end
   in
   fun (WrappedHeadLazy(var1,n1,lazy (id1,hs1))) (WrappedHeadLazy(var2,n2,lazy (id2,hs2))) ->
-    Printf.printf "merge_wrapped_head_nondet: %d\n" @@ List.length hs1 + List.length hs2;
     match union_keys_generalised id1 id2 with
     | Left newid -> do_merge newid (var1,n1,id1,hs1) (var2,n2,id2,hs2)
     | Right newid -> do_merge newid (var2,n2,id2,hs2) (var1,n1,id1,hs1)
@@ -264,31 +249,20 @@ let make_wrapped_head : 'a wrapped_nondet -> 'a wrapped_head_lazy list = fun ws 
     | WrappedNondet(ws) ->
       ws
 
-let merge_heads_opt dict id hds =
-  let hd =
-    match lookup dict id with
-    | Some h -> h
-    | None -> merge_heads hds
-  in
-  B(id,hd)::dict, hd
-
 let determinise_wrapped ~dict r =
     match !r with
     | WrappedNondet(ws) ->
-      let dict,ws = 
-        List.fold_left (fun (dict,ws) (WrappedHeadLazy(var,n,lazy (id,hds))) -> 
-          let dict, hd = merge_heads_opt dict id hds in
-          dict, WrappedHead(var,n,id,hd)::ws) (dict,[]) ws 
+      let ws = 
+        List.map (fun (WrappedHeadLazy(var,n,lazy (id,hds))) -> 
+          let hd = determinise_heads ~dict id hds in
+          WrappedHead(var,n,id,hd)) ws 
         in
         r := WrappedDeterminised ws;
-        List.iter (fun (WrappedHead(_,_,_,hd)) -> print_endline "wrapped: det'ing"; determinise_head ~dict hd) ws
-    | WrappedDeterminised(_) ->
-      ()
-  
-  
+        ws
+    | WrappedDeterminised(ws) ->
+      ws
 
 let merge_inp dst_role sl sr =
-  print_endline "merge_inp";
   let wl : 'a inp = dst_role.call_obj sl
   and wr : 'a inp = dst_role.call_obj sr
   in
@@ -298,9 +272,8 @@ let merge_inp dst_role sl sr =
   dst_role.make_obj (ref (WrappedNondet(op_all merge_wrapped_head_nondet (wl' @ wr'))))
 
 let determinise_inp dst_role dict s =
-  print_endline "determinise_inp!";
   let r = dst_role.call_obj s in
-  determinise_wrapped ~dict r
+  ignore @@ determinise_wrapped ~dict r
 
 let merge_out dst_role labobj sl sr =
   let (nl,sl') = labobj.call_obj @@ dst_role.call_obj sl
@@ -310,10 +283,9 @@ let merge_out dst_role labobj sl sr =
   let s = merge_state sl' sr' in
   dst_role.make_obj @@ labobj.make_obj (nl, s)
 
-(* let determinise_out dst_role labobj dict s =
+let determinise_out dst_role labobj dict s =
   let _, s = labobj.call_obj @@ dst_role.call_obj s in
-  ignore @@ determinise ~dict s *)
-let determinise_out _ _ _ _ = ()
+  ignore @@ determinise ~dict s
 
 let rec finalise_names n1 =
   match !n1 with
@@ -323,31 +295,28 @@ let rec finalise_names n1 =
     n1 := Name ch;
     ch
 
-let determinised_of_state_ = function
-  | {contents=(_,Determinised{head=x;_})} ->
-    x
-  | _ -> assert false
-  
 let branch (inp:'a inp) =
   let make_event (WrappedHead(var,n,_,hd))= 
     Event.wrap (Event.receive (finalise_names n)) (fun () -> var.make_var hd.head)
   in
   match inp with
   | {contents=WrappedDeterminised(ws)} ->
-    Printf.printf "branch:length:%d\n" @@ List.length ws;
     Event.sync @@ Event.choose (List.map make_event ws)
+  (* | w ->
+    let ws = determinise_wrapped ~dict:StateHash.empty w in
+    Event.sync @@ Event.choose (List.map make_event ws) *)
   | _ ->
     failwith "branch: not determinised -- possible bug in determinisation?"
 
-let make_wrapped = fun var n st ->
-  WrappedNondet([WrappedHeadLazy(var,n,lazy (make_heads st))])
-
-
 let select ((n,s):_ out) =
   Event.sync (Event.send (finalise_names n) ());
-  (* determinised_of_state_ s *)
-  let _, h = make_head ~dict:StateHash.empty s in
-  h.head
+  match s with
+  | {contents=(_,Determinised{head;_})} ->
+      head
+  (* | s ->
+    (determinise ~dict:StateHash.empty s).head *)
+  | _ ->
+  failwith "select: not determinised -- possible bug in determinisation?"
 
 let close () = ()
 
@@ -357,7 +326,6 @@ let (-->) ri rj lab cont =
   let tj' = 
     ri.role_label.make_obj @@ (ref @@ make_wrapped lab.var name tj : _ inp)
   in
-  print_string "receiver:";
   let tj' =
     make_determinised_state
       (merge_inp ri.role_label)
@@ -370,7 +338,6 @@ let (-->) ri rj lab cont =
     rj.role_label.make_obj @@
       lab.obj.make_obj ((name, ti): _ out)
   in
-  print_string "sender:";
   let ti' =
     make_determinised_state 
       (merge_out rj.role_label lab.obj)
@@ -445,7 +412,6 @@ let fix_with upd f =
 
 let rec extract : type u. u t -> u = function
   | SeqCons(st,tail) ->
-    print_endline "extract ====";
     let hd = (determinise ~dict:StateHash.empty st).head in
     let tl = extract tail in
     `cons(hd, tl)

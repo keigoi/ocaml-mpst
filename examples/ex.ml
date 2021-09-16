@@ -198,32 +198,32 @@ let is_constr_same : ('var,'a) constr -> ('var,'b) constr -> 'b -> 'a option =
   fun var1 var2 b ->
     var1.match_var (var2.make_var b)
 
-let merge_wrapped_head =
-  fun ~dict newid (var1,n1,h1) (var2,n2,h2) ->
-    begin match is_constr_same var1 var2 h2.head with
-    | Some t2' -> 
-      (* two constructors are same! *)
-      (* merge the continuations *)
-      let t = 
-        begin match lookup dict newid with
-        | Some t -> 
-          t.head
-        | None ->
-          h1.merge h1.head t2' 
-        end
-      in
-      (* unify channel names *)
-      unify_name n1 n2;
-      Some(WrappedHead(var1, n1, newid, {h1 with head=t}))
-    | None ->
-      None
-    end
 
-let merge_wrapped_head =
-  fun ~dict (WrappedHead(var1,n1,id1,h1)) (WrappedHead(var2,n2,id2,h2)) ->
+
+let merge_wrapped_head ~dict (WrappedHead(var1,n1,id1,h1)) (WrappedHead(var2,n2,id2,h2)) =
+    let do_merge  ~dict newid (var1,n1,h1) (var2,n2,h2) =
+        begin match is_constr_same var1 var2 h2.head with
+        | Some t2' -> 
+          (* two constructors are same! *)
+          (* merge the continuations *)
+          let t = 
+            begin match lookup dict newid with
+            | Some t -> 
+              t.head
+            | None ->
+              h1.merge h1.head t2' 
+            end
+          in
+          (* unify channel names *)
+          unify_name n1 n2;
+          Some(WrappedHead(var1, n1, newid, {h1 with head=t}))
+        | None ->
+          None
+        end
+    in
     match union_keys_generalised id1 id2 with
-    | Left newid -> merge_wrapped_head ~dict newid (var1,n1,h1) (var2,n2,h2)
-    | Right newid -> merge_wrapped_head ~dict newid (var2,n2,h2) (var1,n1,h1)
+    | Left newid -> do_merge ~dict newid (var1,n1,h1) (var2,n2,h2)
+    | Right newid -> do_merge ~dict newid (var2,n2,h2) (var1,n1,h1)
  
 let rec op_all = fun op ws ->
   match ws with
@@ -521,7 +521,7 @@ let () =
     with
       (UnguardedLoop str) as _e -> 
         print_endline (str ^ " (expected: " ^ msg ^ ")");
-    end;
+    end
   in
   let bottom () = fix_with [a;b;c] (fun t -> t) in
   let () =

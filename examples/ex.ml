@@ -3,7 +3,7 @@ open Must.Types
 open Must.StateHash
 
 type 'a mergefun = 'a -> 'a -> 'a
-type 'a detfun = dict -> 'a -> unit
+type 'a mergenextfun = dict -> 'a -> unit
 
 (* non-deterministic state *)
 type 'a state = 'a nondet ref
@@ -23,7 +23,7 @@ let fail_unguarded msg = raise (UnguardedLoop msg)
 let merge_heads hds =
   let merge_head : 'a. 'a head -> 'a head -> 'a head = fun dl dr ->
     let d' = dl.merge dl.head dr.head in
-    {head = d';merge = dl.merge; determinise=dl.determinise}
+    {head = d';merge = dl.merge; merge_next=dl.merge_next}
   in  
   List.fold_left merge_head (List.hd hds) (List.tl hds)
 
@@ -85,11 +85,11 @@ let rec epsilon_closure : 'a. 'a state -> 'a state_id * 'a head list =
           (* then type-concatenate it *)
           disj.disj_concat l r
         in
-        let determinise ctx lr =
-          hl.determinise ctx (disj.disj_splitL lr);
-          hr.determinise ctx (disj.disj_splitR lr)
+        let merge_next ctx lr =
+          hl.merge_next ctx (disj.disj_splitL lr);
+          hr.merge_next ctx (disj.disj_splitR lr)
         in
-        let det = {head=tlr; merge; determinise} in
+        let det = {head=tlr; merge; merge_next} in
         ret_merged (sid, [det])
     | Unbound -> 
       fail_unguarded "traverse_epsilons_: unguarded loop: Unbound"
@@ -107,7 +107,7 @@ let determinise_heads ~dict sid hds =
   | Some hd -> hd
   | None -> 
     let hd = merge_heads hds in
-    hd.determinise (B(sid,hd)::dict) hd.head;
+    hd.merge_next (B(sid,hd)::dict) hd.head;
     hd
   end
 
@@ -125,11 +125,11 @@ let gen_state_id () =
 let make_unbound_state : 'a. unit -> 'a state = fun () ->
   ref Unbound
 
-let make_determinised_state : 'a. 'a mergefun -> 'a detfun -> 'a -> 'a state = 
+let make_determinised_state : 'a. 'a mergefun -> 'a mergenextfun -> 'a -> 'a state = 
   fun merge detfun body ->
     let state_id = gen_state_id () in
     let det = 
-      {head=body; merge; determinise=detfun} 
+      {head=body; merge; merge_next=detfun} 
     in
     ref (Determinised (state_id, det))
 
@@ -252,8 +252,8 @@ let concat_heads_if_constrs_are_same : 'a. 'a wrapped_head_lazy -> 'a wrapped_he
       (* unify channel names *)
       unify_name n1 n2;
       (* wrap them into heads again *)
-      let {merge;determinise;_} = List.hd hs1 in
-      let hs2 = List.map (fun v -> {head=v; merge; determinise}) vs2 in
+      let {merge;merge_next;_} = List.hd hs1 in
+      let hs2 = List.map (fun v -> {head=v; merge; merge_next}) vs2 in
       (* and concatenate for later merging *)
       Some(WrappedHeadLazy(var1, n1, Lazy.from_val (newid, hs1@hs2)))
     | [] ->

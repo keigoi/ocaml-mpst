@@ -1,17 +1,16 @@
-open Types
 open StateHash
 
 type 'a mergefun = 'a -> 'a -> 'a
 type 'a mergenextfun = dict -> 'a -> unit
 
 (* non-deterministic state *)
-type 'a state = 'a nondet ref
+type 'a t = 'a nondet ref
 and 'a nondet =
   | Determinised of 'a state_id * 'a head
     (** Deterministic transition  *)
-  | Epsilon of 'a state list
+  | Epsilon of 'a t list
     (** Epsilon transition (session merging) *)
-  | InternalChoice : 'lr state_id * 'l state * 'r state * ('lr, 'l, 'r) disj -> 'lr nondet
+  | InternalChoice : 'lr state_id * 'l t * 'r t * ('lr, 'l, 'r) Types.disj -> 'lr nondet
     (** Internal choice *)
   | Unbound
 
@@ -27,18 +26,18 @@ let merge_heads hds =
   List.fold_left merge_head (List.hd hds) (List.tl hds)
 
 type 'a merged_or_backward_epsilon =
-  ('a state_id * 'a head list, 'a state list) Either.t
+  ('a state_id * 'a head list, 'a t list) Either.t
 
 let rec mem_phys k = function
   | x::xs -> k==x || mem_phys k xs
   | [] -> false
 
-let rec epsilon_closure : 'a. 'a state -> 'a state_id * 'a head list =
+let rec epsilon_closure : 'a. 'a t -> 'a state_id * 'a head list =
   let ret_merged x = Either.Left x 
   and ret_backward_epsilon x = Either.Right x 
   in
   let rec loop 
-    : 'a. visited:'a state list -> 'a state -> 'a merged_or_backward_epsilon =
+    : 'a. visited:'a t list -> 'a t -> 'a merged_or_backward_epsilon =
     fun ~visited st ->
     if mem_phys st visited then
       ret_backward_epsilon [st]
@@ -110,7 +109,7 @@ let determinise_heads ~dict sid hds =
     hd
   end
 
-let determinise : 'a. dict:dict -> 'a state -> 'a =
+let determinise : 'a. dict:dict -> 'a t -> 'a =
   fun ~dict st ->
     let sid, hds = epsilon_closure st in
     let hd = determinise_heads ~dict sid hds in
@@ -130,7 +129,7 @@ let determinised_ st =
 let gen_state_id () =
   StateHash.gen_state_id ()
 
-let make_unbound_state : 'a. unit -> 'a state = fun () ->
+let make_unbound_state : 'a. unit -> 'a t = fun () ->
   ref Unbound
 
 let bind_state ~from ~to_ =
@@ -140,7 +139,7 @@ let bind_state ~from ~to_ =
   | _ -> 
     failwith "bind_state: state already bound -- possible bug in determinisation?"
 
-let make_state : 'a. 'a mergefun -> 'a mergenextfun -> 'a -> 'a state = 
+let make_state : 'a. 'a mergefun -> 'a mergenextfun -> 'a -> 'a t = 
   fun merge detfun body ->
     let state_id = gen_state_id () in
     let det = 
@@ -148,8 +147,8 @@ let make_state : 'a. 'a mergefun -> 'a mergenextfun -> 'a -> 'a state =
     in
     ref (Determinised (state_id, det))
 
-let make_internal_choice : 'l 'r 'lr. 'l state -> 'r state -> ('lr,'l,'r) disj -> 'lr state = fun sl sr disj ->
+let make_internal_choice : 'l 'r 'lr. 'l t -> 'r t -> ('lr,'l,'r) Types.disj -> 'lr t = fun sl sr disj ->
   ref (InternalChoice(gen_state_id (), sl,sr,disj))
 
-let merge_state : 'a. 'a state -> 'a state -> 'a state = fun sl sr ->
+let merge_state : 'a. 'a t -> 'a t -> 'a t = fun sl sr ->
   ref (Epsilon [sl; sr])

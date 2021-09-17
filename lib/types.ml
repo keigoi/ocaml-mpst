@@ -159,5 +159,8 @@ disj_splitR: 'lr -> 'r;
     The above has type [(<left:'t1; right:'t2>, <left:'t1>, <right:'t2>) disj].
 *)
 
-
+let cast_if_constrs_are_same : ('var,'a) constr -> ('var,'b) constr -> 'b -> 'a option =
+    fun var1 var2 b ->
+      var1.match_var (var2.make_var b)
+  
 (**/**)

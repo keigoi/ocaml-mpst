@@ -1,7 +1,11 @@
+
 type 'a name_ =
 | Name of 'a Event.channel
 | Link of 'a name
 and 'a name = 'a name_ ref
+
+let make () =
+  ref @@ Name (Event.new_channel ())
 
 let rec unify_name (n1:'a name) (n2:'a name) =
   if n1==n2 then 

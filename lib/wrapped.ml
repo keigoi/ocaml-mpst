@@ -1,13 +1,10 @@
 open StateHash
-open Names
-open Types
-open States
 
 type 'var wrapped_head = 
-  | WrappedHead : ('var,'s) constr * unit name * 's state_id * 's head -> 'var wrapped_head
+  | WrappedHead : ('var,'s) Types.constr * unit Name.name * 's state_id * 's head -> 'var wrapped_head
 
 type 'var wrapped_head_lazy = 
-  | WrappedHeadLazy : ('var,'s) constr * unit name * ('s state_id * 's head list) lazy_t -> 'var wrapped_head_lazy
+  | WrappedHeadLazy : ('var,'s) Types.constr * unit Name.name * ('s state_id * 's head list) lazy_t -> 'var wrapped_head_lazy
   
 type 'var wrapped_nondet = 
   | WrappedDeterminised : 'var wrapped_head list -> 'var wrapped_nondet
@@ -16,7 +13,7 @@ type 'var wrapped_nondet =
 and 'var wrapped_state = 'var wrapped_nondet ref
 
 let make_wrapped = fun var n st ->
-  ref @@ WrappedNondet([WrappedHeadLazy(var,n,lazy (epsilon_closure st))])
+  ref @@ WrappedNondet([WrappedHeadLazy(var,n,lazy (State.epsilon_closure st))])
  
 let rec classify = fun op ws ->
   match ws with
@@ -37,18 +34,14 @@ let rec classify = fun op ws ->
   | [] ->
     []
 
-let cast_if_constrs_are_same : ('var,'a) constr -> ('var,'b) constr -> 'b -> 'a option =
-  fun var1 var2 b ->
-    var1.match_var (var2.make_var b)
-
 let concat_heads_if_constrs_are_same : 'a. 'a wrapped_head_lazy -> 'a wrapped_head_lazy -> 'a wrapped_head_lazy option =
   let do_classify newid (var1,n1,_id1,hs1) (var2,n2,_id2,hs2) =
     let vs2 = List.map (fun x -> x.head) hs2 in
-    begin match List.filter_map (cast_if_constrs_are_same var1 var2) vs2 with
+    begin match List.filter_map (Types.cast_if_constrs_are_same var1 var2) vs2 with
     | (_::_) as vs2 -> 
       (* two constructors are same! *)          
       (* unify channel names *)
-      unify_name n1 n2;
+      Name.unify_name n1 n2;
       (* wrap them into heads again *)
       let {merge;merge_next;_} = List.hd hs1 in
       let hs2 = List.map (fun v -> {head=v; merge; merge_next}) vs2 in
@@ -83,7 +76,7 @@ let determinise_wrapped ~dict r =
   | WrappedNondet(ws) ->
     let ws = 
       List.map (fun (WrappedHeadLazy(var,n,lazy (id,hds))) -> 
-        let hd = determinise_heads ~dict id hds in
+        let hd = State.determinise_heads ~dict id hds in
         WrappedHead(var,n,id,hd)) ws 
       in
       r := WrappedDeterminised ws
@@ -94,7 +87,7 @@ let make_event_from_determinised_ ws =
   match ws with
   | {contents=WrappedDeterminised(ws)} ->
     let make_event (WrappedHead(var,n,_,hd)) =
-      Event.wrap (Event.receive (Names.finalise_names n)) (fun () -> var.make_var hd.head)
+      Event.wrap (Event.receive (Name.finalise_names n)) (fun () -> var.make_var hd.head)
     in
     Event.choose (List.map make_event ws)
   (* | w ->

@@ -1,33 +1,33 @@
 type 'a mergefun = 'a -> 'a -> 'a
 type 'a mergenextfun = StateHash.dict -> 'a -> unit
 
-type 'a state
+type 'a t
 
 exception UnguardedLoop of string
 
 val make_state :
-  'a mergefun -> 'a mergenextfun -> 'a -> 'a state
+  'a mergefun -> 'a mergenextfun -> 'a -> 'a t
 
 val make_internal_choice :
-  'l state ->
-  'r state ->
+  'l t ->
+  'r t ->
   ('lr, 'l, 'r) Types.disj ->
-  'lr state
+  'lr t
 
-val merge_state : 'a state -> 'a state -> 'a state
+val merge_state : 'a t -> 'a t -> 'a t
 
-val make_unbound_state : unit -> 'a state
+val make_unbound_state : unit -> 'a t
 
-val bind_state : from:'a state -> to_:'a state -> unit
+val bind_state : from:'a t -> to_:'a t -> unit
 
 val determinise :
-  dict:StateHash.dict -> 'a state -> 'a
+  dict:StateHash.dict -> 'a t -> 'a
 
 val determinised_ :
-  'a state -> 'a
+  'a t -> 'a
 
 (** for internal use in wrapped.ml *)
-val epsilon_closure : 'a state -> 'a StateHash.state_id * 'a StateHash.head list
+val epsilon_closure : 'a t -> 'a StateHash.state_id * 'a StateHash.head list
 
 (** for internal use in wrapped.ml *)
 val determinise_heads : dict:StateHash.dict -> 'a StateHash.state_id -> 'a StateHash.head list -> 'a StateHash.head

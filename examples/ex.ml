@@ -1,6 +1,7 @@
 open Must
 open Must.Types
 open States
+open Wrapped
 open Names
 open Seq
 

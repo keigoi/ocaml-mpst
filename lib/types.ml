@@ -161,5 +161,3 @@ disj_splitR: 'lr -> 'r;
 
 
 (**/**)
-
-type 'a one = One of 'a

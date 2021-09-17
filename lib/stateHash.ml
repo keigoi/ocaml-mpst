@@ -14,9 +14,6 @@ type key_ex = KeyEx : 'a key -> key_ex
 
 type 'a keyset = 'a key * key_ex list
 
-let string_of_keyset : 'a. 'a keyset -> string = fun (_k,ks) ->
-   Printf.sprintf "%s" (String.concat "," @@ List.map (fun (KeyEx k) -> string_of_int @@ Obj.magic k) ks)
-
 let newkey () (type s) =
   let module M = struct
     type t = s
@@ -24,6 +21,10 @@ let newkey () (type s) =
   end
   in
   (module M : W with type t = s)
+
+let gen_state_id () =
+  let w = newkey () in
+  (w, [KeyEx w])
 
 type ('a, 'b) eq = Eq : ('a, 'a) eq
 
@@ -50,7 +51,13 @@ let union_sorted_lists (xs:'a list) (ys:'a list) =
     | xs, [] -> List.rev aux @ xs
   in loop [] xs ys
 
-let key_eq : 'a 'b. 'a keyset -> 'b keyset -> bool =
+let key_eq : type a b. a keyset -> b keyset -> (a,b) eq option =
+  fun (k1,ks1) (k2,ks2) ->
+    match eq k1 k2 with
+    | Some Eq when ks1 = ks2 -> Some Eq
+    | _ -> None
+  
+let key_eq_poly : 'a 'b. 'a keyset -> 'b keyset -> bool =
   fun (k1,ks1) (k2,ks2) -> KeyEx k1::ks1 = KeyEx k2::ks2
 
 let union_keys ((k1,ws1):'a keyset) ((k2,ws2):'a keyset) : 'a keyset =
@@ -65,7 +72,6 @@ let union_keys_generalised ((k1,ws1):'a keyset) ((k2,ws2):'b keyset) : ('a keyse
     
   
 type 'a state_id = 'a keyset
-type visited = V : 'a state_id -> visited
 
 type 'a head = {
   head: 'a; 
@@ -76,9 +82,7 @@ type 'a head = {
 and binding = B : 'a keyset * 'a head -> binding
 and dict = binding list
 
-let mkbind  k v = [B(k,v)]
-
-let union x y = x @ y
+let add_binding k v dict = B(k,v)::dict
 
 let empty = []
 

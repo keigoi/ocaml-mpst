@@ -106,7 +106,7 @@ let determinise_heads ~dict sid hds =
   | Some hd -> hd
   | None -> 
     let hd = merge_heads hds in
-    hd.merge_next (B(sid,hd)::dict) hd.head;
+    hd.merge_next (add_binding sid hd dict) hd.head;
     hd
   end
 
@@ -128,8 +128,7 @@ let determinised_ st =
 
 
 let gen_state_id () =
-  let w = StateHash.newkey () in
-  (w, [KeyEx w])
+  StateHash.gen_state_id ()
 
 let make_unbound_state : 'a. unit -> 'a state = fun () ->
   ref Unbound

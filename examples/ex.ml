@@ -1,6 +1,6 @@
 open Must.Types
-open Must.Channel_vectors
-open Must.Global_combinators
+open Must.Chvecs
+open Must.GlobalCombinators
 
 module Util = struct
   let a = {role_label={make_obj=(fun v->object method role_A=v end);

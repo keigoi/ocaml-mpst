@@ -10,7 +10,7 @@ type 'var wrapped_nondet =
   | WrappedDeterminised : 'var wrapped_head list -> 'var wrapped_nondet
   | WrappedNondet : 'var wrapped_head_lazy list -> 'var wrapped_nondet
 
-and 'var t = 'var wrapped_nondet ref
+and 'var wrapped_state = 'var wrapped_nondet ref
 
 let make = fun var n st ->
   ref @@ WrappedNondet([WrappedHeadLazy(var,n,lazy (State.epsilon_closure st))])
@@ -95,3 +95,6 @@ let make_event_from_determinised_ ws =
     Event.sync @@ Event.choose (List.map make_event ws) *)
   | _ ->
     failwith "determinise_wrapped: not determinised -- possible bug in determinisation?"
+
+
+type 'a t = 'a wrapped_state

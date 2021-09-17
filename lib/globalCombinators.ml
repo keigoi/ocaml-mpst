@@ -1,5 +1,5 @@
 open Types
-open Channel_vectors
+open Chvecs
 
 exception UnguardedLoop = State.UnguardedLoop
 
@@ -7,7 +7,7 @@ let (-->) ri rj lab cont =
 let name = Name.make () in
 let tj = Seq.get rj.role_index cont in
 let tj' =
-  ri.role_label.make_obj @@ (Wrapped.make lab.var name tj : _ inp)
+  ri.role_label.make_obj @@ (WrappedState.make lab.var name tj : _ inp)
 in
 let tj' =
   State.make

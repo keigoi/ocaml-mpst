@@ -1,16 +1,19 @@
-open StateHash
+
+type 'a head = 'a StateHash.head
+type 'a state_id   = 'a StateHash.state_id
+type dict    = StateHash.dict
 
 type 'a mergefun = 'a -> 'a -> 'a
 type 'a mergenextfun = dict -> 'a -> unit
 
 (* non-deterministic state *)
-type 'a t = 'a nondet ref
+type 'a state = 'a nondet ref
 and 'a nondet =
   | Determinised of 'a state_id * 'a head
     (** Deterministic transition  *)
-  | Epsilon of 'a t list
+  | Epsilon of 'a state list
     (** Epsilon transition (session merging) *)
-  | InternalChoice : 'lr state_id * 'l t * 'r t * ('lr, 'l, 'r) Types.disj -> 'lr nondet
+  | InternalChoice : 'lr state_id * 'l state * 'r state * ('lr, 'l, 'r) Types.disj -> 'lr nondet
     (** Internal choice *)
   | Unbound
 
@@ -26,18 +29,18 @@ let merge_heads hds =
   List.fold_left merge_head (List.hd hds) (List.tl hds)
 
 type 'a merged_or_backward_epsilon =
-  ('a state_id * 'a head list, 'a t list) Either.t
+  ('a state_id * 'a head list, 'a state list) Either.t
 
 let rec mem_phys k = function
   | x::xs -> k==x || mem_phys k xs
   | [] -> false
 
-let rec epsilon_closure : 'a. 'a t -> 'a state_id * 'a head list =
+let rec epsilon_closure : 'a. 'a state -> 'a state_id * 'a head list =
   let ret_merged x = Either.Left x 
   and ret_backward_epsilon x = Either.Right x 
   in
   let rec loop 
-    : 'a. visited:'a t list -> 'a t -> 'a merged_or_backward_epsilon =
+    : 'a. visited:'a state list -> 'a state -> 'a merged_or_backward_epsilon =
     fun ~visited st ->
     if mem_phys st visited then
       ret_backward_epsilon [st]
@@ -53,7 +56,7 @@ let rec epsilon_closure : 'a. 'a t -> 'a state_id * 'a head list =
         if List.length hds > 0 then
           (* concrete transitons found - return the merged state ==== *)
           let ids, hds = List.split hds in
-          let id = List.fold_left union_keys (List.hd ids) (List.tl ids) in
+          let id = List.fold_left StateHash.union_keys (List.hd ids) (List.tl ids) in
           ret_merged (id, List.concat hds)
         else
           (* all transitions are epsilon - verify guardedness ==== *)
@@ -87,7 +90,7 @@ let rec epsilon_closure : 'a. 'a t -> 'a state_id * 'a head list =
           hl.merge_next ctx (disj.disj_splitL lr);
           hr.merge_next ctx (disj.disj_splitR lr)
         in
-        let det = {head=tlr; merge; merge_next} in
+        let det = {StateHash.head=tlr; merge; merge_next} in
         ret_merged (sid, [det])
     | Unbound -> 
       fail_unguarded "epsilon_closure: unguarded loop: Unbound"
@@ -101,15 +104,15 @@ let rec epsilon_closure : 'a. 'a t -> 'a state_id * 'a head list =
     end
 
 let determinise_heads ~dict sid hds =
-  begin match lookup dict sid with
+  begin match StateHash.lookup dict sid with
   | Some hd -> hd
   | None -> 
     let hd = merge_heads hds in
-    hd.merge_next (add_binding sid hd dict) hd.head;
+    hd.merge_next (StateHash.add_binding sid hd dict) hd.head;
     hd
   end
 
-let determinise : 'a. dict:dict -> 'a t -> 'a =
+let determinise : 'a. dict:dict -> 'a state -> 'a =
   fun ~dict st ->
     let sid, hds = epsilon_closure st in
     let hd = determinise_heads ~dict sid hds in
@@ -129,7 +132,7 @@ let determinised_ st =
 let gen_state_id () =
   StateHash.gen_state_id ()
 
-let make_unbound : 'a. unit -> 'a t = fun () ->
+let make_unbound : 'a. unit -> 'a state = fun () ->
   ref Unbound
 
 let bind_state ~from ~to_ =
@@ -139,16 +142,19 @@ let bind_state ~from ~to_ =
   | _ -> 
     failwith "bind_state: state already bound -- possible bug in determinisation?"
 
-let make : 'a. 'a mergefun -> 'a mergenextfun -> 'a -> 'a t = 
+let make : 'a. 'a mergefun -> 'a mergenextfun -> 'a -> 'a state = 
   fun merge detfun body ->
     let state_id = gen_state_id () in
     let det = 
-      {head=body; merge; merge_next=detfun} 
+      {StateHash.head=body; merge; merge_next=detfun} 
     in
     ref (Determinised (state_id, det))
 
-let make_internal_choice : 'l 'r 'lr. 'l t -> 'r t -> ('lr,'l,'r) Types.disj -> 'lr t = fun sl sr disj ->
+let make_internal_choice : 'l 'r 'lr. 'l state -> 'r state -> ('lr,'l,'r) Types.disj -> 'lr state = fun sl sr disj ->
   ref (InternalChoice(gen_state_id (), sl,sr,disj))
 
-let merge : 'a. 'a t -> 'a t -> 'a t = fun sl sr ->
+let merge : 'a. 'a state -> 'a state -> 'a state = fun sl sr ->
   ref (Epsilon [sl; sr])
+
+type 'a t = 'a state
+type 'a id = 'a state_id

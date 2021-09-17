@@ -1,5 +1,5 @@
 
-let closed = State.make_state (fun _ _ -> ()) (fun _ _ -> ()) ()
+let closed = State.make (fun _ _ -> ()) (fun _ _ -> ()) ()
 
 type _ t =
   | SeqCons : 'hd State.t * 'tl t -> [ `cons of 'hd * 'tl ] t
@@ -37,7 +37,7 @@ let rec put : type a b xs ys. (a,b,xs,ys) Types.idx -> xs t -> b State.t -> ys t
 let rec seq_merge : type x. x t -> x t -> x t = fun l r ->
   match l,r with
   | SeqCons(_,_), _ ->
-    let hd = State.merge_state (seq_head l) (seq_head r) in
+    let hd = State.merge (seq_head l) (seq_head r) in
     let tl = seq_merge (seq_tail l) (seq_tail r) in
     SeqCons(hd, tl)
   | _, SeqCons(_,_) -> seq_merge r l

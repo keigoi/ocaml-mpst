@@ -129,7 +129,7 @@ let determinised_ st =
 let gen_state_id () =
   StateHash.gen_state_id ()
 
-let make_unbound_state : 'a. unit -> 'a t = fun () ->
+let make_unbound : 'a. unit -> 'a t = fun () ->
   ref Unbound
 
 let bind_state ~from ~to_ =
@@ -139,7 +139,7 @@ let bind_state ~from ~to_ =
   | _ -> 
     failwith "bind_state: state already bound -- possible bug in determinisation?"
 
-let make_state : 'a. 'a mergefun -> 'a mergenextfun -> 'a -> 'a t = 
+let make : 'a. 'a mergefun -> 'a mergenextfun -> 'a -> 'a t = 
   fun merge detfun body ->
     let state_id = gen_state_id () in
     let det = 
@@ -150,5 +150,5 @@ let make_state : 'a. 'a mergefun -> 'a mergenextfun -> 'a -> 'a t =
 let make_internal_choice : 'l 'r 'lr. 'l t -> 'r t -> ('lr,'l,'r) Types.disj -> 'lr t = fun sl sr disj ->
   ref (InternalChoice(gen_state_id (), sl,sr,disj))
 
-let merge_state : 'a. 'a t -> 'a t -> 'a t = fun sl sr ->
+let merge : 'a. 'a t -> 'a t -> 'a t = fun sl sr ->
   ref (Epsilon [sl; sr])

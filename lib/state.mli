@@ -5,7 +5,7 @@ type 'a t
 
 exception UnguardedLoop of string
 
-val make_state :
+val make :
   'a mergefun -> 'a mergenextfun -> 'a -> 'a t
 
 val make_internal_choice :
@@ -14,9 +14,9 @@ val make_internal_choice :
   ('lr, 'l, 'r) Types.disj ->
   'lr t
 
-val merge_state : 'a t -> 'a t -> 'a t
+val merge : 'a t -> 'a t -> 'a t
 
-val make_unbound_state : unit -> 'a t
+val make_unbound : unit -> 'a t
 
 val bind_state : from:'a t -> to_:'a t -> unit
 

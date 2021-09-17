@@ -1,7 +1,7 @@
 open Types
 
 type 'var inp = 'var Wrapped.wrapped_state
-type 's out = unit Name.name * 's State.t
+type 's out = unit Name.t * 's State.t
 
 let merge_inp dst_role sl sr =
   let wl : 'a inp = dst_role.call_obj sl
@@ -17,8 +17,8 @@ let merge_out dst_role labobj sl sr =
   let (nl,sl') = labobj.call_obj @@ dst_role.call_obj sl
   and (nr,sr') = labobj.call_obj @@ dst_role.call_obj sr 
   in
-  Name.unify_name nl nr;
-  let s = State.merge_state sl' sr' in
+  Name.unify nl nr;
+  let s = State.merge sl' sr' in
   dst_role.make_obj @@ labobj.make_obj (nl, s)
 
 let merge_out_next dst_role labobj dict s =
@@ -29,7 +29,7 @@ let branch (inp:'a inp) =
   Event.sync @@ Wrapped.make_event_from_determinised_ inp
   
 let select ((n,s):_ out) =
-  Event.sync (Event.send (Name.finalise_names n) ());
+  Event.sync (Event.send (Name.finalise n) ());
   State.determinised_ s
 
 let close () = ()

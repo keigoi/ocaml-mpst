@@ -10,7 +10,7 @@ let tj' =
   ri.role_label.make_obj @@ (Wrapped.make_wrapped lab.var name tj : _ inp)
 in
 let tj' =
-  State.make_state
+  State.make
     (merge_inp ri.role_label)
     (merge_inp_next ri.role_label)
     tj'
@@ -22,7 +22,7 @@ let ti' =
     lab.obj.make_obj ((name, ti): _ out)
 in
 let ti' =
-  State.make_state 
+  State.make
     (merge_out rj.role_label lab.obj)
     (merge_out_next rj.role_label lab.obj)
     ti'
@@ -54,7 +54,7 @@ match upd with
 | [] -> 
   seq
 | role::upd -> 
-  put_unbound (Seq.put role.role_index seq (State.make_unbound_state ())) upd
+  put_unbound (Seq.put role.role_index seq (State.make_unbound ())) upd
 
 let finish = Seq.SeqNil
 

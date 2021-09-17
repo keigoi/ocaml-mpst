@@ -1,10 +1,10 @@
 open StateHash
 
 type 'var wrapped_head = 
-  | WrappedHead : ('var,'s) Types.constr * unit Name.name * 's state_id * 's head -> 'var wrapped_head
+  | WrappedHead : ('var,'s) Types.constr * unit Name.t * 's state_id * 's head -> 'var wrapped_head
 
 type 'var wrapped_head_lazy = 
-  | WrappedHeadLazy : ('var,'s) Types.constr * unit Name.name * ('s state_id * 's head list) lazy_t -> 'var wrapped_head_lazy
+  | WrappedHeadLazy : ('var,'s) Types.constr * unit Name.t * ('s state_id * 's head list) lazy_t -> 'var wrapped_head_lazy
   
 type 'var wrapped_nondet = 
   | WrappedDeterminised : 'var wrapped_head list -> 'var wrapped_nondet
@@ -41,7 +41,7 @@ let concat_heads_if_constrs_are_same : 'a. 'a wrapped_head_lazy -> 'a wrapped_he
     | (_::_) as vs2 -> 
       (* two constructors are same! *)          
       (* unify channel names *)
-      Name.unify_name n1 n2;
+      Name.unify n1 n2;
       (* wrap them into heads again *)
       let {merge;merge_next;_} = List.hd hs1 in
       let hs2 = List.map (fun v -> {head=v; merge; merge_next}) vs2 in
@@ -87,7 +87,7 @@ let make_event_from_determinised_ ws =
   match ws with
   | {contents=WrappedDeterminised(ws)} ->
     let make_event (WrappedHead(var,n,_,hd)) =
-      Event.wrap (Event.receive (Name.finalise_names n)) (fun () -> var.make_var hd.head)
+      Event.wrap (Event.receive (Name.finalise n)) (fun () -> var.make_var hd.head)
     in
     Event.choose (List.map make_event ws)
   (* | w ->

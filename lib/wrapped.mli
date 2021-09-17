@@ -1,7 +1,7 @@
 type 'var wrapped_state
 
 val make_wrapped :
-  ('a, 'b) Types.constr -> unit Name.name -> 'b State.t -> 'a wrapped_state
+  ('a, 'b) Types.constr -> unit Name.t -> 'b State.t -> 'a wrapped_state
 
 val merge_wrapped_states :
   'a wrapped_state -> 'a wrapped_state -> 'a wrapped_state

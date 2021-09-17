@@ -1,5 +1,5 @@
-type 'a name
+type 'a t
 
-val make : unit -> 'a name
-val unify_name : 'a name -> 'a name -> unit
-val finalise_names : 'a name -> 'a Event.channel
+val make : unit -> 'a t
+val unify : 'a t -> 'a t -> unit
+val finalise : 'a t -> 'a Event.channel

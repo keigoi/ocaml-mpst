@@ -1,5 +1,4 @@
 open Must.Types
-open Must.Chvecs
 open Must.GlobalCombinators
 
 module Util = struct

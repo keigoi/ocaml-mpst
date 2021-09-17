@@ -26,6 +26,8 @@ val determinise :
 val determinised_ :
   'a state -> 'a
 
-val determinise_heads : dict:StateHash.dict -> 'a StateHash.state_id -> 'a StateHash.head list -> 'a StateHash.head
-
+(** for internal use in wrapped.ml *)
 val epsilon_closure : 'a state -> 'a StateHash.state_id * 'a StateHash.head list
+
+(** for internal use in wrapped.ml *)
+val determinise_heads : dict:StateHash.dict -> 'a StateHash.state_id -> 'a StateHash.head list -> 'a StateHash.head

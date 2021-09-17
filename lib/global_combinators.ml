@@ -7,7 +7,7 @@ let (-->) ri rj lab cont =
 let name = Name.make () in
 let tj = Seq.get rj.role_index cont in
 let tj' =
-  ri.role_label.make_obj @@ (Wrapped.make_wrapped lab.var name tj : _ inp)
+  ri.role_label.make_obj @@ (Wrapped.make lab.var name tj : _ inp)
 in
 let tj' =
   State.make
@@ -36,7 +36,7 @@ and sr = Seq.get r''.role_index right
 and left = Seq.put r'.role_index left Seq.closed
 and right = Seq.put r''.role_index right Seq.closed
 in
-let mid = Seq.seq_merge left right in
+let mid = Seq.merge left right in
 Seq.put r.role_index mid (State.make_internal_choice sl sr disj)
 
 type (_,_) upd =
@@ -62,8 +62,8 @@ let rec tying_unbound : type u. u Seq.t -> u Seq.t -> unit = fun self g ->
 match self with
 | SeqNil -> ()
 | SeqCons(st,self) -> 
-  State.bind_state ~to_:st ~from:(Seq.seq_head g);
-  tying_unbound self (Seq.seq_tail g)
+  State.bind_state ~to_:st ~from:(Seq.head g);
+  tying_unbound self (Seq.tail g)
 
 let fix_with upd f =
 let self = put_unbound SeqNil upd in

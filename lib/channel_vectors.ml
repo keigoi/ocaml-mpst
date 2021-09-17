@@ -1,17 +1,17 @@
 open Types
 
-type 'var inp = 'var Wrapped.wrapped_state
+type 'var inp = 'var Wrapped.t
 type 's out = unit Name.t * 's State.t
 
 let merge_inp dst_role sl sr =
   let wl : 'a inp = dst_role.call_obj sl
   and wr : 'a inp = dst_role.call_obj sr
   in
-  dst_role.make_obj (Wrapped.merge_wrapped_states wl wr)
+  dst_role.make_obj (Wrapped.merge wl wr)
 
 let merge_inp_next dst_role dict s =
   let r = dst_role.call_obj s in
-  Wrapped.determinise_wrapped ~dict r
+  Wrapped.determinise ~dict r
 
 let merge_out dst_role labobj sl sr =
   let (nl,sl') = labobj.call_obj @@ dst_role.call_obj sl

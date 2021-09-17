@@ -10,9 +10,9 @@ type 'var wrapped_nondet =
   | WrappedDeterminised : 'var wrapped_head list -> 'var wrapped_nondet
   | WrappedNondet : 'var wrapped_head_lazy list -> 'var wrapped_nondet
 
-and 'var wrapped_state = 'var wrapped_nondet ref
+and 'var t = 'var wrapped_nondet ref
 
-let make_wrapped = fun var n st ->
+let make = fun var n st ->
   ref @@ WrappedNondet([WrappedHeadLazy(var,n,lazy (State.epsilon_closure st))])
  
 let rec classify = fun op ws ->
@@ -65,13 +65,13 @@ let wrapped_heads : 'a wrapped_nondet -> 'a wrapped_head_lazy list = fun ws ->
     | WrappedNondet(ws) ->
       ws
 
-let merge_wrapped_states wl wr =
+let merge wl wr =
   let wl' = wrapped_heads !wl
   and wr' = wrapped_heads !wr
   in
   ref (WrappedNondet(classify_wrapped_names (wl' @ wr')))
 
-let determinise_wrapped ~dict r =
+let determinise ~dict r =
   match !r with
   | WrappedNondet(ws) ->
     let ws = 

@@ -1,13 +1,13 @@
-type 'var wrapped_state
+type 'var t
 
-val make_wrapped :
-  ('a, 'b) Types.constr -> unit Name.t -> 'b State.t -> 'a wrapped_state
+val make :
+  ('a, 'b) Types.constr -> unit Name.t -> 'b State.t -> 'a t
 
-val merge_wrapped_states :
-  'a wrapped_state -> 'a wrapped_state -> 'a wrapped_state
+val merge :
+  'a t -> 'a t -> 'a t
 
-val determinise_wrapped :
-  dict:StateHash.dict -> 'a wrapped_state -> unit
+val determinise :
+  dict:StateHash.dict -> 'a t -> unit
 
 val make_event_from_determinised_ :
-  'a wrapped_state -> 'a Event.event
+  'a t -> 'a Event.event

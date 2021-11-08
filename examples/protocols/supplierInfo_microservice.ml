@@ -2,17 +2,16 @@ open Mpst
 open Mpst.Types
 open Usecase_util
 
-
 (* aux global protocol FilterInfo<sig Query>
  * (role authorisersvc, role filtersvc) {
  * Query connect authorisersvc to filtersvc;
  * filtered() from filtersvc to authorisersvc;
  * disconnect authorisersvc and filtersvc;
  * } *)
-  let filterinfo cont =
-    (authorisesvc --> filtersvc) query @@
-      (filtersvc --> authorisesvc) filtered @@
-        cont
+let filterinfo cont =
+  (authorisesvc --> filtersvc) query
+  @@ (filtersvc --> authorisesvc) filtered
+  @@ cont
 
 (* aux global protocol SuppInfo (
  * role requestor,
@@ -36,25 +35,34 @@ open Usecase_util
  * suppliers() from authorisersvc to requestor;
  * }
  * } *)
-  (* XXX non-directed chocie *)
-  let to_requestor_or_suppliersvc =
-    {disj_concat=(fun l r -> object method role_Request=l#role_Request method role_Supply=r#role_Supply end);
-     disj_splitL=(fun lr -> (lr :> <role_Request : _>));
-     disj_splitR=(fun lr -> (lr :> <role_Supply : _>))}
+(* XXX non-directed chocie *)
+let to_requestor_or_suppliersvc =
+  {
+    disj_concat =
+      (fun l r ->
+        object
+          method role_Request = l#role_Request
+          method role_Supply = r#role_Supply
+        end);
+    disj_splitL = (fun lr -> (lr :> < role_Request : _ >));
+    disj_splitR = (fun lr -> (lr :> < role_Supply : _ >));
+  }
 
-  let suppinfo () =
-    choice_at authorisesvc (to_requestor_or_suppliersvc) (* uses nondirected output *)
-      (authorisesvc, (authorisesvc --> requestor) deny @@
-                       (* dummy sending due to lack of explicit connection handling  *)
-                       (authorisesvc --> suppliersvc) dummy @@
-                         (authorisesvc --> filtersvc) dummy @@
-                           finish)
-      (authorisesvc, (authorisesvc --> suppliersvc) getsuppliers @@
-                       (suppliersvc --> authorisesvc) suppliers @@
-                         filterinfo @@
-                           (authorisesvc --> requestor) suppliers @@
-                             finish)
-
+let suppinfo () =
+  choice_at authorisesvc
+    to_requestor_or_suppliersvc (* uses nondirected output *)
+    ( authorisesvc,
+      (authorisesvc --> requestor) deny
+      (* dummy sending due to lack of explicit connection handling  *)
+      @@ (authorisesvc --> suppliersvc) dummy
+      @@ (authorisesvc --> filtersvc) dummy
+      @@ finish )
+    ( authorisesvc,
+      (authorisesvc --> suppliersvc) getsuppliers
+      @@ (suppliersvc --> authorisesvc) suppliers
+      @@ filterinfo
+      @@ (authorisesvc --> requestor) suppliers
+      @@ finish )
 
 (* aux global protocol ContractInfo (
  * role requestor,
@@ -78,23 +86,33 @@ open Usecase_util
  * }
  * } *)
 
-  (* XXX non-directed chocie *)
-  let to_requestor_or_contractsvc =
-    {disj_concat=(fun l r -> object method role_Request=l#role_Request method role_Contract=r#role_Contract end);
-     disj_splitL=(fun lr -> (lr :> <role_Request : _>));
-     disj_splitR=(fun lr -> (lr :> <role_Contract : _>))}
+(* XXX non-directed chocie *)
+let to_requestor_or_contractsvc =
+  {
+    disj_concat =
+      (fun l r ->
+        object
+          method role_Request = l#role_Request
+          method role_Contract = r#role_Contract
+        end);
+    disj_splitL = (fun lr -> (lr :> < role_Request : _ >));
+    disj_splitR = (fun lr -> (lr :> < role_Contract : _ >));
+  }
 
-  let contractinfo () =
-    choice_at authorisesvc to_requestor_or_contractsvc
-      (authorisesvc, (authorisesvc --> requestor) deny @@
-                       (* dummy sending due to lack of explicit connection handling  *)
-                       (authorisesvc --> contractsvc) dummy @@
-                         (authorisesvc --> filtersvc) dummy @@
-                           finish)
-      (authorisesvc, (authorisesvc --> contractsvc) getcontracts @@
-                       (contractsvc --> authorisesvc) contracts @@
-                           filterinfo @@
-                             (authorisesvc --> requestor) contracts @@ finish)
+let contractinfo () =
+  choice_at authorisesvc to_requestor_or_contractsvc
+    ( authorisesvc,
+      (authorisesvc --> requestor) deny
+      (* dummy sending due to lack of explicit connection handling  *)
+      @@ (authorisesvc --> contractsvc) dummy
+      @@ (authorisesvc --> filtersvc) dummy
+      @@ finish )
+    ( authorisesvc,
+      (authorisesvc --> contractsvc) getcontracts
+      @@ (contractsvc --> authorisesvc) contracts
+      @@ filterinfo
+      @@ (authorisesvc --> requestor) contracts
+      @@ finish )
 
 (* aux global protocol Main (
  * role requestor,
@@ -115,14 +133,17 @@ open Usecase_util
  * do Main(requestor, authorisersvc, filtersvc, suppliersvc, contractsvc);
  * } *)
 
-  let main () =
-    choice_at requestor (to_authorisesvc getsuppliers_or_getcontracts)
-      (requestor, (requestor --> authorisesvc) getsuppliers @@
-                    (authorisesvc --> contractsvc) dummy @@
-                      suppinfo ())
-      (requestor, (requestor --> authorisesvc) getcontracts @@
-                    (authorisesvc --> suppliersvc) dummy @@
-                      contractinfo ())
+let main () =
+  choice_at requestor
+    (to_authorisesvc getsuppliers_or_getcontracts)
+    ( requestor,
+      (requestor --> authorisesvc) getsuppliers
+      @@ (authorisesvc --> contractsvc) dummy
+      @@ suppinfo () )
+    ( requestor,
+      (requestor --> authorisesvc) getcontracts
+      @@ (authorisesvc --> suppliersvc) dummy
+      @@ contractinfo () )
 
 (* explicit global protocol PartnershipSupplier (
  * role loginsvc,
@@ -144,14 +165,15 @@ open Usecase_util
  * }
  * } *)
 
-  let partnership_supplier () =
-    (requestor --> loginsvc) login @@
-      choice_at loginsvc (to_requestor loginfailure_or_loginsuccess)
-        (loginsvc, (loginsvc --> requestor) loginfailure @@
-                     (requestor --> authorisesvc) dummy @@
-                       (authorisesvc --> contractsvc) dummy @@
-                         (authorisesvc --> suppliersvc) dummy @@
-                           (authorisesvc --> filtersvc) dummy @@
-                             finish)
-        (loginsvc, (loginsvc --> requestor) loginsuccess @@
-                     main ())
+let partnership_supplier () =
+  (requestor --> loginsvc) login
+  @@ choice_at loginsvc
+       (to_requestor loginfailure_or_loginsuccess)
+       ( loginsvc,
+         (loginsvc --> requestor) loginfailure
+         @@ (requestor --> authorisesvc) dummy
+         @@ (authorisesvc --> contractsvc) dummy
+         @@ (authorisesvc --> suppliersvc) dummy
+         @@ (authorisesvc --> filtersvc) dummy
+         @@ finish )
+       (loginsvc, (loginsvc --> requestor) loginsuccess @@ main ())

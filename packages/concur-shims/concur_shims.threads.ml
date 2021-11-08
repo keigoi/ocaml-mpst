@@ -1,9 +1,13 @@
 module IO = struct
   type +'a io = 'a
+
   external bind : 'a -> ('a -> 'b) -> 'b = "%revapply"
+
   let both a b = (a, b)
   let map f x = f x
+
   external return : 'a -> 'a = "%identity"
+
   let return_unit = ()
   let printl = print_endline
   let main_run x = x
@@ -11,18 +15,16 @@ module IO = struct
   let stdin = stdin
   let stdout = stdout
   let stderr = stderr
-  let catch f g =
-    try
-      f ()
-    with
-      exn ->
-      g exn
-  let yield _ = ()
+  let catch f g = try f () with exn -> g exn
+  let pause _ = ()
+
   type in_channel = Stdlib.in_channel
   type out_channel = Stdlib.out_channel
+
   let pipe () =
-    let inp,out = Unix.pipe () in
-    Unix.in_channel_of_descr inp, Unix.out_channel_of_descr out
+    let inp, out = Unix.pipe () in
+    (Unix.in_channel_of_descr inp, Unix.out_channel_of_descr out)
+
   let close_in = close_in
   let close_out = close_out
   let output_value = output_value

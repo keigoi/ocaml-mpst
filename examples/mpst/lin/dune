@@ -1,20 +1,20 @@
 (executable
  (name calc_lin)
  (modules calc_lin)
- (preprocess (pps linocaml-light.ppx))
- (libraries mpst_lin calc_util)
- )
+ (preprocess
+  (pps linocaml-light.ppx))
+ (libraries mpst_lin calc_util))
 
 (executable
  (name choice_non_enabled_lin)
  (modules choice_non_enabled_lin)
- (preprocess (pps linocaml-light.ppx))
- (libraries mpst_lin calc_util)
- )
+ (preprocess
+  (pps linocaml-light.ppx))
+ (libraries mpst_lin calc_util))
 
 (executable
  (name delegation_lin)
  (modules delegation_lin)
- (preprocess (pps linocaml-light.ppx))
- (libraries mpst_lin calc_util)
- )
+ (preprocess
+  (pps linocaml-light.ppx))
+ (libraries mpst_lin calc_util))

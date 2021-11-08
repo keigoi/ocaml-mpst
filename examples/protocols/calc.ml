@@ -19,16 +19,12 @@ open Usecase_util
  * 	}
  * } *)
 
-  let g () =
-    fix (fun loop ->
-        choice_at c (to_s sum_multiply_or_quit)
-          (c, choice_at c (to_s (sum_or_multiply))
-                (c, (c --> s) sum @@
-                      (s --> c) result @@
-                        loop)
-                (c, (c --> s) multiply @@
-                      (s --> c) result @@
-                      loop))
-          (c, (c --> s) quit @@
-                finish))
-
+let g () =
+  fix (fun loop ->
+      choice_at c
+        (to_s sum_multiply_or_quit)
+        ( c,
+          choice_at c (to_s sum_or_multiply)
+            (c, (c --> s) sum @@ (s --> c) result @@ loop)
+            (c, (c --> s) multiply @@ (s --> c) result @@ loop) )
+        (c, (c --> s) quit @@ finish))

@@ -1,16 +1,14 @@
-
 include Types
 
 module NoStaticLinearityChecking = struct
   type 'a lin = 'a
+
   let mklin x = x
 end
 
 include Types
-
-include Global_combinators.Make(Dyn_lin.Check)(NoStaticLinearityChecking)
-include Shared.Make(Dyn_lin.Check)(NoStaticLinearityChecking)
-
+include Global_combinators.Make (Dyn_lin.Check) (NoStaticLinearityChecking)
+include Shared.Make (Dyn_lin.Check) (NoStaticLinearityChecking)
 
 exception InvalidEndpoint = Mutex_flag.InvalidEndpoint
 exception UnguardedLoop = Mergeable.UnguardedLoop

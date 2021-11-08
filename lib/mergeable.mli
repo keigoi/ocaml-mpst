@@ -1,5 +1,5 @@
 open Types
-    
+
 type 'a t
 (** A mergeable *)
 
@@ -12,9 +12,10 @@ val merge : 'a t -> 'a t -> 'a t
 (** Merge two mergeables *)
 
 val make_recvar : 'a t lazy_t -> 'a t
-(** Declare a delayed mergeable, which is used in a recursion variable (fix (fun t -> ...)).  *)
+(** Declare a delayed mergeable, which is used in a recursion variable (fix (fun
+    t -> ...)). *)
 
-val make_disj : ('lr,'l,'r) disj -> 'l t -> 'r t -> 'lr t
+val make_disj : ('lr, 'l, 'r) disj -> 'l t -> 'r t -> 'lr t
 (** Concatenate two disjoint mergeables into one using a `disj' *)
 
 val resolve : 'a t -> 'a

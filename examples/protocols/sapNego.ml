@@ -2,23 +2,24 @@ open Mpst
 open Mpst.Util
 open Usecase_util
 
-  let g () =
-    (c --> p) propose @@
-      (fix (fun x ->
-           choice_at p (to_c accpt_reject_or_propose)
-             (p, choice_at p (to_c accpt_or_reject)
-                   (p, (p --> c) accpt @@
-                         (c --> p) confirm @@ finish)
-                   (p, (p --> c) reject @@ finish))
-             (p, (p --> c) propose @@
-                   choice_at c (to_p accpt_reject_or_propose)
-                     (c, choice_at c (to_p accpt_or_reject)
-                           (c, (c --> p) accpt @@
-                                 (p --> c) confirm @@
-                                   finish)
-                           (c, (c --> p) reject @@ finish))
-                     (c, (c --> p) propose @@
-                           x))))
+let g () =
+  (c --> p) propose
+  @@ fix (fun x ->
+         choice_at p
+           (to_c accpt_reject_or_propose)
+           ( p,
+             choice_at p (to_c accpt_or_reject)
+               (p, (p --> c) accpt @@ (c --> p) confirm @@ finish)
+               (p, (p --> c) reject @@ finish) )
+           ( p,
+             (p --> c) propose
+             @@ choice_at c
+                  (to_p accpt_reject_or_propose)
+                  ( c,
+                    choice_at c (to_p accpt_or_reject)
+                      (c, (c --> p) accpt @@ (p --> c) confirm @@ finish)
+                      (c, (c --> p) reject @@ finish) )
+                  (c, (c --> p) propose @@ x) ))
 
 (* global protocol Negotiate(role C, role P)
  * {

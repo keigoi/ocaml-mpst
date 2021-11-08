@@ -2,33 +2,33 @@ open Mpst
 open Mpst.Util
 open Usecase_util
 
-  let g () =
-    (p --> r) plane @@
-    fix (fun loop ->
-        choice_at p (to_r isabove_or_close)
-        (p, (p --> r) is_above @@
-          (r --> p) res @@
-            (p --> r) is_above @@
-              (r --> p) res @@
-                choice_at p (to_r bothin_bothout_or_intersect) (* full merge on c (both_in/sec_out/sec_in)*)
-                  (p, choice_at p (to_r bothin_or_bothout)
-                        (p, (p --> r) both_in @@
-                              (p --> c) both_in @@
-                                (r --> p) res @@
-                                  loop)
-                        (p, (p --> r) both_out @@
-                              (p --> c) both_out @@
-                                loop))
-                  (p, (p --> r) intersect @@
-                        (r --> p) res @@
-                          choice_at p (to_c secout_or_secin)
-                            (p, (p --> c) sec_out @@
-                                  loop)
-                            (p, (p --> c) sec_in @@
-                                  loop)))
-        (p, (p --> r) close_ @@
-              (p --> c) close_ @@
-                finish))
+let g () =
+  (p --> r) plane
+  @@ fix (fun loop ->
+         choice_at p (to_r isabove_or_close)
+           ( p,
+             (p --> r) is_above
+             @@ (r --> p) res
+             @@ (p --> r) is_above
+             @@ (r --> p) res
+             @@ choice_at p
+                  (to_r bothin_bothout_or_intersect)
+                  (* full merge on c (both_in/sec_out/sec_in)*)
+                  ( p,
+                    choice_at p (to_r bothin_or_bothout)
+                      ( p,
+                        (p --> r) both_in
+                        @@ (p --> c) both_in
+                        @@ (r --> p) res
+                        @@ loop )
+                      (p, (p --> r) both_out @@ (p --> c) both_out @@ loop) )
+                  ( p,
+                    (p --> r) intersect
+                    @@ (r --> p) res
+                    @@ choice_at p (to_c secout_or_secin)
+                         (p, (p --> c) sec_out @@ loop)
+                         (p, (p --> c) sec_in @@ loop) ) )
+           (p, (p --> r) close_ @@ (p --> c) close_ @@ finish))
 
 (* global protocol SH(role P, role R, role C)
  * {

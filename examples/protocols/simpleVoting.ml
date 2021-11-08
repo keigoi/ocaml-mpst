@@ -1,13 +1,14 @@
 open Mpst
 open Usecase_util
 
-  let g () =
-    choice_at s (to_v ok_or_reject)
-      (s, (s --> v) ok @@
-            choice_at v (to_s yes_or_no)
-              (v, (v --> s) yes @@ (s --> v) result finish)
-              (v, (v --> s) no @@ (s --> v) result finish))
-      (s, (s --> v) reject @@ finish)
+let g () =
+  choice_at s (to_v ok_or_reject)
+    ( s,
+      (s --> v) ok
+      @@ choice_at v (to_s yes_or_no)
+           (v, (v --> s) yes @@ (s --> v) result finish)
+           (v, (v --> s) no @@ (s --> v) result finish) )
+    (s, (s --> v) reject @@ finish)
 
 (* global protocol EVoting(role V, role S){
  * 	Authenticate(String) from V to S;

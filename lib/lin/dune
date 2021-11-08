@@ -2,5 +2,4 @@
  (name mpst_lin)
  (public_name ocaml-mpst.lin)
  (libraries mpst concur-shims linocaml-light)
- (modules_without_implementation s)
- )
+ (modules_without_implementation s))

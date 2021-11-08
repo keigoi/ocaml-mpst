@@ -39,23 +39,20 @@ open Usecase_util
  * 		}
  * 	}
  * } *)
-  (* let main () = *)
+(* let main () = *)
 
-  let game () =
-    fix (fun t ->
-        choice_at a (to_b left_or_right)
-          (a, (a --> b) left @@
-              (b --> c) left @@
-              (c --> a) left @@
-              t)
-          (a, (a --> b) right @@
-              (b --> c) right @@
-              (c --> a) right @@
-              finish))
+let game () =
+  fix (fun t ->
+      choice_at a (to_b left_or_right)
+        (a, (a --> b) left @@ (b --> c) left @@ (c --> a) left @@ t)
+        (a, (a --> b) right @@ (b --> c) right @@ (c --> a) right @@ finish))
 
-  let main () =
-    choice_at srv (to_cli playAsA_playAsB_or_playAsC)
-      (srv, choice_at srv (to_cli playAsA_or_playAsB)
-              (srv, (srv --> cli) (playAsA >: get_ty a (game ())) finish)
-              (srv, (srv --> cli) (playAsB >: get_ty b (game ())) finish))
-      (srv, (srv --> cli) (playAsC >: get_ty c (game ())) finish)
+let main () =
+  choice_at srv
+    (to_cli playAsA_playAsB_or_playAsC)
+    ( srv,
+      choice_at srv
+        (to_cli playAsA_or_playAsB)
+        (srv, (srv --> cli) (playAsA >: get_ty a (game ())) finish)
+        (srv, (srv --> cli) (playAsB >: get_ty b (game ())) finish) )
+    (srv, (srv --> cli) (playAsC >: get_ty c (game ())) finish)

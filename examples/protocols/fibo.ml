@@ -18,11 +18,8 @@ open Usecase_util
  * 		}
  * 	}
  * } *)
-  let g () =
-    fix (fun fib ->
-        choice_at a (to_b fibonacci_or_stop)
-          (a, (a --> b) fibonacci @@
-                (b --> a) fibonacci @@
-                  fib)
-          (a, (a --> b) stop @@
-                finish))
+let g () =
+  fix (fun fib ->
+      choice_at a (to_b fibonacci_or_stop)
+        (a, (a --> b) fibonacci @@ (b --> a) fibonacci @@ fib)
+        (a, (a --> b) stop @@ finish))

@@ -93,7 +93,6 @@ let () =
  *   print_endline "Done" *)
 
 let () =
-
   print_endline "Game...";
   let g = gen @@ Game.main () in
   let _eps = get_ch srv g in
@@ -106,14 +105,14 @@ let () =
 
 let () =
   print_endline "MapReduce...";
-  let g = gen_mult [0; 10] @@ MapReduce.g () in
+  let g = gen_mult [ 0; 10 ] @@ MapReduce.g () in
   let _epm = get_ch mst g in
   let _epw = get_ch_list wrk g in
   print_endline "Done"
 
 let () =
   print_endline "NQueen...";
-  let g = gen_mult [0; 10] @@ NQueen.g () in
+  let g = gen_mult [ 0; 10 ] @@ NQueen.g () in
   let _epm = get_ch mst g in
   let _epw = get_ch_list wrk g in
   let g = gen @@ NQueen.reply () in
@@ -123,17 +122,16 @@ let () =
 
 let () =
   print_endline "Santa...";
-  let g = gen_mult [0;10;20] @@ Santa.elf_session () in
+  let g = gen_mult [ 0; 10; 20 ] @@ Santa.elf_session () in
   let _eps = get_ch santa g in
   let _epe = get_ch_list elf g in
-  let g = gen_mult [0;10;20] @@ Santa.reindeer_session () in
+  let g = gen_mult [ 0; 10; 20 ] @@ Santa.reindeer_session () in
   let _epe = get_ch santa g in
   let _epr = get_ch_list reindeer g in
-  let g = gen_mult [0;10;20] @@ Santa.main () in
+  let g = gen_mult [ 0; 10; 20 ] @@ Santa.main () in
   let _epa = get_ch santa g in
   let _epb = get_ch_list elf g in
   let _epb = get_ch_list reindeer g in
   print_endline "Done"
 
-let () =
-  print_endline "All done."
+let () = print_endline "All done."

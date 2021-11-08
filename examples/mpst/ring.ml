@@ -3,31 +3,29 @@ open Concur_shims
 open Mpst
 open Mpst.Util
 
-let (let*) = IO.bind
-
+let ( let* ) = IO.bind
 let () = print_endline "start"
-let ring =
-  gen @@
-    (a --> b) msg @@
-      (b --> c) msg @@
-        (c --> a) msg finish
+let ring = gen @@ (a --> b) msg @@ (b --> c) msg @@ (c --> a) msg finish
 let () = print_endline "global combinator finished"
-
 let ea = get_ch a ring
+
 let () = print_endline "EPP A finished"
 and eb = get_ch b ring
+
 let () = print_endline "EPP B finished"
 and ec = get_ch c ring
+
 let () = print_endline "EPP C finished"
 
 let tA =
-  Thread.create (fun () ->
+  Thread.create
+    (fun () ->
       print_endline "A start";
-      let* ea = send (ea#role_B#msg) () in
-      let* `msg((), ea) = receive (ea#role_C) in
+      let* ea = send ea#role_B#msg () in
+      let* (`msg ((), ea)) = receive ea#role_C in
       print_endline "A done";
-      close ea
-    ) ()
+      close ea)
+    ()
 
 (* let tA_bad (_:Obj.t) = Thread.create (fun () ->
  *   let `role_C(`msg((), ea)) = receive ea in
@@ -36,24 +34,26 @@ let tA =
  *   close ea) () *)
 
 let tB =
-  Thread.create (fun () ->
+  Thread.create
+    (fun () ->
       print_endline "B start";
-      let* `msg((), eb) = receive (eb#role_A) in
-      let* eb = send (eb#role_C#msg) () in
+      let* (`msg ((), eb)) = receive eb#role_A in
+      let* eb = send eb#role_C#msg () in
       print_endline "B done";
-      close eb
-    ) ()
+      close eb)
+    ()
 
 let tC =
-  Thread.create (fun () ->
+  Thread.create
+    (fun () ->
       print_endline "C start";
-      let* `msg((), ec) = receive (ec#role_B) in
-      let* ec = send (ec#role_A#msg) () in
+      let* (`msg ((), ec)) = receive ec#role_B in
+      let* ec = send ec#role_A#msg () in
       print_endline "C done";
-      close ec
-    ) ()
+      close ec)
+    ()
 
-let () = IO.main_run @@ IO_list.iter Thread.join [tA; tB; tC]
+let () = IO.main_run @@ IO_list.iter Thread.join [ tA; tB; tC ]
 
 (* incompatible branching at C between reception and closing *)
 (* let test =
@@ -90,4 +90,3 @@ let () = IO.main_run @@ IO_list.iter Thread.join [tA; tB; tC]
  *   choice_at a (to_b left_or_right)
  *   (a, (a --> b) left  @@ (c --> b) left  @@ finish3)
  *   (a, (a --> b) right @@ (c --> b) right @@ finish3) *)
-

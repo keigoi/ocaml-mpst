@@ -28,19 +28,15 @@ open Usecase_util
  * }
  *)
 
-  let choose () =
-    choice_at b (to_a ok_or_quit)  (* full merge on s *)
-    (b, (b --> a) ok @@
-        (b --> s) ok @@
-        (s --> b) date @@
-        finish)
-    (b, (b --> a) quit @@
-        (b --> s) quit @@
-        finish)
+let choose () =
+  choice_at b
+    (to_a ok_or_quit) (* full merge on s *)
+    (b, (b --> a) ok @@ (b --> s) ok @@ (s --> b) date @@ finish)
+    (b, (b --> a) quit @@ (b --> s) quit @@ finish)
 
-  let g () =
-    (a --> s) title @@
-    (s --> a) quote @@
-    (s --> b) quote @@
-    (a --> b) quote_by_two @@
-    choose ()
+let g () =
+  (a --> s) title
+  @@ (s --> a) quote
+  @@ (s --> b) quote
+  @@ (a --> b) quote_by_two
+  @@ choose ()

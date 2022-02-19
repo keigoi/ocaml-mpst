@@ -9,9 +9,9 @@ let merge_inp dst_role sl sr =
   in
   dst_role.make_obj (WrappedState.merge wl wr)
 
-let merge_inp_next dst_role dict s =
+let merge_inp_next dst_role cache s =
   let r = dst_role.call_obj s in
-  WrappedState.determinise ~dict r
+  WrappedState.determinise ~cache r
 
 let merge_out dst_role labobj sl sr =
   let (nl,sl') = labobj.call_obj @@ dst_role.call_obj sl
@@ -21,9 +21,9 @@ let merge_out dst_role labobj sl sr =
   let s = State.merge sl' sr' in
   dst_role.make_obj @@ labobj.make_obj (nl, s)
 
-let merge_out_next dst_role labobj dict s =
+let merge_out_next dst_role labobj cache s =
   let _, s = labobj.call_obj @@ dst_role.call_obj s in
-  ignore @@ State.determinise ~dict s
+  ignore @@ State.determinise ~cache s
 
 let branch (inp:'a inp) =
   Event.sync @@ WrappedState.make_event_from_determinised_ inp

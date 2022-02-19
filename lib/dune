@@ -1,6 +1,3 @@
 (library
  (name must)
- (libraries
-  stdlib-shims
-  threads
-  ))
+ (libraries stdlib-shims hlist rows threads))

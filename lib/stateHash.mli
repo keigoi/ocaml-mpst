@@ -1,14 +1,11 @@
-
 type 'a state_id
 
 val gen_state_id : unit -> 's state_id
 
 type ('a, 'b) eq = Eq : ('a, 'a) eq
 
-val key_eq : 'a state_id -> 'b state_id -> ('a,'b) eq option
-
+val key_eq : 'a state_id -> 'b state_id -> ('a, 'b) eq option
 val key_eq_poly : 'a state_id -> 'b state_id -> bool
-
 val union_keys : 'a state_id -> 'a state_id -> 'a state_id
 
 val union_keys_generalised :

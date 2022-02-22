@@ -128,7 +128,7 @@ module Make (State : STATE) = struct
     extract0 seq
 end
 
-module G = Make (State2)
+module G = Make (State)
 
 module Global (State : STATE) = struct
   type 't global =

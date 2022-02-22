@@ -1,27 +1,28 @@
-type 'a t
-type 'a mergefun = 'a -> 'a -> 'a
-type 'a mergenextfun = StateHash.dict -> 'a -> unit
-type cache = StateHash.dict
+type _ t
+and _ out
+and 'var inp
 
 exception UnguardedLoop of string
 
-val make : 'a mergefun -> 'a mergenextfun -> 'a -> 'a t
-val make_internal_choice : 'l t -> 'r t -> ('lr, 'l, 'r) Types.disj -> 'lr t
-val make_unbound : unit -> 'a t
-val bind_state : from:'a t -> to_:'a t -> unit
 val unit : unit t
+
+val out :
+  ('a, 'b) Types.method_ ->
+  ('b, 'c out) Types.method_ ->
+  unit Name.t ->
+  'c t ->
+  'a t
+
+val inp :
+  ('a, 'b inp) Types.method_ ->
+  ('b, 'c) Types.constr ->
+  unit Name.t ->
+  'c t ->
+  'a t
+
+val internal_choice : ('a, 'b, 'c) Types.disj -> 'b t -> 'c t -> 'a t
+val lazy_ : 'a t lazy_t -> 'a t
 val merge : 'a t -> 'a t -> 'a t
-val determinise : cache:cache -> 'a t -> 'a
-val determinised_ : 'a t -> 'a
-
-type 'a head = 'a StateHash.head
-(** for internal use in wrapped.ml *)
-
-type 'a id = 'a StateHash.state_id
-(** for internal use in wrapped.ml *)
-
-val epsilon_closure : 'a t -> 'a id * 'a head list
-(** for internal use in wrapped.ml *)
-
-val determinise_heads : cache:cache -> 'a id -> 'a head list -> 'a head
-(** for internal use in wrapped.ml *)
+val determinise : 'a t -> 'a
+val select : 's out -> 's
+val branch : 'var inp -> 'var

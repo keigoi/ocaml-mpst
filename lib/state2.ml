@@ -53,7 +53,9 @@ let lazy_ t = Lazy_ t
 let determinise_head_list ctx id hds =
   print_endline "determinise_head_list";
   match StateHash.lookup ctx id with
-  | Some v -> v
+  | Some v ->
+      print_endline "found (determinise_head_list)";
+      v
   | None ->
       let hd =
         lazy
@@ -68,18 +70,22 @@ let determinise_head_list ctx id hds =
              force_all = hd.force_all;
            })
       in
+      print_endline "add_binding (determinise_head_list)";
       StateHash.add_binding ctx id hd;
       hd
 
 let try_cast_then_merge_heads ctx id constrA constrB headA headB =
   match StateHash.lookup ctx id with
-  | Some v -> Some v
+  | Some v ->
+      print_endline "found (try_cast_then_merge_heads)";
+      Some v
   | None -> (
       let headA = Lazy.force headA and headB = Lazy.force headB in
       match Types.cast_if_constrs_are_same constrA constrB headB.head with
       | Some contB_body ->
           let head = headA.determinise_list ctx [ headA.head; contB_body ] in
           let head = Lazy.from_val { headA with head } in
+          print_endline "add_binding (try_cast_then_merge_heads)";
           StateHash.add_binding ctx id head;
           Some head
       | None -> None)
@@ -87,7 +93,7 @@ let try_cast_then_merge_heads ctx id constrA constrB headA headB =
 let merge_list ~bin_merge ctx xs =
   List.fold_left (bin_merge ctx) (List.hd xs) (List.tl xs)
 
-let force ctx t =
+let force_determinised ctx t =
   match t with
   | Deterministic (sid, h) when StateHash.lookup ctx sid = None ->
       StateHash.add_binding ctx sid h;
@@ -237,7 +243,7 @@ module OutMerge = struct
     print_endline "out_force";
     let (Out (name, cont)) = lab.call_obj @@ role.call_obj s in
     ignore (Name.finalise name);
-    force ctx (Lazy.force cont)
+    force_determinised ctx (Lazy.force cont)
 end
 
 module InpMerge = struct
@@ -277,23 +283,31 @@ module InpMerge = struct
 
   let determinise_extchoice_item binding
       (ExternalChoiceItem (constr, name, cont)) =
+    print_endline "determinise_extchoice_item";
     let state_id, d = Determinise.determinise binding cont in
     ExternalChoiceItem (constr, name, Deterministic (state_id, d))
 
   let rec real_inp_merge_one :
       type a. StateHash.t -> a inp_ -> a extchoice_item -> a inp_ =
    fun binding inp extc_item ->
+    print_endline "real_inp_merge_one";
     match inp with
     | e :: inp -> (
+        print_endline "cons";
         match try_real_merge_extchoice_item binding e extc_item with
         | Some e -> e :: List.map (determinise_extchoice_item binding) inp
-        | None -> e :: real_inp_merge_one binding inp extc_item)
-    | [] -> [ determinise_extchoice_item binding extc_item ]
+        | None ->
+            determinise_extchoice_item binding e
+            :: real_inp_merge_one binding inp extc_item)
+    | [] ->
+        print_endline "empty";
+        [ determinise_extchoice_item binding extc_item ]
 
   let real_inp_merge binding s1 s2 =
     List.fold_left (real_inp_merge_one binding) s1 s2
 
   let inp_merge role binding s1 s2 =
+    print_endline "inp_merge";
     role.make_obj
     @@ lazy
          (let s1 = role.call_obj s1 and s2 = role.call_obj s2 in
@@ -308,7 +322,7 @@ module InpMerge = struct
                (determinise_extchoice_item binding)
                (Lazy.force (role.call_obj s))))
     | s :: ss ->
-        print_endline "inp merge";
+        print_endline "inp multi";
         List.fold_left (inp_merge role binding) s ss
     | [] -> failwith "impossible: inp_determinise"
 
@@ -318,7 +332,7 @@ module InpMerge = struct
     List.iter
       (fun (ExternalChoiceItem (_, n, s)) ->
         ignore (Name.finalise n);
-        force ctx s)
+        force_determinised ctx s)
       (Lazy.force s)
 end
 

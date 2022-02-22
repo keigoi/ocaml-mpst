@@ -1,5 +1,3 @@
-(* from https://alan.petitepomme.net/cwn/2015.03.24.html#1 *)
-
 module Key = struct
   type _ t = ..
 end
@@ -10,8 +8,19 @@ module type W = sig
 end
 
 type 'a key = (module W with type t = 'a)
-type key_ex = KeyEx : 'a key -> key_ex
-type 'a keyset = 'a key * key_ex list
+
+type 'a head = {
+  head : 'a;
+  determinise_list : t -> 'a list -> 'a;
+  force_all : t -> 'a -> unit;
+}
+
+and binding = B : 'a state_id * 'a head lazy_t -> binding
+and t = binding list ref
+and key_ex = KeyEx : 'a key -> key_ex
+and 'a state_id = { id_head : 'a key; id_tail : key_ex list }
+
+type ('a, 'b) eq = Eq : ('a, 'a) eq
 
 let newkey () (type s) =
   let module M = struct
@@ -20,16 +29,24 @@ let newkey () (type s) =
   end in
   (module M : W with type t = s)
 
-let gen_state_id () =
-  let w = newkey () in
-  (w, [ KeyEx w ])
-
-type ('a, 'b) eq = Eq : ('a, 'a) eq
-
 let eq (type r s) (r : r key) (s : s key) : (r, s) eq option =
   let module R = (val r : W with type t = r) in
   let module S = (val s : W with type t = s) in
   match R.Key with S.Key -> Some Eq | _ -> None
+
+let make () = ref []
+let add_binding d k v = d := B (k, v) :: !d
+
+let lookup : type a. t -> a state_id -> a head lazy_t option =
+ fun d k ->
+  let rec find : binding list -> a head lazy_t option = function
+    | [] -> None
+    | B (k', v) :: bs -> (
+        match eq k.id_head k'.id_head with
+        | Some Eq when k.id_tail = k'.id_tail -> Some v
+        | _ -> find bs)
+  in
+  find !d
 
 let union_sorted_lists (xs : 'a list) (ys : 'a list) =
   let rec loop aux xs ys =
@@ -43,41 +60,30 @@ let union_sorted_lists (xs : 'a list) (ys : 'a list) =
   in
   loop [] xs ys
 
-let key_eq : type a b. a keyset -> b keyset -> (a, b) eq option =
- fun (k1, ks1) (k2, ks2) ->
-  match eq k1 k2 with Some Eq when ks1 = ks2 -> Some Eq | _ -> None
+let general_union_keys (type a b) (ks1 : a state_id) (ks2 : b state_id) :
+    (a state_id, b state_id) Either.t =
+  if KeyEx ks1.id_head < KeyEx ks2.id_head then
+    Left
+      {
+        id_head = ks1.id_head;
+        id_tail =
+          union_sorted_lists ks1.id_tail (KeyEx ks2.id_head :: ks2.id_tail);
+      }
+  else if KeyEx ks2.id_head < KeyEx ks1.id_head then
+    Right
+      {
+        id_head = ks2.id_head;
+        id_tail =
+          union_sorted_lists (KeyEx ks1.id_head :: ks1.id_tail) ks2.id_tail;
+      }
+  else
+    Left
+      {
+        id_head = ks1.id_head;
+        id_tail = union_sorted_lists ks1.id_tail ks2.id_tail;
+      }
 
-let key_eq_poly : 'a 'b. 'a keyset -> 'b keyset -> bool =
- fun (k1, ks1) (k2, ks2) -> KeyEx k1 :: ks1 = KeyEx k2 :: ks2
+let union_keys (ks1 : 'a state_id) (ks2 : 'a state_id) : 'a state_id =
+  match general_union_keys ks1 ks2 with Left ks | Right ks -> ks
 
-let union_keys ((k1, ws1) : 'a keyset) ((k2, ws2) : 'a keyset) : 'a keyset =
-  ((if k1 < k2 then k1 else k2), union_sorted_lists ws1 ws2)
-
-let union_keys_generalised ((k1, ws1) : 'a keyset) ((k2, ws2) : 'b keyset) :
-    ('a keyset, 'b keyset) Either.t =
-  let all = union_sorted_lists ws1 ws2 in
-  if KeyEx k1 < KeyEx k2 then Left (k1, all) else Right (k2, all)
-
-type 'a state_id = 'a keyset
-
-type 'a head = {
-  head : 'a;
-  merge : 'a -> 'a -> 'a;
-  merge_next : dict -> 'a -> unit;
-}
-
-(* determinisation context *)
-and binding = B : 'a keyset * 'a head -> binding
-and dict = binding list
-
-let add_binding k v dict = B (k, v) :: dict
-let empty = []
-
-let lookup : type a. dict -> a keyset -> a head option =
- fun d (k, ws) ->
-  let rec find : dict -> a head option = function
-    | [] -> None
-    | B ((k', ws'), v) :: bs -> (
-        match eq k k' with Some Eq when ws = ws' -> Some v | _ -> find bs)
-  in
-  find d
+let make_key () = { id_head = newkey (); id_tail = [] }

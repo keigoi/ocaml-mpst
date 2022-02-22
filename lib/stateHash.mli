@@ -1,24 +1,17 @@
+type t
 type 'a state_id
-
-val gen_state_id : unit -> 's state_id
-
-type ('a, 'b) eq = Eq : ('a, 'a) eq
-
-val key_eq : 'a state_id -> 'b state_id -> ('a, 'b) eq option
-val key_eq_poly : 'a state_id -> 'b state_id -> bool
-val union_keys : 'a state_id -> 'a state_id -> 'a state_id
-
-val union_keys_generalised :
-  'a state_id -> 'b state_id -> ('a state_id, 'b state_id) Either.t
 
 type 'a head = {
   head : 'a;
-  merge : 'a -> 'a -> 'a;
-  merge_next : dict -> 'a -> unit;
+  determinise_list : t -> 'a list -> 'a;
+  force_all : t -> 'a -> unit;
 }
 
-and dict
+val make : unit -> t
+val add_binding : t -> 'a state_id -> 'a head lazy_t -> unit
+val lookup : t -> 'a state_id -> 'a head lazy_t option
+val make_key : unit -> 'a state_id
+val union_keys : 'a state_id -> 'a state_id -> 'a state_id
 
-val add_binding : 'a state_id -> 'a head -> dict -> dict
-val empty : dict
-val lookup : dict -> 'a state_id -> 'a head option
+val general_union_keys :
+  'a state_id -> 'b state_id -> ('a state_id, 'b state_id) Either.t

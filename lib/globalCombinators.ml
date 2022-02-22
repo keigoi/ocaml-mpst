@@ -52,7 +52,7 @@ let partial_finish keep_idxs g =
     | idx :: rest_idxs ->
         let state =
           (* get the state of the involved role *)
-          State.lazy_ (lazy (seq_get2 idx.role_index (Lazy.force keeps)))
+          State.loop (lazy (seq_get2 idx.role_index (Lazy.force keeps)))
         and rest =
           (* rest of the states *)
           lazy (seq_put2 idx.role_index (Lazy.force keeps) State.unit)

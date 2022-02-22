@@ -12,7 +12,7 @@ type _ t =
   | Deterministic : 'obj state_id * 'obj head lazy_t -> 'obj t
   | Epsilon : 'a t list -> 'a t
   | InternalChoice : 'lr state_id * ('lr, 'l, 'r) disj * 'l t * 'r t -> 'lr t
-  | Lazy_ : 'a t lazy_t -> 'a t
+  | Loop : 'a t lazy_t -> 'a t
 
 and _ out = Out : unit Name.t * 's t lazy_t -> 's out
 and 'var inp_ = 'var extchoice_item list
@@ -47,12 +47,11 @@ let branch (inp : _ inp) =
 
 let internal_choice disj l r = InternalChoice (StateHash.make_key (), disj, l, r)
 let merge l r = Epsilon [ l; r ]
-let lazy_ t = Lazy_ t
+let loop t = Loop t
 
 let determinise_head_list ctx id hds =
   match StateHash.lookup ctx id with
-  | Some v ->
-      v
+  | Some v -> v
   | None ->
       let hd =
         lazy
@@ -72,8 +71,7 @@ let determinise_head_list ctx id hds =
 
 let try_cast_then_merge_heads ctx id constrA constrB headA headB =
   match StateHash.lookup ctx id with
-  | Some v ->
-      Some v
+  | Some v -> Some v
   | None -> (
       let headA = Lazy.force headA and headB = Lazy.force headB in
       match Types.cast_if_constrs_are_same constrA constrB headB.head with
@@ -98,7 +96,7 @@ let force_determinised ctx t =
       failwith "Impossible: force: channel not determinised (Epsilon)"
   | InternalChoice (_, _, _, _) ->
       failwith "Impossible: force: channel not determinised (InternalChoice)"
-  | Lazy_ _ -> failwith "Impossible: force: channel not determinised (Lazy)"
+  | Loop _ -> failwith "Impossible: force: channel not determinised (Lazy)"
 (* | _  ->
       failwith "Impossible: force: channel not determinised" *)
 
@@ -134,7 +132,7 @@ end = struct
     else
       match st with
       | Deterministic (sid, h) -> ret_merged (sid, [ h ])
-      | Lazy_ t ->
+      | Loop t ->
           epsilon_closure ~binding ~visited:(st :: visited) (Lazy.force t)
       | Epsilon sts ->
           (* epsilon transitions: compute epsilon-closure *)
@@ -210,10 +208,7 @@ module OutMerge = struct
     role.make_obj
     @@ lab.make_obj
     @@ Out
-         ( name1,
-           lazy
-             (
-              real_merge binding (Lazy.force cont1) (Lazy.force cont2)) )
+         (name1, lazy (real_merge binding (Lazy.force cont1) (Lazy.force cont2)))
 
   let out_determinise role lab binding = function
     | [ s ] ->
@@ -223,8 +218,7 @@ module OutMerge = struct
         @@ Out
              ( name,
                lazy
-                 (
-                  let state_id, d =
+                 (let state_id, d =
                     Determinise.determinise binding (Lazy.force cont)
                   in
                   Deterministic (state_id, d)) )
@@ -287,8 +281,7 @@ module InpMerge = struct
         | None ->
             determinise_extchoice_item binding e
             :: real_inp_merge_one binding inp extc_item)
-    | [] ->
-        [ determinise_extchoice_item binding extc_item ]
+    | [] -> [ determinise_extchoice_item binding extc_item ]
 
   let real_inp_merge binding s1 s2 =
     List.fold_left (real_inp_merge_one binding) s1 s2
@@ -306,8 +299,7 @@ module InpMerge = struct
             (List.map
                (determinise_extchoice_item binding)
                (Lazy.force (role.call_obj s))))
-    | s :: ss ->
-        List.fold_left (inp_merge role binding) s ss
+    | s :: ss -> List.fold_left (inp_merge role binding) s ss
     | [] -> failwith "impossible: inp_determinise"
 
   let inp_force role ctx s =

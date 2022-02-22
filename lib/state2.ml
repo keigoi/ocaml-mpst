@@ -13,7 +13,7 @@ type _ t =
   | Deterministic : 'obj state_id * 'obj head lazy_t -> 'obj t
   | Epsilon : 'a t list -> 'a t
   | InternalChoice : 'lr state_id * ('lr, 'l, 'r) disj * 'l t * 'r t -> 'lr t
-  | Lazy_ : 'a state_id * 'a t lazy_t -> 'a t
+  | Lazy_ : 'a t lazy_t -> 'a t
 
 and _ out = Out : unit Name.t * 's t lazy_t -> 's out
 and 'var inp_ = 'var extchoice_item list
@@ -48,7 +48,7 @@ let branch (inp : _ inp) =
 
 let internal_choice disj l r = InternalChoice (StateHash.make_key (), disj, l, r)
 let merge l r = Epsilon [ l; r ]
-let lazy_ t = Lazy_ (StateHash.make_key (), t)
+let lazy_ t = Lazy_ t
 
 let determinise_head_list ctx id hds =
   print_endline "determinise_head_list";
@@ -98,8 +98,7 @@ let force ctx t =
       failwith "Impossible: force: channel not determinised (Epsilon)"
   | InternalChoice (_, _, _, _) ->
       failwith "Impossible: force: channel not determinised (InternalChoice)"
-  | Lazy_ (_, _) ->
-      failwith "Impossible: force: channel not determinised (Lazy)"
+  | Lazy_ _ -> failwith "Impossible: force: channel not determinised (Lazy)"
 (* | _  ->
       failwith "Impossible: force: channel not determinised" *)
 
@@ -137,14 +136,8 @@ end = struct
     else
       match st with
       | Deterministic (sid, h) -> ret_merged (sid, [ h ])
-      | Lazy_ (_sid, t) ->
-          let t = Lazy.force t in
-          if mem_phys t visited then (
-            print_endline "lazy loop found";
-            ret_backward_epsilon [ st ])
-          else (
-            print_endline "lazy loop continue";
-            epsilon_closure ~binding ~visited:(st :: visited) t)
+      | Lazy_ t ->
+          epsilon_closure ~binding ~visited:(st :: visited) (Lazy.force t)
       | Epsilon sts ->
           (* epsilon transitions: compute epsilon-closure *)
           let hds, cycles =
@@ -219,7 +212,10 @@ module OutMerge = struct
     role.make_obj
     @@ lab.make_obj
     @@ Out
-         (name1, lazy (real_merge binding (Lazy.force cont1) (Lazy.force cont2)))
+         ( name1,
+           lazy
+             (print_endline "out_merge";
+              real_merge binding (Lazy.force cont1) (Lazy.force cont2)) )
 
   let out_determinise role lab binding = function
     | [ s ] ->
@@ -252,33 +248,37 @@ module InpMerge = struct
       a extchoice_item ->
       a extchoice_item option =
    fun binding l r ->
-    match (l, r) with
-    | ( ExternalChoiceItem (constr1, name1, cont1),
-        ExternalChoiceItem (constr2, name2, cont2) ) -> (
-        (* check if constr1 = constr2 and then merge cont1 with cont2 using
-           "try_cast_and_merge_heads" above. To do so:
-             (1) We need to step-determinise the continuation, as required by
-                 the function
-             (2) Compute the new state id via 'generalised union'
-                 (StateId.general_union)
-        *)
-        (* (1) extract the channel objects ==== *)
-        let state_id1, cont1 = Determinise.determinise binding cont1 in
-        let state_id2, cont2 = Determinise.determinise binding cont2 in
-        let make_ constr state_id cont =
-          Name.unify name1 name2;
-          ExternalChoiceItem (constr, name1, Deterministic (state_id, cont))
-        in
-        (* (2) compute the new state id ==== *)
-        match StateHash.general_union_keys state_id1 state_id2 with
-        | Left state_id ->
-            try_cast_then_merge_heads binding state_id constr1 constr2 cont1
-              cont2
-            |> Option.map (make_ constr1 state_id)
-        | Right state_id ->
-            try_cast_then_merge_heads binding state_id constr2 constr1 cont2
-              cont1
-            |> Option.map (make_ constr2 state_id))
+    let ( ExternalChoiceItem (constr1, name1, cont1),
+          ExternalChoiceItem (constr2, name2, cont2) ) =
+      (l, r)
+    in
+    (* check if constr1 = constr2 and then merge cont1 with cont2 using
+       "try_cast_and_merge_heads" above. To do so:
+         (1) We need to step-determinise the continuation, as required by
+             the function
+         (2) Compute the new state id via 'generalised union'
+             (StateId.general_union)
+    *)
+    (* (1) extract the channel objects ==== *)
+    let state_id1, cont1 = Determinise.determinise binding cont1 in
+    let state_id2, cont2 = Determinise.determinise binding cont2 in
+    let make_ constr state_id cont =
+      Name.unify name1 name2;
+      ExternalChoiceItem (constr, name1, Deterministic (state_id, cont))
+    in
+    (* (2) compute the new state id ==== *)
+    match StateHash.general_union_keys state_id1 state_id2 with
+    | Left state_id ->
+        try_cast_then_merge_heads binding state_id constr1 constr2 cont1 cont2
+        |> Option.map (make_ constr1 state_id)
+    | Right state_id ->
+        try_cast_then_merge_heads binding state_id constr2 constr1 cont2 cont1
+        |> Option.map (make_ constr2 state_id)
+
+  let determinise_extchoice_item binding
+      (ExternalChoiceItem (constr, name, cont)) =
+    let state_id, d = Determinise.determinise binding cont in
+    ExternalChoiceItem (constr, name, Deterministic (state_id, d))
 
   let rec real_inp_merge_one :
       type a. StateHash.t -> a inp_ -> a extchoice_item -> a inp_ =
@@ -286,9 +286,9 @@ module InpMerge = struct
     match inp with
     | e :: inp -> (
         match try_real_merge_extchoice_item binding e extc_item with
-        | Some e -> e :: inp
+        | Some e -> e :: List.map (determinise_extchoice_item binding) inp
         | None -> e :: real_inp_merge_one binding inp extc_item)
-    | [] -> [ extc_item ]
+    | [] -> [ determinise_extchoice_item binding extc_item ]
 
   let real_inp_merge binding s1 s2 =
     List.fold_left (real_inp_merge_one binding) s1 s2
@@ -301,12 +301,15 @@ module InpMerge = struct
 
   let inp_determinise role binding = function
     | [ s ] ->
+        print_endline "inp single";
         role.make_obj
           (lazy
-            (Lazy.force (role.call_obj s)
-            |> List.map (fun (ExternalChoiceItem (constr, name, cont)) ->
-                   ExternalChoiceItem (constr, name, cont))))
-    | s :: ss -> List.fold_left (inp_merge role binding) s ss
+            (List.map
+               (determinise_extchoice_item binding)
+               (Lazy.force (role.call_obj s))))
+    | s :: ss ->
+        print_endline "inp merge";
+        List.fold_left (inp_merge role binding) s ss
     | [] -> failwith "impossible: inp_determinise"
 
   let inp_force role ctx s =

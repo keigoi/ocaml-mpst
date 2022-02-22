@@ -9,10 +9,10 @@ end
 
 type 'a key = (module W with type t = 'a)
 
-type 't head = {
-  head : 't;
-  merge : t -> 't -> 't -> 't;
-  force_determinise : t -> 't -> unit;
+type 'a head = {
+  head : 'a;
+  determinise_all : t -> 'a list -> 'a;
+  force_all : t -> 'a -> unit;
 }
 
 and binding = B : 'a state_id * 'a head lazy_t -> binding

@@ -3,8 +3,8 @@ module StateHash = StateHash2
 
 type 't head = 't StateHash.head = {
   head : 't;
-  merge : StateHash.t -> 't -> 't -> 't;
-  force_determinise : StateHash.t -> 't -> unit;
+  determinise_all : StateHash.t -> 't list -> 't;
+  force_all : StateHash.t -> 't -> unit;
 }
 
 type 't state_id = 't StateHash.state_id
@@ -51,22 +51,22 @@ let merge l r = Epsilon [ l; r ]
 let lazy_ t = Lazy_ t
 
 let merge_heads ctx id hds =
+  print_endline "merge_heads";
   match StateHash.lookup ctx id with
   | Some v -> v
   | None ->
       let hd =
         lazy
-          (let merge_head : 'a. 'a head -> 'a head -> 'a head =
-            fun dl dr ->
-             let d' = dl.merge ctx dl.head dr.head in
-             {
-               head = d';
-               merge = dl.merge;
-               force_determinise = dl.force_determinise;
-             }
+          (let hd = Lazy.force (List.hd hds) in
+           let body =
+             hd.determinise_all ctx
+               (List.map (fun hd -> (Lazy.force hd).head) hds)
            in
-           let hds = List.map Lazy.force hds in
-           List.fold_left merge_head (List.hd hds) (List.tl hds))
+           {
+             head = body;
+             determinise_all = hd.determinise_all;
+             force_all = hd.force_all;
+           })
       in
       StateHash.add_binding ctx id hd;
       hd
@@ -78,21 +78,24 @@ let try_cast_then_merge_heads ctx id constrA constrB headA headB =
       let headA = Lazy.force headA and headB = Lazy.force headB in
       match Types.cast_if_constrs_are_same constrA constrB headB.head with
       | Some contB_body ->
-          let head = headA.merge ctx headA.head contB_body in
+          let head = headA.determinise_all ctx [ headA.head; contB_body ] in
           let head = Lazy.from_val { headA with head } in
           StateHash.add_binding ctx id head;
           Some head
       | None -> None)
 
+let merge_list ~bin_merge ctx xs =
+  List.fold_left (bin_merge ctx) (List.hd xs) (List.tl xs)
+
 let force ctx t =
   match t with
   | Deterministic (id, h) when StateHash.lookup ctx id = None ->
       let h = Lazy.force h in
-      h.force_determinise ctx h.head
+      h.force_all ctx h.head
   | _ -> failwith "Impossible: force: channel not determinised"
 
 module Determinise : sig
-  val determinise_step : StateHash.t -> 's t -> 's state_id * 's head lazy_t
+  val determinise : StateHash.t -> 's t -> 's state_id * 's head lazy_t
 end = struct
   type 'a merged_or_backward_epsilon =
     ('a state_id * 'a head lazy_t list, 'a t list) Either.t
@@ -103,12 +106,13 @@ end = struct
 
   let fail_unguarded str = raise (UnguardedLoop str)
 
-  let rec determinise_step :
-            's. StateHash.t -> 's t -> 's state_id * 's head lazy_t =
+  let rec determinise : 's. StateHash.t -> 's t -> 's state_id * 's head lazy_t
+      =
    fun binding st ->
+    print_endline "determinise";
     match epsilon_closure ~binding ~visited:[] st with
     | Left (sid, hds) -> (sid, merge_heads binding sid hds)
-    | Right _ -> fail_unguarded "determinise_step: unguarded"
+    | Right _ -> fail_unguarded "determinise: unguarded"
 
   and epsilon_closure :
       type a.
@@ -117,6 +121,7 @@ end = struct
       a t ->
       a merged_or_backward_epsilon =
    fun ~binding ~visited st ->
+    (* print_endline "epsilon_closure"; *)
     let ret_merged x = Either.Left x
     and ret_backward_epsilon x = Either.Right x in
     if mem_phys st visited then ret_backward_epsilon [ st ]
@@ -124,9 +129,10 @@ end = struct
       match st with
       | Deterministic (sid, h) -> ret_merged (sid, [ h ])
       | Lazy_ t ->
-          if mem_phys (Lazy.force t) visited then
-            epsilon_closure ~binding ~visited (Lazy.force t)
-          else ret_backward_epsilon [ st ]
+          if mem_phys (Lazy.force t) visited then (
+            print_endline "lazy found";
+            ret_backward_epsilon [ st ])
+          else epsilon_closure ~binding ~visited (Lazy.force t)
       | Epsilon sts ->
           (* epsilon transitions: compute epsilon-closure *)
           let hds, cycles =
@@ -157,36 +163,40 @@ end = struct
       | InternalChoice (sid, disj, tl, tr) ->
           let head =
             lazy
-              (let _idl, hl = determinise_step binding tl
-               and _idr, hr = determinise_step binding tr in
+              (let _idl, hl = determinise binding tl
+               and _idr, hr = determinise binding tr in
                let hl = Lazy.force hl and hr = Lazy.force hr in
-               let merge binding lr1 lr2 =
+               let bin_merge binding lr1 lr2 =
                  (* merge splitted ones *)
                  let l =
-                   hl.merge binding (disj.disj_splitL lr1)
-                     (disj.disj_splitL lr2)
+                   hl.determinise_all binding
+                     [ disj.disj_splitL lr1; disj.disj_splitL lr2 ]
                  in
                  let r =
-                   hr.merge binding (disj.disj_splitR lr1)
-                     (disj.disj_splitR lr2)
+                   hr.determinise_all binding
+                     [ disj.disj_splitR lr1; disj.disj_splitR lr2 ]
                  in
                  (* then type-concatenate it *)
                  disj.disj_concat l r
                in
-               let force_determinise ctx lr =
-                 hl.force_determinise ctx (disj.disj_splitL lr);
-                 hr.force_determinise ctx (disj.disj_splitR lr)
+               let force_all ctx lr =
+                 hl.force_all ctx (disj.disj_splitL lr);
+                 hr.force_all ctx (disj.disj_splitR lr)
                in
                let tlr = disj.disj_concat hl.head hr.head in
-               { head = tlr; merge; force_determinise })
+               {
+                 head = tlr;
+                 determinise_all = merge_list ~bin_merge;
+                 force_all;
+               })
           in
           ret_merged (sid, [ head ])
 end
 
 module OutMerge = struct
   let real_merge binding l r =
-    let idl, dl = Determinise.determinise_step binding l
-    and idr, dr = Determinise.determinise_step binding r in
+    let idl, dl = Determinise.determinise binding l
+    and idr, dr = Determinise.determinise binding r in
     let id = StateHash.union_keys idl idr in
     Deterministic (id, merge_heads binding id [ dl; dr ])
 
@@ -198,6 +208,22 @@ module OutMerge = struct
     @@ lab.make_obj
     @@ Out
          (name1, lazy (real_merge binding (Lazy.force cont1) (Lazy.force cont2)))
+
+  let out_determinise role lab binding = function
+    | [ s ] ->
+        let (Out (name, cont)) = lab.call_obj @@ role.call_obj s in
+        role.make_obj
+        @@ lab.make_obj
+        @@ Out
+             ( name,
+               lazy
+                 (print_endline "single";
+                  let id, d =
+                    Determinise.determinise binding (Lazy.force cont)
+                  in
+                  Deterministic (id, d)) )
+    | t :: ts -> List.fold_left (out_merge role lab binding) t ts
+    | [] -> failwith "out_determinise: impossible"
 
   let out_force role lab ctx s =
     print_endline "out_force";
@@ -225,8 +251,8 @@ module InpMerge = struct
                  (StateId.general_union)
         *)
         (* (1) extract the channel objects ==== *)
-        let state_id1, cont1 = Determinise.determinise_step binding cont1 in
-        let state_id2, cont2 = Determinise.determinise_step binding cont2 in
+        let state_id1, cont1 = Determinise.determinise binding cont1 in
+        let state_id2, cont2 = Determinise.determinise binding cont2 in
         let make_ constr state_id cont =
           Name.unify name1 name2;
           ExternalChoiceItem (constr, name1, Deterministic (state_id, cont))
@@ -242,24 +268,34 @@ module InpMerge = struct
               cont1
             |> Option.map (make_ constr2 state_id))
 
-  let rec real_merge_inp_extchoice_item :
+  let rec real_inp_merge_one :
       type a. StateHash.t -> a inp_ -> a extchoice_item -> a inp_ =
    fun binding inp extc_item ->
     match inp with
     | e :: inp -> (
         match try_real_merge_extchoice_item binding e extc_item with
         | Some e -> e :: inp
-        | None -> e :: real_merge_inp_extchoice_item binding inp extc_item)
+        | None -> e :: real_inp_merge_one binding inp extc_item)
     | [] -> [ extc_item ]
 
   let real_inp_merge binding s1 s2 =
-    List.fold_left (real_merge_inp_extchoice_item binding) s1 s2
+    List.fold_left (real_inp_merge_one binding) s1 s2
 
   let inp_merge role binding s1 s2 =
     role.make_obj
     @@ lazy
          (let s1 = role.call_obj s1 and s2 = role.call_obj s2 in
           real_inp_merge binding (Lazy.force s1) (Lazy.force s2))
+
+  let inp_determinise role binding = function
+    | [ s ] ->
+        role.make_obj
+          (lazy
+            (Lazy.force (role.call_obj s)
+            |> List.map (fun (ExternalChoiceItem (constr, name, cont)) ->
+                   ExternalChoiceItem (constr, name, cont))))
+    | s :: ss -> List.fold_left (inp_merge role binding) s ss
+    | [] -> failwith "impossible: inp_determinise"
 
   let inp_force role ctx s =
     print_endline "inp_force";
@@ -277,8 +313,8 @@ let out role lab name s =
       Lazy.from_val
         {
           head = role.make_obj @@ lab.make_obj @@ Out (name, Lazy.from_val s);
-          merge = OutMerge.out_merge role lab;
-          force_determinise = OutMerge.out_force role lab;
+          determinise_all = OutMerge.out_determinise role lab;
+          force_all = OutMerge.out_force role lab;
         } )
 
 let inp role constr name s =
@@ -287,8 +323,8 @@ let inp role constr name s =
       Lazy.from_val
         {
           head = role.make_obj @@ lazy [ ExternalChoiceItem (constr, name, s) ];
-          merge = InpMerge.inp_merge role;
-          force_determinise = InpMerge.inp_force role;
+          determinise_all = InpMerge.inp_determinise role;
+          force_all = InpMerge.inp_force role;
         } )
 
 let unit =
@@ -297,12 +333,12 @@ let unit =
       Lazy.from_val
         {
           head = ();
-          merge = (fun _ _ _ -> ());
-          force_determinise = (fun _ _ -> ());
+          determinise_all = (fun _ _ -> ());
+          force_all = (fun _ _ -> ());
         } )
 
 let determinise t =
-  let _, h = Determinise.determinise_step (StateHash.make ()) t in
+  let _, h = Determinise.determinise (StateHash.make ()) t in
   let h = Lazy.force h in
-  h.force_determinise (StateHash.make ()) h.head;
+  h.force_all (StateHash.make ()) h.head;
   h.head

@@ -1,10 +1,10 @@
 type t
 type 'a state_id
 
-type 't head = {
-  head : 't;
-  merge : t -> 't -> 't -> 't;
-  force_determinise : t -> 't -> unit;
+type 'a head = {
+  head : 'a;
+  determinise_all : t -> 'a list -> 'a;
+  force_all : t -> 'a -> unit;
 }
 
 val make : unit -> t

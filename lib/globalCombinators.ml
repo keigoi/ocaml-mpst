@@ -8,18 +8,17 @@ type 'a inp = 'a Chvec.inp
 type 'a out = 'a Chvec.out
 type 'a t = 'a Seq.t
 
-
-let rec session_merge : type x. x Sessions.seq -> x Sessions.seq -> x Sessions.seq =
+let rec session_merge :
+    type x. x Sessions.seq -> x Sessions.seq -> x Sessions.seq =
   let open Sessions in
   fun l r ->
-   match (l, r) with
-   | _ :: _, _ ->
-       let hd = State.merge (seq_head l) (seq_head r) in
-       let tl = session_merge (seq_tail l) (seq_tail r) in
-       hd :: tl
-   | _, _ :: _ -> session_merge r l
-   | [], [] -> []
-
+    match (l, r) with
+    | _ :: _, _ ->
+        let hd = State.merge (seq_head l) (seq_head r) in
+        let tl = session_merge (seq_tail l) (seq_tail r) in
+        hd :: tl
+    | _, _ :: _ -> session_merge r l
+    | [], [] -> []
 
 let ( --> ) ri rj lab cont =
   let name = Name.make () in
@@ -70,7 +69,7 @@ let rec put_unbound :
         (Sessions.seq_put role.role_index seq (State.make_unbound ()))
         upd
 
-let finish = Sessions.[]
+let finish = Sessions.Hetero.[]
 
 let rec tying_unbound : type u. u Sessions.seq -> u Sessions.seq -> unit =
  fun self g ->

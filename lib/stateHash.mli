@@ -7,9 +7,11 @@ type 'a head = {
   force_all : t -> 'a -> unit;
 }
 
+type 'a value = 'a head lazy_t
+
 val make : unit -> t
-val add_binding : t -> 'a state_id -> 'a head lazy_t -> unit
-val lookup : t -> 'a state_id -> 'a head lazy_t option
+val add_binding : t -> 'a state_id -> 'a value -> unit
+val lookup : t -> 'a state_id -> 'a value option
 val make_key : unit -> 'a state_id
 val union_keys : 'a state_id -> 'a state_id -> 'a state_id
 

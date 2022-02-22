@@ -20,6 +20,7 @@ and t = binding list ref
 and key_ex = KeyEx : 'a key -> key_ex
 and 'a state_id = { id_head : 'a key; id_tail : key_ex list }
 
+type 'a value = 'a head lazy_t
 type ('a, 'b) eq = Eq : ('a, 'a) eq
 
 let newkey () (type s) =

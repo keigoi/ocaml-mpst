@@ -1,5 +1,5 @@
 open Must.Types
-open Must.GlobalCombinators.G
+open Must.GlobalCombinators
 
 module Util = struct
   let a =

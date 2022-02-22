@@ -210,13 +210,13 @@ end
 
 module State = struct
   type _ t =
-    | Deterministic : 'obj StateId.t * 'obj head -> 'obj t
+    | Deterministic : 'obj StateId.t * 'obj det -> 'obj t
     | Lazy : 'a t lazy_t -> 'a t
     | Epsilon : 'a t list -> 'a t
     | InternalChoice : 'lr StateId.t * ('lr, 'l, 'r) disj * 'l t * 'r t -> 'lr t
 
-  and 't head = {
-    head : 't;
+  and 't det = {
+    body : 't;
     merge : 't -> 't -> 't;
     force_determinise : 't -> unit;
   }
@@ -225,30 +225,43 @@ module State = struct
   and 'var inp = 'var inp0 list lazy_t
   and _ inp0 = Inp0 : ('var, 's) constr * unit NameUnify.t * 's t -> 'var inp0
 
-  type 'a merged_or_backward_epsilon =
-    ('a StateId.t * 'a head list, 'a t list) Either.t
-
-  let rec mem_phys k = function
-    | x :: xs -> k == x || mem_phys k xs
-    | [] -> false
-
-  let ret_merged x = Either.Left x
-  and ret_backward_epsilon x = Either.Right x
-
   exception Unguarded of string
 
-  let fail_unguarded str = raise (Unguarded str)
-
-  let merge_heads hds =
-    let merge_head : 'a. 'a head -> 'a head -> 'a head =
+  let merge_dets hds =
+    let merge_det : 'a. 'a det -> 'a det -> 'a det =
      fun dl dr ->
-      let d' = dl.merge dl.head dr.head in
-      { head = d'; merge = dl.merge; force_determinise = dl.force_determinise }
+      let d' = dl.merge dl.body dr.body in
+      { body = d'; merge = dl.merge; force_determinise = dl.force_determinise }
     in
-    List.fold_left merge_head (List.hd hds) (List.tl hds)
+    List.fold_left merge_det (List.hd hds) (List.tl hds)
 
-  let rec determinise_step : 's. 's t -> 's StateId.t * 's head =
-    let rec epsilon_clusure :
+  let force t =
+    match t with
+    | Deterministic (_, d) -> d.force_determinise d.body
+    | _ -> failwith "Impossible: force: channel not determinised"
+
+  module Determinise : sig
+    val determinise_step : 's t -> 's StateId.t * 's det
+  end = struct
+    type 'a merged_or_backward_epsilon =
+      ('a StateId.t * 'a det list, 'a t list) Either.t
+
+    let rec mem_phys k = function
+      | x :: xs -> k == x || mem_phys k xs
+      | [] -> false
+
+    let ret_merged x = Either.Left x
+    and ret_backward_epsilon x = Either.Right x
+
+    let fail_unguarded str = raise (Unguarded str)
+
+    let rec determinise_step : 's. 's t -> 's StateId.t * 's det =
+     fun st ->
+      match epsilon_closure ~visited:[] st with
+      | Left (sid, hds) -> (sid, merge_dets hds)
+      | Right _ -> fail_unguarded "epsilon_closure: unguarded"
+
+    and epsilon_closure :
         type a. visited:a t list -> a t -> a merged_or_backward_epsilon =
      fun ~visited st ->
       if mem_phys st visited then ret_backward_epsilon [ st ]
@@ -258,7 +271,7 @@ module State = struct
         | Epsilon sts ->
             (* epsilon transitions: compute epsilon-closure *)
             let hds, cycles =
-              List.partition_map (epsilon_clusure ~visited:(st :: visited)) sts
+              List.partition_map (epsilon_closure ~visited:(st :: visited)) sts
             in
             if List.length hds > 0 then
               (* concrete transitons found - return the merged state ==== *)
@@ -281,37 +294,29 @@ module State = struct
                 (* no backward epsilons anymore: unguarded recursion! *)
                 fail_unguarded "epsilon_closure: unguarded"
         | InternalChoice (sid, disj, tl, tr) ->
-            let _idl, hl = determinise_step tl
-            and _idr, hr = determinise_step tr in
+            let _idl, dl = determinise_step tl
+            and _idr, dr = determinise_step tr in
             let merge lr1 lr2 =
               (* merge splitted ones *)
-              let l = hl.merge (disj.disj_splitL lr1) (disj.disj_splitL lr2) in
-              let r = hr.merge (disj.disj_splitR lr1) (disj.disj_splitR lr2) in
+              let l = dl.merge (disj.disj_splitL lr1) (disj.disj_splitL lr2) in
+              let r = dr.merge (disj.disj_splitR lr1) (disj.disj_splitR lr2) in
               (* then type-concatenate it *)
               disj.disj_concat l r
             in
             let force_determinise lr =
-              hl.force_determinise (disj.disj_splitL lr);
-              hr.force_determinise (disj.disj_splitR lr)
+              dl.force_determinise (disj.disj_splitL lr);
+              dr.force_determinise (disj.disj_splitR lr)
             in
-            let tlr = disj.disj_concat hl.head hr.head in
-            ret_merged (sid, [ { head = tlr; merge; force_determinise } ])
-        | Lazy t -> epsilon_clusure ~visited (Lazy.force t)
-    in
-    fun st ->
-      match epsilon_clusure ~visited:[] st with
-      | Left (sid, hds) -> (sid, merge_heads hds)
-      | Right _ -> fail_unguarded "epsilon_closure: unguarded"
+            let tlr = disj.disj_concat dl.body dr.body in
+            ret_merged (sid, [ { body = tlr; merge; force_determinise } ])
+        | Lazy t -> epsilon_closure ~visited (Lazy.force t)
+  end
 
-  let force t =
-    match t with
-    | Deterministic (_, h) -> h.force_determinise h.head
-    | _ -> failwith "Impossible: force: channel not determinised"
-
-  module Out = struct
+  module OutMerge = struct
     let real_merge l r =
-      let kl, hl = determinise_step l and kr, hr = determinise_step r in
-      Deterministic (StateId.union kl kr, merge_heads [ hl; hr ])
+      let idl, dl = Determinise.determinise_step l
+      and idr, dr = Determinise.determinise_step r in
+      Deterministic (StateId.union idl idr, merge_dets [ dl; dr ])
 
     let out_merge role lab s1 s2 =
       let (Out (name1, cont1)) = lab.call_obj @@ role.call_obj s1
@@ -326,19 +331,19 @@ module State = struct
       force (Lazy.force cont)
   end
 
-  module Inp = struct
+  module InpMerge = struct
     let try_real_merge_inp0 : type a. a inp0 -> a inp0 -> a inp0 option =
       (* 'Cast' contB to contA's type using constrA and constrB, then merge
          them *)
       let cast_and_merge ~state_id ~unify_name constrA constrB contA contB =
-        match Types.cast_if_constrs_are_same constrA constrB contB.head with
-        | Some contB_head ->
-            let head = contA.merge contA.head contB_head in
+        match Types.cast_if_constrs_are_same constrA constrB contB.body with
+        | Some contB_body ->
+            let body = contA.merge contA.body contB_body in
             Some
               (Inp0
                  ( constrA,
                    unify_name (),
-                   Deterministic (state_id, { contA with head }) ))
+                   Deterministic (state_id, { contA with body }) ))
         | None -> None
       in
       fun l r ->
@@ -352,8 +357,8 @@ module State = struct
                     (StateId.general_union)
             *)
             (* (1) extract the channel objects ==== *)
-            let state_id1, cont1 = determinise_step cont1 in
-            let state_id2, cont2 = determinise_step cont2 in
+            let state_id1, cont1 = Determinise.determinise_step cont1 in
+            let state_id2, cont2 = Determinise.determinise_step cont2 in
             let unify_name () =
               NameUnify.unify name1 name2;
               name1
@@ -391,18 +396,18 @@ module State = struct
     Deterministic
       ( StateId.make (),
         {
-          head = role.make_obj @@ lab.make_obj @@ Out (name, Lazy.from_val s);
-          merge = Out.out_merge role lab;
-          force_determinise = Out.out_force role lab;
+          body = role.make_obj @@ lab.make_obj @@ Out (name, Lazy.from_val s);
+          merge = OutMerge.out_merge role lab;
+          force_determinise = OutMerge.out_force role lab;
         } )
 
   let inp_trans role constr name s =
     Deterministic
       ( StateId.make (),
         {
-          head = role.make_obj @@ lazy [ Inp0 (constr, name, s) ];
-          merge = Inp.inp_merge role;
-          force_determinise = Inp.inp_force role;
+          body = role.make_obj @@ lazy [ Inp0 (constr, name, s) ];
+          merge = InpMerge.inp_merge role;
+          force_determinise = InpMerge.inp_force role;
         } )
 
   let internal_choice disj l r = InternalChoice (StateId.make (), disj, l, r)
@@ -413,15 +418,15 @@ module State = struct
     Deterministic
       ( StateId.make (),
         {
-          head = ();
+          body = ();
           merge = (fun _ _ -> ());
           force_determinise = (fun _ -> ());
         } )
 
   let eval t =
-    let _, h = determinise_step t in
-    h.force_determinise h.head;
-    h.head
+    let _, d = Determinise.determinise_step t in
+    d.force_determinise d.body;
+    d.body
 end
 
 module State0 = struct

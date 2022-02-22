@@ -3,7 +3,7 @@ type 'a state_id
 
 type 'a head = {
   head : 'a;
-  determinise_all : t -> 'a list -> 'a;
+  determinise_list : t -> 'a list -> 'a;
   force_all : t -> 'a -> unit;
 }
 

@@ -101,13 +101,13 @@ module Make (State : STATE) = struct
   let finish = Sessions.Hetero.[]
 
   (* let rec extract : type u. u Sessions.seq -> u = function
-    | Sessions.[] ->
-        let rec nil = `cons ((), nil) in
-        nil
-    | st :: tail ->
-        let hd = State.determinise st in
-        let tl = extract tail in
-        `cons (hd, tl) *)
+     | Sessions.[] ->
+         let rec nil = `cons ((), nil) in
+         nil
+     | st :: tail ->
+         let hd = State.determinise st in
+         let tl = extract tail in
+         `cons (hd, tl) *)
 
   let extract seq =
     let r = ref 0 in

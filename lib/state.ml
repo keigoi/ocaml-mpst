@@ -4,6 +4,7 @@ type 't head = 't StateHash.head = {
   head : 't;
   determinise_list : StateHash.t -> 't list -> 't;
   force_all : StateHash.t -> 't -> unit;
+  to_string : StateHash.t -> 't -> string;
 }
 
 type 't state_id = 't StateHash.state_id
@@ -24,6 +25,20 @@ and _ extchoice_item =
       -> 'var extchoice_item
 
 exception UnguardedLoop of string
+
+let rec to_string : 'a. StateHash.t -> 'a t -> string =
+ fun ctx -> function
+  | Deterministic (sid, hd) ->
+      if Lazy.is_val hd then (
+        StateHash.add_binding ctx sid hd;
+        let hd = Lazy.force hd in
+        hd.to_string ctx hd.head)
+      else "<lazy_det>"
+  | Epsilon ts -> List.map (to_string ctx) ts |> String.concat " [#] "
+  | InternalChoice (_, _, l, r) ->
+      let lstr = to_string ctx l and rstr = to_string ctx r in
+      lstr ^ " (+#) " ^ rstr
+  | Loop t -> if Lazy.is_val t then to_string ctx (Lazy.force t) else "<lazy_loop>"
 
 let select (Out (name, cont)) =
   match Lazy.force cont with
@@ -64,6 +79,7 @@ let determinise_head_list ctx id hds =
              head = body;
              determinise_list = hd.determinise_list;
              force_all = hd.force_all;
+             to_string = hd.to_string;
            })
       in
       StateHash.add_binding ctx id hd;
@@ -184,11 +200,17 @@ end = struct
                  hl.force_all ctx (disj.disj_splitL lr);
                  hr.force_all ctx (disj.disj_splitR lr)
                in
+               let to_string ctx lr =
+                 hl.to_string ctx (disj.disj_splitL lr)
+                 ^ " (+) "
+                 ^ hr.to_string ctx (disj.disj_splitR lr)
+               in
                let tlr = disj.disj_concat hl.head hr.head in
                {
                  head = tlr;
                  determinise_list = merge_list ~bin_merge;
                  force_all;
+                 to_string;
                })
           in
           ret_merged (sid, [ head ])
@@ -229,6 +251,18 @@ module OutMerge = struct
     let (Out (name, cont)) = lab.call_obj @@ role.call_obj s in
     ignore (Name.finalise name);
     force_determinised ctx (Lazy.force cont)
+
+  let out_to_string role lab ctx s =
+    let (Out (_, cont)) = lab.call_obj @@ role.call_obj s in
+    role.method_name
+    ^ "!"
+    ^ lab.method_name
+    ^ "."
+    ^
+    if Lazy.is_val cont then
+      let cont = Lazy.force cont in
+      to_string ctx cont
+    else "<lazy_out_cont>"
 end
 
 module InpMerge = struct
@@ -309,6 +343,19 @@ module InpMerge = struct
         ignore (Name.finalise n);
         force_determinised ctx s)
       (Lazy.force s)
+
+  let inp_to_string role ctx s =
+    role.method_name
+    ^ "?{"
+    ^ (let s = role.call_obj s in
+       if Lazy.is_val s then
+         String.concat ","
+           (List.map
+              (fun (ExternalChoiceItem (constr, _, cont)) ->
+                constr.constr_name ^ "." ^ to_string ctx cont)
+              (Lazy.force s))
+       else "<lazy_inp>")
+    ^ "}"
 end
 
 let out role lab name s =
@@ -319,6 +366,7 @@ let out role lab name s =
           head = role.make_obj @@ lab.make_obj @@ Out (name, Lazy.from_val s);
           determinise_list = OutMerge.out_determinise role lab;
           force_all = OutMerge.out_force role lab;
+          to_string = OutMerge.out_to_string role lab;
         } )
 
 let inp role constr name s =
@@ -329,6 +377,7 @@ let inp role constr name s =
           head = role.make_obj @@ lazy [ ExternalChoiceItem (constr, name, s) ];
           determinise_list = InpMerge.inp_determinise role;
           force_all = InpMerge.inp_force role;
+          to_string = InpMerge.inp_to_string role;
         } )
 
 let unit =
@@ -339,10 +388,12 @@ let unit =
           head = ();
           determinise_list = (fun _ _ -> ());
           force_all = (fun _ _ -> ());
+          to_string = (fun _ _ -> "end");
         } )
 
 let determinise t =
   let _, h = Determinise.determinise (StateHash.make ()) t in
   let h = Lazy.force h in
+  (* print_endline (h.to_string (StateHash.make ()) h.head); *)
   h.force_all (StateHash.make ()) h.head;
   h.head

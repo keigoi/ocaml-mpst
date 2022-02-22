@@ -12,6 +12,7 @@ module Util = struct
                 method role_A = v
               end);
           call_obj = (fun o -> o#role_A);
+          method_name = "role_A";
         };
       role_index = Zero;
     }
@@ -26,6 +27,7 @@ module Util = struct
                 method role_B = v
               end);
           call_obj = (fun o -> o#role_B);
+          method_name = "role_B";
         };
       role_index = Succ Zero;
     }
@@ -40,6 +42,7 @@ module Util = struct
                 method role_C = v
               end);
           call_obj = (fun o -> o#role_C);
+          method_name = "role_C";
         };
       role_index = Succ (Succ Zero);
     }
@@ -54,6 +57,7 @@ module Util = struct
                 method role_D = v
               end);
           call_obj = (fun o -> o#role_D);
+          method_name = "role_D";
         };
       role_index = Succ (Succ (Succ Zero));
     }
@@ -68,11 +72,13 @@ module Util = struct
                 method msg = f
               end);
           call_obj = (fun o -> o#msg);
+          method_name = "msg";
         };
       var =
         {
           make_var = (fun v -> `msg v);
           match_var = (function `msg v -> Some v | _ -> None);
+          constr_name = "msg";
         };
     }
 
@@ -86,11 +92,13 @@ module Util = struct
                 method left = f
               end);
           call_obj = (fun o -> o#left);
+          method_name = "left";
         };
       var =
         {
           make_var = (fun v -> `left v);
           match_var = (function `left v -> Some v | _ -> None);
+          constr_name = "left";
         };
     }
 
@@ -104,11 +112,13 @@ module Util = struct
                 method right = f
               end);
           call_obj = (fun o -> o#right);
+          method_name = "right";
         };
       var =
         {
           make_var = (fun v -> `right v);
           match_var = (function `right v -> Some v | _ -> None);
+          constr_name = "right";
         };
     }
 
@@ -122,11 +132,13 @@ module Util = struct
                 method middle = f
               end);
           call_obj = (fun o -> o#middle);
+          method_name = "middle";
         };
       var =
         {
           make_var = (fun v -> `middle v);
           match_var = (function `middle v -> Some v | _ -> None);
+          constr_name = "middle";
         };
     }
 
@@ -140,11 +152,13 @@ module Util = struct
                 method ping = f
               end);
           call_obj = (fun o -> o#ping);
+          method_name = "ping";
         };
       var =
         {
           make_var = (fun v -> `ping v);
           match_var = (function `ping v -> Some v | _ -> None);
+          constr_name = "ping";
         };
     }
 
@@ -158,11 +172,13 @@ module Util = struct
                 method pong = f
               end);
           call_obj = (fun o -> o#pong);
+          method_name = "pong";
         };
       var =
         {
           make_var = (fun v -> `pong v);
           match_var = (function `pong v -> Some v | _ -> None);
+          constr_name = "pong";
         };
     }
 
@@ -176,11 +192,13 @@ module Util = struct
                 method fini = f
               end);
           call_obj = (fun o -> o#fini);
+          method_name = "fini";
         };
       var =
         {
           make_var = (fun v -> `fini v);
           match_var = (function `fini v -> Some v | _ -> None);
+          constr_name = "fini";
         };
     }
 

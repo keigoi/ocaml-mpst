@@ -5,6 +5,7 @@ type 'a head = {
   head : 'a;
   determinise_list : t -> 'a list -> 'a;
   force_all : t -> 'a -> unit;
+  to_string : t -> 'a -> string;
 }
 
 type 'a value = 'a head lazy_t

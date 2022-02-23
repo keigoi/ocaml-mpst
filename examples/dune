@@ -1,3 +1,4 @@
 (executable
  (name ex)
- (libraries must threads))
+ (preprocess (pps mpst2.ppx))
+ (libraries mpst2 threads))

@@ -1,0 +1,7 @@
+(library
+ (name ppx_mpst)
+ (public_name mpst2.ppx)
+ (kind ppx_rewriter)
+ (libraries ppxlib rows.ppx)
+ (preprocess
+  (pps ppxlib.metaquot)))

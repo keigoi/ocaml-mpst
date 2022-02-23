@@ -11,6 +11,10 @@ end
 module Sessions = Hlist.Make (State)
 open Sessions
 
+type 'a seq = 'a Hlist.Make(State).seq =
+  | ( :: ) : 'hd State.t * 'tl seq -> [ `cons of 'hd * 'tl ] seq
+  | [] : ([ `cons of unit * 'a ] as 'a) seq
+
 type 's out = 's State.out
 type 's inp = 's State.inp
 

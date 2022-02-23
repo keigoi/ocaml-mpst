@@ -1,11 +1,3 @@
-type all_unit = [ `cons of unit * 'a ] as 'a
-
-module Open : sig
-  type _ t =
-    | [] : all_unit t
-    | ( :: ) : (unit, 'b, 'bb, 'cc, 'a, 'c) Types.role * 'bb t -> 'cc t
-end
-
 type 's out
 type 's inp
 
@@ -32,6 +24,12 @@ val choice_at :
   ('g, unit, 'i, 'c, 'j, 'k) Types.role * 'i seq ->
   ('h, unit, 'l, 'c, 'm, 'n) Types.role * 'l seq ->
   'd seq
+
+module Open : sig
+  type _ t =
+    | [] : ([ `cons of unit * 'a ] as 'a) t
+    | ( :: ) : (unit, 'b, 'bb, 'cc, 'a, 'c) Types.role * 'bb t -> 'cc t
+end
 
 val fix_with : 'a Open.t -> ('a seq -> 'a seq) -> 'a seq
 val finish : ([ `cons of unit * 'a ] as 'a) seq

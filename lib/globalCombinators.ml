@@ -1,10 +1,8 @@
 open Types
 
-type all_unit = [ `cons of unit * 'a ] as 'a
-
 module Open = struct
   type _ t =
-    | [] : all_unit t
+    | [] : ([ `cons of unit * 'a ] as 'a) t
     | ( :: ) : (unit, 'b, 'bb, 'cc, _, _) role * 'bb t -> 'cc t
 end
 
@@ -15,21 +13,21 @@ type 'a seq = 'a Hlist.Make(State).seq =
   | ( :: ) : 'hd State.t * 'tl seq -> [ `cons of 'hd * 'tl ] seq
   | [] : ([ `cons of unit * 'a ] as 'a) seq
 
-type 's out = 's State.out
-type 's inp = 's State.inp
+type 's out = 's Chvec.out
+type 's inp = 's Chvec.inp
 
 exception UnguardedLoop = State.UnguardedLoop
 
-let select = State.select
-let branch = State.branch
+let select = Chvec.select
+let branch = Chvec.branch
 let close () = ()
 
 let ( --> ) ra rb lab g =
   let key = Name.make () in
   let b = seq_get rb.role_index g in
-  let g = seq_put rb.role_index g (State.inp ra.role_label lab.var key b) in
+  let g = seq_put rb.role_index g (Chvec.inp ra.role_label lab.var key b) in
   let a = seq_get ra.role_index g in
-  let g = seq_put ra.role_index g (State.out rb.role_label lab.obj key a) in
+  let g = seq_put ra.role_index g (Chvec.out rb.role_label lab.obj key a) in
   g
 
 let rec merge_seq : type t. t seq -> t seq -> t seq =

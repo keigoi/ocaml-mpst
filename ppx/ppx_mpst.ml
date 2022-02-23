@@ -60,25 +60,26 @@ let declare_roles ~loc strlocs : Parsetree.module_expr =
                 ("role_" ^ Stdlib.String.capitalize_ascii strloc.txt)))
          strlocs))
 
+let payload_ident_tuple =
+  let open Ppxlib.Ast_pattern in
+  pstr (pstr_eval (pexp_tuple @@ many (pexp_ident (lident __'))) nil ^:: nil)
+
 let labels =
   let open Ppxlib in
   Extension.declare "declare_labels" Extension.Context.Structure_item
-    Ast_pattern.(pstr (many (pstr_eval (pexp_ident (lident __')) nil)))
-    (fun ~loc ~path:_ strlocs ->
+    payload_ident_tuple (fun ~loc ~path:_ strlocs ->
       [%stri include [%m declare_labels ~loc strlocs]])
 
 let roles =
   let open Ppxlib in
   Extension.declare "declare_roles" Extension.Context.Structure_item
-    Ast_pattern.(pstr (many (pstr_eval (pexp_ident (lident __')) nil)))
-    (fun ~loc ~path:_ strlocs ->
+    payload_ident_tuple (fun ~loc ~path:_ strlocs ->
       [%stri include [%m declare_roles ~loc strlocs]])
 
 let roles_prefixed =
   let open Ppxlib in
   Extension.declare "declare_roles_prefixed" Extension.Context.Structure_item
-    Ast_pattern.(pstr (many (pstr_eval (pexp_ident (lident __')) nil)))
-    (fun ~loc ~path:_ strlocs ->
+    payload_ident_tuple (fun ~loc ~path:_ strlocs ->
       [%stri include [%m declare_roles ~loc strlocs]])
 
 let disj =
@@ -88,8 +89,10 @@ let disj =
       pstr
       @@ pstr_eval
            (pexp_tuple
-              (elist (pexp_ident (lident __'))
-              ^:: elist (pexp_ident (lident __'))
+              ((elist (pexp_ident (lident __'))
+               ||| map1 ~f:(fun x -> [ x ]) (pexp_ident (lident __')))
+              ^:: (elist (pexp_ident (lident __'))
+                  ||| map1 ~f:(fun x -> [ x ]) (pexp_ident (lident __')))
               ^:: nil))
            nil
       ^:: nil)

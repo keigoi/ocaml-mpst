@@ -2,20 +2,8 @@ open Mpst2.Types
 open Mpst2.GlobalCombinators
 
 module Util = struct
-  [%%declare_roles_prefixed
-  a;;
-  b;;
-  c;;
-  d]
-
-  [%%declare_labels
-  msg;;
-  left;;
-  right;;
-  middle;;
-  ping;;
-  pong;;
-  fini]
+  [%%declare_roles_prefixed a, b, c, d]
+  [%%declare_labels msg, left, right, middle, ping, pong, fini]
 
   let to_ m r1 r2 r3 =
     let ( ! ) x = x.role_label in
@@ -50,21 +38,21 @@ let () =
   let () =
     expect_unguarded "bottom after choice"
     @@ choice_at a
-         (to_b [%disj [ left ], [ right ]])
+         (to_b [%disj left, right])
          (a, (a --> b) left @@ (b --> c) middle @@ bottom ())
          (a, (a --> b) right @@ (b --> c) middle finish)
   in
   let () =
     expect_unguarded "bottom after choice 2"
     @@ choice_at a
-         (to_b [%disj [ left ], [ right ]])
+         (to_b [%disj left, right])
          (a, bottom ())
          (a, (a --> b) right @@ (b --> c) middle finish)
   in
   let () =
     expect_unguarded "bottom after choice 3"
     @@ choice_at b
-         (to_b [%disj [ left ], [ right ]])
+         (to_b [%disj left, right])
          (c, (c --> b) left @@ (b --> a) middle @@ bottom ())
          (c, (c --> b) right @@ (b --> a) middle finish)
   in
@@ -73,7 +61,7 @@ let () =
     @@ fix_with [ a; b; c ]
     @@ fun t ->
     choice_at a
-      (to_b [%disj [ left ], [ right ]])
+      (to_b [%disj left, right])
       (a, (a --> b) left @@ (b --> c) middle t)
       (a, (a --> b) right @@ (b --> c) middle @@ bottom ())
   in
@@ -82,20 +70,20 @@ let () =
     @@ fix_with [ a; b; c ]
     @@ fun t ->
     choice_at c
-      (to_b [%disj [ left ], [ right ]])
+      (to_b [%disj left, right])
       (c, (c --> b) left t)
       (c, (c --> b) right t)
   in
   let () =
     expect_unguarded "bottom after choice loop 3"
     @@ choice_at b
-         (to_a [%disj [ left ], [ right ]])
+         (to_a [%disj left, right])
          ( b,
            (b --> a) left
            @@ fix_with [ a; b; c ]
            @@ fun t ->
            choice_at c
-             (to_b [%disj [ left ], [ right ]])
+             (to_b [%disj left, right])
              (c, (c --> b) left t)
              (c, (c --> b) right t) )
          ( b,
@@ -103,7 +91,7 @@ let () =
            @@ fix_with [ a; b; c ]
            @@ fun t ->
            choice_at c
-             (to_b [%disj [ left ], [ right ]])
+             (to_b [%disj left, right])
              (c, (c --> b) left t)
              (c, (c --> b) right t) )
   in
@@ -111,25 +99,22 @@ let () =
     let cd =
       fix_with [ a; b; c; d ] @@ fun t ->
       choice_at c
-        (to_d [%disj [ left ], [ right ]])
+        (to_d [%disj left, right])
         (c, (c --> d) left t)
         (c, (c --> d) right t)
     in
     expect_unguarded "bottom after choice loop 4"
-    @@ choice_at b
-         (to_a [%disj [ left ], [ right ]])
-         (b, cd)
-         (b, (b --> a) right cd)
+    @@ choice_at b (to_a [%disj left, right]) (b, cd) (b, (b --> a) right cd)
   in
   let () =
     expect_unguarded "loop merge"
     @@ choice_at a
-         (to_b [%disj [ left ], [ right ]])
+         (to_b [%disj left, right])
          ( a,
            (a --> b) left
            @@ fix_with [ a; b; c ] (fun t ->
                   choice_at a
-                    (to_b [%disj [ left ], [ right ]])
+                    (to_b [%disj left, right])
                     (a, (a --> b) left t)
                     (a, (a --> b) right t)) )
          (a, (a --> b) right @@ (a --> b) left @@ (b --> c) left finish)
@@ -138,7 +123,7 @@ let () =
   let _g =
     extract
     @@ choice_at a
-         (to_b [%disj [ left ], [ right ]])
+         (to_b [%disj left, right])
          (a, (a --> b) left finish)
          (a, (a --> b) right finish)
   in
@@ -147,7 +132,7 @@ let () =
     extract
     @@ fix_with [ a; b; c ] (fun t ->
            choice_at a
-             (to_b [%disj [ left ], [ right ]])
+             (to_b [%disj left, right])
              (a, (a --> b) left @@ (b --> c) middle t)
              (a, (a --> b) right @@ (b --> c) middle t))
   in
@@ -158,7 +143,7 @@ let () =
            (a --> b) left
            @@ fix_with [ a; b ] (fun u ->
                   choice_at a
-                    (to_b [%disj [ left ], [ right ]])
+                    (to_b [%disj left, right])
                     (a, t)
                     (a, (a --> b) right @@ u)))
   in
@@ -202,7 +187,7 @@ let () =
     print_endline "g6 determinising";
     extract
     @@ choice_at a
-         (to_b [%disj [ left ], [ right ]])
+         (to_b [%disj left, right])
          (a, fix_with [ a; b; c ] (fun t -> (a --> b) left @@ (a --> c) msg t))
          (a, fix_with [ a; b; c ] (fun t -> (a --> b) right @@ (a --> c) msg t))
   in
@@ -261,7 +246,7 @@ let () =
     extract
     @@ fix_with [ a; b; c ] (fun t ->
            choice_at a
-             (to_b [%disj [ left ], [ right ]])
+             (to_b [%disj left, right])
              (a, (a --> b) left @@ (b --> c) msg t)
              (a, (a --> b) right @@ (b --> c) msg @@ (b --> c) left finish))
   in
@@ -269,10 +254,10 @@ let () =
     extract
     @@ fix_with [ a; b; c ] (fun t ->
            choice_at a
-             (to_b [%disj [ left; middle ], [ right ]])
+             (to_b [%disj [ left; middle ], right])
              ( a,
                choice_at a
-                 (to_b [%disj [ left ], [ middle ]])
+                 (to_b [%disj left, middle])
                  (a, (a --> b) left t)
                  (a, (a --> b) middle t) )
              (a, (a --> b) right @@ (a --> c) msg finish))
@@ -322,7 +307,7 @@ let () =
     @@ fix_with [ a; b; c ] (fun t ->
            (a --> b) msg
            @@ choice_at a
-                (to_c [%disj [ left ], [ right ]])
+                (to_c [%disj left, right])
                 (a, (a --> c) left @@ (c --> a) msg t)
                 (a, (a --> c) right @@ (c --> a) msg t))
   in
@@ -372,7 +357,7 @@ let () =
     @@ fix_with [ a; b; c ] (fun t ->
            (a --> b) left
            @@ choice_at a
-                (to_b [%disj [ left ], [ right ]])
+                (to_b [%disj left, right])
                 (a, t)
                 (a, (a --> b) right @@ (b --> c) right @@ finish))
   in
@@ -409,7 +394,7 @@ let () =
     extract
     @@ fix_with [ a; b; c ] (fun t ->
            choice_at a
-             (to_b [%disj [ left ], [ right ]])
+             (to_b [%disj left, right])
              (a, (a --> b) left t)
              (a, (a --> b) right @@ (b --> c) right finish))
   in
@@ -448,7 +433,7 @@ let () =
   let _g0 =
     extract
     @@ choice_at a
-         (to_b [%disj [ left ], [ right ]])
+         (to_b [%disj left, right])
          (a, fix_with [ a; b ] (fun t -> (a --> b) left t))
          (a, fix_with [ a; b ] (fun t -> (a --> b) right t))
   in
@@ -497,12 +482,12 @@ let () =
       extract
       @@ fix_with [ a; b; c ] (fun t1 ->
              choice_at a
-               (to_b [%disj [ left ], [ middle; right ]])
+               (to_b [%disj left, [ middle; right ]])
                (a, (a --> b) left @@ (a --> c) left finish)
                ( a,
                  fix_with [ a; b; c ] (fun t2 ->
                      choice_at a
-                       (to_b [%disj [ middle ], [ right ]])
+                       (to_b [%disj middle, right])
                        (a, (a --> b) middle @@ (a --> c) middle t2)
                        (a, (a --> b) right @@ t1)) ))
     in
@@ -573,7 +558,7 @@ let () =
     let _g10 =
       fix_with [ a; b; c ] (fun t ->
           choice_at a
-            (to_b [%disj [ left ], [ right ]])
+            (to_b [%disj left, right])
             (a, (a --> b) left @@ (a --> c) msg t)
             (a, (a --> b) right @@ (a --> c) msg t))
     in

@@ -1,4 +1,12 @@
-open Types
+type ('obj, 'ot, 'var, 'vt) label = {
+  obj : ('obj, 'ot) Rows.method_;
+  var : ('var, 'vt) Rows.constr;
+}
+
+type ('t, 'u, 'ts, 'us, 'robj, 'mt) role = {
+  role_index : ('t, 'u, 'ts, 'us) Hlist.idx;
+  role_label : ('robj, 'mt) Rows.method_;
+}
 
 module Open = struct
   type _ t =

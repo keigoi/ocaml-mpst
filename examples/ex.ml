@@ -1,5 +1,5 @@
-open Mpst2.Types
 open Mpst2.GlobalCombinators
+open Rows
 
 module Util = struct
   [%%declare_roles_prefixed a, b, c, d]

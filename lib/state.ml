@@ -1,4 +1,4 @@
-open Types
+open Rows
 
 type 'a head = 'a StateHash.head = {
   head : 'a;
@@ -50,7 +50,7 @@ let try_cast_then_merge_heads ctx id constrA constrB headA headB =
   | Some v -> Some v
   | None -> (
       let headA = Lazy.force headA and headB = Lazy.force headB in
-      match Types.cast_if_constrs_are_same constrA constrB headB.head with
+      match Rows.cast_if_constrs_are_same constrA constrB headB.head with
       | Some contB_body ->
           let head = headA.determinise_list ctx [ headA.head; contB_body ] in
           let head = Lazy.from_val { headA with head } in

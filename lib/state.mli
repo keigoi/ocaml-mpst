@@ -19,7 +19,7 @@ exception UnguardedLoop of string
 
 val unit : unit t
 val merge : 'a t -> 'a t -> 'a t
-val internal_choice : ('a, 'b, 'c) Types.disj -> 'b t -> 'c t -> 'a t
+val internal_choice : ('a, 'b, 'c) Rows.disj -> 'b t -> 'c t -> 'a t
 val loop : 'a t lazy_t -> 'a t
 
 val determinise_head_list :

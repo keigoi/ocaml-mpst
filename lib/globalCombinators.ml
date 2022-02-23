@@ -48,7 +48,7 @@ let partial_finish keep_idxs g =
       type b. keep_idxs:b Open.t -> keeps:b seq lazy_t -> b seq =
    fun ~keep_idxs ~keeps ->
     match keep_idxs with
-    | Open.[] -> Sessions.Hetero.[]
+    | Open.[] -> Sessions.[]
     | idx :: rest_idxs ->
         let state =
           (* get the state of the involved role *)
@@ -67,7 +67,7 @@ let fix_with keep_idxs f =
   let rec self = lazy (partial_finish keep_idxs (lazy (f (Lazy.force self)))) in
   Lazy.force self
 
-let finish = Sessions.Hetero.[]
+let finish = Sessions.[]
 
 let rec extract : type u. u Sessions.seq -> u = function
   | Sessions.[] ->

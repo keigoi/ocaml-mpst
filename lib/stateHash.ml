@@ -12,7 +12,7 @@ type 'a key = (module W with type t = 'a)
 type 'a head = {
   head : 'a;
   determinise_list : t -> 'a list -> 'a;
-  force_all : t -> 'a -> unit;
+  force_determinised : t -> 'a -> unit;
   to_string : t -> 'a -> string;
 }
 

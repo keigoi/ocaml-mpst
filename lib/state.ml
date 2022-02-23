@@ -38,7 +38,8 @@ let rec to_string : 'a. StateHash.t -> 'a t -> string =
   | InternalChoice (_, _, l, r) ->
       let lstr = to_string ctx l and rstr = to_string ctx r in
       lstr ^ " (+#) " ^ rstr
-  | Loop t -> if Lazy.is_val t then to_string ctx (Lazy.force t) else "<lazy_loop>"
+  | Loop t ->
+      if Lazy.is_val t then to_string ctx (Lazy.force t) else "<lazy_loop>"
 
 let select (Out (name, cont)) =
   match Lazy.force cont with
@@ -128,12 +129,32 @@ end = struct
 
   let fail_unguarded str = raise (UnguardedLoop str)
 
+  let ret_merged x = Either.Left x
+  and ret_backward_epsilon x = Either.Right x
+
   let rec determinise : 's. StateHash.t -> 's t -> 's state_id * 's head lazy_t
       =
    fun binding st ->
     match epsilon_closure ~binding ~visited:[] st with
     | Left (sid, hds) -> (sid, determinise_head_list binding sid hds)
     | Right _ -> fail_unguarded "determinise: unguarded"
+
+  and detect_cycles :
+      type a.
+      visited:a t list ->
+      a t list ->
+      (a state_id * a head lazy_t list, a t list) Either.t =
+   fun ~visited cycles ->
+    let cycles =
+      (* filter out epsilons pointing to myself *)
+      List.filter (fun id -> mem_phys id visited) cycles
+    in
+    if List.length cycles > 0 then
+      (* there're backward epsilons yet -- return it *)
+      ret_backward_epsilon cycles
+    else
+      (* no backward epsilons anymore: unguarded recursion! *)
+      fail_unguarded "epsilon_closure: unguarded"
 
   and epsilon_closure :
       type a.
@@ -142,14 +163,16 @@ end = struct
       a t ->
       a merged_or_backward_epsilon =
    fun ~binding ~visited st ->
-    let ret_merged x = Either.Left x
-    and ret_backward_epsilon x = Either.Right x in
     if mem_phys st visited then ret_backward_epsilon [ st ]
     else
       match st with
       | Deterministic (sid, h) -> ret_merged (sid, [ h ])
-      | Loop t ->
-          epsilon_closure ~binding ~visited:(st :: visited) (Lazy.force t)
+      | Loop t -> (
+          match
+            epsilon_closure ~binding ~visited:(st :: visited) (Lazy.force t)
+          with
+          | Left (sid, hd) -> Left (sid, hd)
+          | Right cycles -> detect_cycles ~visited cycles)
       | Epsilon sts ->
           (* epsilon transitions: compute epsilon-closure *)
           let hds, cycles =
@@ -167,16 +190,7 @@ end = struct
           else
             (* all transitions are epsilon - verify guardedness ==== *)
             let cycles = List.concat cycles in
-            let cycles =
-              (* filter out epsilons pointing to myself *)
-              List.filter (fun id -> mem_phys id visited) cycles
-            in
-            if List.length cycles > 0 then
-              (* there're backward epsilons yet -- return it *)
-              ret_backward_epsilon cycles
-            else
-              (* no backward epsilons anymore: unguarded recursion! *)
-              fail_unguarded "epsilon_closure: unguarded"
+            detect_cycles ~visited cycles
       | InternalChoice (sid, disj, tl, tr) ->
           let head =
             lazy
@@ -391,9 +405,10 @@ let unit =
           to_string = (fun _ _ -> "end");
         } )
 
+let to_string seq = to_string (StateHash.make ()) seq
+
 let determinise t =
   let _, h = Determinise.determinise (StateHash.make ()) t in
   let h = Lazy.force h in
-  (* print_endline (h.to_string (StateHash.make ()) h.head); *)
   h.force_all (StateHash.make ()) h.head;
   h.head

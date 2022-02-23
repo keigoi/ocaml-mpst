@@ -64,7 +64,7 @@ let partial_finish keep_idxs g =
   make_partial_finish ~keep_idxs ~keeps:g
 
 let fix_with keep_idxs f =
-  let rec self = lazy (f (partial_finish keep_idxs self)) in
+  let rec self = lazy (partial_finish keep_idxs (lazy (f (Lazy.force self)))) in
   Lazy.force self
 
 let finish = Sessions.Hetero.[]

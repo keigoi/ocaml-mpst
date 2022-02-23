@@ -1,3 +1,10 @@
+type 's out
+type 's inp
+
+type 'a seq = 'a Hlist.Make(State).seq =
+  | ( :: ) : 'hd State.t * 'tl seq -> [ `cons of 'hd * 'tl ] seq
+  | [] : ([ `cons of unit * 'a ] as 'a) seq
+
 type ('obj, 'ot, 'var, 'vt) label = {
   obj : ('obj, 'ot) Rows.method_;
   var : ('var, 'vt) Rows.constr;
@@ -11,13 +18,6 @@ type ('t, 'u, 'ts, 'us, 'robj, 'mt) role = {
   role_label : ('robj, 'mt) Rows.method_;  (** The label of a role. *)
 }
 (** The {b role type} for global combinators. *)
-
-type 's out
-type 's inp
-
-type 'a seq = 'a Hlist.Make(State).seq =
-  | ( :: ) : 'hd State.t * 'tl seq -> [ `cons of 'hd * 'tl ] seq
-  | [] : ([ `cons of unit * 'a ] as 'a) seq
 
 exception UnguardedLoop of string
 

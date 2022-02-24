@@ -46,17 +46,18 @@ let determinise_head_list ctx id hds =
       hd
 
 let try_cast_then_merge_heads ctx id constrA constrB headA headB =
-  match StateHash.lookup ctx id with
-  | Some v -> Some v
-  | None -> (
-      let headA = Lazy.force headA and headB = Lazy.force headB in
-      match Rows.cast_if_constrs_are_same constrA constrB headB.head with
-      | Some contB_body ->
+  let headA = Lazy.force headA and headB = Lazy.force headB in
+  match Rows.cast_if_constrs_are_same constrA constrB headB.head with
+  | Some contB_body -> begin
+      match StateHash.lookup ctx id with
+      | Some v -> Some v
+      | None ->
           let head = headA.determinise_list ctx [ headA.head; contB_body ] in
           let head = Lazy.from_val { headA with head } in
           StateHash.add_binding ctx id head;
           Some head
-      | None -> None)
+    end
+  | None -> None
 
 let force_determinised ctx t =
   match t with

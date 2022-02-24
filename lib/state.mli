@@ -23,7 +23,7 @@ val internal_choice : ('a, 'b, 'c) Rows.disj -> 'b t -> 'c t -> 'a t
 val loop : 'a t lazy_t -> 'a t
 
 val determinise_head_list :
-  StateHash.t -> 'a state_id -> 'a head lazy_t list -> 'a StateHash.value
+  StateHash.t -> 'a state_id -> 'a head lazy_t list -> 'a head lazy_t
 
 val try_cast_then_merge_heads :
   StateHash.t ->
@@ -32,7 +32,7 @@ val try_cast_then_merge_heads :
   ('b, 'c) Rows.constr ->
   'a head lazy_t ->
   'c head lazy_t ->
-  'a StateHash.value option
+  'a head lazy_t option
 
 val force_determinised : StateHash.t -> 'a t -> unit
 val to_string : StateHash.t -> 'a t -> string

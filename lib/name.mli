@@ -1,5 +1,6 @@
-type 'a t
+type 'a name
+type 'a endpoint = 'a Event.channel
 
-val make : unit -> 'a t
-val unify : 'a t -> 'a t -> unit
-val finalise : 'a t -> 'a Event.channel
+val new_name : unit -> 'a name
+val unify : 'a name -> 'a name -> unit
+val finalise : 'a name -> 'a endpoint

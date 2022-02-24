@@ -1,9 +1,11 @@
-type 'a name_ = Name of 'a Event.channel | Link of 'a t
-and 'a t = 'a name_ ref
+type 'a name_ = Name of 'a Event.channel | Link of 'a name
+and 'a name = 'a name_ ref
 
-let make () = ref @@ Name (Event.new_channel ())
+type 'a endpoint = 'a Event.channel
 
-let rec unify (n1 : 'a t) (n2 : 'a t) =
+let new_name () = ref @@ Name (Event.new_channel ())
+
+let rec unify (n1 : 'a name) (n2 : 'a name) =
   if n1 == n2 then ()
   else
     match (!n1, !n2) with

@@ -21,69 +21,133 @@ type 'a seq = 'a Hlist.Make(State).seq =
   | ( :: ) : 'hd State.t * 'tl seq -> [ `cons of 'hd * 'tl ] seq
   | [] : ([ `cons of unit * 'a ] as 'a) seq
 
-type 's out = 's Chvec.out
-type 's inp = 's Chvec.inp
+module type C = sig
+  type chan
+  type 'a name
+  type _ out
+  type 'var inp
 
-exception UnguardedLoop = State.UnguardedLoop
+  val make : unit -> chan
+  val new_name : chan -> 'a name
+  val select : 'a out -> 'a
+  val branch : 'a inp -> 'a
 
-let select = Chvec.select
-let branch = Chvec.branch
-let close () = ()
+  val out :
+    ('a, 'b) Rows.method_ ->
+    ('b, 'c out) Rows.method_ ->
+    int name ->
+    'c State.t ->
+    'a State.t
 
-let ( --> ) ra rb lab g =
-  let key = Name.make () in
-  let b = seq_get rb.role_index g in
-  let g = seq_put rb.role_index g (Chvec.inp ra.role_label lab.var key b) in
-  let a = seq_get ra.role_index g in
-  let g = seq_put ra.role_index g (Chvec.out rb.role_label lab.obj key a) in
-  g
+  val inp :
+    ('a, 'b inp) Rows.method_ ->
+    ('b, 'c) Rows.constr ->
+    int name ->
+    'c State.t ->
+    'a State.t
+end
 
-let rec merge_seq : type t. t seq -> t seq -> t seq =
- fun ls rs ->
-  match (ls, rs) with
-  | Sessions.[], _ -> []
-  | _, [] -> []
-  | l :: ls, r :: rs -> State.merge l r :: merge_seq ls rs
+module Make (Chan : C) = struct
+  type 's out = 's Chan.out
+  type 's inp = 's Chan.inp
 
-let choice_at ra disj (ra1, g1) (ra2, g2) =
-  let a1 = seq_get ra1.role_index g1 and a2 = seq_get ra2.role_index g2 in
-  let g1 = seq_put ra1.role_index g1 State.unit
-  and g2 = seq_put ra2.role_index g2 State.unit in
-  let g = merge_seq g1 g2 in
-  let a = State.internal_choice disj a1 a2 in
-  seq_put ra.role_index g a
+  exception UnguardedLoop = State.UnguardedLoop
 
-let partial_finish keep_idxs g =
-  let rec make_partial_finish :
-      type b. keep_idxs:b Open.t -> keeps:b seq lazy_t -> b seq =
-   fun ~keep_idxs ~keeps ->
-    match keep_idxs with
-    | Open.[] -> Sessions.[]
-    | idx :: rest_idxs ->
-        let state =
-          (* get the state of the involved role *)
-          State.loop (lazy (seq_get2 idx.role_index (Lazy.force keeps)))
-        and rest =
-          (* rest of the states *)
-          lazy (seq_put2 idx.role_index (Lazy.force keeps) State.unit)
-        in
-        let states = make_partial_finish ~keep_idxs:rest_idxs ~keeps:rest in
-        (* put the state and return it *)
-        seq_put idx.role_index states state
-  in
-  make_partial_finish ~keep_idxs ~keeps:g
+  let select = Chan.select
+  let branch = Chan.branch
+  let close () = ()
 
-let fix_with keep_idxs f =
-  let rec self = lazy (partial_finish keep_idxs (lazy (f (Lazy.force self)))) in
-  Lazy.force self
+  module Context = struct
+    type t = (string * string, Chan.chan) Hashtbl.t
 
-let finish = Sessions.[]
+    let lookup t key =
+      match Hashtbl.find_opt t key with
+      | Some ch -> ch
+      | None ->
+          let ch = Chan.make () in
+          Hashtbl.add t key ch;
+          ch
+  end
 
-let rec extract : type u. u Sessions.seq -> u = function
-  | Sessions.[] ->
-      let rec nil = `cons ((), nil) in
-      nil
-  | st :: tail ->
-      let hd = State.determinise st in
-      let tl = extract tail in
-      `cons (hd, tl)
+  type 't global = Context.t -> 't seq
+
+  let ( --> ) ra rb lab g ctx =
+    let g = g ctx in
+    let ch =
+      Context.lookup ctx (ra.role_label.method_name, rb.role_label.method_name)
+    in
+    let key = Chan.new_name ch in
+    let b = seq_get rb.role_index g in
+    let g = seq_put rb.role_index g (Chan.inp ra.role_label lab.var key b) in
+    let a = seq_get ra.role_index g in
+    let g = seq_put ra.role_index g (Chan.out rb.role_label lab.obj key a) in
+    g
+
+  let rec merge_seq : type t. t seq -> t seq -> t seq =
+   fun ls rs ->
+    match (ls, rs) with
+    | Sessions.[], _ -> []
+    | _, [] -> []
+    | l :: ls, r :: rs -> State.merge l r :: merge_seq ls rs
+
+  let choice_at ra disj (ra1, g1) (ra2, g2) ctx =
+    let g1 = g1 ctx and g2 = g2 ctx in
+    let a1 = seq_get ra1.role_index g1 and a2 = seq_get ra2.role_index g2 in
+    let g1 = seq_put ra1.role_index g1 State.unit
+    and g2 = seq_put ra2.role_index g2 State.unit in
+    let g = merge_seq g1 g2 in
+    let a = State.internal_choice disj a1 a2 in
+    seq_put ra.role_index g a
+
+  let partial_finish keep_idxs g =
+    let rec make_partial_finish :
+        type b. keep_idxs:b Open.t -> keeps:b seq lazy_t -> b seq =
+     fun ~keep_idxs ~keeps ->
+      match keep_idxs with
+      | Open.[] -> Sessions.[]
+      | idx :: rest_idxs ->
+          let state =
+            (* get the state of the involved role *)
+            State.loop (lazy (seq_get2 idx.role_index (Lazy.force keeps)))
+          and rest =
+            (* rest of the states *)
+            lazy (seq_put2 idx.role_index (Lazy.force keeps) State.unit)
+          in
+          let states = make_partial_finish ~keep_idxs:rest_idxs ~keeps:rest in
+          (* put the state and return it *)
+          seq_put idx.role_index states state
+    in
+    make_partial_finish ~keep_idxs ~keeps:g
+
+  let fix_with keep_idxs f ctx =
+    let rec self =
+      lazy
+        (partial_finish keep_idxs (lazy (f (fun _ctx -> Lazy.force self) ctx)))
+    in
+    Lazy.force self
+
+  let finish _ = Sessions.[]
+
+  let rec extract_seq : type u. u Sessions.seq -> u = function
+    | Sessions.[] ->
+        let rec nil = `cons ((), nil) in
+        nil
+    | st :: tail ->
+        let hd = State.determinise st in
+        let tl = extract_seq tail in
+        `cons (hd, tl)
+
+  let extract g = extract_seq (g @@ Hashtbl.create 42)
+end
+
+module Sync = struct
+  include Chvec.Sync
+  include Make (Chvec.Sync)
+end
+
+module Async = struct
+  include Chvec.Async
+  include Make (Chvec.Async)
+end
+
+include Sync

@@ -25,19 +25,21 @@ val select : 'a out -> 'a
 val branch : 'a inp -> 'a
 val close : unit -> unit
 
+type 't global
+
 val ( --> ) :
   ('a, 'b, 'c, 'd, 'e, 'f inp) role ->
   ('g, 'e, 'h, 'c, 'b, 'i) role ->
   ('i, 'a out, 'f, 'g) label ->
-  'h seq ->
-  'd seq
+  'h global ->
+  'd global
 
 val choice_at :
   ('a, 'b, 'c, 'd, 'e, 'f) role ->
   ('b, 'g, 'h) Rows.disj ->
-  ('g, unit, 'i, 'c, 'j, 'k) role * 'i seq ->
-  ('h, unit, 'l, 'c, 'm, 'n) role * 'l seq ->
-  'd seq
+  ('g, unit, 'i, 'c, 'j, 'k) role * 'i global ->
+  ('h, unit, 'l, 'c, 'm, 'n) role * 'l global ->
+  'd global
 
 module Open : sig
   type _ t =
@@ -45,6 +47,6 @@ module Open : sig
     | ( :: ) : (unit, 'b, 'bb, 'cc, 'a, 'c) role * 'bb t -> 'cc t
 end
 
-val fix_with : 'a Open.t -> ('a seq -> 'a seq) -> 'a seq
-val finish : ([ `cons of unit * 'a ] as 'a) seq
-val extract : 'u seq -> 'u
+val fix_with : 'a Open.t -> ('a global -> 'a global) -> 'a global
+val finish : ([ `cons of unit * 'a ] as 'a) global
+val extract : 'u global -> 'u

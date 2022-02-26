@@ -1,7 +1,16 @@
 (test
- (name test_protocols)
+ (name test_protocols_mergefail)
  (package mpst2)
- (modules test_protocols)
+ (modules test_protocols_mergefail)
+ (preprocess
+  (pps mpst2.ppx))
+ (libraries mpst2 oUnit))
+
+(test
+ (name test_protocols_merge)
+ (package mpst2)
+ (modules test_protocols_mergeX
+ )
  (preprocess
   (pps mpst2.ppx))
  (libraries mpst2 oUnit))

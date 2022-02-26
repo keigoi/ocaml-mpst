@@ -1,6 +1,0 @@
-(executable
- (name ex)
- (modules ex)
- (preprocess
-  (pps mpst2.ppx))
- (libraries mpst2 threads))

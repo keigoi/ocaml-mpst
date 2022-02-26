@@ -125,6 +125,9 @@ end = struct
       else
         match st with
         | Deterministic (sid, h) -> ret_merged (sid, [ h ])
+        | InternalChoice (sid, disj, tl, tr) ->
+            ret_merged
+              (sid, [ lazy (determinise_internal_choice ctx disj tl tr) ])
         | Loop t -> (
             (* beginning of the fix-loop. *)
             match
@@ -150,41 +153,38 @@ end = struct
               (* all transitions are epsilon - verify guardedness ==== *)
               let backward = List.concat backward in
               detect_cycles ~visited backward
-        | InternalChoice (sid, disj, tl, tr) ->
-            let head =
-              lazy
-                (let _idl, hl = determinise ctx tl
-                 and _idr, hr = determinise ctx tr in
-                 let hl = Lazy.force hl and hr = Lazy.force hr in
-                 let bin_merge ctx lr1 lr2 =
-                   (* merge splitted ones *)
-                   let l =
-                     hl.determinise_list ctx
-                       [ disj.disj_splitL lr1; disj.disj_splitL lr2 ]
-                   in
-                   let r =
-                     hr.determinise_list ctx
-                       [ disj.disj_splitR lr1; disj.disj_splitR lr2 ]
-                   in
-                   (* then type-concatenate it *)
-                   disj.disj_concat l r
-                 in
-                 let determinise_list ctx lrs =
-                   List.fold_left (bin_merge ctx) (List.hd lrs) (List.tl lrs)
-                 in
-                 let force_determinised ctx lr =
-                   hl.force_determinised ctx (disj.disj_splitL lr);
-                   hr.force_determinised ctx (disj.disj_splitR lr)
-                 in
-                 let to_string ctx lr =
-                   hl.to_string ctx (disj.disj_splitL lr)
-                   ^ " (+) "
-                   ^ hr.to_string ctx (disj.disj_splitR lr)
-                 in
-                 let tlr = disj.disj_concat hl.head hr.head in
-                 { head = tlr; determinise_list; force_determinised; to_string })
-            in
-            ret_merged (sid, [ head ])
+
+  and determinise_internal_choice :
+        'lr 'l 'r. StateHash.t -> ('lr, 'l, 'r) disj -> 'l t -> 'r t -> 'lr head
+      =
+   fun ctx disj tl tr ->
+    let _idl, hl = determinise ctx tl and _idr, hr = determinise ctx tr in
+    let hl = Lazy.force hl and hr = Lazy.force hr in
+    let bin_merge ctx lr1 lr2 =
+      (* merge splitted ones *)
+      let l =
+        hl.determinise_list ctx [ disj.disj_splitL lr1; disj.disj_splitL lr2 ]
+      in
+      let r =
+        hr.determinise_list ctx [ disj.disj_splitR lr1; disj.disj_splitR lr2 ]
+      in
+      (* then type-concatenate it *)
+      disj.disj_concat l r
+    in
+    let determinise_list ctx lrs =
+      List.fold_left (bin_merge ctx) (List.hd lrs) (List.tl lrs)
+    in
+    let force_determinised ctx lr =
+      hl.force_determinised ctx (disj.disj_splitL lr);
+      hr.force_determinised ctx (disj.disj_splitR lr)
+    in
+    let to_string ctx lr =
+      hl.to_string ctx (disj.disj_splitL lr)
+      ^ " (+) "
+      ^ hr.to_string ctx (disj.disj_splitR lr)
+    in
+    let tlr = disj.disj_concat hl.head hr.head in
+    { head = tlr; determinise_list; force_determinised; to_string }
 end
 
 let unit =

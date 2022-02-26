@@ -1,0 +1,7 @@
+(test
+ (name test_protocols)
+ (package mpst2)
+ (modules test_protocols)
+ (preprocess
+  (pps mpst2.ppx))
+ (libraries mpst2 oUnit))

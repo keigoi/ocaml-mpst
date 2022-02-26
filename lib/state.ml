@@ -18,7 +18,7 @@ type _ t =
       (** Internal choice, splitted by a disjoint concatenation (disj) *)
   | Loop : 'a t lazy_t -> 'a t  (** Start of the fix-loop *)
 
-exception UnguardedLoop of string
+exception UnguardedLoop
 
 let internal_choice disj l r = InternalChoice (StateHash.make_key (), disj, l, r)
 let merge l r = Epsilon [ l; r ]
@@ -93,14 +93,14 @@ end = struct
     | x :: xs -> k == x || mem_phys k xs
     | [] -> false
 
-  let fail_unguarded str = raise (UnguardedLoop str)
+  let fail_unguarded () = raise UnguardedLoop
 
   let rec determinise : 's. StateHash.t -> 's t -> 's state_id * 's head lazy_t
       =
    fun ctx st ->
     match epsilon_closure ~ctx ~visited:[] st with
     | Left (sid, hds) -> (sid, determinise_head_list ctx sid hds)
-    | Right _ -> fail_unguarded "determinise: unguarded"
+    | Right _ -> fail_unguarded ()
 
   and epsilon_closure :
       type a.
@@ -118,7 +118,7 @@ end = struct
         ret_backward_epsilon backward
       else
         (* no backward epsilons anymore: unguarded recursion! *)
-        fail_unguarded "epsilon_closure: unguarded"
+        fail_unguarded ()
     in
     fun ~ctx ~visited st ->
       if mem_phys st visited then ret_backward_epsilon [ st ]

@@ -16,7 +16,7 @@ type ('t, 'u, 'ts, 'us, 'robj, 'mt) role = {
 }
 (** The {b role type} for global combinators. *)
 
-exception UnguardedLoop of string
+exception UnguardedLoop
 
 type ('env, 't) global
 

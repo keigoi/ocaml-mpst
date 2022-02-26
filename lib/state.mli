@@ -15,7 +15,7 @@ type _ t =
       -> 'lr t
   | Loop : 'a t lazy_t -> 'a t
 
-exception UnguardedLoop of string
+exception UnguardedLoop
 
 val unit : unit t
 val merge : 'a t -> 'a t -> 'a t

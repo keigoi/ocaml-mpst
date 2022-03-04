@@ -3,7 +3,7 @@ type context
 type 'a head = {
   head : 'a;
   determinise_list : context -> 'a list -> 'a;
-  force_determinised : context -> 'a -> unit;
+  force_traverse : context -> 'a -> unit;
   to_string : context -> 'a -> string;
 }
 

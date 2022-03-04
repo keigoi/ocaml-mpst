@@ -60,7 +60,7 @@ module Make (Name : Name) = struct
              @@ lab.make_obj
              @@ Out (lab.method_name, name, Lazy.from_val s);
            determinise_list = OutMerge.out_determinise role lab;
-           force_determinised = OutMerge.out_force role lab;
+           force_traverse = OutMerge.out_force role lab;
            to_string = OutMerge.out_to_string role lab;
          }
 
@@ -71,7 +71,7 @@ module Make (Name : Name) = struct
            head =
              role.make_obj @@ lazy (name, [ ExternalChoiceItem (constr, s) ]);
            determinise_list = InpMerge.inp_determinise role;
-           force_determinised = InpMerge.inp_force role;
+           force_traverse = InpMerge.inp_force role;
            to_string = InpMerge.inp_to_string role;
          }
 end

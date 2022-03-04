@@ -3,7 +3,7 @@ open Rows
 type 'a head = 'a Head.head = {
   head : 'a;
   determinise_list : Head.context -> 'a list -> 'a;
-  force_determinised : Head.context -> 'a -> unit;
+  force_traverse : Head.context -> 'a -> unit;
   to_string : Head.context -> 'a -> string;
 }
 
@@ -39,7 +39,7 @@ let determinise_head_list ctx id hds =
            {
              head = body;
              determinise_list = hd.determinise_list;
-             force_determinised = hd.force_determinised;
+             force_traverse = hd.force_traverse;
              to_string = hd.to_string;
            })
       in
@@ -60,12 +60,12 @@ let try_cast_then_merge_heads ctx id constrA constrB headA headB =
     end
   | None -> None
 
-let force_determinised ctx t =
+let force_traverse ctx t =
   match t with
   | Deterministic (sid, h) when Head.lookup ctx sid = None ->
       Head.add_binding ctx sid h;
       let h = Lazy.force h in
-      h.force_determinised ctx h.head
+      h.force_traverse ctx h.head
   | Deterministic (_, _) -> ()
   | _ -> failwith "Impossible: force: channel not determinised"
 
@@ -177,9 +177,9 @@ end = struct
     let determinise_list ctx lrs =
       List.fold_left (bin_merge ctx) (List.hd lrs) (List.tl lrs)
     in
-    let force_determinised ctx lr =
-      hl.force_determinised ctx (disj.disj_splitL lr);
-      hr.force_determinised ctx (disj.disj_splitR lr)
+    let force_traverse ctx lr =
+      hl.force_traverse ctx (disj.disj_splitL lr);
+      hr.force_traverse ctx (disj.disj_splitR lr)
     in
     let to_string ctx lr =
       hl.to_string ctx (disj.disj_splitL lr)
@@ -187,7 +187,7 @@ end = struct
       ^ hr.to_string ctx (disj.disj_splitR lr)
     in
     let tlr = disj.disj_concat hl.head hr.head in
-    { head = tlr; determinise_list; force_determinised; to_string }
+    { head = tlr; determinise_list; force_traverse; to_string }
 end
 
 let unit =
@@ -197,14 +197,14 @@ let unit =
         {
           head = ();
           determinise_list = (fun _ _ -> ());
-          force_determinised = (fun _ _ -> ());
+          force_traverse = (fun _ _ -> ());
           to_string = (fun _ _ -> "end");
         } )
 
 let determinise t =
   let _, h = Determinise.determinise (Head.make ()) t in
   let h = Lazy.force h in
-  h.force_determinised (Head.make ()) h.head;
+  h.force_traverse (Head.make ()) h.head;
   h.head
 
 let ensure_determinised = function

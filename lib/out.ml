@@ -51,7 +51,7 @@ module Make (Name : Name) = struct
   let out_force role lab ctx s =
     let (Out (_, name, cont)) = lab.call_obj @@ role.call_obj s in
     ignore (Name.finalise name);
-    force_determinised ctx (Lazy.force cont)
+    force_traverse ctx (Lazy.force cont)
 
   let out_to_string role lab ctx s =
     let (Out (_, _, cont)) = lab.call_obj @@ role.call_obj s in

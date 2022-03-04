@@ -91,7 +91,7 @@ module Make (Name : S.Name) = struct
     let name, extcs = Lazy.force s in
     ignore (Name.finalise name);
     extcs
-    |> List.iter (fun (ExternalChoiceItem (_, s)) -> force_determinised ctx s)
+    |> List.iter (fun (ExternalChoiceItem (_, s)) -> force_traverse ctx s)
 
   let inp_to_string role ctx s =
     role.method_name

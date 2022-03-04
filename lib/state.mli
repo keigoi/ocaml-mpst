@@ -1,7 +1,7 @@
 type 'a head = 'a Head.head = {
   head : 'a;
   determinise_list : Head.context -> 'a list -> 'a;
-  force_determinised : Head.context -> 'a -> unit;
+  force_traverse : Head.context -> 'a -> unit;
   to_string : Head.context -> 'a -> string;
 }
 
@@ -28,7 +28,7 @@ val try_cast_then_merge_heads :
   'c head lazy_t ->
   'a head lazy_t option
 
-val force_determinised : Head.context -> 'a t -> unit
+val force_traverse : Head.context -> 'a t -> unit
 val to_string : Head.context -> 'a t -> string
 
 module Determinise : sig

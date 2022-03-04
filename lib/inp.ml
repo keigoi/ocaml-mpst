@@ -37,10 +37,10 @@ module Make (Name : S.Name) = struct
     (* (2) compute the new state id ==== *)
     match Head.general_union_keys state_id1 state_id2 with
     | Left state_id ->
-        try_cast_then_merge_heads ctx state_id constr1 constr2 cont1 cont2
+        Head.try_cast_then_merge_heads ctx state_id constr1 constr2 cont1 cont2
         |> Option.map (make_ constr1 state_id)
     | Right state_id ->
-        try_cast_then_merge_heads ctx state_id constr2 constr1 cont2 cont1
+        Head.try_cast_then_merge_heads ctx state_id constr2 constr1 cont2 cont1
         |> Option.map (make_ constr2 state_id)
 
   let determinise_extchoice_item ctx (ExternalChoiceItem (constr, cont)) =
@@ -90,8 +90,7 @@ module Make (Name : S.Name) = struct
     let s = role.call_obj s in
     let name, extcs = Lazy.force s in
     ignore (Name.finalise name);
-    extcs
-    |> List.iter (fun (ExternalChoiceItem (_, s)) -> force_traverse ctx s)
+    extcs |> List.iter (fun (ExternalChoiceItem (_, s)) -> force_traverse ctx s)
 
   let inp_to_string role ctx s =
     role.method_name

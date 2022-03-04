@@ -1,5 +1,6 @@
 open Rows
 open State
+open Head
 
 type tag = int
 

@@ -25,41 +25,6 @@ let internal_choice disj l r = InternalChoice (Head.make_key (), disj, l, r)
 let merge l r = Epsilon [ l; r ]
 let loop t = Loop t
 
-let determinise_head_list ctx id hds =
-  match Head.lookup ctx id with
-  | Some v -> v
-  | None ->
-      let hd =
-        lazy
-          (let hd = Lazy.force (List.hd hds) in
-           let body =
-             hd.determinise_list ctx
-               (List.map (fun hd -> (Lazy.force hd).head) hds)
-           in
-           {
-             head = body;
-             determinise_list = hd.determinise_list;
-             force_traverse = hd.force_traverse;
-             to_string = hd.to_string;
-           })
-      in
-      Head.add_binding ctx id hd;
-      hd
-
-let try_cast_then_merge_heads ctx id constrA constrB headA headB =
-  let headA = Lazy.force headA and headB = Lazy.force headB in
-  match Rows.cast_if_constrs_are_same constrA constrB headB.head with
-  | Some contB_body -> begin
-      match Head.lookup ctx id with
-      | Some v -> Some v
-      | None ->
-          let head = headA.determinise_list ctx [ headA.head; contB_body ] in
-          let head = Lazy.from_val { headA with head } in
-          Head.add_binding ctx id head;
-          Some head
-    end
-  | None -> None
-
 let force_traverse ctx t =
   match t with
   | Deterministic (sid, h) when Head.lookup ctx sid = None ->
@@ -100,7 +65,7 @@ end = struct
       =
    fun ctx st ->
     match epsilon_closure ~ctx ~visited:[] st with
-    | Left (sid, hds) -> (sid, determinise_head_list ctx sid hds)
+    | Left (sid, hds) -> (sid, Head.determinise_head_list ctx sid hds)
     | Right _ -> fail_unguarded ()
 
   and epsilon_closure :

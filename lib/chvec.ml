@@ -1,5 +1,4 @@
 open Rows
-open State
 
 module type Name = sig
   type 'a name
@@ -44,36 +43,13 @@ end
 
 module Make (Name : Name) = struct
   module OutMerge = Out.Make (Name)
-  open OutMerge
   module InpMerge = Inp.Make (Name)
-  open InpMerge
 
   type 's out = 's OutMerge.out
   type 'var inp = 'var InpMerge.inp
 
-  let out role lab name s =
-    State.deterministic (StateHash.make_key ())
-    @@ Lazy.from_val
-         {
-           body =
-             role.make_obj
-             @@ lab.make_obj
-             @@ Out (lab.method_name, name, Lazy.from_val s);
-           determinise_list = OutMerge.out_determinise role lab;
-           force_traverse = OutMerge.out_force role lab;
-           to_string = OutMerge.out_to_string role lab;
-         }
-
-  let inp role constr name s =
-    State.deterministic (StateHash.make_key ())
-    @@ Lazy.from_val
-         {
-           body =
-             role.make_obj @@ lazy (name, [ ExternalChoiceItem (constr, s) ]);
-           determinise_list = InpMerge.inp_determinise role;
-           force_traverse = InpMerge.inp_force role;
-           to_string = InpMerge.inp_to_string role;
-         }
+  let out = OutMerge.out
+  let inp = InpMerge.inp
 end
 
 module Sync = struct

@@ -7,4 +7,4 @@ type 'a head = {
   to_string : context -> 'a -> string;
 }
 
-include StateHash.S with type t := context and type 'a head := 'a head
+include PolyHash.S with type t := context and type 'a head := 'a head

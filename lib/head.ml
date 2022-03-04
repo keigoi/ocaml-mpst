@@ -8,9 +8,9 @@ module rec Self : sig
     to_string : context -> 'a -> string;
   }
 
-  include StateHash.S with type t := context and type 'a head := 'a head
+  include PolyHash.S with type t := context and type 'a head := 'a head
 end = struct
-  module Hash = StateHash.Make (Self)
+  module Hash = PolyHash.Make (Self)
   include Hash
 
   type context = Hash.t

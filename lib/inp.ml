@@ -35,7 +35,7 @@ module Make (Name : S.Name) = struct
       ExternalChoiceItem (constr, deterministic state_id cont)
     in
     (* (2) compute the new state id ==== *)
-    match Head.general_union_keys state_id1 state_id2 with
+    match Head.make_union_keys_general state_id1 state_id2 with
     | Left state_id ->
         Head.try_cast_then_merge_heads ctx state_id constr1 constr2 cont1 cont2
         |> Option.map (make_ constr1 state_id)

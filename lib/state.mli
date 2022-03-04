@@ -5,7 +5,7 @@ type 'a head = 'a Head.head = {
   to_string : Head.context -> 'a -> string;
 }
 
-type 't state_id = 't Head.state_id
+type 't state_id = 't Head.key
 type _ t
 
 exception UnguardedLoop

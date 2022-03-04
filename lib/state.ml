@@ -7,7 +7,7 @@ type 'a head = 'a Head.head = {
   to_string : Head.context -> 'a -> string;
 }
 
-type 't state_id = 't Head.state_id
+type 't state_id = 't Head.key
 
 type _ t =
   | Deterministic : 'obj state_id * 'obj head lazy_t -> 'obj t
@@ -114,7 +114,7 @@ end = struct
               (* concrete transitons found - return the merged state ==== *)
               let ids, hds = List.split hds in
               let id =
-                List.fold_left Head.union_keys (List.hd ids) (List.tl ids)
+                List.fold_left Head.make_union_keys (List.hd ids) (List.tl ids)
               in
               ret_merged (id, List.concat hds)
             else

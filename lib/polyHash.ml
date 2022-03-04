@@ -4,17 +4,15 @@ end
 
 module type S = sig
   type t
-  type 'a state_id
+  type 'a key
   type 'a value
 
   val make : unit -> t
-  val add_binding : t -> 'a state_id -> 'a value -> unit
-  val lookup : t -> 'a state_id -> 'a value option
-  val make_key : unit -> 'a state_id
-  val union_keys : 'a state_id -> 'a state_id -> 'a state_id
-
-  val general_union_keys :
-    'a state_id -> 'b state_id -> ('a state_id, 'b state_id) Either.t
+  val make_key : unit -> 'a key
+  val make_union_keys : 'a key -> 'a key -> 'a key
+  val make_union_keys_general : 'a key -> 'b key -> ('a key, 'b key) Either.t
+  val add_binding : t -> 'a key -> 'a value -> unit
+  val lookup : t -> 'a key -> 'a value option
 end
 
 module Make (X : Type) = struct
@@ -27,13 +25,13 @@ module Make (X : Type) = struct
     type _ Key.t += Key : t Key.t
   end
 
-  type 'a key = (module W with type t = 'a)
+  type 'a raw_key = (module W with type t = 'a)
 
   type 'a value = 'a X.value
-  and binding = B : 'a state_id * 'a value -> binding
+  and binding = B : 'a key * 'a value -> binding
   and t = binding list ref
-  and key_ex = KeyEx : 'a key -> key_ex
-  and 'a state_id = { id_head : 'a key; id_tail : key_ex list }
+  and key_ex = KeyEx : 'a raw_key -> key_ex
+  and 'a key = { id_head : 'a raw_key; id_tail : key_ex list }
 
   type ('a, 'b) eq = Eq : ('a, 'a) eq
 
@@ -44,7 +42,7 @@ module Make (X : Type) = struct
     end in
     (module M : W with type t = s)
 
-  let eq (type r s) (r : r key) (s : s key) : (r, s) eq option =
+  let eq (type r s) (r : r raw_key) (s : s raw_key) : (r, s) eq option =
     let module R = (val r : W with type t = r) in
     let module S = (val s : W with type t = s) in
     match R.Key with S.Key -> Some Eq | _ -> None
@@ -52,7 +50,7 @@ module Make (X : Type) = struct
   let make () = ref []
   let add_binding d k v = d := B (k, v) :: !d
 
-  let lookup : type a. t -> a state_id -> a value option =
+  let lookup : type a. t -> a key -> a value option =
    fun d k ->
     let rec find : binding list -> a value option = function
       | [] -> None
@@ -75,8 +73,8 @@ module Make (X : Type) = struct
     in
     loop [] xs ys
 
-  let general_union_keys (type a b) (ks1 : a state_id) (ks2 : b state_id) :
-      (a state_id, b state_id) Either.t =
+  let make_union_keys_general (type a b) (ks1 : a key) (ks2 : b key) :
+      (a key, b key) Either.t =
     if KeyEx ks1.id_head < KeyEx ks2.id_head then
       Left
         {
@@ -98,8 +96,8 @@ module Make (X : Type) = struct
           id_tail = union_sorted_lists ks1.id_tail ks2.id_tail;
         }
 
-  let union_keys (ks1 : 'a state_id) (ks2 : 'a state_id) : 'a state_id =
-    match general_union_keys ks1 ks2 with Left ks | Right ks -> ks
+  let make_union_keys (ks1 : 'a key) (ks2 : 'a key) : 'a key =
+    match make_union_keys_general ks1 ks2 with Left ks | Right ks -> ks
 
   let make_key () = { id_head = newkey (); id_tail = [] }
 end

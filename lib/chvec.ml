@@ -52,30 +52,28 @@ module Make (Name : Name) = struct
   type 'var inp = 'var InpMerge.inp
 
   let out role lab name s =
-    Deterministic
-      ( Head.make_key (),
-        Lazy.from_val
-          {
-            head =
-              role.make_obj
-              @@ lab.make_obj
-              @@ Out (lab.method_name, name, Lazy.from_val s);
-            determinise_list = OutMerge.out_determinise role lab;
-            force_determinised = OutMerge.out_force role lab;
-            to_string = OutMerge.out_to_string role lab;
-          } )
+    State.deterministic (Head.make_key ())
+    @@ Lazy.from_val
+         {
+           head =
+             role.make_obj
+             @@ lab.make_obj
+             @@ Out (lab.method_name, name, Lazy.from_val s);
+           determinise_list = OutMerge.out_determinise role lab;
+           force_determinised = OutMerge.out_force role lab;
+           to_string = OutMerge.out_to_string role lab;
+         }
 
   let inp role constr name s =
-    Deterministic
-      ( Head.make_key (),
-        Lazy.from_val
-          {
-            head =
-              role.make_obj @@ lazy (name, [ ExternalChoiceItem (constr, s) ]);
-            determinise_list = InpMerge.inp_determinise role;
-            force_determinised = InpMerge.inp_force role;
-            to_string = InpMerge.inp_to_string role;
-          } )
+    State.deterministic (Head.make_key ())
+    @@ Lazy.from_val
+         {
+           head =
+             role.make_obj @@ lazy (name, [ ExternalChoiceItem (constr, s) ]);
+           determinise_list = InpMerge.inp_determinise role;
+           force_determinised = InpMerge.inp_force role;
+           to_string = InpMerge.inp_to_string role;
+         }
 end
 
 module Sync = struct
@@ -89,20 +87,14 @@ module Sync = struct
 
   let select (OutMerge.Out (labname, name, cont)) =
     let tag = Btype.hash_variant labname in
-    match Lazy.force cont with
-    | Deterministic (_, cont) ->
-        assert (Lazy.is_val cont);
-        Event.sync (Event.send (Name.finalise name) tag);
-        (Lazy.force cont).head
-    | _ -> failwith "select: not determinised. possible determinisation bug?"
+    let cont = State.ensure_determinised (Lazy.force cont) in
+    Event.sync (Event.send (Name.finalise name) tag);
+    cont
 
   let branch (inp : _ inp) =
     let make_event (InpMerge.ExternalChoiceItem (var, cont)) =
-      match cont with
-      | Deterministic (_, cont) ->
-          ( Btype.hash_variant var.constr_name,
-            var.make_var (Lazy.force cont).head )
-      | _ -> failwith "branch: not determinised. possible determinisaton bug?"
+      let cont = State.ensure_determinised cont in
+      (Btype.hash_variant var.constr_name, var.make_var cont)
     in
     let name, items = Lazy.force inp in
     items
@@ -117,20 +109,14 @@ module Async = struct
 
   let select (OutMerge.Out (labname, name, cont)) =
     let tag = Btype.hash_variant labname in
-    match Lazy.force cont with
-    | Deterministic (_, cont) ->
-        assert (Lazy.is_val cont);
-        DynChan.send (DynChan.finalise name) tag;
-        (Lazy.force cont).head
-    | _ -> failwith "select: not determinised. possible determinisation bug?"
+    let cont = State.ensure_determinised (Lazy.force cont) in
+    DynChan.send (DynChan.finalise name) tag;
+    cont
 
   let branch (inp : _ inp) =
     let make_event (InpMerge.ExternalChoiceItem (var, cont)) =
-      match cont with
-      | Deterministic (_, cont) ->
-          ( Btype.hash_variant var.constr_name,
-            var.make_var (Lazy.force cont).head )
-      | _ -> failwith "branch: not determinised. possible determinisaton bug?"
+      let cont = State.ensure_determinised cont in
+      (Btype.hash_variant var.constr_name, var.make_var cont)
     in
     let name, items = Lazy.force inp in
     items

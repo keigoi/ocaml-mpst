@@ -20,6 +20,7 @@ type _ t =
 
 exception UnguardedLoop
 
+let deterministic id obj = Deterministic (id, obj)
 let internal_choice disj l r = InternalChoice (Head.make_key (), disj, l, r)
 let merge l r = Epsilon [ l; r ]
 let loop t = Loop t
@@ -104,8 +105,10 @@ end = struct
 
   and epsilon_closure :
       type a.
-      ctx:Head.context -> visited:a t list -> a t -> a merged_or_backward_epsilon
-      =
+      ctx:Head.context ->
+      visited:a t list ->
+      a t ->
+      a merged_or_backward_epsilon =
     let ret_merged x = Either.Left x
     and ret_backward_epsilon x = Either.Right x in
     let detect_cycles ~visited backward =
@@ -155,8 +158,8 @@ end = struct
               detect_cycles ~visited backward
 
   and determinise_internal_choice :
-        'lr 'l 'r. Head.context -> ('lr, 'l, 'r) disj -> 'l t -> 'r t -> 'lr head
-      =
+        'lr 'l 'r.
+        Head.context -> ('lr, 'l, 'r) disj -> 'l t -> 'r t -> 'lr head =
    fun ctx disj tl tr ->
     let _idl, hl = determinise ctx tl and _idr, hr = determinise ctx tr in
     let hl = Lazy.force hl and hr = Lazy.force hr in
@@ -203,3 +206,7 @@ let determinise t =
   let h = Lazy.force h in
   h.force_determinised (Head.make ()) h.head;
   h.head
+
+let ensure_determinised = function
+  | Deterministic (_, t) -> (Lazy.force t).head
+  | _ -> failwith "not determinised"

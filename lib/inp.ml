@@ -32,7 +32,7 @@ module Make (Name : S.Name) = struct
     let state_id1, cont1 = Determinise.determinise ctx cont1 in
     let state_id2, cont2 = Determinise.determinise ctx cont2 in
     let make_ constr state_id cont =
-      ExternalChoiceItem (constr, Deterministic (state_id, cont))
+      ExternalChoiceItem (constr, deterministic state_id cont)
     in
     (* (2) compute the new state id ==== *)
     match Head.general_union_keys state_id1 state_id2 with
@@ -45,7 +45,7 @@ module Make (Name : S.Name) = struct
 
   let determinise_extchoice_item ctx (ExternalChoiceItem (constr, cont)) =
     let state_id, d = Determinise.determinise ctx cont in
-    ExternalChoiceItem (constr, Deterministic (state_id, d))
+    ExternalChoiceItem (constr, deterministic state_id d)
 
   let rec real_inp_merge_one :
       type a.

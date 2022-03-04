@@ -18,7 +18,7 @@ module Make (Name : Name) = struct
     let idl, dl = Determinise.determinise ctx l
     and idr, dr = Determinise.determinise ctx r in
     let state_id = Head.union_keys idl idr in
-    Deterministic (state_id, determinise_head_list ctx state_id [ dl; dr ])
+    deterministic state_id (determinise_head_list ctx state_id [ dl; dr ])
 
   let out_merge role lab ctx s1 s2 =
     let (Out (tag1, name1, cont1)) = lab.call_obj @@ role.call_obj s1
@@ -44,7 +44,7 @@ module Make (Name : Name) = struct
                  (let state_id, d =
                     Determinise.determinise ctx (Lazy.force cont)
                   in
-                  Deterministic (state_id, d)) )
+                  deterministic state_id d) )
     | t :: ts -> List.fold_left (out_merge role lab ctx) t ts
     | [] -> failwith "out_determinise: impossible"
 

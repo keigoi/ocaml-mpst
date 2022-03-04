@@ -6,18 +6,12 @@ type 'a head = 'a Head.head = {
 }
 
 type 't state_id = 't Head.state_id
-
-type _ t =
-  | Deterministic : 'obj state_id * 'obj head lazy_t -> 'obj t
-  | Epsilon : 'a t list -> 'a t
-  | InternalChoice :
-      'lr state_id * ('lr, 'l, 'r) Rows.disj * 'l t * 'r t
-      -> 'lr t
-  | Loop : 'a t lazy_t -> 'a t
+type _ t
 
 exception UnguardedLoop
 
 val unit : unit t
+val deterministic : 'obj state_id -> 'obj head lazy_t -> 'obj t
 val merge : 'a t -> 'a t -> 'a t
 val internal_choice : ('a, 'b, 'c) Rows.disj -> 'b t -> 'c t -> 'a t
 val loop : 'a t lazy_t -> 'a t
@@ -42,3 +36,4 @@ module Determinise : sig
 end
 
 val determinise : 's t -> 's
+val ensure_determinised : 's t -> 's

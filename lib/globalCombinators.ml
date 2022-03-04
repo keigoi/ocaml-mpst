@@ -1,3 +1,5 @@
+exception UnguardedLoop = State.UnguardedLoop
+
 type ('obj, 'ot, 'var, 'vt) label = {
   obj : ('obj, 'ot) Rows.method_;
   var : ('var, 'vt) Rows.constr;
@@ -17,9 +19,15 @@ end
 module Sessions = Hlist.Make (State)
 open Sessions
 
-type 'a seq = 'a Hlist.Make(State).seq =
+type 'a seq = 'a Sessions.seq =
   | ( :: ) : 'hd State.t * 'tl seq -> [ `cons of 'hd * 'tl ] seq
   | [] : ([ `cons of unit * 'a ] as 'a) seq
+
+type env_entry = ..
+type env = env_entry list
+type 't global = env -> 't seq
+
+open Stdlib.List
 
 let rec merge_seq : type t. t seq -> t seq -> t seq =
  fun ls rs ->
@@ -27,8 +35,6 @@ let rec merge_seq : type t. t seq -> t seq -> t seq =
   | Sessions.[], _ -> []
   | _, [] -> []
   | l :: ls, r :: rs -> State.merge l r :: merge_seq ls rs
-
-type ('env, 't) global = 'env -> 't seq
 
 let choice_at ra disj (ra1, g1) (ra2, g2) ctx =
   let g1 = g1 ctx and g2 = g2 ctx in
@@ -76,105 +82,7 @@ let rec extract_seq : type u. u Sessions.seq -> u = function
       let tl = extract_seq tail in
       `cons (hd, tl)
 
-let extract g env = extract_seq (g env)
-
-module type C = sig
-  type chan
-  type 'a name
-  type _ out
-  type 'var inp
-
-  val make : unit -> chan
-  val new_name : chan -> 'a name
-  val select : 'a out -> 'a
-  val branch : 'a inp -> 'a
-
-  val out :
-    ('a, 'b) Rows.method_ ->
-    ('b, 'c out) Rows.method_ ->
-    int name ->
-    'c State.t ->
-    'a State.t
-
-  val inp :
-    ('a, 'b inp) Rows.method_ ->
-    ('b, 'c) Rows.constr ->
-    int name ->
-    'c State.t ->
-    'a State.t
-end
-
-module type S = sig
-  type 's out
-  type 's inp
-  type chan
-
-  val select : 'a out -> 'a
-  val branch : 'a inp -> 'a
-  val close : unit -> unit
-
-  type env
-
-  val ( --> ) :
-    ('a, 'b, 'c, 'd, 'e, 'f inp) role ->
-    ('g, 'e, 'h, 'c, 'b, 'i) role ->
-    ('i, 'a out, 'f, 'g) label ->
-    (env, 'h) global ->
-    (env, 'd) global
-
-  val make_env : unit -> env
-end
-
-module Make (Chan : C) = struct
-  type 's out = 's Chan.out
-  type 's inp = 's Chan.inp
-
-  exception UnguardedLoop = State.UnguardedLoop
-
-  let select = Chan.select
-  let branch = Chan.branch
-  let close () = ()
-
-  type env = < chan : string * string -> Chan.chan >
-
-  let ( --> ) ra rb lab g ctx =
-    let g = g ctx in
-    let ch = ctx#chan (ra.role_label.method_name, rb.role_label.method_name) in
-    let key = Chan.new_name ch in
-    let b = seq_get rb.role_index g in
-    let g = seq_put rb.role_index g (Chan.inp ra.role_label lab.var key b) in
-    let a = seq_get ra.role_index g in
-    let g = seq_put ra.role_index g (Chan.out rb.role_label lab.obj key a) in
-    g
-
-  type t = (string * string, Chan.chan) Hashtbl.t
-
-  let lookup (t : t) (key : string * string) =
-    match Hashtbl.find_opt t key with
-    | Some ch -> ch
-    | None ->
-        let ch = Chan.make () in
-        Hashtbl.add t key ch;
-        ch
-
-  let make_env () =
-    let t = Hashtbl.create 42 in
-    object
-      method chan key = lookup t key
-    end
-end
-
-module Sync = struct
-  include Chvec.Sync
-  include Make (Chvec.Sync)
-end
-
-module Async = struct
-  include Chvec.Async
-  include Make (Chvec.Async)
-
-  let extract_ = extract
-  let extract g = extract_ g (make_env ())
-end
-
-include Async
+let init_env = ref []
+let register_default_env entry = init_env := entry :: !init_env
+let extract_ g env = extract_seq (g env)
+let extract g = extract_ g (List.map (fun f -> f ()) !init_env)

@@ -1,4 +1,5 @@
 open Mpst2.GlobalCombinators
+open Mpst2.Comm
 open Rows
 open OUnit
 

@@ -53,7 +53,7 @@ module Make (Name : Name) = struct
 
   let out role lab name s =
     Deterministic
-      ( StateHash.make_key (),
+      ( Head.make_key (),
         Lazy.from_val
           {
             head =
@@ -67,7 +67,7 @@ module Make (Name : Name) = struct
 
   let inp role constr name s =
     Deterministic
-      ( StateHash.make_key (),
+      ( Head.make_key (),
         Lazy.from_val
           {
             head =

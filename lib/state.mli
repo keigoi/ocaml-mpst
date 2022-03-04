@@ -1,11 +1,11 @@
-type 'a head = 'a StateHash.head = {
+type 'a head = 'a Head.head = {
   head : 'a;
-  determinise_list : StateHash.t -> 'a list -> 'a;
-  force_determinised : StateHash.t -> 'a -> unit;
-  to_string : StateHash.t -> 'a -> string;
+  determinise_list : Head.context -> 'a list -> 'a;
+  force_determinised : Head.context -> 'a -> unit;
+  to_string : Head.context -> 'a -> string;
 }
 
-type 't state_id = 't StateHash.state_id
+type 't state_id = 't Head.state_id
 
 type _ t =
   | Deterministic : 'obj state_id * 'obj head lazy_t -> 'obj t
@@ -23,10 +23,10 @@ val internal_choice : ('a, 'b, 'c) Rows.disj -> 'b t -> 'c t -> 'a t
 val loop : 'a t lazy_t -> 'a t
 
 val determinise_head_list :
-  StateHash.t -> 'a state_id -> 'a head lazy_t list -> 'a head lazy_t
+  Head.context -> 'a state_id -> 'a head lazy_t list -> 'a head lazy_t
 
 val try_cast_then_merge_heads :
-  StateHash.t ->
+  Head.context ->
   'a state_id ->
   ('b, 'a) Rows.constr ->
   ('b, 'c) Rows.constr ->
@@ -34,11 +34,11 @@ val try_cast_then_merge_heads :
   'c head lazy_t ->
   'a head lazy_t option
 
-val force_determinised : StateHash.t -> 'a t -> unit
-val to_string : StateHash.t -> 'a t -> string
+val force_determinised : Head.context -> 'a t -> unit
+val to_string : Head.context -> 'a t -> string
 
 module Determinise : sig
-  val determinise : StateHash.t -> 's t -> 's state_id * 's head lazy_t
+  val determinise : Head.context -> 's t -> 's state_id * 's head lazy_t
 end
 
 val determinise : 's t -> 's

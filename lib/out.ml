@@ -17,7 +17,7 @@ module Make (Name : Name) = struct
   let real_merge ctx l r =
     let idl, dl = Determinise.determinise ctx l
     and idr, dr = Determinise.determinise ctx r in
-    let state_id = StateHash.union_keys idl idr in
+    let state_id = Head.union_keys idl idr in
     Deterministic (state_id, determinise_head_list ctx state_id [ dl; dr ])
 
   let out_merge role lab ctx s1 s2 =

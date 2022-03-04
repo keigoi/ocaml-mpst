@@ -12,7 +12,7 @@ module Make (Name : S.Name) = struct
 
   let try_real_merge_extchoice_item :
       type a.
-      StateHash.t ->
+      Head.context ->
       a extchoice_item ->
       a extchoice_item ->
       a extchoice_item option =
@@ -35,7 +35,7 @@ module Make (Name : S.Name) = struct
       ExternalChoiceItem (constr, Deterministic (state_id, cont))
     in
     (* (2) compute the new state id ==== *)
-    match StateHash.general_union_keys state_id1 state_id2 with
+    match Head.general_union_keys state_id1 state_id2 with
     | Left state_id ->
         try_cast_then_merge_heads ctx state_id constr1 constr2 cont1 cont2
         |> Option.map (make_ constr1 state_id)
@@ -49,7 +49,7 @@ module Make (Name : S.Name) = struct
 
   let rec real_inp_merge_one :
       type a.
-      StateHash.t ->
+      Head.context ->
       a extchoice_item list ->
       a extchoice_item ->
       a extchoice_item list =

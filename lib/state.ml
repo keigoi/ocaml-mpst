@@ -1,13 +1,13 @@
 open Rows
 
-type 'a head = 'a StateHash.head = {
+type 'a head = 'a Head.head = {
   head : 'a;
-  determinise_list : StateHash.t -> 'a list -> 'a;
-  force_determinised : StateHash.t -> 'a -> unit;
-  to_string : StateHash.t -> 'a -> string;
+  determinise_list : Head.context -> 'a list -> 'a;
+  force_determinised : Head.context -> 'a -> unit;
+  to_string : Head.context -> 'a -> string;
 }
 
-type 't state_id = 't StateHash.state_id
+type 't state_id = 't Head.state_id
 
 type _ t =
   | Deterministic : 'obj state_id * 'obj head lazy_t -> 'obj t
@@ -20,12 +20,12 @@ type _ t =
 
 exception UnguardedLoop
 
-let internal_choice disj l r = InternalChoice (StateHash.make_key (), disj, l, r)
+let internal_choice disj l r = InternalChoice (Head.make_key (), disj, l, r)
 let merge l r = Epsilon [ l; r ]
 let loop t = Loop t
 
 let determinise_head_list ctx id hds =
-  match StateHash.lookup ctx id with
+  match Head.lookup ctx id with
   | Some v -> v
   | None ->
       let hd =
@@ -42,37 +42,37 @@ let determinise_head_list ctx id hds =
              to_string = hd.to_string;
            })
       in
-      StateHash.add_binding ctx id hd;
+      Head.add_binding ctx id hd;
       hd
 
 let try_cast_then_merge_heads ctx id constrA constrB headA headB =
   let headA = Lazy.force headA and headB = Lazy.force headB in
   match Rows.cast_if_constrs_are_same constrA constrB headB.head with
   | Some contB_body -> begin
-      match StateHash.lookup ctx id with
+      match Head.lookup ctx id with
       | Some v -> Some v
       | None ->
           let head = headA.determinise_list ctx [ headA.head; contB_body ] in
           let head = Lazy.from_val { headA with head } in
-          StateHash.add_binding ctx id head;
+          Head.add_binding ctx id head;
           Some head
     end
   | None -> None
 
 let force_determinised ctx t =
   match t with
-  | Deterministic (sid, h) when StateHash.lookup ctx sid = None ->
-      StateHash.add_binding ctx sid h;
+  | Deterministic (sid, h) when Head.lookup ctx sid = None ->
+      Head.add_binding ctx sid h;
       let h = Lazy.force h in
       h.force_determinised ctx h.head
   | Deterministic (_, _) -> ()
   | _ -> failwith "Impossible: force: channel not determinised"
 
-let rec to_string : 'a. StateHash.t -> 'a t -> string =
+let rec to_string : 'a. Head.context -> 'a t -> string =
  fun ctx -> function
   | Deterministic (sid, hd) ->
       if Lazy.is_val hd then (
-        StateHash.add_binding ctx sid hd;
+        Head.add_binding ctx sid hd;
         let hd = Lazy.force hd in
         hd.to_string ctx hd.head)
       else "<lazy_det>"
@@ -84,7 +84,7 @@ let rec to_string : 'a. StateHash.t -> 'a t -> string =
       if Lazy.is_val t then to_string ctx (Lazy.force t) else "<lazy_loop>"
 
 module Determinise : sig
-  val determinise : StateHash.t -> 's t -> 's state_id * 's head lazy_t
+  val determinise : Head.context -> 's t -> 's state_id * 's head lazy_t
 end = struct
   type 'a merged_or_backward_epsilon =
     ('a state_id * 'a head lazy_t list, 'a t list) Either.t
@@ -95,7 +95,7 @@ end = struct
 
   let fail_unguarded () = raise UnguardedLoop
 
-  let rec determinise : 's. StateHash.t -> 's t -> 's state_id * 's head lazy_t
+  let rec determinise : 's. Head.context -> 's t -> 's state_id * 's head lazy_t
       =
    fun ctx st ->
     match epsilon_closure ~ctx ~visited:[] st with
@@ -104,7 +104,7 @@ end = struct
 
   and epsilon_closure :
       type a.
-      ctx:StateHash.t -> visited:a t list -> a t -> a merged_or_backward_epsilon
+      ctx:Head.context -> visited:a t list -> a t -> a merged_or_backward_epsilon
       =
     let ret_merged x = Either.Left x
     and ret_backward_epsilon x = Either.Right x in
@@ -146,7 +146,7 @@ end = struct
               (* concrete transitons found - return the merged state ==== *)
               let ids, hds = List.split hds in
               let id =
-                List.fold_left StateHash.union_keys (List.hd ids) (List.tl ids)
+                List.fold_left Head.union_keys (List.hd ids) (List.tl ids)
               in
               ret_merged (id, List.concat hds)
             else
@@ -155,7 +155,7 @@ end = struct
               detect_cycles ~visited backward
 
   and determinise_internal_choice :
-        'lr 'l 'r. StateHash.t -> ('lr, 'l, 'r) disj -> 'l t -> 'r t -> 'lr head
+        'lr 'l 'r. Head.context -> ('lr, 'l, 'r) disj -> 'l t -> 'r t -> 'lr head
       =
    fun ctx disj tl tr ->
     let _idl, hl = determinise ctx tl and _idr, hr = determinise ctx tr in
@@ -189,7 +189,7 @@ end
 
 let unit =
   Deterministic
-    ( StateHash.make_key (),
+    ( Head.make_key (),
       Lazy.from_val
         {
           head = ();
@@ -199,7 +199,7 @@ let unit =
         } )
 
 let determinise t =
-  let _, h = Determinise.determinise (StateHash.make ()) t in
+  let _, h = Determinise.determinise (Head.make ()) t in
   let h = Lazy.force h in
-  h.force_determinised (StateHash.make ()) h.head;
+  h.force_determinised (Head.make ()) h.head;
   h.head

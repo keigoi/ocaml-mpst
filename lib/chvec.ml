@@ -52,10 +52,10 @@ module Make (Name : Name) = struct
   type 'var inp = 'var InpMerge.inp
 
   let out role lab name s =
-    State.deterministic (Head.make_key ())
+    State.deterministic (StateHash.make_key ())
     @@ Lazy.from_val
          {
-           head =
+           body =
              role.make_obj
              @@ lab.make_obj
              @@ Out (lab.method_name, name, Lazy.from_val s);
@@ -65,10 +65,10 @@ module Make (Name : Name) = struct
          }
 
   let inp role constr name s =
-    State.deterministic (Head.make_key ())
+    State.deterministic (StateHash.make_key ())
     @@ Lazy.from_val
          {
-           head =
+           body =
              role.make_obj @@ lazy (name, [ ExternalChoiceItem (constr, s) ]);
            determinise_list = InpMerge.inp_determinise role;
            force_traverse = InpMerge.inp_force role;

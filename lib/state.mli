@@ -1,25 +1,43 @@
-type 'a head = 'a Head.head = {
-  head : 'a;
-  determinise_list : Head.context -> 'a list -> 'a;
-  force_traverse : Head.context -> 'a -> unit;
-  to_string : Head.context -> 'a -> string;
+type context
+
+type 'a det = {
+  body : 'a;
+  determinise_list : context -> 'a list -> 'a;
+  force_traverse : context -> 'a -> unit;
+  to_string : context -> 'a -> string;
 }
 
-type 't state_id = 't Head.key
+module StateHash :
+  PolyHash.S with type t := context and type 'a value := 'a det lazy_t
+
 type _ t
+type 'a state_id = 'a StateHash.key
 
 exception UnguardedLoop
 
 val unit : unit t
-val deterministic : 'obj state_id -> 'obj head lazy_t -> 'obj t
+val deterministic : 'obj state_id -> 'obj det lazy_t -> 'obj t
 val merge : 'a t -> 'a t -> 'a t
 val internal_choice : ('a, 'b, 'c) Rows.disj -> 'b t -> 'c t -> 'a t
 val loop : 'a t lazy_t -> 'a t
-val force_traverse : Head.context -> 'a t -> unit
-val to_string : Head.context -> 'a t -> string
+
+val determinise_list_lazy :
+  context -> 'a state_id -> 'a det lazy_t list -> 'a det lazy_t
+
+val try_cast_and_merge_lazy :
+  context ->
+  'a state_id ->
+  ('b, 'a) Rows.constr ->
+  ('b, 'c) Rows.constr ->
+  'a det lazy_t ->
+  'c det lazy_t ->
+  'a det lazy_t option
+
+val force_traverse : context -> 'a t -> unit
+val to_string : context -> 'a t -> string
 
 module Determinise : sig
-  val determinise : Head.context -> 's t -> 's state_id * 's head lazy_t
+  val determinise : context -> 's t -> 's state_id * 's det lazy_t
 end
 
 val determinise : 's t -> 's

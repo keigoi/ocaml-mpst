@@ -3,14 +3,14 @@ open Rows
 module rec StateHash : sig
   type t
 
-  type 'a det = {
+  type 'a action = {
     body : 'a;
     determinise_list : t -> 'a list -> 'a;
     force_traverse : t -> 'a -> unit;
     to_string : t -> 'a -> string;
   }
 
-  type 'a value = 'a det lazy_t
+  type 'a value = 'a action lazy_t
 
   include PolyHash.S with type t := t and type 'a value := 'a value
 end = struct
@@ -19,27 +19,27 @@ end = struct
 
   type context = Hash.t
 
-  type 'a det = {
+  type 'a action = {
     body : 'a;
     determinise_list : context -> 'a list -> 'a;
     force_traverse : context -> 'a -> unit;
     to_string : context -> 'a -> string;
   }
 
-  type 'a value = 'a det lazy_t
+  type 'a value = 'a action lazy_t
 end
 
 type context = StateHash.t
 type 't state_id = 't StateHash.key
 
-type 'a det = 'a StateHash.det = {
+type 'a action = 'a StateHash.action = {
   body : 'a;
   determinise_list : context -> 'a list -> 'a;
   force_traverse : context -> 'a -> unit;
   to_string : context -> 'a -> string;
 }
 
-let determinise_list ctx id hds =
+let determinise_action_list ctx id hds =
   match StateHash.lookup ctx id with
   | Some v -> v
   | None ->
@@ -61,7 +61,7 @@ let determinise_list ctx id hds =
       hd
 
 type _ t =
-  | Deterministic : 'obj state_id * 'obj det lazy_t -> 'obj t
+  | Deterministic : 'obj state_id * 'obj action lazy_t -> 'obj t
       (** A state with deterministic transitions. Note that the following states
           are not necessarily deterministic. *)
   | Epsilon : 'a t list -> 'a t  (** Epsilon transitions (i.e. merging) *)
@@ -72,7 +72,7 @@ type _ t =
 exception UnguardedLoop
 
 type 'a merged_or_backward_epsilon =
-  ('a state_id * 'a det lazy_t list, 'a t list) Either.t
+  ('a state_id * 'a action lazy_t list, 'a t list) Either.t
 
 let rec mem_phys k = function x :: xs -> k == x || mem_phys k xs | [] -> false
 let fail_unguarded () = raise UnguardedLoop
@@ -130,7 +130,7 @@ let rec epsilon_closure :
             detect_cycles ~visited backward
 
 and determinise_internal_choice_core :
-      'lr 'l 'r. context -> ('lr, 'l, 'r) disj -> 'l t -> 'r t -> 'lr det =
+      'lr 'l 'r. context -> ('lr, 'l, 'r) disj -> 'l t -> 'r t -> 'lr action =
  fun ctx disj tl tr ->
   let _idl, hl = determinise_core ctx tl
   and _idr, hr = determinise_core ctx tr in
@@ -161,10 +161,10 @@ and determinise_internal_choice_core :
   let tlr = disj.disj_concat hl.body hr.body in
   { body = tlr; determinise_list; force_traverse; to_string }
 
-and determinise_core : 's. context -> 's t -> 's state_id * 's det lazy_t =
+and determinise_core : 's. context -> 's t -> 's state_id * 's action lazy_t =
  fun ctx st ->
   match epsilon_closure ~ctx ~visited:[] st with
-  | Left (sid, hds) -> (sid, determinise_list ctx sid hds)
+  | Left (sid, hds) -> (sid, determinise_action_list ctx sid hds)
   | Right _ -> fail_unguarded ()
 
 let determinise t =
@@ -217,7 +217,7 @@ let rec to_string : 'a. context -> 'a t -> string =
   | Loop t ->
       if Lazy.is_val t then to_string ctx (Lazy.force t) else "<lazy_loop>"
 
-let try_cast_and_merge_determinise ctx id constrA constrB headA headB =
+let try_cast_and_merge_actions ctx id constrA constrB headA headB =
   let headA = Lazy.force headA and headB = Lazy.force headB in
   match Rows.cast_if_constrs_are_same constrA constrB headB.body with
   | Some contB_body -> begin

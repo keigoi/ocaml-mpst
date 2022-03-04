@@ -10,12 +10,6 @@ type ('t, 'u, 'ts, 'us, 'robj, 'mt) role = {
   role_label : ('robj, 'mt) Rows.method_;
 }
 
-module Open = struct
-  type _ t =
-    | [] : ([ `cons of unit * 'a ] as 'a) t
-    | ( :: ) : (unit, 'b, 'bb, 'cc, _, _) role * 'bb t -> 'cc t
-end
-
 module Sessions = Hlist.Make (State)
 open Sessions
 
@@ -45,6 +39,28 @@ let choice_at ra disj (ra1, g1) (ra2, g2) ctx =
   let a = State.internal_choice disj a1 a2 in
   seq_put ra.role_index g a
 
+let finish _ = Sessions.[]
+
+let rec extract_seq : type u. u Sessions.seq -> u = function
+  | Sessions.[] ->
+      let rec nil = `cons ((), nil) in
+      nil
+  | st :: tail ->
+      let hd = State.determinise st in
+      let tl = extract_seq tail in
+      `cons (hd, tl)
+
+let init_env = ref []
+let register_default_env entry = init_env := entry :: !init_env
+let extract_ g env = extract_seq (g env)
+let extract g = extract_ g (List.map (fun f -> f ()) !init_env)
+
+module Open = struct
+  type _ t =
+    | [] : ([ `cons of unit * 'a ] as 'a) t
+    | ( :: ) : (unit, 'b, 'bb, 'cc, _, _) role * 'bb t -> 'cc t
+end
+
 let partial_finish keep_idxs g =
   let rec make_partial_finish :
       type b. keep_idxs:b Open.t -> keeps:b seq lazy_t -> b seq =
@@ -70,19 +86,3 @@ let fix_with keep_idxs f ctx =
     lazy (partial_finish keep_idxs (lazy (f (fun _ctx -> Lazy.force self) ctx)))
   in
   Lazy.force self
-
-let finish _ = Sessions.[]
-
-let rec extract_seq : type u. u Sessions.seq -> u = function
-  | Sessions.[] ->
-      let rec nil = `cons ((), nil) in
-      nil
-  | st :: tail ->
-      let hd = State.determinise st in
-      let tl = extract_seq tail in
-      `cons (hd, tl)
-
-let init_env = ref []
-let register_default_env entry = init_env := entry :: !init_env
-let extract_ g env = extract_seq (g env)
-let extract g = extract_ g (List.map (fun f -> f ()) !init_env)

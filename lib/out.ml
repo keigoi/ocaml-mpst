@@ -15,10 +15,9 @@ module Make (Name : Name) = struct
   type _ out = Out : string * tag Name.name * 's t lazy_t -> 's out
 
   let real_merge ctx l r =
-    let idl, dl = Determinise.determinise ctx l
-    and idr, dr = Determinise.determinise ctx r in
+    let idl, dl = determinise_core ctx l and idr, dr = determinise_core ctx r in
     let state_id = StateHash.make_union_keys idl idr in
-    deterministic state_id (State.determinise_list_lazy ctx state_id [ dl; dr ])
+    deterministic state_id (State.determinise_list ctx state_id [ dl; dr ])
 
   let out_merge role lab ctx s1 s2 =
     let (Out (tag1, name1, cont1)) = lab.call_obj @@ role.call_obj s1
@@ -41,9 +40,7 @@ module Make (Name : Name) = struct
              ( tag,
                name,
                lazy
-                 (let state_id, d =
-                    Determinise.determinise ctx (Lazy.force cont)
-                  in
+                 (let state_id, d = determinise_core ctx (Lazy.force cont) in
                   deterministic state_id d) )
     | t :: ts -> List.fold_left (out_merge role lab ctx) t ts
     | [] -> failwith "out_determinise: impossible"

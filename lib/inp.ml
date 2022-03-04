@@ -29,22 +29,22 @@ module Make (Name : S.Name) = struct
              (StateId.general_union)
     *)
     (* (1) extract the channel objects ==== *)
-    let state_id1, cont1 = Determinise.determinise ctx cont1 in
-    let state_id2, cont2 = Determinise.determinise ctx cont2 in
+    let state_id1, cont1 = determinise_core ctx cont1 in
+    let state_id2, cont2 = determinise_core ctx cont2 in
     let make_ constr state_id cont =
       ExternalChoiceItem (constr, deterministic state_id cont)
     in
     (* (2) compute the new state id ==== *)
     match StateHash.make_union_keys_general state_id1 state_id2 with
     | Left state_id ->
-        State.try_cast_and_merge_lazy ctx state_id constr1 constr2 cont1 cont2
+        State.try_cast_and_merge_determinise ctx state_id constr1 constr2 cont1 cont2
         |> Option.map (make_ constr1 state_id)
     | Right state_id ->
-        State.try_cast_and_merge_lazy ctx state_id constr2 constr1 cont2 cont1
+        State.try_cast_and_merge_determinise ctx state_id constr2 constr1 cont2 cont1
         |> Option.map (make_ constr2 state_id)
 
   let determinise_extchoice_item ctx (ExternalChoiceItem (constr, cont)) =
-    let state_id, d = Determinise.determinise ctx cont in
+    let state_id, d = determinise_core ctx cont in
     ExternalChoiceItem (constr, deterministic state_id d)
 
   let rec real_inp_merge_one :

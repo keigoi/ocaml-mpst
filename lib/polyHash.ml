@@ -15,7 +15,7 @@ module type S = sig
   val lookup : t -> 'a key -> 'a value option
 end
 
-module Make (X : Type) = struct
+module Make (X : Type) : S with type 'a value = 'a X.value = struct
   module Key = struct
     type _ t = ..
   end
@@ -27,11 +27,11 @@ module Make (X : Type) = struct
 
   type 'a raw_key = (module W with type t = 'a)
 
-  type 'a value = 'a X.value
+  type t = binding list ref
   and binding = B : 'a key * 'a value -> binding
-  and t = binding list ref
-  and key_ex = KeyEx : 'a raw_key -> key_ex
+  and 'a value = 'a X.value
   and 'a key = { id_head : 'a raw_key; id_tail : key_ex list }
+  and key_ex = KeyEx : 'a raw_key -> key_ex
 
   type ('a, 'b) eq = Eq : ('a, 'a) eq
 

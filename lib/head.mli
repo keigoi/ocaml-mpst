@@ -7,7 +7,7 @@ type 'a head = {
   to_string : context -> 'a -> string;
 }
 
-include PolyHash.S with type t := context and type 'a head := 'a head
+include PolyHash.S with type t := context and type 'a value := 'a head lazy_t
 
 val determinise_head_list :
   context -> 'a state_id -> 'a head lazy_t list -> 'a head lazy_t

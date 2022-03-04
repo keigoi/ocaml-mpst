@@ -1,15 +1,15 @@
 module type Type = sig
-  type 'a head
+  type 'a value
 end
 
 module type S = sig
   type t
   type 'a state_id
-  type 'a head
+  type 'a value
 
   val make : unit -> t
-  val add_binding : t -> 'a state_id -> 'a head lazy_t -> unit
-  val lookup : t -> 'a state_id -> 'a head lazy_t option
+  val add_binding : t -> 'a state_id -> 'a value -> unit
+  val lookup : t -> 'a state_id -> 'a value option
   val make_key : unit -> 'a state_id
   val union_keys : 'a state_id -> 'a state_id -> 'a state_id
 
@@ -29,8 +29,8 @@ module Make (X : Type) = struct
 
   type 'a key = (module W with type t = 'a)
 
-  type 'a head = 'a X.head
-  and binding = B : 'a state_id * 'a head lazy_t -> binding
+  type 'a value = 'a X.value
+  and binding = B : 'a state_id * 'a value -> binding
   and t = binding list ref
   and key_ex = KeyEx : 'a key -> key_ex
   and 'a state_id = { id_head : 'a key; id_tail : key_ex list }
@@ -52,9 +52,9 @@ module Make (X : Type) = struct
   let make () = ref []
   let add_binding d k v = d := B (k, v) :: !d
 
-  let lookup : type a. t -> a state_id -> a head lazy_t option =
+  let lookup : type a. t -> a state_id -> a value option =
    fun d k ->
-    let rec find : binding list -> a head lazy_t option = function
+    let rec find : binding list -> a value option = function
       | [] -> None
       | B (k', v) :: bs -> (
           match eq k.id_head k'.id_head with

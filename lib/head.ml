@@ -8,7 +8,9 @@ module rec Self : sig
     to_string : context -> 'a -> string;
   }
 
-  include PolyHash.S with type t := context and type 'a head := 'a head
+  type 'a value = 'a head lazy_t
+
+  include PolyHash.S with type t := context and type 'a value := 'a value
 end = struct
   module Hash = PolyHash.Make (Self)
   include Hash
@@ -21,10 +23,11 @@ end = struct
     force_traverse : context -> 'a -> unit;
     to_string : context -> 'a -> string;
   }
+
+  type 'a value = 'a head lazy_t
 end
 
 include Self
-
 
 let determinise_head_list ctx id hds =
   match Self.lookup ctx id with

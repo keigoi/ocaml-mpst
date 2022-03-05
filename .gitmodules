@@ -10,3 +10,6 @@
 [submodule "vendor/rows-ocaml"]
 	path = vendor/rows-ocaml
 	url = https://github.com/keigoi/rows-ocaml.git
+[submodule "vendor/session-ocaml2"]
+	path = vendor/session-ocaml2
+	url = git@github.com:keigoi/session-ocaml2.git

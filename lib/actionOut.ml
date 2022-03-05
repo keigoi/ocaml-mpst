@@ -4,6 +4,18 @@ module StateHash = State.StateHash
 type tag = int
 type _ out = Out : string * tag DynChan.name * 's State.t lazy_t -> 's out
 
+let to_string role lab ctx s =
+  let (Out (_, _, cont)) = lab.call_obj (role.call_obj s) in
+  role.method_name
+  ^ "!"
+  ^ lab.method_name
+  ^ "."
+  ^
+  if Lazy.is_val cont then
+    let cont = Lazy.force cont in
+    State.to_string ctx cont
+  else "<lazy_out_cont>"
+
 let merge_cont ctx l r =
   let idl, dl = State.determinise_core ctx l
   and idr, dr = State.determinise_core ctx r in
@@ -41,18 +53,6 @@ let force_traverse role lab ctx s =
   let (Out (_, name, cont)) = lab.call_obj (role.call_obj s) in
   ignore (DynChan.finalise name);
   State.force_traverse ctx (Lazy.force cont)
-
-let to_string role lab ctx s =
-  let (Out (_, _, cont)) = lab.call_obj (role.call_obj s) in
-  role.method_name
-  ^ "!"
-  ^ lab.method_name
-  ^ "."
-  ^
-  if Lazy.is_val cont then
-    let cont = Lazy.force cont in
-    State.to_string ctx cont
-  else "<lazy_out_cont>"
 
 let out role lab name s =
   State.deterministic (StateHash.make_key ())

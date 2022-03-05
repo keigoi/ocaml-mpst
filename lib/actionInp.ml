@@ -11,6 +11,19 @@ type _ extchoice_item =
 type 'var inp_ = tag DynChan.name * 'var extchoice_item list
 type 'var inp = 'var inp_ lazy_t
 
+let to_string role ctx s =
+  role.method_name
+  ^ "?{"
+  ^ (let s = role.call_obj s in
+     if Lazy.is_val s then
+       String.concat ","
+         (List.map
+            (fun (ExternalChoiceItem (constr, cont)) ->
+              constr.constr_name ^ "." ^ State.to_string ctx cont)
+            (snd (Lazy.force s)))
+     else "<lazy_inp>")
+  ^ "}"
+
 let try_merge_item :
     type a.
     State.context ->
@@ -95,19 +108,6 @@ let force_traverse role ctx s =
   ignore (DynChan.finalise name);
   extcs
   |> List.iter (fun (ExternalChoiceItem (_, s)) -> State.force_traverse ctx s)
-
-let to_string role ctx s =
-  role.method_name
-  ^ "?{"
-  ^ (let s = role.call_obj s in
-     if Lazy.is_val s then
-       String.concat ","
-         (List.map
-            (fun (ExternalChoiceItem (constr, cont)) ->
-              constr.constr_name ^ "." ^ State.to_string ctx cont)
-            (snd (Lazy.force s)))
-     else "<lazy_inp>")
-  ^ "}"
 
 let inp role constr name s =
   State.deterministic (StateHash.make_key ())

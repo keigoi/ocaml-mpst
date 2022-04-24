@@ -3,14 +3,14 @@ module type Type = sig
 end
 
 module type S = sig
-  type context
+  type t
   type 'a key
   type 'a value
 
-  val make : unit -> context
+  val make : unit -> t
   val new_key : unit -> 'a key
-  val add_binding : context -> 'a key -> 'a value -> unit
-  val lookup : context -> 'a key -> 'a value option
+  val add_binding : t -> 'a key -> 'a value -> unit
+  val lookup : t -> 'a key -> 'a value option
   val union_keys : 'a key -> 'a key -> 'a key
   val union_keys_general : 'a key -> 'b key -> ('a key, 'b key) Either.t
 end
@@ -27,7 +27,7 @@ module Make (X : Type) : S with type 'a value = 'a X.value = struct
 
   type 'a raw_key = (module W with type t = 'a)
 
-  type context = binding list ref
+  type t = binding list ref
   and binding = B : 'a key * 'a value -> binding
   and 'a value = 'a X.value
   and 'a key = { id_head : 'a raw_key; id_tail : key_ex list }
@@ -50,7 +50,7 @@ module Make (X : Type) : S with type 'a value = 'a X.value = struct
   let make () = ref []
   let add_binding d k v = d := B (k, v) :: !d
 
-  let lookup : type a. context -> a key -> a value option =
+  let lookup : type a. t -> a key -> a value option =
    fun d k ->
     let rec find : binding list -> a value option = function
       | [] -> None

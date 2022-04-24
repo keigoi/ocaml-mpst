@@ -1,5 +1,5 @@
 open Rows
-module StateHash = State.StateHash
+module Context = State.Context
 
 type tag = int
 type _ out = Out : string * tag DynChan.name * 's State.t lazy_t -> 's out
@@ -7,9 +7,8 @@ type _ out = Out : string * tag DynChan.name * 's State.t lazy_t -> 's out
 let merge_cont ctx l r =
   let idl, dl = State.determinise_core ctx l
   and idr, dr = State.determinise_core ctx r in
-  let state_id = StateHash.union_keys idl idr in
-  State.make_deterministic state_id
-    (State.determinise_list ctx state_id [ dl; dr ])
+  let state_id = Context.union_keys idl idr in
+  State.make_deterministic state_id (State.merge_det ctx state_id dl dr)
 
 let determinise_one role lab ctx s =
   let (Out (tag, name, cont)) = lab.call_obj (role.call_obj s) in
@@ -32,8 +31,8 @@ let merge role lab ctx s1 s2 =
   @@ Out
        (tag1, name1, lazy (merge_cont ctx (Lazy.force cont1) (Lazy.force cont2)))
 
-let det_state_ops (type a) (role : (a, _) method_) lab =
-  let module M = struct
+let det_out_ops (type a) (role : (a, _) method_) lab =
+  let module DetOut = struct
     type nonrec a = a
 
     let determinise ctx = function
@@ -44,7 +43,7 @@ let det_state_ops (type a) (role : (a, _) method_) lab =
     let force ctx s =
       let (Out (_, name, cont)) = lab.call_obj (role.call_obj s) in
       ignore (DynChan.finalise name);
-      State.force ctx (Lazy.force cont)
+      State.force_core ctx (Lazy.force cont)
 
     let to_string ctx s =
       let (Out (_, _, cont)) = lab.call_obj (role.call_obj s) in
@@ -55,20 +54,21 @@ let det_state_ops (type a) (role : (a, _) method_) lab =
       ^
       if Lazy.is_val cont then
         let cont = Lazy.force cont in
-        State.to_string ctx cont
+        State.to_string_core ctx cont
       else "<lazy_out_cont>"
   end in
-  (module M : State.DetState with type a = a)
+  (module DetOut : State.DetState with type a = a)
 
 let out role lab name s =
-  State.make_deterministic (StateHash.new_key ())
+  State.make_deterministic (Context.new_key ())
   @@ Lazy.from_val
-       {
-         State.det_state =
-           role.make_obj
-             (lab.make_obj (Out (lab.method_name, name, Lazy.from_val s)));
-         det_ops = det_state_ops role lab;
-       }
+       State.
+         {
+           det_state =
+             role.make_obj
+               (lab.make_obj (Out (lab.method_name, name, Lazy.from_val s)));
+           det_ops = det_out_ops role lab;
+         }
 
 let select (Out (labname, name, cont)) =
   let tag = Btype.hash_variant labname in

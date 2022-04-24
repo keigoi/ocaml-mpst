@@ -9,10 +9,10 @@ module type Det0 = sig
   val to_string : context -> a -> string
 end
 
-module rec StateHash : sig
-  type context
+module rec Context : sig
+  type t
 
-  module type Det1 = Det0 with type context := context
+  module type Det1 = Det0 with type context := t
 
   type 'a det_state = {
     det_state : 'a;
@@ -21,15 +21,12 @@ module rec StateHash : sig
 
   type 'a value = 'a det_state lazy_t
 
-  include
-    PolyHash.S
-      with type context := context
-       and type 'a value := 'a StateHash.value
+  include ContextF.S with type t := t and type 'a value := 'a Context.value
 end = struct
-  module Hash = PolyHash.Make (StateHash)
-  include Hash
+  module Ctx = ContextF.Make (Context)
+  include Ctx
 
-  module type Det1 = Det0 with type context := context
+  module type Det1 = Det0 with type context := t
 
   type 'a det_state = {
     det_state : 'a;
@@ -39,19 +36,19 @@ end = struct
   type 'a value = 'a det_state lazy_t
 end
 
-module type DetState = StateHash.Det1
+module type DetState = Context.Det1
 
-type context = StateHash.context
-type 't state_id = 't StateHash.key
+type context = Context.t
+type 't state_id = 't Context.key
 
-type 'a det_state = 'a StateHash.det_state = {
+type 'a det_state = 'a Context.det_state = {
   det_state : 'a;
   det_ops : (module DetState with type a = 'a);
 }
 
-let determinise_list (type a) ctx (id : a state_id)
+let merge_det_list (type a) ctx (id : a state_id)
     (hds : a det_state lazy_t list) =
-  match StateHash.lookup ctx id with
+  match Context.lookup ctx id with
   | Some v -> v
   | None ->
       let hd =
@@ -65,8 +62,12 @@ let determinise_list (type a) ctx (id : a state_id)
            in
            { det_state; det_ops = (module D : DetState with type a = a) })
       in
-      StateHash.add_binding ctx id hd;
+      Context.add_binding ctx id hd;
       hd
+
+let merge_det (type a) ctx (id : a state_id) (l : a det_state lazy_t)
+    (r : a det_state lazy_t) =
+  merge_det_list ctx id [ l; r ]
 
 type _ t =
   | Deterministic : 'obj state_id * 'obj det_state lazy_t -> 'obj t
@@ -130,7 +131,7 @@ let rec epsilon_closure :
             (* concrete transitons found - return the merged state, discarding the backward links ==== *)
             let ids, hds = List.split hds in
             let id =
-              List.fold_left StateHash.union_keys (List.hd ids) (List.tl ids)
+              List.fold_left Context.union_keys (List.hd ids) (List.tl ids)
             in
             ret_merged (id, List.concat hds)
           else
@@ -185,25 +186,25 @@ and determinise_core : type s. context -> s t -> s state_id * s det_state lazy_t
     =
  fun ctx st ->
   match epsilon_closure ~ctx ~visited:[] st with
-  | Left (sid, hds) -> (sid, determinise_list ctx sid hds)
+  | Left (sid, hds) -> (sid, merge_det_list ctx sid hds)
   | Right _ -> fail_unguarded ()
 
 let determinise (type a) (t : a t) =
-  let _, h = determinise_core (StateHash.make ()) t in
+  let _, h = determinise_core (Context.make ()) t in
   let { det_state; det_ops = (module M : DetState with type a = a) } =
     Lazy.force h
   in
-  M.force (StateHash.make ()) det_state;
+  M.force (Context.make ()) det_state;
   det_state
 
 let ensure_determinised = function
   | Deterministic (_, t) -> (Lazy.force t).det_state
   | _ -> failwith "not determinised"
 
-let force (type a) ctx (t : a t) =
+let force_core (type a) ctx (t : a t) =
   match t with
-  | Deterministic (sid, h) when StateHash.lookup ctx sid = None ->
-      StateHash.add_binding ctx sid h;
+  | Deterministic (sid, h) when Context.lookup ctx sid = None ->
+      Context.add_binding ctx sid h;
       let { det_state; det_ops = (module M : DetState with type a = a) } =
         Lazy.force h
       in
@@ -220,7 +221,7 @@ let unit =
     let to_string _ _ = "end"
   end in
   Deterministic
-    ( StateHash.new_key (),
+    ( Context.new_key (),
       Lazy.from_val
         { det_state = (); det_ops = (module D : DetState with type a = unit) }
     )
@@ -229,34 +230,36 @@ let make_deterministic id obj = Deterministic (id, obj)
 let merge l r = Epsilon [ l; r ]
 
 let make_internal_choice disj l r =
-  InternalChoice (StateHash.new_key (), disj, l, r)
+  InternalChoice (Context.new_key (), disj, l, r)
 
 let make_loop t = Loop t
 
-let rec to_string : type a. context -> a t -> string =
+let rec to_string_core : type a. context -> a t -> string =
  fun ctx -> function
   | Deterministic (sid, hd) ->
       if Lazy.is_val hd then (
-        StateHash.add_binding ctx sid hd;
+        Context.add_binding ctx sid hd;
         let { det_state; det_ops = (module D : DetState with type a = a) } =
           Lazy.force hd
         in
         D.to_string ctx det_state)
       else "<lazy_det>"
-  | Epsilon ts -> List.map (to_string ctx) ts |> String.concat " [#] "
+  | Epsilon ts -> List.map (to_string_core ctx) ts |> String.concat " [#] "
   | InternalChoice (_, _, l, r) ->
-      let lstr = to_string ctx l and rstr = to_string ctx r in
+      let lstr = to_string_core ctx l and rstr = to_string_core ctx r in
       lstr ^ " (+#) " ^ rstr
   | Loop t ->
-      if Lazy.is_val t then to_string ctx (Lazy.force t) else "<lazy_loop>"
+      if Lazy.is_val t then to_string_core ctx (Lazy.force t) else "<lazy_loop>"
 
-let try_merge (type a) ctx (id : a state_id) constrA constrB headA headB =
+let to_string t = to_string_core (Context.make ()) t
+
+let try_merge_det (type a) ctx (id : a state_id) constrA constrB headA headB =
   let { det_state = headA; det_ops = (module D : DetState with type a = a) } =
     Lazy.force headA
   and { det_state = headB; _ } = Lazy.force headB in
   match Rows.cast_if_constrs_are_same constrA constrB headB with
   | Some contB_body -> begin
-      match StateHash.lookup ctx id with
+      match Context.lookup ctx id with
       | Some v -> Some v
       | None ->
           let det_state = D.determinise ctx [ headA; contB_body ] in
@@ -264,7 +267,7 @@ let try_merge (type a) ctx (id : a state_id) constrA constrB headA headB =
             Lazy.from_val
               { det_state; det_ops = (module D : DetState with type a = a) }
           in
-          StateHash.add_binding ctx id det;
+          Context.add_binding ctx id det;
           Some det
     end
   | None -> None

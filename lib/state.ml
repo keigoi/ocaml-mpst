@@ -1,67 +1,75 @@
 open Rows
 
-module rec StateHash : sig
-  type t
+module type Det0 = sig
+  type a
+  type context
 
-  type 'a action = {
-    body : 'a;
-    determinise_list : t -> 'a list -> 'a;
-    force_traverse : t -> 'a -> unit;
-    to_string : t -> 'a -> string;
+  val determinise : context -> a list -> a
+  val force : context -> a -> unit
+  val to_string : context -> a -> string
+end
+
+module rec StateHash : sig
+  type context
+
+  module type Det1 = Det0 with type context := context
+
+  type 'a det_state = {
+    det_state : 'a;
+    det_ops : (module Det1 with type a = 'a);
   }
 
-  type 'a value = 'a action lazy_t
+  type 'a value = 'a det_state lazy_t
 
-  include PolyHash.S with type t := t and type 'a value := 'a value
+  include
+    PolyHash.S
+      with type context := context
+       and type 'a value := 'a StateHash.value
 end = struct
   module Hash = PolyHash.Make (StateHash)
   include Hash
 
-  type context = Hash.t
+  module type Det1 = Det0 with type context := context
 
-  type 'a action = {
-    body : 'a;
-    determinise_list : context -> 'a list -> 'a;
-    force_traverse : context -> 'a -> unit;
-    to_string : context -> 'a -> string;
+  type 'a det_state = {
+    det_state : 'a;
+    det_ops : (module Det1 with type a = 'a);
   }
 
-  type 'a value = 'a action lazy_t
+  type 'a value = 'a det_state lazy_t
 end
 
-type context = StateHash.t
+module type DetState = StateHash.Det1
+
+type context = StateHash.context
 type 't state_id = 't StateHash.key
 
-type 'a action = 'a StateHash.action = {
-  body : 'a;
-  determinise_list : context -> 'a list -> 'a;
-  force_traverse : context -> 'a -> unit;
-  to_string : context -> 'a -> string;
+type 'a det_state = 'a StateHash.det_state = {
+  det_state : 'a;
+  det_ops : (module DetState with type a = 'a);
 }
 
-let determinise_action_list ctx id hds =
+let determinise_list (type a) ctx (id : a state_id)
+    (hds : a det_state lazy_t list) =
   match StateHash.lookup ctx id with
   | Some v -> v
   | None ->
       let hd =
         lazy
-          (let hd = Lazy.force (List.hd hds) in
-           let body =
-             hd.determinise_list ctx
-               (List.map (fun hd -> (Lazy.force hd).body) hds)
+          (let { det_ops = (module D : DetState with type a = a); _ } =
+             Lazy.force (List.hd hds)
            in
-           {
-             body;
-             determinise_list = hd.determinise_list;
-             force_traverse = hd.force_traverse;
-             to_string = hd.to_string;
-           })
+           let det_state =
+             D.determinise ctx
+               (List.map (fun hd -> (Lazy.force hd).det_state) hds)
+           in
+           { det_state; det_ops = (module D : DetState with type a = a) })
       in
       StateHash.add_binding ctx id hd;
       hd
 
 type _ t =
-  | Deterministic : 'obj state_id * 'obj action lazy_t -> 'obj t
+  | Deterministic : 'obj state_id * 'obj det_state lazy_t -> 'obj t
       (** A state with deterministic transitions. Note that the following states
           are not necessarily deterministic. *)
   | Epsilon : 'a t list -> 'a t  (** Epsilon transitions (i.e. merging) *)
@@ -72,7 +80,7 @@ type _ t =
 exception UnguardedLoop
 
 type 'a merged_or_backward_epsilon =
-  ('a state_id * 'a action lazy_t list, 'a t list) Either.t
+  ('a state_id * 'a det_state lazy_t list, 'a t list) Either.t
 
 let rec mem_phys k = function x :: xs -> k == x || mem_phys k xs | [] -> false
 let fail_unguarded () = raise UnguardedLoop
@@ -88,14 +96,16 @@ let rec epsilon_closure :
       List.filter (fun id -> mem_phys id visited) backward
     in
     if List.length backward > 0 then
-      (* there're backward epsilons yet -- return it *)
+      (* there're backward links yet -- return them *)
       ret_backward_epsilon backward
     else
       (* no backward epsilons anymore: unguarded recursion! *)
       fail_unguarded ()
   in
   fun ~ctx ~visited st ->
-    if mem_phys st visited then ret_backward_epsilon [ st ]
+    if mem_phys st visited then
+      (* epsilon-transition to the visited state -- return it as a 'backward' link *)
+      ret_backward_epsilon [ st ]
     else
       match st with
       | Deterministic (sid, h) -> ret_merged (sid, [ h ])
@@ -117,11 +127,10 @@ let rec epsilon_closure :
               sts
           in
           if List.length hds > 0 then
-            (* concrete transitons found - return the merged state ==== *)
+            (* concrete transitons found - return the merged state, discarding the backward links ==== *)
             let ids, hds = List.split hds in
             let id =
-              List.fold_left StateHash.make_union_keys (List.hd ids)
-                (List.tl ids)
+              List.fold_left StateHash.union_keys (List.hd ids) (List.tl ids)
             in
             ret_merged (id, List.concat hds)
           else
@@ -130,85 +139,109 @@ let rec epsilon_closure :
             detect_cycles ~visited backward
 
 and determinise_internal_choice_core :
-      'lr 'l 'r. context -> ('lr, 'l, 'r) disj -> 'l t -> 'r t -> 'lr action =
+    type lr l r. context -> (lr, l, r) disj -> l t -> r t -> lr det_state =
  fun ctx disj tl tr ->
-  let _idl, hl = determinise_core ctx tl
-  and _idr, hr = determinise_core ctx tr in
-  let hl = Lazy.force hl and hr = Lazy.force hr in
+  let ( _idl,
+        (lazy
+          {
+            det_state = (hl : l);
+            det_ops = (module DL : DetState with type a = l);
+          }) ) =
+    determinise_core ctx tl
+  and ( _idr,
+        (lazy
+          {
+            det_state = (hr : r);
+            det_ops = (module DR : DetState with type a = r);
+          }) ) =
+    determinise_core ctx tr
+  in
   let bin_merge ctx lr1 lr2 =
     (* merge splitted ones *)
-    let l =
-      hl.determinise_list ctx [ disj.disj_splitL lr1; disj.disj_splitL lr2 ]
-    in
-    let r =
-      hr.determinise_list ctx [ disj.disj_splitR lr1; disj.disj_splitR lr2 ]
-    in
+    let l = DL.determinise ctx [ disj.disj_splitL lr1; disj.disj_splitL lr2 ] in
+    let r = DR.determinise ctx [ disj.disj_splitR lr1; disj.disj_splitR lr2 ] in
     (* then type-concatenate it *)
     disj.disj_concat l r
   in
-  let determinise_list ctx lrs =
-    List.fold_left (bin_merge ctx) (List.hd lrs) (List.tl lrs)
-  in
-  let force_traverse ctx lr =
-    hl.force_traverse ctx (disj.disj_splitL lr);
-    hr.force_traverse ctx (disj.disj_splitR lr)
-  in
-  let to_string ctx lr =
-    hl.to_string ctx (disj.disj_splitL lr)
-    ^ " (+) "
-    ^ hr.to_string ctx (disj.disj_splitR lr)
-  in
-  let tlr = disj.disj_concat hl.body hr.body in
-  { body = tlr; determinise_list; force_traverse; to_string }
+  let module DLR = struct
+    type a = lr
 
-and determinise_core : 's. context -> 's t -> 's state_id * 's action lazy_t =
+    let determinise ctx lrs =
+      List.fold_left (bin_merge ctx) (List.hd lrs) (List.tl lrs)
+
+    let force ctx lr =
+      DL.force ctx (disj.disj_splitL lr);
+      DR.force ctx (disj.disj_splitR lr)
+
+    let to_string ctx lr =
+      DL.to_string ctx (disj.disj_splitL lr)
+      ^ " (+) "
+      ^ DR.to_string ctx (disj.disj_splitR lr)
+  end in
+  let lr = disj.disj_concat hl hr in
+  { det_state = lr; det_ops = (module DLR : DetState with type a = lr) }
+
+and determinise_core : type s. context -> s t -> s state_id * s det_state lazy_t
+    =
  fun ctx st ->
   match epsilon_closure ~ctx ~visited:[] st with
-  | Left (sid, hds) -> (sid, determinise_action_list ctx sid hds)
+  | Left (sid, hds) -> (sid, determinise_list ctx sid hds)
   | Right _ -> fail_unguarded ()
 
-let determinise t =
+let determinise (type a) (t : a t) =
   let _, h = determinise_core (StateHash.make ()) t in
-  let h = Lazy.force h in
-  h.force_traverse (StateHash.make ()) h.body;
-  h.body
+  let { det_state; det_ops = (module M : DetState with type a = a) } =
+    Lazy.force h
+  in
+  M.force (StateHash.make ()) det_state;
+  det_state
 
 let ensure_determinised = function
-  | Deterministic (_, t) -> (Lazy.force t).body
+  | Deterministic (_, t) -> (Lazy.force t).det_state
   | _ -> failwith "not determinised"
 
-let force_traverse ctx t =
+let force (type a) ctx (t : a t) =
   match t with
   | Deterministic (sid, h) when StateHash.lookup ctx sid = None ->
       StateHash.add_binding ctx sid h;
-      let h = Lazy.force h in
-      h.force_traverse ctx h.body
+      let { det_state; det_ops = (module M : DetState with type a = a) } =
+        Lazy.force h
+      in
+      M.force ctx det_state
   | Deterministic (_, _) -> ()
   | _ -> failwith "Impossible: force: channel not determinised"
 
 let unit =
+  let module D = struct
+    type a = unit
+
+    let determinise _ _ = ()
+    let force _ _ = ()
+    let to_string _ _ = "end"
+  end in
   Deterministic
-    ( StateHash.make_key (),
+    ( StateHash.new_key (),
       Lazy.from_val
-        {
-          body = ();
-          determinise_list = (fun _ _ -> ());
-          force_traverse = (fun _ _ -> ());
-          to_string = (fun _ _ -> "end");
-        } )
+        { det_state = (); det_ops = (module D : DetState with type a = unit) }
+    )
 
-let deterministic id obj = Deterministic (id, obj)
-let internal_choice disj l r = InternalChoice (StateHash.make_key (), disj, l, r)
+let make_deterministic id obj = Deterministic (id, obj)
 let merge l r = Epsilon [ l; r ]
-let loop t = Loop t
 
-let rec to_string : 'a. context -> 'a t -> string =
+let make_internal_choice disj l r =
+  InternalChoice (StateHash.new_key (), disj, l, r)
+
+let make_loop t = Loop t
+
+let rec to_string : type a. context -> a t -> string =
  fun ctx -> function
   | Deterministic (sid, hd) ->
       if Lazy.is_val hd then (
         StateHash.add_binding ctx sid hd;
-        let hd = Lazy.force hd in
-        hd.to_string ctx hd.body)
+        let { det_state; det_ops = (module D : DetState with type a = a) } =
+          Lazy.force hd
+        in
+        D.to_string ctx det_state)
       else "<lazy_det>"
   | Epsilon ts -> List.map (to_string ctx) ts |> String.concat " [#] "
   | InternalChoice (_, _, l, r) ->
@@ -217,15 +250,20 @@ let rec to_string : 'a. context -> 'a t -> string =
   | Loop t ->
       if Lazy.is_val t then to_string ctx (Lazy.force t) else "<lazy_loop>"
 
-let try_cast_and_merge_actions ctx id constrA constrB headA headB =
-  let headA = Lazy.force headA and headB = Lazy.force headB in
-  match Rows.cast_if_constrs_are_same constrA constrB headB.body with
+let try_merge (type a) ctx (id : a state_id) constrA constrB headA headB =
+  let { det_state = headA; det_ops = (module D : DetState with type a = a) } =
+    Lazy.force headA
+  and { det_state = headB; _ } = Lazy.force headB in
+  match Rows.cast_if_constrs_are_same constrA constrB headB with
   | Some contB_body -> begin
       match StateHash.lookup ctx id with
       | Some v -> Some v
       | None ->
-          let body = headA.determinise_list ctx [ headA.body; contB_body ] in
-          let det = Lazy.from_val { headA with body } in
+          let det_state = D.determinise ctx [ headA; contB_body ] in
+          let det =
+            Lazy.from_val
+              { det_state; det_ops = (module D : DetState with type a = a) }
+          in
           StateHash.add_binding ctx id det;
           Some det
     end

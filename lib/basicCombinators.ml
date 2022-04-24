@@ -36,7 +36,7 @@ let choice_at ra disj (ra1, g1) (ra2, g2) ctx =
   let g1 = seq_put ra1.role_index g1 State.unit
   and g2 = seq_put ra2.role_index g2 State.unit in
   let g = merge_seq g1 g2 in
-  let a = State.internal_choice disj a1 a2 in
+  let a = State.make_internal_choice disj a1 a2 in
   seq_put ra.role_index g a
 
 let finish _ = Sessions.[]
@@ -70,7 +70,7 @@ let partial_finish keep_idxs g =
     | idx :: rest_idxs ->
         let state =
           (* get the state of the involved role *)
-          State.loop (lazy (seq_get2 idx.role_index (Lazy.force keeps)))
+          State.make_loop (lazy (seq_get2 idx.role_index (Lazy.force keeps)))
         and rest =
           (* rest of the states *)
           lazy (seq_put2 idx.role_index (Lazy.force keeps) State.unit)

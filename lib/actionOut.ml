@@ -4,24 +4,12 @@ module StateHash = State.StateHash
 type tag = int
 type _ out = Out : string * tag DynChan.name * 's State.t lazy_t -> 's out
 
-let to_string role lab ctx s =
-  let (Out (_, _, cont)) = lab.call_obj (role.call_obj s) in
-  role.method_name
-  ^ "!"
-  ^ lab.method_name
-  ^ "."
-  ^
-  if Lazy.is_val cont then
-    let cont = Lazy.force cont in
-    State.to_string ctx cont
-  else "<lazy_out_cont>"
-
 let merge_cont ctx l r =
   let idl, dl = State.determinise_core ctx l
   and idr, dr = State.determinise_core ctx r in
-  let state_id = StateHash.make_union_keys idl idr in
-  State.deterministic state_id
-    (State.determinise_action_list ctx state_id [ dl; dr ])
+  let state_id = StateHash.union_keys idl idr in
+  State.make_deterministic state_id
+    (State.determinise_list ctx state_id [ dl; dr ])
 
 let determinise_one role lab ctx s =
   let (Out (tag, name, cont)) = lab.call_obj (role.call_obj s) in
@@ -32,7 +20,7 @@ let determinise_one role lab ctx s =
          name,
          lazy
            (let state_id, d = State.determinise_core ctx (Lazy.force cont) in
-            State.deterministic state_id d) )
+            State.make_deterministic state_id d) )
 
 let merge role lab ctx s1 s2 =
   let (Out (tag1, name1, cont1)) = lab.call_obj (role.call_obj s1)
@@ -44,26 +32,42 @@ let merge role lab ctx s1 s2 =
   @@ Out
        (tag1, name1, lazy (merge_cont ctx (Lazy.force cont1) (Lazy.force cont2)))
 
-let determinise_list role lab ctx = function
-  | [ s ] -> determinise_one role lab ctx s
-  | t :: ts -> List.fold_left (merge role lab ctx) t ts
-  | [] -> failwith "out_determinise: impossible"
+let det_state_ops (type a) (role : (a, _) method_) lab =
+  let module M = struct
+    type nonrec a = a
 
-let force_traverse role lab ctx s =
-  let (Out (_, name, cont)) = lab.call_obj (role.call_obj s) in
-  ignore (DynChan.finalise name);
-  State.force_traverse ctx (Lazy.force cont)
+    let determinise ctx = function
+      | [ s ] -> determinise_one role lab ctx s
+      | t :: ts -> List.fold_left (merge role lab ctx) t ts
+      | [] -> failwith "out_determinise: impossible"
+
+    let force ctx s =
+      let (Out (_, name, cont)) = lab.call_obj (role.call_obj s) in
+      ignore (DynChan.finalise name);
+      State.force ctx (Lazy.force cont)
+
+    let to_string ctx s =
+      let (Out (_, _, cont)) = lab.call_obj (role.call_obj s) in
+      role.method_name
+      ^ "!"
+      ^ lab.method_name
+      ^ "."
+      ^
+      if Lazy.is_val cont then
+        let cont = Lazy.force cont in
+        State.to_string ctx cont
+      else "<lazy_out_cont>"
+  end in
+  (module M : State.DetState with type a = a)
 
 let out role lab name s =
-  State.deterministic (StateHash.make_key ())
+  State.make_deterministic (StateHash.new_key ())
   @@ Lazy.from_val
        {
-         State.body =
+         State.det_state =
            role.make_obj
              (lab.make_obj (Out (lab.method_name, name, Lazy.from_val s)));
-         determinise_list = determinise_list role lab;
-         force_traverse = force_traverse role lab;
-         to_string = to_string role lab;
+         det_ops = det_state_ops role lab;
        }
 
 let select (Out (labname, name, cont)) =

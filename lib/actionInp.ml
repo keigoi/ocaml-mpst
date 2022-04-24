@@ -11,19 +11,6 @@ type _ extchoice_item =
 type 'var inp_ = tag DynChan.name * 'var extchoice_item list
 type 'var inp = 'var inp_ lazy_t
 
-let to_string role ctx s =
-  role.method_name
-  ^ "?{"
-  ^ (let s = role.call_obj s in
-     if Lazy.is_val s then
-       String.concat ","
-         (List.map
-            (fun (ExternalChoiceItem (constr, cont)) ->
-              constr.constr_name ^ "." ^ State.to_string ctx cont)
-            (snd (Lazy.force s)))
-     else "<lazy_inp>")
-  ^ "}"
-
 let try_merge_item :
     type a.
     State.context ->
@@ -44,20 +31,20 @@ let try_merge_item :
   let state_id1, cont1 = State.determinise_core ctx cont1 in
   let state_id2, cont2 = State.determinise_core ctx cont2 in
   let make_ constr state_id cont =
-    ExternalChoiceItem (constr, State.deterministic state_id cont)
+    ExternalChoiceItem (constr, State.make_deterministic state_id cont)
   in
   (* (2) compute the new state id ==== *)
-  match StateHash.make_union_keys_general state_id1 state_id2 with
+  match StateHash.union_keys_general state_id1 state_id2 with
   | Left state_id ->
-      State.try_cast_and_merge_actions ctx state_id constr1 constr2 cont1 cont2
+      State.try_merge ctx state_id constr1 constr2 cont1 cont2
       |> Option.map (make_ constr1 state_id)
   | Right state_id ->
-      State.try_cast_and_merge_actions ctx state_id constr2 constr1 cont2 cont1
+      State.try_merge ctx state_id constr2 constr1 cont2 cont1
       |> Option.map (make_ constr2 state_id)
 
-let determinise_ext ctx (ExternalChoiceItem (constr, cont)) =
+let determinise_extchoice ctx (ExternalChoiceItem (constr, cont)) =
   let state_id, d = State.determinise_core ctx cont in
-  ExternalChoiceItem (constr, State.deterministic state_id d)
+  ExternalChoiceItem (constr, State.make_deterministic state_id d)
 
 let rec merge_item_many_with_one :
     type a.
@@ -71,12 +58,13 @@ let rec merge_item_many_with_one :
       match try_merge_item ctx e extc_item with
       | Some e ->
           (* found *)
-          e :: List.map (determinise_ext ctx) inp
+          e :: List.map (determinise_extchoice ctx) inp
       | None ->
-          determinise_ext ctx e :: merge_item_many_with_one ctx inp extc_item)
+          determinise_extchoice ctx e
+          :: merge_item_many_with_one ctx inp extc_item)
   | [] ->
       (* not found *)
-      [ determinise_ext ctx extc_item ]
+      [ determinise_extchoice ctx extc_item ]
 
 let merge_item_many_with_many ctx s1 s2 =
   List.fold_left (merge_item_many_with_one ctx) s1 s2
@@ -91,34 +79,50 @@ let merge role ctx s1 s2 =
          (name1, merge_item_many_with_many ctx s1 s2)
        end
 
-let determinise_list role ctx = function
-  | [ s ] ->
-      role.make_obj
-        (lazy
-          begin
-            let name, exts = Lazy.force (role.call_obj s) in
-            (name, List.map (determinise_ext ctx) exts)
-          end)
-  | s :: ss -> List.fold_left (merge role ctx) s ss
-  | [] -> failwith "impossible: inp_determinise"
+let make_det_ops (type a) (role : (a, _) method_) =
+  let module M = struct
+    type nonrec a = a
 
-let force_traverse role ctx s =
-  let s = role.call_obj s in
-  let name, extcs = Lazy.force s in
-  ignore (DynChan.finalise name);
-  extcs
-  |> List.iter (fun (ExternalChoiceItem (_, s)) -> State.force_traverse ctx s)
+    let determinise ctx = function
+      | [ s ] ->
+          role.make_obj
+            (lazy
+              begin
+                let name, exts = Lazy.force (role.call_obj s) in
+                (name, List.map (determinise_extchoice ctx) exts)
+              end)
+      | s :: ss -> List.fold_left (merge role ctx) s ss
+      | [] -> failwith "impossible: inp_determinise"
+
+    let force ctx s =
+      let s = role.call_obj s in
+      let name, extcs = Lazy.force s in
+      ignore (DynChan.finalise name);
+      extcs |> List.iter (fun (ExternalChoiceItem (_, s)) -> State.force ctx s)
+
+    let to_string ctx s =
+      role.method_name
+      ^ "?{"
+      ^ (let s = role.call_obj s in
+         if Lazy.is_val s then
+           String.concat ","
+             (List.map
+                (fun (ExternalChoiceItem (constr, cont)) ->
+                  constr.constr_name ^ "." ^ State.to_string ctx cont)
+                (snd (Lazy.force s)))
+         else "<lazy_inp>")
+      ^ "}"
+  end in
+  (module M : State.DetState with type a = a)
 
 let inp role constr name s =
-  State.deterministic (StateHash.make_key ())
+  State.make_deterministic (StateHash.new_key ())
   @@ Lazy.from_val
        {
-         State.body =
+         State.det_state =
            role.make_obj
              (Lazy.from_val (name, [ ExternalChoiceItem (constr, s) ]));
-         determinise_list = determinise_list role;
-         force_traverse = force_traverse role;
-         to_string = to_string role;
+         det_ops = make_det_ops role;
        }
 
 let branch (inp : _ inp) =

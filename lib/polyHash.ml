@@ -3,16 +3,16 @@ module type Type = sig
 end
 
 module type S = sig
-  type t
+  type context
   type 'a key
   type 'a value
 
-  val make : unit -> t
-  val make_key : unit -> 'a key
-  val make_union_keys : 'a key -> 'a key -> 'a key
-  val make_union_keys_general : 'a key -> 'b key -> ('a key, 'b key) Either.t
-  val add_binding : t -> 'a key -> 'a value -> unit
-  val lookup : t -> 'a key -> 'a value option
+  val make : unit -> context
+  val new_key : unit -> 'a key
+  val add_binding : context -> 'a key -> 'a value -> unit
+  val lookup : context -> 'a key -> 'a value option
+  val union_keys : 'a key -> 'a key -> 'a key
+  val union_keys_general : 'a key -> 'b key -> ('a key, 'b key) Either.t
 end
 
 module Make (X : Type) : S with type 'a value = 'a X.value = struct
@@ -27,7 +27,7 @@ module Make (X : Type) : S with type 'a value = 'a X.value = struct
 
   type 'a raw_key = (module W with type t = 'a)
 
-  type t = binding list ref
+  type context = binding list ref
   and binding = B : 'a key * 'a value -> binding
   and 'a value = 'a X.value
   and 'a key = { id_head : 'a raw_key; id_tail : key_ex list }
@@ -50,7 +50,7 @@ module Make (X : Type) : S with type 'a value = 'a X.value = struct
   let make () = ref []
   let add_binding d k v = d := B (k, v) :: !d
 
-  let lookup : type a. t -> a key -> a value option =
+  let lookup : type a. context -> a key -> a value option =
    fun d k ->
     let rec find : binding list -> a value option = function
       | [] -> None
@@ -73,7 +73,7 @@ module Make (X : Type) : S with type 'a value = 'a X.value = struct
     in
     loop [] xs ys
 
-  let make_union_keys_general (type a b) (ks1 : a key) (ks2 : b key) :
+  let union_keys_general (type a b) (ks1 : a key) (ks2 : b key) :
       (a key, b key) Either.t =
     if KeyEx ks1.id_head < KeyEx ks2.id_head then
       Left
@@ -96,8 +96,8 @@ module Make (X : Type) : S with type 'a value = 'a X.value = struct
           id_tail = union_sorted_lists ks1.id_tail ks2.id_tail;
         }
 
-  let make_union_keys (ks1 : 'a key) (ks2 : 'a key) : 'a key =
-    match make_union_keys_general ks1 ks2 with Left ks | Right ks -> ks
+  let union_keys (ks1 : 'a key) (ks2 : 'a key) : 'a key =
+    match union_keys_general ks1 ks2 with Left ks | Right ks -> ks
 
-  let make_key () = { id_head = newkey (); id_tail = [] }
+  let new_key () = { id_head = newkey (); id_tail = [] }
 end

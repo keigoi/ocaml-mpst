@@ -26,7 +26,7 @@ let merge role lab ctx s1 s2 =
   @@ Out
        (tag1, name1, lazy (merge_cont ctx (Lazy.force cont1) (Lazy.force cont2)))
 
-let det_out_ops (type a) (role : (a, _) method_) lab =
+let out_ops (type a) (role : (a, _) method_) lab =
   let module DetOut = struct
     type nonrec a = a
 
@@ -54,16 +54,14 @@ let det_out_ops (type a) (role : (a, _) method_) lab =
   end in
   (module DetOut : State.DetState with type a = a)
 
+let out_state role lab name s =
+  role.make_obj (lab.make_obj (Out (lab.method_name, name, Lazy.from_val s)))
+
 let out role lab name s =
   State.make_deterministic (Context.new_key ())
   @@ Lazy.from_val
        State.
-         {
-           det_state =
-             role.make_obj
-               (lab.make_obj (Out (lab.method_name, name, Lazy.from_val s)));
-           det_ops = det_out_ops role lab;
-         }
+         { det_state = out_state role lab name s; det_ops = out_ops role lab }
 
 let select (Out (labname, name, cont)) =
   let tag = Btype.hash_variant labname in

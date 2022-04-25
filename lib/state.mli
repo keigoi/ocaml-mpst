@@ -9,7 +9,6 @@ val unit : unit t
 val merge : 'a t -> 'a t -> 'a t
 val make_internal_choice : ('a, 'b, 'c) Rows.disj -> 'b t -> 'c t -> 'a t
 val make_loop : 'a t lazy_t -> 'a t
-val ensure_determinised : 's t -> 's
 
 type context
 
@@ -34,9 +33,11 @@ module Context :
      and type t := context
      and type 'a value := 'a det_state lazy_t
 
-val determinise_core : context -> 's t -> 's state_id * 's det_state lazy_t
-val to_string_core : context -> 'a t -> string
+val determinise_core : context -> 's t -> 's t
+val determinise_core_ : context -> 's t -> 's state_id * 's det_state lazy_t
 val force_core : context -> 'a t -> unit
+val to_string_core : context -> 'a t -> string
+val ensure_determinised : 's t -> 's
 
 val merge_det :
   context ->

@@ -27,9 +27,9 @@ let try_merge_item :
        (2) Compute the new state id via 'generalised union'
            (Context.make_union_keys_general)
   *)
-  (* (1) extract the channel objects ==== *)
-  let state_id1, cont1 = State.determinise_core ctx cont1 in
-  let state_id2, cont2 = State.determinise_core ctx cont2 in
+  (* (1) extract the continuations ==== *)
+  let state_id1, cont1 = State.determinise_core_ ctx cont1 in
+  let state_id2, cont2 = State.determinise_core_ ctx cont2 in
   let make_ constr state_id cont =
     ExternalChoiceItem (constr, State.make_deterministic state_id cont)
   in
@@ -43,8 +43,7 @@ let try_merge_item :
       |> Option.map (make_ constr2 state_id)
 
 let determinise_item ctx (ExternalChoiceItem (constr, cont)) =
-  let state_id, d = State.determinise_core ctx cont in
-  ExternalChoiceItem (constr, State.make_deterministic state_id d)
+  ExternalChoiceItem (constr, State.determinise_core ctx cont)
 
 let rec merge_item_many_with_one :
     type a.

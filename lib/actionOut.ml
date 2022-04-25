@@ -5,8 +5,8 @@ type tag = int
 type _ out = Out : string * tag DynChan.name * 's State.t lazy_t -> 's out
 
 let merge_cont ctx l r =
-  let idl, dl = State.determinise_core ctx l
-  and idr, dr = State.determinise_core ctx r in
+  let idl, dl = State.determinise_core_ ctx l
+  and idr, dr = State.determinise_core_ ctx r in
   let state_id = Context.union_keys idl idr in
   State.make_deterministic state_id (State.merge_det ctx state_id dl dr)
 
@@ -14,12 +14,7 @@ let determinise_one role lab ctx s =
   let (Out (tag, name, cont)) = lab.call_obj (role.call_obj s) in
   role.make_obj
   @@ lab.make_obj
-  @@ Out
-       ( tag,
-         name,
-         lazy
-           (let state_id, d = State.determinise_core ctx (Lazy.force cont) in
-            State.make_deterministic state_id d) )
+  @@ Out (tag, name, lazy (State.determinise_core ctx (Lazy.force cont)))
 
 let merge role lab ctx s1 s2 =
   let (Out (tag1, name1, cont1)) = lab.call_obj (role.call_obj s1)

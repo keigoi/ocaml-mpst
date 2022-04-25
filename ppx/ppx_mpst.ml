@@ -28,14 +28,17 @@ let declare_labels ~loc strlocs : Parsetree.module_expr =
          (fun strloc -> let_ ~loc strloc (label_expr ~loc strloc.txt))
          strlocs))
 
-let declare_roles ~loc strlocs : Parsetree.module_expr =
+let declare_roles ~loc ?prefix strlocs : Parsetree.module_expr =
   Ast_helper.(
+    let rolename strloc =
+      match prefix with
+      | Some prefix ->
+          prefix ^ Stdlib.String.capitalize_ascii strloc.Location.txt
+      | None -> strloc.txt
+    in
     Mod.structure ~loc
       (List.mapi
-         (fun i strloc ->
-           let_ ~loc strloc
-             (role_expr ~loc i
-                ("role_" ^ Stdlib.String.capitalize_ascii strloc.txt)))
+         (fun i strloc -> let_ ~loc strloc (role_expr ~loc i (rolename strloc)))
          strlocs))
 
 let payload_ident_tuple =
@@ -45,20 +48,20 @@ let payload_ident_tuple =
 let labels =
   let open Ppxlib in
   Extension.declare "declare_labels" Extension.Context.Structure_item
-    payload_ident_tuple (fun ~loc ~path:_ strlocs ->
-      [%stri include [%m declare_labels ~loc strlocs]])
+    payload_ident_tuple (fun ~loc ~path:_ lablocs ->
+      [%stri include [%m declare_labels ~loc lablocs]])
 
 let roles =
   let open Ppxlib in
   Extension.declare "declare_roles" Extension.Context.Structure_item
-    payload_ident_tuple (fun ~loc ~path:_ strlocs ->
-      [%stri include [%m declare_roles ~loc strlocs]])
+    payload_ident_tuple (fun ~loc ~path:_ lablocs ->
+      [%stri include [%m declare_roles ~loc lablocs]])
 
 let roles_prefixed =
   let open Ppxlib in
   Extension.declare "declare_roles_prefixed" Extension.Context.Structure_item
-    payload_ident_tuple (fun ~loc ~path:_ strlocs ->
-      [%stri include [%m declare_roles ~loc strlocs]])
+    payload_ident_tuple (fun ~loc ~path:_ lablocs ->
+      [%stri include [%m declare_roles ~loc ~prefix:"role_" lablocs]])
 
 let () =
   Ppxlib.Driver.register_transformation

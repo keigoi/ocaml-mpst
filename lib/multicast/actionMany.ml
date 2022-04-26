@@ -2,30 +2,12 @@ type 'a many = 'a State.t list
 
 let get_many ss = List.map State.determinise ss
 
-let rec transpose : 'a list list -> 'a list list =
- fun xss ->
-  match xss with
-  | [] -> []
-  | [] :: _ -> []
-  | xss ->
-      let hds, tls =
-        List.map (fun xs -> (List.hd xs, List.tl xs)) xss |> List.split
-      in
-      hds :: transpose tls
-
 let det_list_ops (type b) (module D : State.DetState with type a = b) =
   let module DetList = struct
     type nonrec a = b many
 
-    let determinise _ctx ss =
-      let ss = transpose ss in
-      let ss =
-        List.map
-          (fun ss -> List.fold_left State.merge (List.hd ss) (List.tl ss))
-          ss
-      in
-      ss
-
+    let determinise _ctx s = s
+    let merge _ctx s1 s2 = List.map2 State.merge s1 s2
     let force _ctx _ss = ()
     (* let ss = List.map (State.determinise_core (State.Context.make ())) ss in
        List.iter (State.force_core (State.Context.make ())) ss *)
@@ -39,6 +21,7 @@ let units ~count =
     type a = unit
 
     let determinise _ _ = ()
+    let merge _ _ _ = ()
     let force _ _ = ()
     let to_string _ _ = "end"
   end in

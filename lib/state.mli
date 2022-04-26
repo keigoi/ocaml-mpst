@@ -15,7 +15,8 @@ type context
 module type DetState = sig
   type a
 
-  val determinise : context -> a list -> a
+  val determinise : context -> a -> a
+  val merge : context -> a -> a -> a
   val force : context -> a -> unit
   val to_string : context -> a -> string
 end

@@ -4,7 +4,8 @@ module type Det0 = sig
   type a
   type context
 
-  val determinise : context -> a list -> a
+  val determinise : context -> a -> a
+  val merge : context -> a -> a -> a
   val force : context -> a -> unit
   val to_string : context -> a -> string
 end
@@ -46,7 +47,7 @@ type 'a det_state = 'a Context.det_state = {
   det_ops : (module DetState with type a = 'a);
 }
 
-let determinise_lazy (type a) ctx (id : a state_id)
+let determinise_list (type a) ctx (id : a state_id)
     (hds : a det_state lazy_t list) =
   match Context.lookup ctx id with
   | Some v -> v
@@ -57,8 +58,12 @@ let determinise_lazy (type a) ctx (id : a state_id)
              Lazy.force (List.hd hds)
            in
            let hds = List.map (fun hd -> (Lazy.force hd).det_state) hds in
-           let det_state = D.determinise ctx hds in
-
+           let det_state =
+             match hds with
+             | [ hd ] -> D.determinise ctx hd
+             | hd :: hds -> List.fold_left (D.merge ctx) hd hds
+             | [] -> failwith "impossible: empty_merge"
+           in
            { det_state; det_ops = (module D : DetState with type a = a) })
       in
       Context.add_binding ctx id hd;
@@ -80,6 +85,7 @@ let unit =
     type a = unit
 
     let determinise _ _ = ()
+    let merge _ _ _ = ()
     let force _ _ = ()
     let to_string _ _ = "end"
   end in
@@ -173,18 +179,20 @@ and determinise_internal_choice_core :
           }) ) =
     determinise_core_ context tr
   in
-  let bin_merge ctx lr1 lr2 =
-    (* merge splitted ones *)
-    let l = DL.determinise ctx [ disj.disj_splitL lr1; disj.disj_splitL lr2 ] in
-    let r = DR.determinise ctx [ disj.disj_splitR lr1; disj.disj_splitR lr2 ] in
-    (* then type-concatenate it *)
-    disj.disj_concat l r
-  in
   let module DLR = struct
     type a = lr
 
-    let determinise ctx lrs =
-      List.fold_left (bin_merge ctx) (List.hd lrs) (List.tl lrs)
+    let merge ctx lr1 lr2 =
+      (* merge splitted ones *)
+      let l = DL.merge ctx (disj.disj_splitL lr1) (disj.disj_splitL lr2) in
+      let r = DR.merge ctx (disj.disj_splitR lr1) (disj.disj_splitR lr2) in
+      (* then type-concatenate it *)
+      disj.disj_concat l r
+
+    let determinise ctx lr =
+      let l = DL.determinise ctx (disj.disj_splitL lr) in
+      let r = DR.determinise ctx (disj.disj_splitR lr) in
+      disj.disj_concat l r
 
     let force ctx lr =
       DL.force ctx (disj.disj_splitL lr);
@@ -202,7 +210,7 @@ and determinise_core_ :
     type s. context -> s t -> s state_id * s det_state lazy_t =
  fun context st ->
   match epsilon_closure ~context ~visited:[] st with
-  | Left (sid, hds) -> (sid, determinise_lazy context sid hds)
+  | Left (sid, hds) -> (sid, determinise_list context sid hds)
   | Right _ -> fail_unguarded ()
 
 let determinise (type a) (t : a t) =
@@ -253,7 +261,7 @@ let to_string t = to_string_core (Context.make ()) t
 
 let merge_det (type a) ctx (id : a state_id) (l : a det_state lazy_t)
     (r : a det_state lazy_t) =
-  determinise_lazy ctx id [ l; r ]
+  determinise_list ctx id [ l; r ]
 
 let try_merge_det (type a) ctx (id : a state_id) constrA constrB headA headB =
   let { det_state = headA; det_ops = (module D : DetState with type a = a) } =
@@ -264,7 +272,7 @@ let try_merge_det (type a) ctx (id : a state_id) constrA constrB headA headB =
       match Context.lookup ctx id with
       | Some v -> Some v
       | None ->
-          let det_state = D.determinise ctx [ headA; contB_body ] in
+          let det_state = D.merge ctx headA contB_body in
           let det =
             Lazy.from_val
               { det_state; det_ops = (module D : DetState with type a = a) }

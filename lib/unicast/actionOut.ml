@@ -16,24 +16,23 @@ let determinise_one role lab ctx s =
   @@ lab.make_obj
   @@ Out (tag, name, lazy (State.determinise_core ctx (Lazy.force cont)))
 
-let merge role lab ctx s1 s2 =
-  let (Out (tag1, name1, cont1)) = lab.call_obj (role.call_obj s1)
-  and (Out (tag2, name2, cont2)) = lab.call_obj (role.call_obj s2) in
-  assert (tag1 = tag2);
-  DynChan.unify name1 name2;
-  role.make_obj
-  @@ lab.make_obj
-  @@ Out
-       (tag1, name1, lazy (merge_cont ctx (Lazy.force cont1) (Lazy.force cont2)))
-
 let out_ops (type a) (role : (a, _) method_) lab =
   let module DetOut = struct
     type nonrec a = a
 
-    let determinise ctx = function
-      | [ s ] -> determinise_one role lab ctx s
-      | t :: ts -> List.fold_left (merge role lab ctx) t ts
-      | [] -> failwith "out_determinise: impossible"
+    let determinise ctx s = determinise_one role lab ctx s
+
+    let merge ctx s1 s2 =
+      let (Out (tag1, name1, cont1)) = lab.call_obj (role.call_obj s1)
+      and (Out (tag2, name2, cont2)) = lab.call_obj (role.call_obj s2) in
+      assert (tag1 = tag2);
+      DynChan.unify name1 name2;
+      role.make_obj
+      @@ lab.make_obj
+      @@ Out
+           ( tag1,
+             name1,
+             lazy (merge_cont ctx (Lazy.force cont1) (Lazy.force cont2)) )
 
     let force ctx s =
       let (Out (_, name, cont)) = lab.call_obj (role.call_obj s) in

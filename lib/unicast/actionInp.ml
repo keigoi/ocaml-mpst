@@ -5,30 +5,27 @@ type tag = int
 type 'var inp_ = tag DynChan.name * 'var Extchoice.extchoice_item list
 type 'var inp = 'var inp_ lazy_t
 
-let merge role ctx s1 s2 =
-  role.make_obj
-  @@ lazy
-       begin
-         let name1, exts1 = Lazy.force @@ role.call_obj s1
-         and name2, exts2 = Lazy.force @@ role.call_obj s2 in
-         DynChan.unify name1 name2;
-         (name1, Extchoice.merge_items ctx exts1 exts2)
-       end
-
 let inp_ops (type a) (role : (a, _) method_) =
   let module DetInp = struct
     type nonrec a = a
 
-    let determinise ctx = function
-      | [ s ] ->
-          role.make_obj
-            (lazy
-              begin
-                let name, exts = Lazy.force (role.call_obj s) in
-                (name, List.map (Extchoice.determinise ctx) exts)
-              end)
-      | s :: ss -> List.fold_left (merge role ctx) s ss
-      | [] -> failwith "impossible: inp_determinise"
+    let determinise ctx s =
+      role.make_obj
+        (lazy
+          begin
+            let name, exts = Lazy.force (role.call_obj s) in
+            (name, List.map (Extchoice.determinise ctx) exts)
+          end)
+
+    let merge ctx s1 s2 =
+      role.make_obj
+      @@ lazy
+           begin
+             let name1, exts1 = Lazy.force @@ role.call_obj s1
+             and name2, exts2 = Lazy.force @@ role.call_obj s2 in
+             DynChan.unify name1 name2;
+             (name1, Extchoice.merge_items ctx exts1 exts2)
+           end
 
     let force ctx s =
       let name, extcs = Lazy.force @@ role.call_obj s in

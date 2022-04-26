@@ -20,15 +20,15 @@
  (libraries mpst2 oUnit))
 
 (test
- (name test_protocols_broadcast)
- (modules test_protocols_broadcast)
+ (name test_protocols_multicast)
+ (modules test_protocols_multicast)
  (preprocess
   (pps mpst2.ppx))
  (libraries mpst2 oUnit))
 
 (test
- (name test_run_broadcast)
- (modules test_run_broadcast)
+ (name test_run_multicast)
+ (modules test_run_multicast)
  (preprocess
   (pps mpst2.ppx))
  (libraries mpst2 oUnit))

@@ -1,6 +1,6 @@
 open Mpst2.BasicCombinators
 open Mpst2.Unicast
-open Mpst2.Broadcast
+open Mpst2.Multicast
 open Rows
 open OUnit
 
@@ -13,7 +13,7 @@ open Util
 
 let extract_b_many g =
   let `cons(_,`cons(b,_)) = extract g in
-  ignore (Mpst2.Broadcast.get_many b)
+  ignore (Mpst2.Multicast.get_many b)
 
 let test_broadcast_projection_success () =
   let finish = many_at a Mpst2.BasicCombinators.finish in

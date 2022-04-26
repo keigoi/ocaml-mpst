@@ -71,7 +71,7 @@ type _ t =
   | Epsilon : 'a t list -> 'a t  (** Epsilon transitions (i.e. merging) *)
   | InternalChoice : 'lr state_id * ('lr, 'l, 'r) disj * 'l t * 'r t -> 'lr t
       (** Internal choice, splitted by a disjoint concatenation (disj) *)
-  | Loop : 'a t lazy_t -> 'a t  (** Start of the fix-loop *)
+  | Lazy : 'a t lazy_t -> 'a t  (** Start of the fix-loop *)
 
 exception UnguardedLoop
 
@@ -95,7 +95,7 @@ let merge l r = Epsilon [ l; r ]
 let make_internal_choice disj l r =
   InternalChoice (Context.new_key (), disj, l, r)
 
-let make_loop t = Loop t
+let make_lazy t = Lazy t
 
 type 'a merged_or_backward_epsilon =
   ('a state_id * 'a det_state lazy_t list, 'a t list) Either.t
@@ -129,12 +129,12 @@ let rec epsilon_closure :
     | InternalChoice (sid, disj, tl, tr) ->
         ret_merged
           (sid, [ lazy (determinise_internal_choice_core context disj tl tr) ])
-    | Loop t -> (
+    | Lazy t -> (
         (* beginning of the fix-loop. *)
         match
           epsilon_closure ~context ~visited:(st :: visited) (Lazy.force t)
         with
-        | Left (sid, hd) -> Left (sid, hd)
+        | Left _ as t -> t
         | Right backward -> filter_cycles ~visited backward)
     | Epsilon sts ->
         (* epsilon transitions: compute epsilon-closure *)
@@ -242,7 +242,7 @@ let rec to_string_core : type a. context -> a t -> string =
   | InternalChoice (_, _, l, r) ->
       let lstr = to_string_core ctx l and rstr = to_string_core ctx r in
       lstr ^ " (+#) " ^ rstr
-  | Loop t ->
+  | Lazy t ->
       if Lazy.is_val t then to_string_core ctx (Lazy.force t) else "<lazy_loop>"
 
 let ensure_determinised = function

@@ -8,7 +8,7 @@ val to_string : 'a t -> string
 val unit : unit t
 val merge : 'a t -> 'a t -> 'a t
 val make_internal_choice : ('a, 'b, 'c) Rows.disj -> 'b t -> 'c t -> 'a t
-val make_loop : 'a t lazy_t -> 'a t
+val make_lazy : 'a t lazy_t -> 'a t
 
 type context
 

@@ -15,7 +15,7 @@ let extract_b_many g =
   let `cons(_,`cons(b,_)) = extract g in
   ignore (Mpst2.Multicast.get_many b)
 
-let test_broadcast_projection_success () =
+let test_multicast_projection_success () =
   let finish = many_at a Mpst2.BasicCombinators.finish in
   ignore @@ extract @@ (a @@--> b) left finish;
   ignore
@@ -65,8 +65,8 @@ let test_broadcast_projection_success () =
 let suite =
   "Protcol combinators expected"
   >::: [
-         "test_broadcast_projection_success"
-         >:: test_broadcast_projection_success;
+         "test_multicast_projection_success"
+         >:: test_multicast_projection_success;
        ]
 ;;
 

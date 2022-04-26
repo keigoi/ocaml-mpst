@@ -13,11 +13,11 @@ type chan_table = {
 
 type param += P : ((_, _, _, _, _, _) role * int) -> param
 
-module BroadcastEnv : EnvSpec with type entry = chan_table = struct
+module MulticastEnv : EnvSpec with type entry = chan_table = struct
   type entry = chan_table
   type env_entry += E of entry
 
-  let name = "broadcast"
+  let name = "multicast"
 
   let make_default () =
     { process_count = Hashtbl.create 42; table = Hashtbl.create 42 }
@@ -29,7 +29,7 @@ module BroadcastEnv : EnvSpec with type entry = chan_table = struct
     | _ -> ()
 end
 
-module Lookup = RegisterEnvSpec (BroadcastEnv)
+module Lookup = RegisterEnvSpec (MulticastEnv)
 
 let get_process_count (t : chan_table) role =
   Option.value ~default:1 (Hashtbl.find_opt t.process_count role)

@@ -53,7 +53,7 @@ let test_run_infinite_loop () =
   Thread.join ta
 
 let suite =
-  "Running broadcast communication"
+  "Running multicast communication"
   >::: [ "test_run_infinite_loop" >:: test_run_infinite_loop ]
 ;;
 

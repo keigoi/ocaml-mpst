@@ -10,16 +10,16 @@ let close () = ()
 
 type chan_table = (string * string, DynChan.chan) Hashtbl.t
 
-module BroadcastEnv : EnvSpec with type entry = chan_table = struct
+module UnicastEnv : EnvSpec with type entry = chan_table = struct
   type entry = chan_table
   type env_entry += E of entry
 
-  let name = "comm"
+  let name = "unicast"
   let make_default () = Hashtbl.create 42
   let update _param _tbl = ()
 end
 
-module Lookup = RegisterEnvSpec (BroadcastEnv)
+module Lookup = RegisterEnvSpec (UnicastEnv)
 
 let lookup (t : chan_table) (key : string * string) =
   match Hashtbl.find_opt t key with

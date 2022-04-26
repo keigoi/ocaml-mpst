@@ -11,14 +11,25 @@ type chan_table = {
   table : (string * string, DynChan.chan list) Hashtbl.t;
 }
 
-type env_entry += Broadcast of chan_table
+type param += P : ((_, _, _, _, _, _) role * int) -> param
 
-let () =
-  BasicCombinators.register_default_env (fun () ->
-      Broadcast { process_count = Hashtbl.create 42; table = Hashtbl.create 42 })
+module BroadcastEnv : EnvSpec with type entry = chan_table = struct
+  type entry = chan_table
+  type env_entry += E of entry
 
-let get_env env =
-  List.hd @@ List.filter_map (function Broadcast t -> Some t | _ -> None) env
+  let name = "broadcast"
+
+  let make_default () =
+    { process_count = Hashtbl.create 42; table = Hashtbl.create 42 }
+
+  let update param t =
+    match param with
+    | P (role, cnt) ->
+        Hashtbl.replace t.process_count role.role_label.method_name cnt
+    | _ -> ()
+end
+
+module Lookup = RegisterEnvSpec (BroadcastEnv)
 
 let get_process_count (t : chan_table) role =
   Option.value ~default:1 (Hashtbl.find_opt t.process_count role)
@@ -37,8 +48,8 @@ let get_chan (t : chan_table) (key : string * string) =
 (* scatter *)
 let ( -->@@ ) ra rb lab g env =
   let g = g env in
-  let env = get_env env in
-  let from_count = get_process_count env ra.role_label.method_name in
+  let env = Lookup.lookup env in
+  let to_count = get_process_count env rb.role_label.method_name in
   let chs =
     get_chan env (ra.role_label.method_name, rb.role_label.method_name)
   in
@@ -46,7 +57,7 @@ let ( -->@@ ) ra rb lab g env =
   let b = seq_get rb.role_index g in
   let g =
     seq_put rb.role_index g
-      (ActionMany.inps ~count:from_count ra.role_label lab.var keys b)
+      (ActionMany.inps ~count:to_count ra.role_label lab.var keys b)
   in
   let a = seq_get ra.role_index g in
   let g =
@@ -58,8 +69,8 @@ let ( -->@@ ) ra rb lab g env =
 (** gather *)
 let ( @@--> ) ra rb lab g env =
   let g = g env in
-  let env = get_env env in
-  let to_count = get_process_count env ra.role_label.method_name in
+  let env = Lookup.lookup env in
+  let from_count = get_process_count env ra.role_label.method_name in
   let chs =
     get_chan env (ra.role_label.method_name, rb.role_label.method_name)
   in
@@ -72,13 +83,13 @@ let ( @@--> ) ra rb lab g env =
   let a = seq_get ra.role_index g in
   let g =
     seq_put ra.role_index g
-      (ActionMany.outs ~count:to_count rb.role_label lab.obj keys a)
+      (ActionMany.outs ~count:from_count rb.role_label lab.obj keys a)
   in
   g
 
 let many_at role g env =
   let g = g env in
-  let env = get_env env in
+  let env = Lookup.lookup env in
   let count = get_process_count env role.role_label.method_name in
   seq_put role.role_index g (ActionMany.units ~count)
 

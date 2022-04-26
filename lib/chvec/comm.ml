@@ -9,13 +9,17 @@ type chan = DynChan.chan
 let close () = ()
 
 type chan_table = (string * string, DynChan.chan) Hashtbl.t
-type env_entry += Comm of chan_table
 
-let () =
-  BasicCombinators.register_default_env (fun () -> Comm (Hashtbl.create 42))
+module BroadcastEnv : EnvSpec with type entry = chan_table = struct
+  type entry = chan_table
+  type env_entry += E of entry
 
-let get_env env =
-  List.hd @@ List.filter_map (function Comm t -> Some t | _ -> None) env
+  let name = "comm"
+  let make_default () = Hashtbl.create 42
+  let update _param _tbl = ()
+end
+
+module Lookup = RegisterEnvSpec (BroadcastEnv)
 
 let lookup (t : chan_table) (key : string * string) =
   match Hashtbl.find_opt t key with
@@ -28,7 +32,8 @@ let lookup (t : chan_table) (key : string * string) =
 let ( --> ) ra rb lab g env =
   let g = g env in
   let ch =
-    lookup (get_env env) (ra.role_label.method_name, rb.role_label.method_name)
+    lookup (Lookup.lookup env)
+      (ra.role_label.method_name, rb.role_label.method_name)
   in
   let key = DynChan.new_name ch in
   let b = seq_get rb.role_index g in

@@ -9,8 +9,6 @@ type chan_table = {
   table : (string * string, DynChan.chan list) Hashtbl.t;
 }
 
-type BasicCombinators.env_entry += Broadcast of chan_table
-
 val ( -->@@ ) :
   ('a, 'b, 'c, 'd, 'e, 'f Comm.inp) BasicCombinators.role ->
   ('g many, 'e many, 'h, 'c, 'b, 'i) BasicCombinators.role ->
@@ -29,6 +27,8 @@ val many_at :
   (unit, unit many, 'b, 'c, 'd, 'e) BasicCombinators.role ->
   'b global ->
   'c global
+
+type param += P : ((_, _, _, _, _, _) role * int) -> param
 
 val get_many : 'a many -> 'a list
 val scatter : 'a scatter -> 'a

@@ -26,7 +26,10 @@ let det_list_ops (type b) (module D : State.DetState with type a = b) =
       in
       ss
 
-    let force _ctx _s = ()
+    let force _ctx _ss = ()
+    (* let ss = List.map (State.determinise_core (State.Context.make ())) ss in
+       List.iter (State.force_core (State.Context.make ())) ss *)
+
     let to_string _ctx _s = "<broadcast>"
   end in
   (module DetList : State.DetState with type a = b many)

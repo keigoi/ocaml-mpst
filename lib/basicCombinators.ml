@@ -1,5 +1,8 @@
 exception UnguardedLoop = State.UnguardedLoop
 
+let debug_print _fmt _str = ()
+(* let debug_print = Printf.printf *)
+
 type ('obj, 'ot, 'var, 'vt) label = {
   obj : ('obj, 'ot) Rows.method_;
   var : ('var, 'vt) Rows.constr;
@@ -17,6 +20,7 @@ type 'a seq = 'a Sessions.seq =
   | ( :: ) : 'hd State.t * 'tl seq -> [ `cons of 'hd * 'tl ] seq
   | [] : ([ `cons of unit * 'a ] as 'a) seq
 
+type param = ..
 type env_entry = ..
 type env = env_entry list
 type 't global = env -> 't seq
@@ -50,10 +54,48 @@ let rec extract_seq : type u. u Sessions.seq -> u = function
       let tl = extract_seq tail in
       `cons (hd, tl)
 
-let init_env = ref []
-let register_default_env entry = init_env := entry :: !init_env
-let extract_ g env = extract_seq (g env)
-let extract g = extract_ g (List.map (fun f -> f ()) !init_env)
+module type EnvSpec = sig
+  type entry
+  type env_entry += E of entry
+
+  val name : string
+  val make_default : unit -> entry
+  val update : param -> entry -> unit
+end
+
+let registry : (string * (module EnvSpec)) list ref = ref List.[]
+
+module RegisterEnvSpec (X : EnvSpec) : sig
+  val lookup : env -> X.entry
+end = struct
+  let () =
+    if not @@ List.mem_assoc X.name !registry then begin
+      debug_print "registering %s\n" X.name;
+      registry := (X.name, (module X : EnvSpec)) :: !registry
+    end
+    else debug_print "%s is already registered\n" X.name
+
+  let lookup (es : env) =
+    List.hd @@ List.filter_map (function X.E e -> Some e | _ -> None) es
+end
+
+let make_default_env () : env =
+  List.map (fun (_, (module E : EnvSpec)) -> E.E (E.make_default ())) !registry
+
+let apply_params (params : param list) (env : env) : unit =
+  List.iter
+    (fun (_, (module E : EnvSpec)) ->
+      let module M = RegisterEnvSpec (E) in
+      let e = M.lookup env in
+      List.iter (fun p -> E.update p e) params)
+    !registry
+
+let extract (g : _ global) = extract_seq (g (make_default_env ()))
+
+let extract_with params (g : _ global) =
+  let env = make_default_env () in
+  apply_params params env;
+  extract_seq (g env)
 
 module Open = struct
   type _ t =

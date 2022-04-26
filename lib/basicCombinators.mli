@@ -37,6 +37,21 @@ end
 
 val fix_with : 'a Open.t -> ('a global -> 'a global) -> 'a global
 val finish : ([ `cons of unit * 'a ] as 'a) global
-val register_default_env : (unit -> env_entry) -> unit
-val extract_ : 'u global -> env -> 'u
+
+type param = ..
+
+module type EnvSpec = sig
+  type entry
+  type env_entry += E of entry
+
+  val name : string
+  val make_default : unit -> entry
+  val update : param -> entry -> unit
+end
+
+module RegisterEnvSpec (X : EnvSpec) : sig
+  val lookup : env -> X.entry
+end
+
+val extract_with : param list -> 'u global -> 'u
 val extract : 'u global -> 'u

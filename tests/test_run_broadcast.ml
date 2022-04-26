@@ -1,5 +1,5 @@
 open Mpst2.BasicCombinators
-open Mpst2.Comm
+open Mpst2.Unicast
 open Mpst2.Broadcast
 open Rows
 open OUnit

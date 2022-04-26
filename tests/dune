@@ -18,3 +18,17 @@
  (preprocess
   (pps mpst2.ppx))
  (libraries mpst2 oUnit))
+
+(test
+ (name test_protocols_broadcast)
+ (modules test_protocols_broadcast)
+ (preprocess
+  (pps mpst2.ppx))
+ (libraries mpst2 oUnit))
+
+(test
+ (name test_run_broadcast)
+ (modules test_run_broadcast)
+ (preprocess
+  (pps mpst2.ppx))
+ (libraries mpst2 oUnit))

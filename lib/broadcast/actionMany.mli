@@ -1,6 +1,7 @@
-type 'a many = Many of 'a State.t list
+type 'a many
 
 val get_many : 'a many -> 'a list
+val units : count:int -> unit many State.t
 
 val outs :
   count:int ->

@@ -1,7 +1,7 @@
 open BasicCombinators
 
-type 's out
-type 's inp
+type 's out = 's ActionOut.out
+type 's inp = 's ActionInp.inp
 type chan
 
 val select : 'a out -> 'a

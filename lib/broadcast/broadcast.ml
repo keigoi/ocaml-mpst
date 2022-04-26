@@ -5,9 +5,6 @@ open Sessions
 type 's scatter = 's ActionScatter.scatter
 type 's gather = 's ActionGather.gather
 type 's many = 's ActionMany.many
-type chan = DynChan.chan
-
-let close () = ()
 
 type chan_table = {
   process_count : (string, int) Hashtbl.t;
@@ -37,7 +34,7 @@ let get_chan (t : chan_table) (key : string * string) =
       Hashtbl.add t.table key ch;
       ch
 
-let (--<<) ra rb lab g env =
+let ( --<< ) ra rb lab g env =
   let g = g env in
   let env = get_env env in
   let from_count = get_process_count env ra.role_label.method_name in
@@ -57,7 +54,7 @@ let (--<<) ra rb lab g env =
   in
   g
 
-let (-->>) ra rb lab g env =
+let ( -->> ) ra rb lab g env =
   let g = g env in
   let env = get_env env in
   let to_count = get_process_count env ra.role_label.method_name in
@@ -67,7 +64,8 @@ let (-->>) ra rb lab g env =
   let keys = List.map DynChan.new_name chs in
   let b = seq_get rb.role_index g in
   let g =
-    seq_put rb.role_index g (ActionGather.make_gather ra.role_label lab.var keys b)
+    seq_put rb.role_index g
+      (ActionGather.make_gather ra.role_label lab.var keys b)
   in
   let a = seq_get ra.role_index g in
   let g =
@@ -76,7 +74,12 @@ let (-->>) ra rb lab g env =
   in
   g
 
-let get_many = ActionMany.get_many
+let many_at role g env =
+  let g = g env in
+  let env = get_env env in
+  let count = get_process_count env role.role_label.method_name in
+  seq_put role.role_index g (ActionMany.units ~count)
 
+let get_many = ActionMany.get_many
 let scatter = ActionScatter.scatter
 let gather = ActionGather.gather

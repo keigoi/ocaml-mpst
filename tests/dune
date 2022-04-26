@@ -1,0 +1,20 @@
+(test
+ (name test_protocols_mergefail)
+ (modules test_protocols_mergefail)
+ (preprocess
+  (pps mpst2.ppx))
+ (libraries mpst2 oUnit))
+
+(test
+ (name test_protocols_merge)
+ (modules test_protocols_merge)
+ (preprocess
+  (pps mpst2.ppx))
+ (libraries mpst2 oUnit))
+
+(test
+ (name test_run_loop)
+ (modules test_run_loop)
+ (preprocess
+  (pps mpst2.ppx))
+ (libraries mpst2 oUnit))

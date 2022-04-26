@@ -34,7 +34,8 @@ let get_chan (t : chan_table) (key : string * string) =
       Hashtbl.add t.table key ch;
       ch
 
-let ( --<< ) ra rb lab g env =
+(* scatter *)
+let ( -->@@ ) ra rb lab g env =
   let g = g env in
   let env = get_env env in
   let from_count = get_process_count env ra.role_label.method_name in
@@ -54,7 +55,8 @@ let ( --<< ) ra rb lab g env =
   in
   g
 
-let ( -->> ) ra rb lab g env =
+(** gather *)
+let ( @@--> ) ra rb lab g env =
   let g = g env in
   let env = get_env env in
   let to_count = get_process_count env ra.role_label.method_name in

@@ -11,14 +11,14 @@ type chan_table = {
 
 type BasicCombinators.env_entry += Broadcast of chan_table
 
-val ( --<< ) :
+val ( -->@@ ) :
   ('a, 'b, 'c, 'd, 'e, 'f Comm.inp) BasicCombinators.role ->
   ('g many, 'e many, 'h, 'c, 'b, 'i) BasicCombinators.role ->
   ('i, 'a scatter, 'f, 'g) BasicCombinators.label ->
   'h global ->
   'd global
 
-val ( -->> ) :
+val ( @@--> ) :
   ('a many, 'b many, 'c, 'd, 'e, 'f gather) BasicCombinators.role ->
   ('g, 'e, 'h, 'c, 'b, 'i) BasicCombinators.role ->
   ('i, 'a Comm.out, 'f, 'g) BasicCombinators.label ->

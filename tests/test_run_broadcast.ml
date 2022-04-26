@@ -1,26 +1,12 @@
 open Mpst2.BasicCombinators
 open Mpst2.Comm
+open Mpst2.Broadcast
 open Rows
 open OUnit
 
 module Util = struct
   [%%declare_roles_prefixed a, b, c, d]
   [%%declare_labels msg, left, right, middle, ping, pong, fini]
-
-  let to_ m r1 r2 r3 =
-    let ( ! ) x = x.role_label in
-    {
-      disj_concat =
-        (fun l r ->
-          !r1.make_obj (m.disj_concat (!r2.call_obj l) (!r3.call_obj r)));
-      disj_splitL = (fun lr -> !r2.make_obj (m.disj_splitL @@ !r1.call_obj lr));
-      disj_splitR = (fun lr -> !r3.make_obj (m.disj_splitR @@ !r1.call_obj lr));
-    }
-
-  let to_a m = to_ m a a a
-  let to_b m = to_ m b b b
-  let to_c m = to_ m c c c
-  let to_d m = to_ m d d d
 end
 
 open Util
@@ -31,9 +17,9 @@ let test_run_infinite_loop () =
   let _g0 =
     extract
     @@ choice_at a
-         (to_b [%disj left, right])
-         (a, fix_with [ a; b ] (fun t -> (a --> b) left t))
-         (a, fix_with [ a; b ] (fun t -> (a --> b) right t))
+         [%disj role_B (left, right)]
+         (a, fix_with [ a; b ] (fun t -> (a -->@@ b) left t))
+         (a, fix_with [ a; b ] (fun t -> (a -->@@ b) right t))
   in
   let (`cons (sa, `cons (sb, _))) = _g0 in
   let ta =
@@ -42,23 +28,27 @@ let test_run_infinite_loop () =
         let rec f sa i =
           if i > 10000 then ()
           else
-            let sa = select sa#role_B#left in
+            let sa = scatter sa#role_B#left in
             f sa (i + 1)
         in
-        f (sa :> < role_B : < left : 'b out > > as 'b) 0
+        f (sa :> < role_B : < left : 'b scatter > > as 'b) 0
         (* exit *))
       ()
   in
   let _tb =
-    Thread.create
-      (fun () ->
-        let rec f sb i =
-          match branch sb#role_A with
-          | `left sb -> f sb (i + 1)
-          | `right sb -> f sb (i + 1)
-        in
-        f sb 0)
-      ()
+    let run i sb =
+      Thread.create
+        (fun () ->
+          Printf.printf "Thread %d started\n" i;
+          let rec f sb i =
+            match branch sb#role_A with
+            | `left sb -> f sb (i + 1)
+            | `right sb -> f sb (i + 1)
+          in
+          f sb 0)
+        ()
+    in
+    List.mapi run (get_many sb)
   in
   Thread.join ta
 
@@ -68,7 +58,7 @@ let test_run_infinite_input_merge () =
   let g =
     extract
     @@ choice_at a
-         (to_b [%disj left, right])
+         [%disj role_B (left, right)]
          (* c receives the same label -- we must ensure the recursive merging for C is terminating *)
          (a, fix_with [ a; b; c ] (fun t -> (a --> b) left @@ (a --> c) msg t))
          (a, fix_with [ a; b; c ] (fun t -> (a --> b) right @@ (a --> c) msg t))
@@ -120,7 +110,7 @@ let test_run_unbalanced_choice () =
     extract
     @@ fix_with [ a; b; c ] (fun t ->
            choice_at a
-             (to_b [%disj left, right])
+             [%disj role_B (left, right)]
              (a, (a --> b) left t)
              (a, (a --> b) right @@ (b --> c) right finish))
   in
@@ -161,10 +151,10 @@ let test_run_unbalanced_choice_nested () =
     extract
     @@ fix_with [ a; b; c ] (fun t ->
            choice_at a
-             (to_b [%disj [ left; middle ], right])
+             [%disj role_B ([ left; middle ], right)]
              ( a,
                choice_at a
-                 (to_b [%disj left, middle])
+                 [%disj role_B (left, middle)]
                  (a, (a --> b) left t)
                  (a, (a --> b) middle t) )
              (a, (a --> b) right @@ (a --> c) msg finish))
@@ -212,12 +202,12 @@ let test_run_unbalanced_choice_nested2 () =
     extract
     @@ fix_with [ a; b; c ] (fun t1 ->
            choice_at a
-             (to_b [%disj left, [ middle; right ]])
+             [%disj role_B (left, [ middle; right ])]
              (a, (a --> b) left @@ (a --> c) left finish)
              ( a,
                fix_with [ a; b; c ] (fun t2 ->
                    choice_at a
-                     (to_b [%disj middle, right])
+                     [%disj role_B (middle, right)]
                      (a, (a --> b) middle @@ (a --> c) middle t2)
                      (a, (a --> b) right @@ t1)) ))
   in
@@ -271,7 +261,7 @@ let test_run_unguarded_choice_alternative () =
            (a --> b) left
            @@ fix_with [ a; b ] (fun u ->
                   choice_at a
-                    (to_b [%disj left, right])
+                    [%disj role_B (left, right)]
                     (a, t)
                     (a, (a --> b) right @@ u)))
   in
@@ -306,7 +296,7 @@ let test_run_unguarded_choice_alternative_unbalanced () =
     @@ fix_with [ a; b; c ] (fun t ->
            (a --> b) left
            @@ choice_at a
-                (to_b [%disj left, right])
+                [%disj role_B (left, right)]
                 (a, t)
                 (a, (a --> b) right @@ (b --> c) right @@ finish))
   in
@@ -343,7 +333,7 @@ let test_run_partially_unguarded_choice_alternative () =
     @@ fix_with [ a; b; c ] (fun t ->
            (a --> b) msg
            @@ choice_at a
-                (to_c [%disj left, right])
+                [%disj role_C (left, right)]
                 (* b doesn't occur here *)
                 (a, (a --> c) left @@ (c --> a) msg t)
                 (a, (a --> c) right @@ (c --> a) msg t))

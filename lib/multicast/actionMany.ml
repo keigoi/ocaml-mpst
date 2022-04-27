@@ -52,7 +52,7 @@ let outs ~count role lab names (ss : _ many State.t) : _ many State.t =
         {
           det_state =
             List.mapi
-              (fun _i (name, s) -> ActionOut.out role lab name s)
+              (fun _i (name, s) -> ActionOut.make_out role lab name s)
               (List.combine names ss);
           det_ops = det_list_ops (ActionOut.out_ops role lab);
         })
@@ -73,7 +73,7 @@ let inps ~count role constr names (ss : _ many State.t) : _ many State.t =
         {
           det_state =
             List.mapi
-              (fun _i (name, s) -> ActionInp.inp role constr name s)
+              (fun _i (name, s) -> ActionInp.make_inp role constr name s)
               (List.combine names ss);
           det_ops = det_list_ops (ActionInp.inp_ops role);
         })

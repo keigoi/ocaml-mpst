@@ -56,7 +56,7 @@ let out_ops (type a) (role : (a, _) method_) lab =
 let out_state role lab name s =
   role.make_obj (lab.make_obj (Out (lab.method_name, name, Lazy.from_val s)))
 
-let out role lab name s =
+let make_out role lab name s =
   State.make_deterministic (Context.new_key ())
   @@ Lazy.from_val
        State.

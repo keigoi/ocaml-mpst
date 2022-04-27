@@ -1,6 +1,6 @@
 type 'var inp
 
-val inp :
+val make_inp :
   ('a, 'c inp) Rows.method_ ->
   ('c, 'd) Rows.constr ->
   int DynChan.name ->

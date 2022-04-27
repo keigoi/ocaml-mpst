@@ -49,7 +49,7 @@ let inp_ops (type a) (role : (a, _) method_) =
 let inp_state role constr name s =
   role.make_obj (Lazy.from_val (name, [ Extchoice.make constr s ]))
 
-let inp role constr name s =
+let make_inp role constr name s =
   State.make_deterministic (Context.new_key ())
   @@ Lazy.from_val
        State.

@@ -1,6 +1,6 @@
 type 'a out
 
-val out :
+val make_out :
   ('a, 'b) Rows.method_ ->
   ('b, 'c out) Rows.method_ ->
   int DynChan.name ->

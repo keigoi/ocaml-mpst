@@ -37,9 +37,9 @@ let ( --> ) ra rb lab g env =
   in
   let key = DynChan.new_name ch in
   let b = seq_get rb.role_index g in
-  let g = seq_put rb.role_index g (ActionInp.inp ra.role_label lab.var key b) in
+  let g = seq_put rb.role_index g (ActionInp.make_inp ra.role_label lab.var key b) in
   let a = seq_get ra.role_index g in
-  let g = seq_put ra.role_index g (ActionOut.out rb.role_label lab.obj key a) in
+  let g = seq_put ra.role_index g (ActionOut.make_out rb.role_label lab.obj key a) in
   g
 
 let select = ActionOut.select

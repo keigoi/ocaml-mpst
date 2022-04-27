@@ -373,6 +373,77 @@ let test_run_partially_unguarded_choice_alternative () =
   in
   ()
 
+let test_run_fourparty () =
+  let run i =
+    let g =
+      extract
+      @@ choice_at d
+           [%disj role_C ([ left; middle ], right)]
+           ( d,
+             choice_at d
+               [%disj role_C (left, middle)]
+               ( d,
+                 (d --> c) left
+                 @@ (d --> b) left
+                 @@ (c --> a) left
+                 @@ (a --> b) left finish )
+               ( d,
+                 (d --> c) middle
+                 @@ (d --> b) left
+                 @@ (c --> a) right
+                 @@ (a --> b) right finish ) )
+           ( d,
+             (d --> c) right
+             @@ (d --> b) right
+             @@ (c --> a) right
+             @@ (a --> b) right finish )
+    in
+    let (`cons (sa, `cons (sb, `cons (sc, `cons (sd, _))))) = g in
+    let ta =
+      Thread.create
+        (fun () ->
+          match branch sa#role_C with
+          | `left sa -> select sa#role_B#left
+          | `right sa -> select sa#role_B#right)
+        ()
+    in
+    let tb =
+      Thread.create
+        (fun () ->
+          match branch sb#role_D with
+          | `left sb -> begin
+              match branch sb#role_A with
+              | `left sb -> close sb
+              | `right sb -> close sb
+            end
+          | `right sb -> begin
+              match branch sb#role_A with `right sb -> close sb
+            end)
+        ()
+    in
+    let tc =
+      Thread.create
+        (fun () ->
+          match branch sc#role_D with
+          | `left sc -> select sc#role_A#left
+          | `middle sc -> select sc#role_A#right
+          | `right sc -> select sc#role_A#right)
+        ()
+    in
+    let td =
+      Thread.create
+        (fun () ->
+          if i = 0 then select (select sd#role_C#left)#role_B#left
+          else if i = 1 then select (select sd#role_C#middle)#role_B#left
+          else select (select sd#role_C#right)#role_B#right)
+        ()
+    in
+    List.iter Thread.join [ ta; tb; tc; td ]
+  in
+  assert_equal () (ignore @@ List.init 10 (fun _ -> run 0));
+  assert_equal () (ignore @@ List.init 10 (fun _ -> run 1));
+  assert_equal () (ignore @@ List.init 10 (fun _ -> run 2))
+
 let suite =
   "Running mpst communication"
   >::: [
@@ -389,6 +460,7 @@ let suite =
          >:: test_run_unguarded_choice_alternative_unbalanced;
          "test_run_partially_unguarded_choice_alternative"
          >:: test_run_partially_unguarded_choice_alternative;
+         "test_run_fourparty" >:: test_run_fourparty;
        ]
 ;;
 

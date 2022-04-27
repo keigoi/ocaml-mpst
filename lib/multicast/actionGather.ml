@@ -2,7 +2,7 @@ module Context = State.Context
 open Rows
 
 type tag = int
-type 'var gather_ = tag DynChan.name list * 'var Extchoice.extchoice_item list
+type 'var gather_ = tag DynChan.name list * 'var Extchoice.t list
 type 'var gather = 'var gather_ lazy_t
 
 let gather_ops (type b) (role : (b, _) method_) =
@@ -24,7 +24,7 @@ let gather_ops (type b) (role : (b, _) method_) =
              let names1, exts1 = Lazy.force @@ role.call_obj s1
              and names2, exts2 = Lazy.force @@ role.call_obj s2 in
              List.iter2 DynChan.unify names1 names2;
-             (names1, Extchoice.merge_items ctx exts1 exts2)
+             (names1, Extchoice.merge ctx exts1 exts2)
            end
 
     let force ctx s =

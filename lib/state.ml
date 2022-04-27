@@ -61,7 +61,8 @@ let determinise_list (type a) ctx (id : a state_id)
            let det_state =
              match hds with
              | [ hd ] -> D.determinise ctx hd
-             | hd :: hds -> List.fold_left (D.merge ctx) hd hds
+             | hd :: hds ->
+                 D.determinise ctx @@ List.fold_left (D.merge ctx) hd hds
              | [] -> failwith "impossible: empty_merge"
            in
            { det_state; det_ops = (module D : DetState with type a = a) })

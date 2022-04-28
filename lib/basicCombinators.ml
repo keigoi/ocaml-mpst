@@ -13,11 +13,11 @@ type ('t, 'u, 'ts, 'us, 'robj, 'mt) role = {
   role_label : ('robj, 'mt) Rows.method_;
 }
 
-module Sessions = Hlist.Make (State)
+module Sessions = Hlist.Make (LinState)
 open Sessions
 
 type 'a seq = 'a Sessions.seq =
-  | ( :: ) : 'hd State.t * 'tl seq -> [ `cons of 'hd * 'tl ] seq
+  | ( :: ) : 'hd LinState.t * 'tl seq -> [ `cons of 'hd * 'tl ] seq
   | [] : ([ `cons of unit * 'a ] as 'a) seq
 
 type param = ..
@@ -37,10 +37,10 @@ let rec merge_seq : type t. t seq -> t seq -> t seq =
 let choice_at ra disj (ra1, g1) (ra2, g2) ctx =
   let g1 = g1 ctx and g2 = g2 ctx in
   let a1 = seq_get ra1.role_index g1 and a2 = seq_get ra2.role_index g2 in
-  let g1 = seq_put ra1.role_index g1 State.unit
-  and g2 = seq_put ra2.role_index g2 State.unit in
+  let g1 = seq_put ra1.role_index g1 LinState.unit
+  and g2 = seq_put ra2.role_index g2 LinState.unit in
   let g = merge_seq g1 g2 in
-  let a = State.make_internal_choice disj a1 a2 in
+  let a = State.make_internal_choice (Lin.lift_disj disj) a1 a2 in
   seq_put ra.role_index g a
 
 let finish _ = Sessions.[]
@@ -50,7 +50,7 @@ let rec extract_seq : type u. u Sessions.seq -> u = function
       let rec nil = `cons ((), nil) in
       nil
   | st :: tail ->
-      let hd = State.determinise st in
+      let hd = Lin.fresh @@ State.determinise st in
       let tl = extract_seq tail in
       `cons (hd, tl)
 
@@ -115,7 +115,7 @@ let partial_finish keep_idxs g =
           State.make_lazy (lazy (seq_get2 idx.role_index (Lazy.force keeps)))
         and rest =
           (* rest of the states *)
-          lazy (seq_put2 idx.role_index (Lazy.force keeps) State.unit)
+          lazy (seq_put2 idx.role_index (Lazy.force keeps) LinState.unit)
         in
         let states = make_partial_finish ~keep_idxs:rest_idxs ~keeps:rest in
         (* put the state and return it *)

@@ -1,5 +1,5 @@
 open BasicCombinators
-module Sessions = Hlist.Make (State)
+module Sessions = Hlist.Make (LinState)
 open Sessions
 
 type 's scatter = 's ActionScatter.scatter

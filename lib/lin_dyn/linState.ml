@@ -13,7 +13,7 @@ let det_lin_ops (type b) (module D : State.DetState with type a = b) =
       let s = Lin.raw_gen s in
       D.force ctx s
 
-    let to_string _ctx _s = "<todo>"
+    let to_string ctx s = D.to_string ctx (Lin.raw_gen s)
   end in
   (module DetList : State.DetState with type a = b Lin.gen)
 

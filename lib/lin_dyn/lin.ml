@@ -9,8 +9,7 @@ and flag = Flag.t
 let rec use_flag (store : flag_store) =
   match !store with
   | Link store -> use_flag store
-  | FlagRef _flag -> ()
-  (* Flag.use !flag *)
+  | FlagRef flag -> Flag.use !flag
   | Unlimited -> ()
 
 let rec refresh_flag (store : flag_store) =

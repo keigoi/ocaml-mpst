@@ -32,3 +32,10 @@
  (preprocess
   (pps mpst2.ppx))
  (libraries mpst2 oUnit))
+
+(test
+ (name test_linearity_fail)
+ (modules test_linearity_fail)
+ (preprocess
+  (pps mpst2.ppx))
+ (libraries mpst2 oUnit))

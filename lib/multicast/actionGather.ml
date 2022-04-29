@@ -73,4 +73,4 @@ let gather (inp : _ gather) =
   in
   let tag = match tags with tag :: _ -> tag | [] -> failwith "impossible" in
   assert (List.for_all (fun t -> t = tag) tags);
-  items |> List.map InpChoice.match_item |> List.assoc tag
+  items |> List.map InpChoice.match_item |> List.assoc tag |> Lazy.force

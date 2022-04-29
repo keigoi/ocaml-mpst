@@ -5,18 +5,18 @@ type tag = int
 type 'var inp_ = tag DynChan.name * 'var InpChoice.t list
 type 'var inp = 'var inp_ lazy_t Lin.lin
 
-let determinise_inp ctx inp =
-  lazy
-    begin
-      let name, exts = Lazy.force inp in
-      (name, List.map (InpChoice.determinise ctx) exts)
-    end
-
 let inp_ops (type b) (role : (b, _) method_) =
   let module DetInp = struct
     type nonrec a = b
 
     let determinise ctx s =
+      let determinise_inp ctx inp =
+        lazy
+          begin
+            let name, exts = Lazy.force inp in
+            (name, List.map (InpChoice.determinise ctx) exts)
+          end
+      in
       let inp = role.call_obj s in
       role.make_obj @@ Lin.map_lin (determinise_inp ctx) inp
 
@@ -67,3 +67,4 @@ let branch (inp : _ inp) =
   items
   |> List.map InpChoice.match_item
   |> List.assoc (DynChan.receive (DynChan.finalise name))
+  |> Lazy.force

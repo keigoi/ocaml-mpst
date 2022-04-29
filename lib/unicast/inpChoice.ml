@@ -9,6 +9,15 @@ let try_cast_exn constr1 constr2 a =
   | Some a -> a
   | None -> raise Not_matching
 
+let cast_and_merge (type x) (module D : State.DetState with type a = x Lin.gen)
+    ctx state_id constr1 constr2 cont1 cont2 =
+  let cont2 = Lin.map_gen (try_cast_exn constr1 constr2) cont2 in
+  let cont =
+    Lazy.from_val
+    @@ State.{ det_state = D.merge ctx cont1 cont2; det_ops = (module D) }
+  in
+  Choice (constr1, State.make_deterministic state_id cont)
+
 let try_merge_item : type a. State.context -> a t -> a t -> a t option =
  fun ctx e1 e2 ->
   let Choice (constr1, cont1), Choice (constr2, cont2) = (e1, e2) in
@@ -23,31 +32,15 @@ let try_merge_item : type a. State.context -> a t -> a t -> a t option =
   let state_id2, cont2 = State.determinise_core_ ctx cont2 in
   let State.{ det_ops = (module D1); det_state = cont1 } = Lazy.force cont1 in
   let State.{ det_ops = (module D2); det_state = cont2 } = Lazy.force cont2 in
-  let make_choice constr state_id cont =
-    Choice (constr, State.make_deterministic state_id cont)
-  in
   (* (2) compute the new state id ==== *)
   try
     let t =
+      (* (3) cast and merge them ==== *)
       match Context.union_keys_general state_id1 state_id2 with
       | Left state_id ->
-          (* (3) cast and merge them ==== *)
-          let cont2 = Lin.map_gen (try_cast_exn constr1 constr2) cont2 in
-          let cont =
-            Lazy.from_val @@
-              State.
-                { det_state = D1.merge ctx cont1 cont2; det_ops = (module D1) }
-          in
-          make_choice constr1 state_id cont
+          cast_and_merge (module D1) ctx state_id constr1 constr2 cont1 cont2
       | Right state_id ->
-          (* (3)' cast and merge them, in the opposite order ==== *)
-          let cont1 = Lin.map_gen (try_cast_exn constr2 constr1) cont1 in
-          let cont =
-            Lazy.from_val @@
-              State.
-                { det_state = D2.merge ctx cont1 cont2; det_ops = (module D2) }
-          in
-          make_choice constr2 state_id cont
+          cast_and_merge (module D2) ctx state_id constr2 constr1 cont2 cont1
     in
     Some t
   with Not_matching -> None
@@ -77,5 +70,5 @@ let determinise ctx (Choice (constr, cont)) =
   Choice (constr, State.determinise_core ctx cont)
 
 let match_item (Choice (var, cont)) =
-  let cont = Lin.fresh @@ State.ensure_determinised cont in
-  (Btype.hash_variant var.constr_name, var.make_var cont)
+  ( Btype.hash_variant var.constr_name,
+    lazy (var.make_var @@ Lin.fresh @@ State.ensure_determinised cont) )

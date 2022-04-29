@@ -266,27 +266,3 @@ let to_string t = to_string_core (Context.make ()) t
 let merge_det (type a) ctx (id : a state_id) (l : a det_state lazy_t)
     (r : a det_state lazy_t) =
   determinise_list ctx id [ l; r ]
-
-let try_merge constrA constrB merge headA headB =
-  match Rows.cast_if_constrs_are_same constrA constrB headB with
-  | Some contB_body -> Some (merge headA contB_body)
-  | None -> None
-
-let try_merge_det (type a) ctx (id : a state_id) constrA constrB headA headB =
-  let { det_state = headA; det_ops = (module D : DetState with type a = a) } =
-    Lazy.force headA
-  and { det_state = headB; _ } = Lazy.force headB in
-  match Rows.cast_if_constrs_are_same constrA constrB headB with
-  | Some contB_body -> begin
-      match Context.lookup ctx id with
-      | Some v -> Some v
-      | None ->
-          let det_state = D.merge ctx headA contB_body in
-          let det =
-            Lazy.from_val
-              { det_state; det_ops = (module D : DetState with type a = a) }
-          in
-          Context.add_binding ctx id det;
-          Some det
-    end
-  | None -> None

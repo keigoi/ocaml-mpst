@@ -9,13 +9,14 @@ homepage: "https://github.com/keigoi/mpst2"
 doc: "https://github.com/keigoi/mpst2"
 bug-reports: "https://github.com/keigoi/mpst2/issues"
 depends: [
-  "dune" {>= "1.12"}
+  "dune" {>= "2.8"}
   "stdlib-shims"
   "hlist"
   "rows"
+  "odoc" {with-doc}
 ]
 build: [
-  ["dune" "subst"] {pinned}
+  ["dune" "subst"] {dev}
   [
     "dune"
     "build"

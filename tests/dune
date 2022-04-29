@@ -39,3 +39,10 @@
  (preprocess
   (pps mpst2.ppx))
  (libraries mpst2 oUnit))
+
+(test
+ (name test_ppx_ty)
+ (modules test_ppx_ty)
+ (preprocess
+  (staged_pps mpst2.ppx.ty))
+ (libraries mpst2 oUnit))

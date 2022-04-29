@@ -65,11 +65,12 @@ let branch (inp : _ branch) =
   |> List.assoc (DynChan.receive (DynChan.finalise name))
   |> Lazy.force
 
-(* type ('v, 's) inp = 'v DynChan.name * 's LinState.t *)
+type ('v, 's) inp_ = 'v DynChan.name * 's LinState.t
+type ('v, 's) inp = ('v, 's) inp_ Lin.lin
 
-(* let inp_ops (type v s) () =
+let inp_ops (type v s) role =
   let module DetInp = struct
-    type a = (v, s) inp
+    type a = (v, s) inp_
 
     let determinise ctx (ch, s) = (ch, State.determinise_core ctx s)
 
@@ -80,4 +81,20 @@ let branch (inp : _ branch) =
     let force ctx (_, s) = State.force_core ctx s
     let to_string ctx (_, s) = "?." ^ State.to_string_core ctx s
   end in
-  LinState.det_lin_ops (module DetInp : State.DetState with type a = (v, s) inp) *)
+  LinState.det_gen_ops
+  @@ State.det_wrap_obj role
+  @@ LinState.det_lin_ops
+       (module DetInp : State.DetState with type a = (v, s) inp_)
+
+let inp_state role chan cont =
+  Lin.map_gen role.make_obj @@ Lin.declare (chan, cont)
+
+let make_inp role chan cont =
+  State.make_deterministic (State.Context.new_key ())
+  @@ Lazy.from_val
+  @@ State.{ det_state = inp_state role chan cont; det_ops = inp_ops role }
+
+let receive inp =
+  let ch, cont = Lin.use inp in
+  ( DynChan.receive (DynChan.finalise ch),
+    Lin.fresh (State.ensure_determinised cont) )

@@ -47,6 +47,36 @@ let test_run_infinite_loop () =
   in
   Thread.join ta
 
+let test_run_infinite_loop2 () =
+  assert_equal ()
+  @@
+  let _g0 = extract @@ fix_with [ a; b ] (fun t -> (a ==> b) @@ (a ==> b) t) in
+  let (`cons (sa, `cons (sb, _))) = _g0 in
+  let ta =
+    Thread.create
+      (fun () ->
+        let rec f sa i =
+          if i > 10000 then ()
+          else
+            let sa = send sa#role_B 100 in
+            f sa (i + 1)
+        in
+        f sa 0
+        (* exit *))
+      ()
+  in
+  let _tb =
+    Thread.create
+      (fun () ->
+        let rec f sb i =
+          let _, sb = receive sb#role_A in
+          f sb (i + 1)
+        in
+        f sb 0)
+      ()
+  in
+  Thread.join ta
+
 let test_run_infinite_input_merge () =
   assert_equal ()
   @@
@@ -71,7 +101,9 @@ let test_run_infinite_input_merge () =
         in
         loop
           (_sa
-            :> < role_B : < left : < role_C : < msg : 'a select > > select > > as 'a)
+            :> < role_B : < left : < role_C : < msg : 'a select > > select > >
+               as
+               'a)
           0)
       ()
   in
@@ -448,6 +480,7 @@ let suite =
   "Running mpst communication"
   >::: [
          "test_run_infinite_loop" >:: test_run_infinite_loop;
+         "test_run_infinite_loops" >:: test_run_infinite_loop2;
          "test_run_infinite_input_merge" >:: test_run_infinite_input_merge;
          "test_run_unbalanced_choice" >:: test_run_unbalanced_choice;
          "test_run_unbalanced_choice_nested"

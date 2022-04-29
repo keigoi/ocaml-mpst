@@ -81,20 +81,23 @@ type _ t =
 
 exception UnguardedLoop
 
-let unit =
-  let module D = struct
-    type a = unit
+module Unit : DetState with type a = unit = struct
+  type a = unit
 
-    let determinise _ _ = ()
-    let merge _ _ _ = ()
-    let force _ _ = ()
-    let to_string _ _ = "end"
-  end in
+  let determinise _ _ = ()
+  let merge _ _ _ = ()
+  let force _ _ = ()
+  let to_string _ _ = "end"
+end
+
+let unit =
   Deterministic
     ( Context.new_key (),
       Lazy.from_val
-        { det_state = (); det_ops = (module D : DetState with type a = unit) }
-    )
+        {
+          det_state = ();
+          det_ops = (module Unit : DetState with type a = unit);
+        } )
 
 let make_deterministic id obj = Deterministic (id, obj)
 let merge l r = Epsilon [ l; r ]
@@ -263,6 +266,11 @@ let to_string t = to_string_core (Context.make ()) t
 let merge_det (type a) ctx (id : a state_id) (l : a det_state lazy_t)
     (r : a det_state lazy_t) =
   determinise_list ctx id [ l; r ]
+
+let try_merge constrA constrB merge headA headB =
+  match Rows.cast_if_constrs_are_same constrA constrB headB with
+  | Some contB_body -> Some (merge headA contB_body)
+  | None -> None
 
 let try_merge_det (type a) ctx (id : a state_id) constrA constrB headA headB =
   let { det_state = headA; det_ops = (module D : DetState with type a = a) } =

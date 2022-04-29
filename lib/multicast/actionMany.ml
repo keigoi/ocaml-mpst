@@ -1,8 +1,8 @@
-type 'a many = 'a State.t list
+type 'a many = 'a LinState.t list
 
-let get_many ss = List.map State.determinise ss
+let get_many ss = List.map (fun s -> Lin.fresh @@ State.determinise s) ss
 
-let det_list_ops (type b) (module D : State.DetState with type a = b) =
+let det_list_ops (type b) (module D : State.DetState with type a = b Lin.gen) =
   let module DetList = struct
     type nonrec a = b many
 
@@ -14,32 +14,25 @@ let det_list_ops (type b) (module D : State.DetState with type a = b) =
 
     let to_string _ctx _s = "<multicast>"
   end in
-  (module DetList : State.DetState with type a = b many)
+  LinState.det_lin_ops (module DetList : State.DetState with type a = b many)
 
 let units ~count =
-  let module Unit = struct
-    type a = unit
-
-    let determinise _ _ = ()
-    let merge _ _ _ = ()
-    let force _ _ = ()
-    let to_string _ _ = "end"
-  end in
-  let unit_ops = (module Unit : State.DetState with type a = unit) in
+  let s = LinState.det_lin_ops (module State.Unit) in
   State.make_deterministic (State.Context.new_key ())
     begin
       lazy
       State.
         {
-          det_state = List.init count (fun _i -> State.unit);
-          det_ops = det_list_ops unit_ops;
+          det_state =
+            Lin.declare_unlimited @@ List.init count (fun _i -> LinState.unit);
+          det_ops = det_list_ops s;
         }
     end
 
-let outs ~count role lab names (ss : _ many State.t) : _ many State.t =
+let outs ~count role lab names (ss : _ many LinState.t) : _ many LinState.t =
   let ss =
     lazy
-      (let ss = State.determinise ss in
+      (let ss = Lin.fresh @@ State.determinise ss in
        ss)
   in
   let ss =
@@ -51,16 +44,17 @@ let outs ~count role lab names (ss : _ many State.t) : _ many State.t =
       State.
         {
           det_state =
-            List.mapi
-              (fun _i (name, s) -> ActionOut.make_out role lab name s)
-              (List.combine names ss);
+            Lin.declare_unlimited
+            @@ List.mapi
+                 (fun _i (name, s) -> ActionOut.make_out role lab name s)
+                 (List.combine names ss);
           det_ops = det_list_ops (ActionOut.out_ops role lab);
         })
 
-let inps ~count role constr names (ss : _ many State.t) : _ many State.t =
+let inps ~count role constr names (ss : _ many LinState.t) : _ many LinState.t =
   let ss =
     lazy
-      (let ss = State.determinise ss in
+      (let ss = Lin.fresh @@ State.determinise ss in
        ss)
   in
   let ss =
@@ -72,8 +66,9 @@ let inps ~count role constr names (ss : _ many State.t) : _ many State.t =
       State.
         {
           det_state =
-            List.mapi
-              (fun _i (name, s) -> ActionInp.make_inp role constr name s)
-              (List.combine names ss);
+            Lin.declare_unlimited
+            @@ List.mapi
+                 (fun _i (name, s) -> ActionInp.make_inp role constr name s)
+                 (List.combine names ss);
           det_ops = det_list_ops (ActionInp.inp_ops role);
         })

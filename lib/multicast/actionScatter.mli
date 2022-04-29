@@ -4,7 +4,7 @@ val make_scatter :
   ('a, 'b) Rows.method_ ->
   ('b, 'c scatter) Rows.method_ ->
   int DynChan.name list ->
-  'c State.t ->
-  'a State.t
+  'c LinState.t ->
+  'a LinState.t
 
 val scatter : 'a scatter -> 'a

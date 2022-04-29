@@ -1,5 +1,5 @@
-type 'a seq = 'a Hlist.Make(State).seq =
-  | ( :: ) : 'hd State.t * 'tl seq -> [ `cons of 'hd * 'tl ] seq
+type 'a seq = 'a Hlist.Make(LinState).seq =
+  | ( :: ) : 'hd LinState.t * 'tl seq -> [ `cons of 'hd * 'tl ] seq
   | [] : ([ `cons of unit * 'a ] as 'a) seq
 
 type ('obj, 'ot, 'var, 'vt) label = {

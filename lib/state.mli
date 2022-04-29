@@ -21,6 +21,8 @@ module type DetState = sig
   val to_string : context -> a -> string
 end
 
+module Unit : DetState with type a = unit
+
 type 'a det_state = {
   det_state : 'a;
   det_ops : (module DetState with type a = 'a);
@@ -55,3 +57,11 @@ val try_merge_det :
   'a det_state lazy_t ->
   'c det_state lazy_t ->
   'a det_state lazy_t option
+
+val try_merge :
+  ('a, 'b) Rows.constr ->
+  ('a, 'c) Rows.constr ->
+  ('b -> 'b -> 'b) ->
+  'b ->
+  'c ->
+  'b option

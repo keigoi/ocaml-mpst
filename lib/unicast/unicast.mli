@@ -1,16 +1,16 @@
 open BasicCombinators
 
-type 's out = 's ActionOut.out
-type 's inp = 's ActionInp.inp
+type 's select = 's ActionOut.select
+type 's branch = 's ActionInp.branch
 type chan
 
-val select : 'a out -> 'a
-val branch : 'a inp -> 'a
+val select : 'a select -> 'a
+val branch : 'a branch -> 'a
 val close : unit -> unit
 
 val ( --> ) :
-  ('a, 'b, 'c, 'd, 'e, 'f inp) role ->
+  ('a, 'b, 'c, 'd, 'e, 'f branch) role ->
   ('g, 'e, 'h, 'c, 'b, 'i) role ->
-  ('i, 'a out, 'f, 'g) label ->
+  ('i, 'a select, 'f, 'g) label ->
   'h global ->
   'd global

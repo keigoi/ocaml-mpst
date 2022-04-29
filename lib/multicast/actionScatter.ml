@@ -16,57 +16,39 @@ let merge_cont ctx l r =
   let state_id = Context.union_keys idl idr in
   State.make_deterministic state_id (State.merge_det ctx state_id dl dr)
 
-let scatter_ops (type b) (role : (b, _) method_) lab =
+let scatter_ops (type b) role lab =
   let module DetScatter = struct
-    type nonrec a = b
+    type nonrec a = b scatter_
 
-    let determinise ctx s =
-      let determinise_scatter (Scatter (tag, name, cont)) =
-        Scatter (tag, name, lazy (State.determinise_core ctx (Lazy.force cont)))
-      in
-      role.make_obj
-      @@ lab.make_obj
-      @@ Lin.map_lin determinise_scatter (lab.call_obj @@ role.call_obj s)
+    let determinise ctx (Scatter (tag, name, cont)) =
+      Scatter (tag, name, lazy (State.determinise_core ctx (Lazy.force cont)))
 
-    let merge ctx s1 s2 =
-      let merge_scatter s1 s2 =
-        let (Scatter (tag1, names1, cont1)) = s1
-        and (Scatter (tag2, names2, cont2)) = s2 in
-        assert (tag1 = tag2);
-        List.iter2 DynChan.unify names1 names2;
-        Scatter
-          ( tag1,
-            names1,
-            lazy (merge_cont ctx (Lazy.force cont1) (Lazy.force cont2)) )
-      in
-      role.make_obj
-      @@ lab.make_obj
-      @@ Lin.merge_lin merge_scatter
-           (lab.call_obj @@ role.call_obj s1)
-           (lab.call_obj @@ role.call_obj s2)
+    let merge ctx (Scatter (tag1, names1, cont1))
+        (Scatter (tag2, names2, cont2)) =
+      assert (tag1 = tag2);
+      List.iter2 DynChan.unify names1 names2;
+      Scatter
+        ( tag1,
+          names1,
+          lazy (merge_cont ctx (Lazy.force cont1) (Lazy.force cont2)) )
 
-    let force ctx s =
-      let (Scatter (_, names, cont)) =
-        Lin.raw_lin @@ lab.call_obj (role.call_obj s)
-      in
+    let force ctx (Scatter (_, names, cont)) =
       ignore (List.map DynChan.finalise names);
       State.force_core ctx (Lazy.force cont)
 
-    let to_string ctx s =
-      let (Scatter (_, _, cont)) =
-        Lin.raw_lin @@ lab.call_obj (role.call_obj s)
-      in
-      role.method_name
-      ^ "!!"
-      ^ lab.method_name
-      ^ "."
+    let to_string ctx (Scatter (_, _, cont)) =
+      "."
       ^
       if Lazy.is_val cont then
         let cont = Lazy.force cont in
         State.to_string_core ctx cont
       else "<lazy_out_cont>"
   end in
-  LinState.det_lin_ops (module DetScatter : State.DetState with type a = b)
+  LinState.det_gen_ops
+  @@ State.det_wrap_obj role
+  @@ State.det_wrap_obj lab
+  @@ LinState.det_lin_ops
+       (module DetScatter : State.DetState with type a = b scatter_)
 
 let out_state role lab name s =
   Lin.map_gen (fun s -> role.make_obj @@ lab.make_obj s)

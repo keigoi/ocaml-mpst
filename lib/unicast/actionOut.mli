@@ -1,22 +1,22 @@
-type 'a out
+type 'a select
 
-val make_out :
+val make_select :
   ('a, 'b) Rows.method_ ->
-  ('b, 'c out) Rows.method_ ->
+  ('b, 'c select) Rows.method_ ->
   int DynChan.name ->
   'c LinState.t ->
   'a LinState.t
 
-val out_state :
+val select_state :
   ('a, 'b) Rows.method_ ->
-  ('b, 'c out) Rows.method_ ->
+  ('b, 'c select) Rows.method_ ->
   int DynChan.name ->
   'c LinState.t ->
   'a Lin.gen
 
-val out_ops :
+val select_ops :
   ('a, 'b) Rows.method_ ->
-  ('b, 'c out) Rows.method_ ->
+  ('b, 'c select) Rows.method_ ->
   (module State.DetState with type a = 'a Lin.gen)
 
-val select : 's out -> 's
+val select : 's select -> 's

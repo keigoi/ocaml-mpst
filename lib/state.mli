@@ -38,6 +38,7 @@ module Context :
 
 val determinise_core : context -> 's t -> 's t
 val determinise_core_ : context -> 's t -> 's state_id * 's det_state lazy_t
+val merge_core : context -> 's t -> 's t -> 's t
 val force_core : context -> 'a t -> unit
 val to_string_core : context -> 'a t -> string
 val ensure_determinised : 's t -> 's
@@ -48,3 +49,8 @@ val merge_det :
   'a det_state lazy_t ->
   'a det_state lazy_t ->
   'a det_state lazy_t
+
+val det_wrap_obj :
+  ('obj, 'b) Rows.method_ ->
+  (module DetState with type a = 'b) ->
+  (module DetState with type a = 'obj)

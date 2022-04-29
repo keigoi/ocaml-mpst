@@ -1,20 +1,20 @@
-type 'var inp
+type 'var branch
 
-val make_inp :
-  ('a, 'c inp) Rows.method_ ->
+val make_branch :
+  ('a, 'c branch) Rows.method_ ->
   ('c, 'd) Rows.constr ->
   int DynChan.name ->
   'd LinState.t ->
   'a LinState.t
 
-val inp_state :
-  ('a, 'c inp) Rows.method_ ->
+val branch_state :
+  ('a, 'c branch) Rows.method_ ->
   ('c, 'd) Rows.constr ->
   int DynChan.name ->
   'd LinState.t ->
   'a Lin.gen
 
-val inp_ops :
-  ('a, 'c inp) Rows.method_ -> (module State.DetState with type a = 'a Lin.gen)
+val branch_ops :
+  ('a, 'c branch) Rows.method_ -> (module State.DetState with type a = 'a Lin.gen)
 
-val branch : 'var inp -> 'var
+val branch : 'var branch -> 'var

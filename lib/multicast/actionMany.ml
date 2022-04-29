@@ -14,10 +14,10 @@ let det_list_ops (type b) (module D : State.DetState with type a = b Lin.gen) =
 
     let to_string _ctx _s = "<multicast>"
   end in
-  LinState.det_lin_ops (module DetList : State.DetState with type a = b many)
+  (module DetList : State.DetState with type a = b many)
 
 let units ~count =
-  let s = LinState.det_lin_ops (module State.Unit) in
+  let s = LinState.det_gen_ops (module State.Unit) in
   State.make_deterministic (State.Context.new_key ())
     begin
       lazy
@@ -25,7 +25,7 @@ let units ~count =
         {
           det_state =
             Lin.declare_unlimited @@ List.init count (fun _i -> LinState.unit);
-          det_ops = det_list_ops s;
+          det_ops = LinState.det_gen_ops @@ det_list_ops s;
         }
     end
 
@@ -46,9 +46,10 @@ let outs ~count role lab names (ss : _ many LinState.t) : _ many LinState.t =
           det_state =
             Lin.declare_unlimited
             @@ List.mapi
-                 (fun _i (name, s) -> ActionOut.make_out role lab name s)
+                 (fun _i (name, s) -> ActionOut.make_select role lab name s)
                  (List.combine names ss);
-          det_ops = det_list_ops (ActionOut.out_ops role lab);
+          det_ops =
+            LinState.det_gen_ops @@ det_list_ops (ActionOut.select_ops role lab);
         })
 
 let inps ~count role constr names (ss : _ many LinState.t) : _ many LinState.t =
@@ -68,7 +69,8 @@ let inps ~count role constr names (ss : _ many LinState.t) : _ many LinState.t =
           det_state =
             Lin.declare_unlimited
             @@ List.mapi
-                 (fun _i (name, s) -> ActionInp.make_inp role constr name s)
+                 (fun _i (name, s) -> ActionInp.make_branch role constr name s)
                  (List.combine names ss);
-          det_ops = det_list_ops (ActionInp.inp_ops role);
+          det_ops =
+            LinState.det_gen_ops @@ det_list_ops (ActionInp.branch_ops role);
         })

@@ -229,6 +229,15 @@ let determinise_core ctx t =
   let id, st = determinise_core_ ctx t in
   make_deterministic id st
 
+let merge_det (type a) ctx (id : a state_id) (l : a det_state lazy_t)
+    (r : a det_state lazy_t) =
+  determinise_list ctx id [ l; r ]
+
+let merge_core ctx l r =
+  let idl, dl = determinise_core_ ctx l and idr, dr = determinise_core_ ctx r in
+  let state_id = Context.union_keys idl idr in
+  make_deterministic state_id (merge_det ctx state_id dl dr)
+
 let force_core (type a) ctx (t : a t) =
   match t with
   | Deterministic (sid, h) when Context.lookup ctx sid = None ->
@@ -263,6 +272,19 @@ let ensure_determinised = function
 
 let to_string t = to_string_core (Context.make ()) t
 
-let merge_det (type a) ctx (id : a state_id) (l : a det_state lazy_t)
-    (r : a det_state lazy_t) =
-  determinise_list ctx id [ l; r ]
+let det_wrap_obj (type obj b) (role : (obj, b) Rows.method_)
+    (module D : DetState with type a = b) =
+  let module M = struct
+    type nonrec a = obj
+
+    let determinise ctx s =
+      role.make_obj @@ D.determinise ctx @@ role.call_obj s
+
+    let merge ctx s1 s2 =
+      let inp1 = role.call_obj s1 and inp2 = role.call_obj s2 in
+      role.make_obj @@ D.merge ctx inp1 inp2
+
+    let force ctx s = D.force ctx @@ role.call_obj s
+    let to_string ctx s = role.method_name ^ D.to_string ctx (role.call_obj s)
+  end in
+  (module M : DetState with type a = obj)

@@ -30,7 +30,7 @@ let test_run_infinite_loop () =
             let sa = select sa#role_B#left in
             f sa (i + 1)
         in
-        f (sa :> < role_B : < left : 'b out > > as 'b) 0
+        f (sa :> < role_B : < left : 'b select > > as 'b) 0
         (* exit *))
       ()
   in
@@ -71,7 +71,7 @@ let test_run_infinite_input_merge () =
         in
         loop
           (_sa
-            :> < role_B : < left : < role_C : < msg : 'a out > > out > > as 'a)
+            :> < role_B : < left : < role_C : < msg : 'a select > > select > > as 'a)
           0)
       ()
   in

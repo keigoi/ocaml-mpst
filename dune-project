@@ -1,12 +1,8 @@
-(lang dune 1.12)
+(lang dune 2.8)
 
 (name mpst2)
 
 (version 0.0.1)
-
-(allow_approximate_merlin)
-
-(using fmt 1.1)
 
 (authors "Keigo Imai")
 

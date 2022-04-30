@@ -10,8 +10,8 @@
 (library
  (name ppx_mpst_ty)
  (public_name mpst2.ppx.ty)
- (modules ppx_mpst_ty concat)
+ (modules ppx_mpst_ty)
  (kind ppx_rewriter)
- (libraries ppx_mpst ppxlib)
+ (libraries ppx_mpst rows.ppx.ty ppxlib)
  (preprocess
   (pps ppxlib.metaquot)))

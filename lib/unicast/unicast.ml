@@ -4,6 +4,8 @@ open Sessions
 
 type 's select = 's ActionOut.select
 type 's branch = 's ActionInp.branch
+type ('v, 's) out = ('v, 's) ActionOut.out
+type ('v, 's) inp = ('v, 's) ActionInp.inp
 type chan = DynChan.chan
 
 let close () = ()
@@ -37,10 +39,31 @@ let ( --> ) ra rb lab g env =
   in
   let key = DynChan.new_name ch in
   let b = seq_get rb.role_index g in
-  let g = seq_put rb.role_index g (ActionInp.make_branch ra.role_label lab.var key b) in
+  let g =
+    seq_put rb.role_index g (ActionInp.make_branch ra.role_label lab.var key b)
+  in
   let a = seq_get ra.role_index g in
-  let g = seq_put ra.role_index g (ActionOut.make_select rb.role_label lab.obj key a) in
+  let g =
+    seq_put ra.role_index g (ActionOut.make_select rb.role_label lab.obj key a)
+  in
+  g
+
+let ( ==> ) ra rb g env =
+  let g = g env in
+  let ch =
+    lookup (Lookup.lookup env)
+      (ra.role_label.method_name, rb.role_label.method_name)
+  in
+  let key = DynChan.new_name ch in
+  let b = seq_get rb.role_index g in
+  let g = seq_put rb.role_index g (ActionInp.make_inp ra.role_label key b) in
+  let a = seq_get ra.role_index g in
+  let g =
+    seq_put ra.role_index g (ActionOut.make_out rb.role_label key a)
+  in
   g
 
 let select = ActionOut.select
 let branch = ActionInp.branch
+let send = ActionOut.send
+let receive = ActionInp.receive

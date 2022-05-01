@@ -1,0 +1,6 @@
+(executable
+ (name mixed1)
+ (modules mixed1)
+ (preprocess
+  (staged_pps mpst2.ppx.ty))
+ (libraries mpst2))

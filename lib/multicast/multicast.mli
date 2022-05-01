@@ -4,11 +4,6 @@ type 's scatter
 type 's gather
 type 's many
 
-type chan_table = {
-  process_count : (string, int) Hashtbl.t;
-  table : (string * string, DynChan.chan list) Hashtbl.t;
-}
-
 val ( -->@@ ) :
   ('a, 'b, 'c, 'd, 'e, 'f Unicast.branch) BasicCombinators.role ->
   ('g many, 'e many, 'h, 'c, 'b, 'i) BasicCombinators.role ->

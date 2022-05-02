@@ -11,7 +11,7 @@ end
 open Util
 
 let test_failfast_bottom () =
-  let bottom () = fix_with [ a; b; c ] (fun t -> t) in
+  let bottom () = loop_with [ a; b; c ] (fun t -> t) in
   assert_raises UnguardedLoop ~msg:"bottom" (fun _ ->
       ignore @@ extract @@ bottom ());
   assert_raises UnguardedLoop ~msg:"bottom after comm" (fun _ ->
@@ -40,7 +40,7 @@ let test_failfast_bottom () =
   assert_raises UnguardedLoop ~msg:"bottom after choice loop" (fun _ ->
       ignore
       @@ extract
-      @@ fix_with [ a; b; c ]
+      @@ loop_with [ a; b; c ]
       @@ fun t ->
       choice_at a
         [%disj role_B (left, right)]
@@ -51,7 +51,7 @@ let test_failfast_loop_roles () =
   assert_raises UnguardedLoop ~msg:"declared roles absent in the loop" (fun _ ->
       ignore
       @@ extract
-      @@ fix_with [ a; b; c ]
+      @@ loop_with [ a; b; c ]
       @@ fun t ->
       (* role A does not participate in the loop *)
       choice_at c
@@ -66,7 +66,7 @@ let test_failfast_loop_roles () =
            [%disj role_A (left, right)]
            ( b,
              (b --> a) left
-             @@ fix_with [ a; b; c ]
+             @@ loop_with [ a; b; c ]
              @@ fun t ->
              (* role A does not participate in the loop *)
              choice_at c
@@ -75,7 +75,7 @@ let test_failfast_loop_roles () =
                (c, (c --> b) right t) )
            ( b,
              (b --> a) right
-             @@ fix_with [ a; b; c ]
+             @@ loop_with [ a; b; c ]
              @@ fun t ->
              choice_at c
                [%disj role_B (left, right)]
@@ -84,7 +84,7 @@ let test_failfast_loop_roles () =
   assert_raises UnguardedLoop ~msg:"declared roles absent in the loop 3"
     (fun _ ->
       let cd =
-        fix_with [ a; b; c; d ] @@ fun t ->
+        loop_with [ a; b; c; d ] @@ fun t ->
         (* role A and B do not participate in the loop *)
         choice_at c
           [%disj role_D (left, right)]
@@ -103,7 +103,7 @@ let test_loop_merge () =
            [%disj role_B (left, right)]
            ( a,
              (a --> b) left
-             @@ fix_with [ a; b; c ] (fun t ->
+             @@ loop_with [ a; b; c ] (fun t ->
                     choice_at a
                       [%disj role_B (left, right)]
                       (a, (a --> b) left t)

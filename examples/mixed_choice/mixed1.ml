@@ -6,7 +6,7 @@ open Mpst.Unicast
 
 let () =
   let g =
-    fix_with [ a; b; c ] (fun t ->
+    loop_with [ a; b; c ] (fun t ->
         [%choice_at
           b
             ( (a ==> b) @@ (b --> a) resp t,

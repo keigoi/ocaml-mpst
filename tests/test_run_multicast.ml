@@ -18,8 +18,8 @@ let test_run_infinite_loop () =
     extract_with [ P (b, 5) ]
     @@ choice_at a
          [%disj role_B (left, right)]
-         (a, fix_with [ a; b ] (fun t -> (a -->@@ b) left t))
-         (a, fix_with [ a; b ] (fun t -> (a -->@@ b) right t))
+         (a, loop_with [ a; b ] (fun t -> (a -->@@ b) left t))
+         (a, loop_with [ a; b ] (fun t -> (a -->@@ b) right t))
   in
   let (`cons (sa, `cons (sb, _))) = _g0 in
   let ta =

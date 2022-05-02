@@ -26,11 +26,11 @@ let test_projection_success () =
   assert_equal ~msg:"simple loop" ()
   @@ ignore
   @@ extract
-  @@ fix_with [ a; b ] (fun t -> (a --> b) msg t);
+  @@ loop_with [ a; b ] (fun t -> (a --> b) msg t);
   assert_equal ~msg:"simple loop 2" ()
   @@ ignore
   @@ extract
-  @@ fix_with [ a; b; c ] (fun t ->
+  @@ loop_with [ a; b; c ] (fun t ->
          [%choice_at
            a
              ((a --> b) left @@ (b --> c) middle t)
@@ -38,7 +38,7 @@ let test_projection_success () =
   assert_equal ~msg:"simple loop 3" ()
   @@ ignore
   @@ extract
-  @@ fix_with [ a; b; c ] (fun t ->
+  @@ loop_with [ a; b; c ] (fun t ->
          [%choice_at
            a
              ((a --> b) left @@ (b --> c) msg t)
@@ -46,7 +46,7 @@ let test_projection_success () =
   assert_equal ~msg:"loop with recursive merging" ()
   @@ ignore
   @@ extract
-  @@ fix_with [ a; b; c ] (fun t ->
+  @@ loop_with [ a; b; c ] (fun t ->
          [%choice_at
            a
              ((a --> b) left @@ (a --> c) msg t)
@@ -60,7 +60,7 @@ let test_projection_success () =
          ((a --> c) right @@ (a --> b) msg finish)]
 
 let test_failfast_bottom () =
-  let bottom () = fix_with [ a; b; c ] (fun t -> t) in
+  let bottom () = loop_with [ a; b; c ] (fun t -> t) in
   assert_raises UnguardedLoop ~msg:"bottom" (fun _ ->
       ignore @@ extract @@ bottom ());
   assert_raises UnguardedLoop ~msg:"bottom after comm" (fun _ ->
@@ -86,7 +86,7 @@ let test_failfast_bottom () =
   assert_raises UnguardedLoop ~msg:"bottom after choice loop" (fun _ ->
       ignore
       @@ extract
-      @@ fix_with [ a; b; c ]
+      @@ loop_with [ a; b; c ]
       @@ fun t ->
       [%choice_at
         a
@@ -97,7 +97,7 @@ let test_failfast_loop_roles () =
   assert_raises UnguardedLoop ~msg:"declared roles absent in the loop" (fun _ ->
       ignore
       @@ extract
-      @@ fix_with [ a; b; c ]
+      @@ loop_with [ a; b; c ]
       @@ fun t ->
       (* role A does not participate in the loop *)
       [%choice_at c ((c --> b) left t) ((c --> b) right t)]);
@@ -107,12 +107,12 @@ let test_failfast_loop_roles () =
         [%choice_at b
           ( 
             (b --> a) left
-            @@ fix_with [ a; b; c ] (fun t ->
+            @@ loop_with [ a; b; c ] (fun t ->
                    (* role A does not participate in the loop *)
                    [%choice_at c ((c --> b) left t) ((c --> b) right t)]) )
           ( 
             (b --> a) right
-            @@ fix_with [ a; b; c ] (fun t ->
+            @@ loop_with [ a; b; c ] (fun t ->
                    [%choice_at c ((c --> b) left t) ((c --> b) right t)]) )]
       in
       ignore @@ extract g)
@@ -126,7 +126,7 @@ let test_loop_merge () =
         [%choice_at
           a
             ( (a --> b) left
-              @@ fix_with [ a; b; c ] (fun t ->
+              @@ loop_with [ a; b; c ] (fun t ->
                      [%choice_at a ((a --> b) left t, (a --> b) right t)]),
               (a --> b) right @@ (a --> b) left @@ (b --> c) left finish )]
       in

@@ -7,7 +7,7 @@ type op = Add | Sub | Mul | Div
 [%%declare_labels compute, result, answer]
 
 let calc =
-  fix_with [ cli; srv ] (fun t ->
+  loop_with [ cli; srv ] (fun t ->
       [%choice_at
         cli
           ( (cli --> srv) compute @@ (cli ==> srv) t,

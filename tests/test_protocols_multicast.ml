@@ -36,11 +36,11 @@ let test_multicast_projection_success () =
   assert_equal ~msg:"simple loop" ()
   @@ ignore
   @@ extract_b_many
-  @@ fix_with [ a; b ] (fun t -> (a -->@@ b) msg t);
+  @@ loop_with [ a; b ] (fun t -> (a -->@@ b) msg t);
   assert_equal ~msg:"simple loop 2" ()
   @@ ignore
   @@ extract_b_many
-  @@ fix_with [ a; b; c ] (fun t ->
+  @@ loop_with [ a; b; c ] (fun t ->
          choice_at a
            [%disj b (left, right)]
            (a, (a -->@@ b) left @@ (b @@--> c) middle t)
@@ -48,7 +48,7 @@ let test_multicast_projection_success () =
   assert_equal ~msg:"simple loop 3" ()
   @@ ignore
   @@ extract_b_many
-  @@ fix_with [ a; b; c ] (fun t ->
+  @@ loop_with [ a; b; c ] (fun t ->
          choice_at a
            [%disj b (left, right)]
            (a, (a -->@@ b) left @@ (b @@--> c) msg t)
@@ -56,7 +56,7 @@ let test_multicast_projection_success () =
   assert_equal ~msg:"loop with recursive merging" ()
   @@ ignore
   @@ extract_b_many
-  @@ fix_with [ a; b; c ] (fun t ->
+  @@ loop_with [ a; b; c ] (fun t ->
          choice_at a
            [%disj b (left, right)]
            (a, (a -->@@ b) left @@ (a --> c) msg t)

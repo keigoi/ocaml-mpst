@@ -17,8 +17,8 @@ let test_run_infinite_loop () =
     extract
     @@ choice_at a
          [%disj role_B (left, right)]
-         (a, fix_with [ a; b ] (fun t -> (a --> b) left t))
-         (a, fix_with [ a; b ] (fun t -> (a --> b) right t))
+         (a, loop_with [ a; b ] (fun t -> (a --> b) left t))
+         (a, loop_with [ a; b ] (fun t -> (a --> b) right t))
   in
   let (`cons (sa, `cons (sb, _))) = _g0 in
   let ta =
@@ -50,7 +50,7 @@ let test_run_infinite_loop () =
 let test_run_infinite_loop2 () =
   assert_equal ()
   @@
-  let _g0 = extract @@ fix_with [ a; b ] (fun t -> (a ==> b) @@ (a ==> b) t) in
+  let _g0 = extract @@ loop_with [ a; b ] (fun t -> (a ==> b) @@ (a ==> b) t) in
   let (`cons (sa, `cons (sb, _))) = _g0 in
   let ta =
     Thread.create
@@ -85,8 +85,8 @@ let test_run_infinite_input_merge () =
     @@ choice_at a
          [%disj role_B (left, right)]
          (* c receives the same label -- we must ensure the recursive merging for C is terminating *)
-         (a, fix_with [ a; b; c ] (fun t -> (a --> b) left @@ (a --> c) msg t))
-         (a, fix_with [ a; b; c ] (fun t -> (a --> b) right @@ (a --> c) msg t))
+         (a, loop_with [ a; b; c ] (fun t -> (a --> b) left @@ (a --> c) msg t))
+         (a, loop_with [ a; b; c ] (fun t -> (a --> b) right @@ (a --> c) msg t))
   in
   let (`cons (_sa, `cons (_sb, `cons (_sc, _)))) = g in
   let ta =
@@ -135,7 +135,7 @@ let test_run_unbalanced_choice () =
   @@
   let g =
     extract
-    @@ fix_with [ a; b; c ] (fun t ->
+    @@ loop_with [ a; b; c ] (fun t ->
            choice_at a
              [%disj role_B (left, right)]
              (a, (a --> b) left t)
@@ -176,7 +176,7 @@ let test_run_unbalanced_choice_nested () =
   @@
   let g =
     extract
-    @@ fix_with [ a; b; c ] (fun t ->
+    @@ loop_with [ a; b; c ] (fun t ->
            choice_at a
              [%disj role_B ([ left; middle ], right)]
              ( a,
@@ -227,12 +227,12 @@ let test_run_unbalanced_choice_nested2 () =
   @@
   let g =
     extract
-    @@ fix_with [ a; b; c ] (fun t1 ->
+    @@ loop_with [ a; b; c ] (fun t1 ->
            choice_at a
              [%disj role_B (left, [ middle; right ])]
              (a, (a --> b) left @@ (a --> c) left finish)
              ( a,
-               fix_with [ a; b; c ] (fun t2 ->
+               loop_with [ a; b; c ] (fun t2 ->
                    choice_at a
                      [%disj role_B (middle, right)]
                      (a, (a --> b) middle @@ (a --> c) middle t2)
@@ -284,9 +284,9 @@ let test_run_unguarded_choice_alternative () =
   @@
   let g =
     extract
-    @@ fix_with [ a; b ] (fun t ->
+    @@ loop_with [ a; b ] (fun t ->
            (a --> b) left
-           @@ fix_with [ a; b ] (fun u ->
+           @@ loop_with [ a; b ] (fun u ->
                   choice_at a
                     [%disj role_B (left, right)]
                     (a, t)
@@ -320,7 +320,7 @@ let test_run_unguarded_choice_alternative () =
 let test_run_unguarded_choice_alternative_unbalanced () =
   let g =
     extract
-    @@ fix_with [ a; b; c ] (fun t ->
+    @@ loop_with [ a; b; c ] (fun t ->
            (a --> b) left
            @@ choice_at a
                 [%disj role_B (left, right)]
@@ -357,7 +357,7 @@ let test_run_partially_unguarded_choice_alternative () =
   @@
   let g =
     extract
-    @@ fix_with [ a; b; c ] (fun t ->
+    @@ loop_with [ a; b; c ] (fun t ->
            (a --> b) msg
            @@ choice_at a
                 [%disj role_C (left, right)]

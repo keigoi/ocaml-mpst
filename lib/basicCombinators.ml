@@ -123,7 +123,7 @@ let partial_finish keep_idxs g =
   in
   make_partial_finish ~keep_idxs ~keeps:g
 
-let fix_with keep_idxs f ctx =
+let loop_with keep_idxs f ctx =
   let rec self =
     lazy (partial_finish keep_idxs (lazy (f (fun _ctx -> Lazy.force self) ctx)))
   in

@@ -1,6 +1,4 @@
-type 'a seq = 'a Hlist.Make(LinState).seq =
-  | ( :: ) : 'hd LinState.t * 'tl seq -> [ `cons of 'hd * 'tl ] seq
-  | [] : ([ `cons of unit * 'a ] as 'a) seq
+type 'a seq = 'a Hlist.Make(LinState).seq
 
 type ('obj, 'ot, 'var, 'vt) label = {
   obj : ('obj, 'ot) Rows.method_;
@@ -35,7 +33,7 @@ module Open : sig
     | ( :: ) : (unit, 'b, 'bb, 'cc, 'a, 'c) role * 'bb t -> 'cc t
 end
 
-val fix_with : 'a Open.t -> ('a global -> 'a global) -> 'a global
+val loop_with : 'a Open.t -> ('a global -> 'a global) -> 'a global
 val finish : ([ `cons of unit * 'a ] as 'a) global
 
 type param = ..

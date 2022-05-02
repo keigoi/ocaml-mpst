@@ -1,0 +1,12 @@
+[submodule "submodules/rows-ocaml"]
+	path = submodules/rows-ocaml
+	url = https://github.com/keigoi/rows-ocaml.git
+[submodule "submodules/hlist-ocaml"]
+	path = submodules/hlist-ocaml
+	url = https://github.com/keigoi/hlist-ocaml.git
+[submodule "vendor/hlist-ocaml"]
+	path = vendor/hlist-ocaml
+	url = https://github.com/keigoi/hlist-ocaml.git
+[submodule "vendor/rows-ocaml"]
+	path = vendor/rows-ocaml
+	url = https://github.com/keigoi/rows-ocaml.git

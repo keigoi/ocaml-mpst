@@ -2,5 +2,5 @@
  (name calc)
  (modules calc)
  (preprocess
-  (staged_pps mpst2.ppx.ty))
- (libraries mpst2))
+  (staged_pps mpst.ppx.ty))
+ (libraries mpst))

@@ -1,6 +1,6 @@
-open Mpst2.BasicCombinators
-open Mpst2.Unicast
-open Mpst2.Multicast
+open Mpst.BasicCombinators
+open Mpst.Unicast
+open Mpst.Multicast
 open Rows
 open OUnit
 
@@ -13,10 +13,10 @@ open Util
 
 let extract_b_many g =
   let `cons(_,`cons(b,_)) = extract g in
-  ignore (Mpst2.Multicast.get_many b)
+  ignore (Mpst.Multicast.get_many b)
 
 let test_multicast_projection_success () =
-  let finish = many_at a Mpst2.BasicCombinators.finish in
+  let finish = many_at a Mpst.BasicCombinators.finish in
   ignore @@ extract @@ (a @@--> b) left finish;
   ignore
   @@ extract
@@ -25,7 +25,7 @@ let test_multicast_projection_success () =
        (b, (b -->@@ a) left finish)
        (b, (b -->@@ a) right finish);
   assert_equal () @@ ignore @@ extract @@ (a @@--> b) msg finish;
-  let finish = many_at b Mpst2.BasicCombinators.finish in
+  let finish = many_at b Mpst.BasicCombinators.finish in
   assert_equal ~msg:"simple" ()
   @@ ignore
   @@ extract_b_many

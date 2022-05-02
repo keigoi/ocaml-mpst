@@ -1,6 +1,6 @@
 (library
  (name ppx_mpst)
- (public_name mpst2.ppx)
+ (public_name mpst.ppx)
  (modules ppx_mpst)
  (kind ppx_rewriter)
  (libraries ppxlib rows.ppx)
@@ -9,7 +9,7 @@
 
 (library
  (name ppx_mpst_ty)
- (public_name mpst2.ppx.ty)
+ (public_name mpst.ppx.ty)
  (modules ppx_mpst_ty)
  (kind ppx_rewriter)
  (libraries ppx_mpst rows.ppx.ty ppxlib)

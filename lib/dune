@@ -1,6 +1,6 @@
 (library
- (name mpst2)
- (public_name mpst2)
+ (name mpst)
+ (public_name mpst)
  (libraries hlist rows threads stdlib-shims compiler-libs.common))
 
 (include_subdirs unqualified)

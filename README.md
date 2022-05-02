@@ -51,22 +51,22 @@ dune exec examples/mpst/calc.exe
 
 ## ocaml-mpst in 5 minutes
 
-0. Prepare your own `dune` file.
+0. Prepare your own `dune` file and create `my_example.ml`.
 
 ```
 (executable
  (name my_example)
  (modules my_example)
  (preprocess
-  (staged_pps mpst2.ppx.ty))
- (libraries mpst2))
+  (staged_pps mpst.ppx.ty))
+ (libraries mpst))
 ```
 
 1. Declare the name of participants (__roles__) and __labels__:
 
 ```
-open Mpst2.BasicCombinators
-open Mpst2.Unicast
+open Mpst.BasicCombinators
+open Mpst.Unicast
 
 [%%declare_roles_prefixed a, b, c] (* note that the order matters *)
 [%%declare_labels msg]
@@ -88,14 +88,14 @@ let ring = (a --> b) msg @@ (b --> c) msg @@ (c --> a) finish
 
 (More combinators will be explained later.)
 
-2. Extract channels for each participants (here `sa` for `A`, `sb` for `B`, and
+3. Extract channels for each participants (here `sa` for `A`, `sb` for `B`, and
    `sc` for `C`) from the protocol:
 
 ```ocaml
 let `cons(sa, `cons(sb, `cons(sc, _)) = extract ring
 ```
 
-3. Run threads in parallel, one for each participant!
+4. Run threads in parallel, one for each participant!
 
 ```ocaml
 (* Participant A *)
@@ -117,6 +117,12 @@ Thread.create (fun () ->
 let `msg sc = branch sc#role_C in
 let sc = select sc#role_A#msg in
 close sc
+```
+
+5. Run it!
+
+```sh
+dune exec my_example
 ```
 
 It will start two threads behaving as the participant `A` and `B`, then runs `C`

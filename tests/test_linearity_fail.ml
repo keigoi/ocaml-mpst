@@ -1,5 +1,5 @@
-open Mpst2.BasicCombinators
-open Mpst2.Unicast
+open Mpst.BasicCombinators
+open Mpst.Unicast
 open Rows
 open OUnit
 
@@ -21,11 +21,11 @@ let test_linearity_violation () =
          (a, (a --> b) right finish)
   in
   let (`cons (sa, `cons (sb, _))) = _g0 in
-  assert_raises Mpst2.Lin.InvalidEndpoint ~msg:"linearity violation" (fun _ ->
+  assert_raises Mpst.Lin.InvalidEndpoint ~msg:"linearity violation" (fun _ ->
       let _ = select sa#role_B#left in
       let _ = select sa#role_B#left in
       ());
-  assert_raises Mpst2.Lin.InvalidEndpoint ~msg:"linearity violation" (fun _ ->
+  assert_raises Mpst.Lin.InvalidEndpoint ~msg:"linearity violation" (fun _ ->
       let _ = branch sb#role_A in
       let _ = branch sb#role_A in
       ())

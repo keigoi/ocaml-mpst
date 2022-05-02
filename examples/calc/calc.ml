@@ -1,5 +1,5 @@
-open Mpst2.BasicCombinators
-open Mpst2.Unicast
+open Mpst.BasicCombinators
+open Mpst.Unicast
 
 type op = Add | Sub | Mul | Div
 

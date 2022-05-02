@@ -2,47 +2,47 @@
  (name test_protocols_mergefail)
  (modules test_protocols_mergefail)
  (preprocess
-  (pps mpst2.ppx))
- (libraries mpst2 oUnit))
+  (pps mpst.ppx))
+ (libraries mpst oUnit))
 
 (test
  (name test_protocols_merge)
  (modules test_protocols_merge)
  (preprocess
-  (pps mpst2.ppx))
- (libraries mpst2 oUnit))
+  (pps mpst.ppx))
+ (libraries mpst oUnit))
 
 (test
  (name test_run_loop)
  (modules test_run_loop)
  (preprocess
-  (pps mpst2.ppx))
- (libraries mpst2 oUnit))
+  (pps mpst.ppx))
+ (libraries mpst oUnit))
 
 (test
  (name test_protocols_multicast)
  (modules test_protocols_multicast)
  (preprocess
-  (pps mpst2.ppx))
- (libraries mpst2 oUnit))
+  (pps mpst.ppx))
+ (libraries mpst oUnit))
 
 (test
  (name test_run_multicast)
  (modules test_run_multicast)
  (preprocess
-  (pps mpst2.ppx))
- (libraries mpst2 oUnit))
+  (pps mpst.ppx))
+ (libraries mpst oUnit))
 
 (test
  (name test_linearity_fail)
  (modules test_linearity_fail)
  (preprocess
-  (pps mpst2.ppx))
- (libraries mpst2 oUnit))
+  (pps mpst.ppx))
+ (libraries mpst oUnit))
 
 (test
  (name test_ppx_ty)
  (modules test_ppx_ty)
  (preprocess
-  (staged_pps mpst2.ppx.ty))
- (libraries mpst2 oUnit))
+  (staged_pps mpst.ppx.ty))
+ (libraries mpst oUnit))

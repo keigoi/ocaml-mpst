@@ -43,7 +43,13 @@ let declare_roles ~loc ?prefix strlocs : Parsetree.module_expr =
 
 let payload_ident_tuple =
   let open Ppxlib.Ast_pattern in
-  pstr (pstr_eval (pexp_tuple @@ many (pexp_ident (lident __'))) nil ^:: nil)
+  pstr
+    (pstr_eval
+       (alt
+          (pexp_tuple @@ many (pexp_ident (lident __')))
+          (map ~f:(fun f x -> f [ x ]) @@ pexp_ident (lident __')))
+       nil
+    ^:: nil)
 
 let labels =
   let open Ppxlib in

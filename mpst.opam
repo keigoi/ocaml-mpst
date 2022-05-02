@@ -13,6 +13,7 @@ depends: [
   "stdlib-shims"
   "hlist"
   "rows"
+  "ppxlib"
   "odoc" {with-doc}
 ]
 build: [

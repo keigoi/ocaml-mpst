@@ -51,7 +51,7 @@ dune exec examples/mpst/calc.exe
 
 ## ocaml-mpst in 5 minutes
 
-0. Prepare your own `dune` file and create `my_example.ml`.
+0. Create and go into `examples/my_example/` and prepare your own `dune` file and `my_example.ml`.
 
 ```
 (executable
@@ -92,7 +92,7 @@ let ring = (a --> b) msg @@ (b --> c) msg @@ (c --> a) finish
    `sc` for `C`) from the protocol:
 
 ```ocaml
-let `cons(sa, `cons(sb, `cons(sc, _)) = extract ring
+let (`cons(sa, `cons(sb, `cons(sc, _)))) = extract ring;;
 ```
 
 4. Run threads in parallel, one for each participant!
@@ -102,7 +102,6 @@ let `cons(sa, `cons(sb, `cons(sc, _)) = extract ring
 Thread.create (fun () ->
   let sa = select sa#role_B#msg in
   let `msg sa = branch sa#role_C in
-  print_endline str;
   close sa
 ) ();;
 
@@ -114,15 +113,16 @@ Thread.create (fun () ->
 ) ();;
 
 (* Participant C *)
-let `msg sc = branch sc#role_C in
+let `msg sc = branch sc#role_B in
 let sc = select sc#role_A#msg in
-close sc
+close sc;
+print_endline "Ring-based communication finished successfully!"
 ```
 
 5. Run it!
 
 ```sh
-dune exec my_example
+dune exec ./my_example.exe
 ```
 
 It will start two threads behaving as the participant `A` and `B`, then runs `C`
@@ -136,7 +136,7 @@ in the main thread.
 - Primitive `branch s#role_W` inputs the message from role `W`. The received
   message will have form
   `` msg s` packed inside a OCaml's _polymorphic variant_ constructor  ``msg`, 
-  with continuation channel`s`(again, re-binding existing channel variable`s`).
+  with continuation channel`s`(again, re-binding existing channel variable `s`).
 - Primitive `close` terminates a communication channel.
 
 - To communicate OCaml values, use `(==>)` combinator and `send` and `receive`

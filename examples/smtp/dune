@@ -1,3 +1,0 @@
-(executable
- (name smtpclient)
- (libraries mpst_plug str))

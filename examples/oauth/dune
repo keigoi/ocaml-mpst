@@ -1,3 +1,0 @@
-(executable
- (name oauth)
- (libraries mpst_http lwt.unix lwt_log lwt_ssl cmdliner))

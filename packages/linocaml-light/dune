@@ -1,4 +1,0 @@
-(library
- (public_name linocaml-light)
- (name linocaml)
- (libraries concur-shims))

@@ -1,9 +1,0 @@
-(executable
- (name dnsserver)
- (modules dnsserver)
- (libraries mpst_plug dns-lwt-unix lwt.unix dnshelper))
-
-(library
- (name dnshelper)
- (modules dnshelper)
- (libraries mpst_plug dns-lwt-unix lwt.unix))

@@ -1,4 +1,0 @@
-(library
- (public_name ocaml-mpst-plug-http)
- (name mpst_http)
- (libraries ocaml-mpst-plug conduit-lwt-unix cohttp-lwt-unix uri sexplib))

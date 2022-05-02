@@ -43,13 +43,6 @@ val force_core : context -> 'a t -> unit
 val to_string_core : context -> 'a t -> string
 val ensure_determinised : 's t -> 's
 
-val merge_det :
-  context ->
-  'a state_id ->
-  'a det_state lazy_t ->
-  'a det_state lazy_t ->
-  'a det_state lazy_t
-
 val det_wrap_obj :
   ('obj, 'b) Rows.method_ ->
   (module DetState with type a = 'b) ->

@@ -10,12 +10,6 @@ type _ scatter_ =
 
 type 'a scatter = 'a scatter_ Lin.lin
 
-let merge_cont ctx l r =
-  let idl, dl = State.determinise_core_ ctx l
-  and idr, dr = State.determinise_core_ ctx r in
-  let state_id = Context.union_keys idl idr in
-  State.make_deterministic state_id (State.merge_det ctx state_id dl dr)
-
 let scatter_ops (type b) role lab =
   let module DetScatter = struct
     type nonrec a = b scatter_
@@ -30,7 +24,7 @@ let scatter_ops (type b) role lab =
       Scatter
         ( tag1,
           names1,
-          lazy (merge_cont ctx (Lazy.force cont1) (Lazy.force cont2)) )
+          lazy (State.merge_core ctx (Lazy.force cont1) (Lazy.force cont2)) )
 
     let force ctx (Scatter (_, names, cont)) =
       ignore (List.map DynChan.finalise names);

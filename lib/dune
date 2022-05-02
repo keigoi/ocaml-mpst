@@ -1,6 +1,6 @@
 (library
  (name mpst)
  (public_name mpst)
- (libraries hlist rows threads stdlib-shims compiler-libs.common))
+ (libraries hlist rows threads stdlib-shims compiler-libs.common session_ocaml))
 
 (include_subdirs unqualified)

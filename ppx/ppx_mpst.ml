@@ -1,4 +1,4 @@
-open Parsetree
+open Ppxlib
 
 let rec peano_natural ~loc (i : int) =
   if i = 0 then [%expr Zero] else [%expr Succ [%e peano_natural ~loc (i - 1)]]
@@ -42,7 +42,7 @@ let declare_roles ~loc ?prefix strlocs : Parsetree.module_expr =
          strlocs))
 
 let payload_ident_tuple =
-  let open Ppxlib.Ast_pattern in
+  let open Ast_pattern in
   pstr
     (pstr_eval
        (alt
@@ -52,24 +52,21 @@ let payload_ident_tuple =
     ^:: nil)
 
 let labels =
-  let open Ppxlib in
   Extension.declare "declare_labels" Extension.Context.Structure_item
     payload_ident_tuple (fun ~loc ~path:_ lablocs ->
       [%stri include [%m declare_labels ~loc lablocs]])
 
 let roles =
-  let open Ppxlib in
   Extension.declare "declare_roles" Extension.Context.Structure_item
     payload_ident_tuple (fun ~loc ~path:_ lablocs ->
       [%stri include [%m declare_roles ~loc lablocs]])
 
 let roles_prefixed =
-  let open Ppxlib in
   Extension.declare "declare_roles_prefixed" Extension.Context.Structure_item
     payload_ident_tuple (fun ~loc ~path:_ lablocs ->
       [%stri include [%m declare_roles ~loc ~prefix:"role_" lablocs]])
 
 let () =
-  Ppxlib.Driver.register_transformation
+  Driver.register_transformation
     ~extensions:[ labels; roles; roles_prefixed ]
     "ppx_mpst"

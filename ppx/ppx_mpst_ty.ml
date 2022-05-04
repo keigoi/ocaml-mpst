@@ -1,4 +1,4 @@
-open Parsetree
+open Ppxlib
 
 let make_choice_at ~loc role alt1 alt2 alts =
   Ast_helper.(
@@ -10,7 +10,6 @@ let make_choice_at ~loc role alt1 alt2 alts =
     List.fold_left (fun exp alt -> choice exp alt) (choice alt1 alt2) alts)
 
 let choice =
-  let open Ppxlib in
   Extension.declare "choice_at" Extension.Context.Expression
     Ast_pattern.(
       pstr
@@ -26,4 +25,4 @@ let choice =
       make_choice_at ~loc role alt1 alt2 alts)
 
 let () =
-  Ppxlib.Driver.register_transformation ~extensions:[ choice ] "ppx_mpst_ty"
+  Driver.register_transformation ~extensions:[ choice ] "ppx_mpst_ty"

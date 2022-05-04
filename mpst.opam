@@ -8,8 +8,8 @@ homepage: "https://github.com/keigoi/ocaml-mpst"
 doc: "https://github.com/keigoi/ocaml-mpst"
 bug-reports: "https://github.com/keigoi/ocaml-mpst/issues"
 depends: [
+  "ocaml" {>= "4.12.0"}
   "dune" {>= "2.8"}
-  "stdlib-shims"
   "hlist"
   "rows"
   "ppxlib"

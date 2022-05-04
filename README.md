@@ -1,6 +1,7 @@
 # OCaml-MPST
+[![Build](https://github.com/keigoi/ocaml-mpst/workflows/Build/badge.svg)](https://github.com/keigoi/ocaml-mpst/actions)
 
-## New version is coming soon
+## The new version is coming soon
 
 We are striving to develop the new generation of OCaml-MPST which equips with _timeouts_ (in particular, _mixed choices_ in session-type/process-calculus terminology) and is supporting _OCaml Multicore_.
 

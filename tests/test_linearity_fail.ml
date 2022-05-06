@@ -14,13 +14,12 @@ let test_linearity_violation () =
   assert_equal ()
   @@
   let _g0 =
-    extract
-    @@ choice_at a
-         [%disj role_B (left, right)]
-         (a, (a --> b) left finish)
-         (a, (a --> b) right finish)
+    choice_at a
+      [%disj role_B (left, right)]
+      (a, (a --> b) left finish)
+      (a, (a --> b) right finish)
   in
-  let (`cons (sa, `cons (sb, _))) = _g0 in
+  let (`cons (sa, `cons (sb, #nil))) = extract _g0 in
   assert_raises Mpst.Lin.InvalidEndpoint ~msg:"linearity violation" (fun _ ->
       let _ = select sa#role_B#left in
       let _ = select sa#role_B#left in

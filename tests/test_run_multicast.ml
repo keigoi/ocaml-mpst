@@ -21,7 +21,7 @@ let test_run_infinite_loop () =
          (a, loop_with [ a; b ] (fun t -> (a -->@@ b) left t))
          (a, loop_with [ a; b ] (fun t -> (a -->@@ b) right t))
   in
-  let (`cons (sa, `cons (sb, _))) = _g0 in
+  let (`cons (sa, `cons (sb, #nil))) = _g0 in
   let ta =
     Thread.create
       (fun () ->

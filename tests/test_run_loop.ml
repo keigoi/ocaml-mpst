@@ -20,7 +20,7 @@ let test_run_infinite_loop () =
          (a, loop_with [ a; b ] (fun t -> (a --> b) left t))
          (a, loop_with [ a; b ] (fun t -> (a --> b) right t))
   in
-  let (`cons (sa, `cons (sb, _))) = _g0 in
+  let (`cons (sa, `cons (sb, #nil))) = _g0 in
   let ta =
     Thread.create
       (fun () ->
@@ -51,7 +51,7 @@ let test_run_infinite_loop2 () =
   assert_equal ()
   @@
   let _g0 = extract @@ loop_with [ a; b ] (fun t -> (a ==> b) @@ (a ==> b) t) in
-  let (`cons (sa, `cons (sb, _))) = _g0 in
+  let (`cons (sa, `cons (sb, #nil))) = _g0 in
   let ta =
     Thread.create
       (fun () ->
@@ -88,7 +88,7 @@ let test_run_infinite_input_merge () =
          (a, loop_with [ a; b; c ] (fun t -> (a --> b) left @@ (a --> c) msg t))
          (a, loop_with [ a; b; c ] (fun t -> (a --> b) right @@ (a --> c) msg t))
   in
-  let (`cons (_sa, `cons (_sb, `cons (_sc, _)))) = g in
+  let (`cons (_sa, `cons (_sb, `cons (_sc, #nil)))) = g in
   let ta =
     Thread.create
       (fun () ->
@@ -141,7 +141,7 @@ let test_run_unbalanced_choice () =
              (a, (a --> b) left t)
              (a, (a --> b) right @@ (b --> c) right finish))
   in
-  let (`cons (sa, `cons (sb, `cons (sc, _)))) = g in
+  let (`cons (sa, `cons (sb, `cons (sc, #nil)))) = g in
   let _ta =
     Thread.create
       (fun () ->
@@ -186,7 +186,7 @@ let test_run_unbalanced_choice_nested () =
                  (a, (a --> b) middle t) )
              (a, (a --> b) right @@ (a --> c) msg finish))
   in
-  let (`cons ((sa : 'ta), `cons ((sb : 'tb), `cons ((sc : 'tc), _)))) = g in
+  let (`cons ((sa : 'ta), `cons ((sb : 'tb), `cons ((sc : 'tc), #nil)))) = g in
   let t1 =
     Thread.create
       (fun () ->
@@ -238,7 +238,7 @@ let test_run_unbalanced_choice_nested2 () =
                      (a, (a --> b) middle @@ (a --> c) middle t2)
                      (a, (a --> b) right @@ t1)) ))
   in
-  let (`cons ((sa : 'sa9), `cons ((sb : 'sb9), `cons ((sc : 'sc9), _)))) = g in
+  let (`cons ((sa : 'sa9), `cons ((sb : 'sb9), `cons ((sc : 'sc9), #nil)))) = g in
   let ta =
     Thread.create
       (fun () ->
@@ -292,7 +292,7 @@ let test_run_unguarded_choice_alternative () =
                     (a, t)
                     (a, (a --> b) right @@ u)))
   in
-  let (`cons ((sa : 'sa7), `cons ((sb : 'sb7), _))) = g in
+  let (`cons ((sa : 'sa7), `cons ((sb : 'sb7), #nil))) = g in
   let ta =
     Thread.create
       (fun () ->
@@ -327,7 +327,7 @@ let test_run_unguarded_choice_alternative_unbalanced () =
                 (a, t)
                 (a, (a --> b) right @@ (b --> c) right @@ finish))
   in
-  let (`cons (sa, `cons (sb, `cons (sc, _)))) = g in
+  let (`cons (sa, `cons (sb, `cons (sc, #nil)))) = g in
   let _ta =
     Thread.create
       (fun () ->
@@ -365,7 +365,7 @@ let test_run_partially_unguarded_choice_alternative () =
                 (a, (a --> c) left @@ (c --> a) msg t)
                 (a, (a --> c) right @@ (c --> a) msg t))
   in
-  let (`cons (sa, `cons (sb, `cons (sc, _)))) = g in
+  let (`cons (sa, `cons (sb, `cons (sc, #nil)))) = g in
   let _t1 =
     Thread.create
       (fun () ->
@@ -430,7 +430,7 @@ let test_run_fourparty () =
              @@ (c --> a) right
              @@ (a --> b) right finish )
     in
-    let (`cons (sa, `cons (sb, `cons (sc, `cons (sd, _))))) = g in
+    let (`cons (sa, `cons (sb, `cons (sc, `cons (sd, #nil))))) = g in
     let ta =
       Thread.create
         (fun () ->

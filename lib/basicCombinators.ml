@@ -16,10 +16,8 @@ type ('t, 'u, 'ts, 'us, 'robj, 'mt) role = {
 module Sessions = Hlist.Make (LinState)
 open Sessions
 
-type 'a seq = 'a Sessions.seq =
-  | ( :: ) : 'hd LinState.t * 'tl seq -> [ `cons of 'hd * 'tl ] seq
-  | [] : ([ `cons of unit * 'a ] as 'a) seq
-
+type 'a seq = 'a Sessions.seq
+type nil = [ `cons of unit * nil ]
 type param = ..
 type env_entry = ..
 type env = env_entry list

@@ -12,7 +12,7 @@ let () =
             ( (a ==> b) @@ (b --> a) resp t,
               (b --> c) timeout @@ (a ==> b) @@ (b --> a) timeout finish )])
   in
-  let (`cons ((sa : 'sa), `cons ((sb : 'sb), `cons (sc, _)))) = extract g in
+  let (`cons ((sa : 'sa), `cons ((sb : 'sb), `cons (sc, #nil)))) = extract g in
   let ta =
     Thread.create
       (fun () ->

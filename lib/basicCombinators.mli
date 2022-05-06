@@ -1,4 +1,5 @@
 type 'a seq = 'a Hlist.Make(LinState).seq
+type nil = [ `cons of unit * nil ]
 
 type ('obj, 'ot, 'var, 'vt) label = {
   obj : ('obj, 'ot) Rows.method_;

@@ -13,7 +13,7 @@ let calc =
           ( (cli --> srv) compute @@ (cli ==> srv) t,
             (cli --> srv) result @@ (srv ==> cli) finish )])
 
-let (`cons (sc, `cons (ss, _))) = extract calc
+let (`cons (sc, `cons (ss, #nil))) = extract calc
 
 let tCli () =
   let sc = select sc#role_Srv#compute in

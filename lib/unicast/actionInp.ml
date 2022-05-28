@@ -43,7 +43,7 @@ let branch_ops (type b) role =
   LinState.det_gen_ops
   @@ State.det_wrap_obj role
   @@ LinState.det_lin_ops
-       (module DetBranch : State.DetState with type a = b branch_ Lazy.t)
+       (module DetBranch : State.StateOp with type a = b branch_ Lazy.t)
 
 let branch_state role constr name (s : _ LinState.t) =
   Lin.map_gen role.make_obj
@@ -54,8 +54,8 @@ let make_branch role constr name (s : _ LinState.t) =
   @@ Lazy.from_val
        State.
          {
-           det_state = branch_state role constr name s;
-           det_ops = branch_ops role;
+           st = branch_state role constr name s;
+           st_ops = branch_ops role;
          }
 
 let branch (inp : _ branch) =
@@ -84,7 +84,7 @@ let inp_ops (type v s) role =
   LinState.det_gen_ops
   @@ State.det_wrap_obj role
   @@ LinState.det_lin_ops
-       (module DetInp : State.DetState with type a = (v, s) inp_)
+       (module DetInp : State.StateOp with type a = (v, s) inp_)
 
 let inp_state role chan cont =
   Lin.map_gen role.make_obj @@ Lin.declare (chan, cont)
@@ -92,7 +92,7 @@ let inp_state role chan cont =
 let make_inp role chan cont =
   State.make_deterministic (State.Context.new_key ())
   @@ Lazy.from_val
-  @@ State.{ det_state = inp_state role chan cont; det_ops = inp_ops role }
+  @@ State.{ st = inp_state role chan cont; st_ops = inp_ops role }
 
 let receive inp =
   let ch, cont = Lin.use inp in

@@ -18,7 +18,7 @@ val select_state :
 val select_ops :
   ('a, 'b) Rows.method_ ->
   ('b, 'c select) Rows.method_ ->
-  (module State.DetState with type a = 'a Lin.gen)
+  (module State.StateOp with type a = 'a Lin.gen)
 
 val select : 's select -> 's
 

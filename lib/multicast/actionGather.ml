@@ -42,7 +42,7 @@ let gather_ops (type b) role =
   LinState.det_gen_ops
   @@ State.det_wrap_obj role
   @@ LinState.det_lin_ops
-       (module DetGather : State.DetState with type a = b gather_ Lazy.t)
+       (module DetGather : State.StateOp with type a = b gather_ Lazy.t)
 
 let gather_state role constr names (s : _ LinState.t) =
   Lin.map_gen role.make_obj
@@ -53,8 +53,8 @@ let make_gather role constr (names : _ DynChan.name list) s =
   @@ Lazy.from_val
        State.
          {
-           det_state = gather_state role constr names s;
-           det_ops = gather_ops role;
+           st = gather_state role constr names s;
+           st_ops = gather_ops role;
          }
 
 let gather (inp : _ gather) =

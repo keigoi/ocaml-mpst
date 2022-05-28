@@ -1,6 +1,6 @@
 open Rows
 
-module type Det0 = sig
+module type Op0 = sig
   type a
   type context
 
@@ -13,65 +13,65 @@ end
 module rec Context : sig
   type t
 
-  module type Det1 = Det0 with type context := t
+  module type Op1 = Op0 with type context := t
 
-  type 'a det_state = {
-    det_state : 'a;
-    det_ops : (module Det1 with type a = 'a);
+  type 'a state = {
+    st : 'a;
+    st_ops : (module Op1 with type a = 'a);
   }
 
-  type 'a value = 'a det_state lazy_t
+  type 'a value = 'a state lazy_t
 
   include ContextF.S with type t := t and type 'a value := 'a Context.value
 end = struct
   module Ctx = ContextF.Make (Context)
   include Ctx
 
-  module type Det1 = Det0 with type context := t
+  module type Op1 = Op0 with type context := t
 
-  type 'a det_state = {
-    det_state : 'a;
-    det_ops : (module Det1 with type a = 'a);
+  type 'a state = {
+    st : 'a;
+    st_ops : (module Op1 with type a = 'a);
   }
 
-  type 'a value = 'a det_state lazy_t
+  type 'a value = 'a state lazy_t
 end
 
-module type DetState = Context.Det1
+module type StateOp = Context.Op1
 
 type context = Context.t
 type 't state_id = 't Context.key
 
-type 'a det_state = 'a Context.det_state = {
-  det_state : 'a;
-  det_ops : (module DetState with type a = 'a);
+type 'a state = 'a Context.state = {
+  st : 'a;
+  st_ops : (module StateOp with type a = 'a);
 }
 
 let determinise_list (type a) ctx (id : a state_id)
-    (hds : a det_state lazy_t list) =
+    (hds : a state lazy_t list) =
   match Context.lookup ctx id with
   | Some v -> v
   | None ->
       let hd =
         lazy
-          (let { det_ops = (module D : DetState with type a = a); _ } =
+          (let { st_ops = (module D : StateOp with type a = a); _ } =
              Lazy.force (List.hd hds)
            in
-           let hds = List.map (fun hd -> (Lazy.force hd).det_state) hds in
-           let det_state =
+           let hds = List.map (fun hd -> (Lazy.force hd).st) hds in
+           let st =
              match hds with
              | [ hd ] -> D.determinise ctx hd
              | hd :: hds ->
                  D.determinise ctx @@ List.fold_left (D.merge ctx) hd hds
              | [] -> failwith "impossible: empty_merge"
            in
-           { det_state; det_ops = (module D : DetState with type a = a) })
+           { st; st_ops = (module D : StateOp with type a = a) })
       in
       Context.add_binding ctx id hd;
       hd
 
 type _ t =
-  | Deterministic : 'obj state_id * 'obj det_state lazy_t -> 'obj t
+  | Deterministic : 'obj state_id * 'obj state lazy_t -> 'obj t
       (** A state with deterministic transitions. Note that the following states
           are not necessarily deterministic. *)
   | Epsilon : 'a t list -> 'a t  (** Epsilon transitions (i.e. merging) *)
@@ -81,7 +81,7 @@ type _ t =
 
 exception UnguardedLoop
 
-module Unit : DetState with type a = unit = struct
+module Unit : StateOp with type a = unit = struct
   type a = unit
 
   let determinise _ _ = ()
@@ -95,8 +95,8 @@ let unit =
     ( Context.new_key (),
       Lazy.from_val
         {
-          det_state = ();
-          det_ops = (module Unit : DetState with type a = unit);
+          st = ();
+          st_ops = (module Unit : StateOp with type a = unit);
         } )
 
 let make_deterministic id obj = Deterministic (id, obj)
@@ -108,7 +108,7 @@ let make_internal_choice disj l r =
 let make_lazy t = Lazy t
 
 type 'a merged_or_backward_epsilon =
-  ('a state_id * 'a det_state lazy_t list, 'a t list) Either.t
+  ('a state_id * 'a state lazy_t list, 'a t list) Either.t
 
 let rec mem_phys k = function x :: xs -> k == x || mem_phys k xs | [] -> false
 let fail_unguarded () = raise UnguardedLoop
@@ -166,20 +166,20 @@ let rec epsilon_closure :
           filter_cycles ~visited backward
 
 and determinise_internal_choice_core :
-    type lr l r. context -> (lr, l, r) disj -> l t -> r t -> lr det_state =
+    type lr l r. context -> (lr, l, r) disj -> l t -> r t -> lr state =
  fun context disj tl tr ->
   let ( _idl,
         (lazy
           {
-            det_state = (hl : l);
-            det_ops = (module DL : DetState with type a = l);
+            st = (hl : l);
+            st_ops = (module DL : StateOp with type a = l);
           }) ) =
     determinise_core_ context tl
   and ( _idr,
         (lazy
           {
-            det_state = (hr : r);
-            det_ops = (module DR : DetState with type a = r);
+            st = (hr : r);
+            st_ops = (module DR : StateOp with type a = r);
           }) ) =
     determinise_core_ context tr
   in
@@ -208,10 +208,10 @@ and determinise_internal_choice_core :
       ^ DR.to_string ctx (disj.disj_splitR lr)
   end in
   let lr = disj.disj_concat hl hr in
-  { det_state = lr; det_ops = (module DLR : DetState with type a = lr) }
+  { st = lr; st_ops = (module DLR : StateOp with type a = lr) }
 
 and determinise_core_ :
-    type s. context -> s t -> s state_id * s det_state lazy_t =
+    type s. context -> s t -> s state_id * s state lazy_t =
  fun context st ->
   match epsilon_closure ~context ~visited:[] st with
   | Left (sid, hds) -> (sid, determinise_list context sid hds)
@@ -219,18 +219,18 @@ and determinise_core_ :
 
 let determinise (type a) (t : a t) =
   let _sid, h = determinise_core_ (Context.make ()) t in
-  let { det_state; det_ops = (module M : DetState with type a = a) } =
+  let { st; st_ops = (module M : StateOp with type a = a) } =
     Lazy.force h
   in
-  M.force (Context.make ()) det_state;
-  det_state
+  M.force (Context.make ()) st;
+  st
 
 let determinise_core ctx t =
   let id, st = determinise_core_ ctx t in
   make_deterministic id st
 
-let merge_det (type a) ctx (id : a state_id) (l : a det_state lazy_t)
-    (r : a det_state lazy_t) =
+let merge_det (type a) ctx (id : a state_id) (l : a state lazy_t)
+    (r : a state lazy_t) =
   determinise_list ctx id [ l; r ]
 
 let merge_core ctx l r =
@@ -242,10 +242,10 @@ let force_core (type a) ctx (t : a t) =
   match t with
   | Deterministic (sid, h) when Context.lookup ctx sid = None ->
       Context.add_binding ctx sid h;
-      let { det_state; det_ops = (module M : DetState with type a = a) } =
+      let { st; st_ops = (module M : StateOp with type a = a) } =
         Lazy.force h
       in
-      M.force ctx det_state
+      M.force ctx st
   | Deterministic (_, _) -> ()
   | _ -> failwith "Impossible: force: channel not determinised"
 
@@ -254,10 +254,10 @@ let rec to_string_core : type a. context -> a t -> string =
   | Deterministic (sid, hd) ->
       if Lazy.is_val hd then (
         Context.add_binding ctx sid hd;
-        let { det_state; det_ops = (module D : DetState with type a = a) } =
+        let { st; st_ops = (module D : StateOp with type a = a) } =
           Lazy.force hd
         in
-        D.to_string ctx det_state)
+        D.to_string ctx st)
       else "<lazy_det>"
   | Epsilon ts -> List.map (to_string_core ctx) ts |> String.concat " [#] "
   | InternalChoice (_, _, l, r) ->
@@ -267,13 +267,13 @@ let rec to_string_core : type a. context -> a t -> string =
       if Lazy.is_val t then to_string_core ctx (Lazy.force t) else "<lazy_loop>"
 
 let ensure_determinised = function
-  | Deterministic (_, t) -> (Lazy.force t).det_state
+  | Deterministic (_, t) -> (Lazy.force t).st
   | _ -> failwith "not determinised"
 
 let to_string t = to_string_core (Context.make ()) t
 
 let det_wrap_obj (type obj b) (role : (obj, b) Rows.method_)
-    (module D : DetState with type a = b) =
+    (module D : StateOp with type a = b) =
   let module M = struct
     type nonrec a = obj
 
@@ -287,4 +287,4 @@ let det_wrap_obj (type obj b) (role : (obj, b) Rows.method_)
     let force ctx s = D.force ctx @@ role.call_obj s
     let to_string ctx s = role.method_name ^ D.to_string ctx (role.call_obj s)
   end in
-  (module M : DetState with type a = obj)
+  (module M : StateOp with type a = obj)

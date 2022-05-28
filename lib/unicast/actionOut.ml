@@ -35,7 +35,7 @@ let out_ops_raw (type v b) () =
         State.to_string_core ctx cont
       else "<lazy_out_cont>"
   end in
-  (module DetOut : State.DetState with type a = (v, b) out_)
+  (module DetOut : State.StateOp with type a = (v, b) out_)
 
 let select_ops role label =
   LinState.det_gen_ops
@@ -63,14 +63,14 @@ let make_select role lab name s =
   @@ Lazy.from_val
        State.
          {
-           det_state = select_state role lab name s;
-           det_ops = select_ops role lab;
+           st = select_state role lab name s;
+           st_ops = select_ops role lab;
          }
 
 let make_out role name s =
   State.make_deterministic (Context.new_key ())
   @@ Lazy.from_val
-       State.{ det_state = out_state role name s; det_ops = out_ops role }
+       State.{ st = out_state role name s; st_ops = out_ops role }
 
 let select out =
   let (Out (labname, name, cont)) = Lin.use out in

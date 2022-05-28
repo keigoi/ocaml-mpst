@@ -42,7 +42,7 @@ let scatter_ops (type b) role lab =
   @@ State.det_wrap_obj role
   @@ State.det_wrap_obj lab
   @@ LinState.det_lin_ops
-       (module DetScatter : State.DetState with type a = b scatter_)
+       (module DetScatter : State.StateOp with type a = b scatter_)
 
 let out_state role lab name s =
   Lin.map_gen (fun s -> role.make_obj @@ lab.make_obj s)
@@ -53,8 +53,8 @@ let make_scatter role lab name s =
   @@ Lazy.from_val
        State.
          {
-           det_state = out_state role lab name s;
-           det_ops = scatter_ops role lab;
+           st = out_state role lab name s;
+           st_ops = scatter_ops role lab;
          }
 
 let scatter s =

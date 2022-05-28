@@ -23,7 +23,7 @@ val branch_state :
 
 val branch_ops :
   ('a, 'c branch) Rows.method_ ->
-  (module State.DetState with type a = 'a Lin.gen)
+  (module State.StateOp with type a = 'a Lin.gen)
 
 val branch : 'var branch -> 'var
 val receive : ('v, 's) inp -> 'v * 's

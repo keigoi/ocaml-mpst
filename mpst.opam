@@ -12,7 +12,7 @@ depends: [
   "dune" {>= "2.8"}
   "hlist"
   "rows"
-  "ppxlib"
+  "ppxlib" {>= "0.19.0"}
   "ounit" {with-test}
   "odoc" {with-doc}
 ]

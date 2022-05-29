@@ -5,8 +5,8 @@ type tag = int
 type 'var branch_ = tag DynChan.name * 'var InpChoice.t list
 type 'var branch = 'var branch_ lazy_t Lin.lin
 
-let branch_ops (type b) role =
-  let module DetBranch = struct
+let branch_ops (type b) =
+  let module M = struct
     type nonrec a = b branch_ Lazy.t
 
     let determinise ctx inp =
@@ -34,29 +34,23 @@ let branch_ops (type b) role =
       "?{"
       ^ (if Lazy.is_val s then
          String.concat ","
-           (List.map
-              (fun e -> InpChoice.to_string ctx e)
-              (snd (Lazy.force s)))
+           (List.map (fun e -> InpChoice.to_string ctx e) (snd (Lazy.force s)))
         else "<lazy_inp>")
       ^ "}"
   end in
-  LinState.det_gen_ops
-  @@ State.det_wrap_obj role
-  @@ LinState.det_lin_ops
-       (module DetBranch : State.StateOp with type a = b branch_ Lazy.t)
+  (module M : State.StateOp with type a = b branch_ Lazy.t)
 
-let branch_state role constr name (s : _ LinState.t) =
-  Lin.map_gen role.make_obj
-  @@ Lin.declare (Lazy.from_val (name, [ InpChoice.make constr s ]))
+let branch_state constr name (s : _ LinState.t) =
+  State.
+    {
+      st = Lazy.from_val (name, [ InpChoice.make constr s ]);
+      st_ops = branch_ops;
+    }
 
 let make_branch role constr name (s : _ LinState.t) =
   State.make_deterministic (Context.new_key ())
   @@ Lazy.from_val
-       State.
-         {
-           st = branch_state role constr name s;
-           st_ops = branch_ops role;
-         }
+  @@ State.map_method role (branch_state constr name s)
 
 let branch (inp : _ branch) =
   let name, items = Lazy.force @@ Lin.use inp in

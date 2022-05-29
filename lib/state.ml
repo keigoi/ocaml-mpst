@@ -15,11 +15,7 @@ module rec Context : sig
 
   module type Op1 = Op0 with type context := t
 
-  type 'a state = {
-    st : 'a;
-    st_ops : (module Op1 with type a = 'a);
-  }
-
+  type 'a state = { st : 'a; st_ops : (module Op1 with type a = 'a) }
   type 'a value = 'a state lazy_t
 
   include ContextF.S with type t := t and type 'a value := 'a Context.value
@@ -29,11 +25,7 @@ end = struct
 
   module type Op1 = Op0 with type context := t
 
-  type 'a state = {
-    st : 'a;
-    st_ops : (module Op1 with type a = 'a);
-  }
-
+  type 'a state = { st : 'a; st_ops : (module Op1 with type a = 'a) }
   type 'a value = 'a state lazy_t
 end
 
@@ -47,8 +39,8 @@ type 'a state = 'a Context.state = {
   st_ops : (module StateOp with type a = 'a);
 }
 
-let determinise_list (type a) ctx (id : a state_id)
-    (hds : a state lazy_t list) =
+let determinise_list (type a) ctx (id : a state_id) (hds : a state lazy_t list)
+    =
   match Context.lookup ctx id with
   | Some v -> v
   | None ->
@@ -94,10 +86,7 @@ let unit =
   Deterministic
     ( Context.new_key (),
       Lazy.from_val
-        {
-          st = ();
-          st_ops = (module Unit : StateOp with type a = unit);
-        } )
+        { st = (); st_ops = (module Unit : StateOp with type a = unit) } )
 
 let make_deterministic id obj = Deterministic (id, obj)
 let merge l r = Epsilon [ l; r ]
@@ -169,18 +158,12 @@ and determinise_internal_choice_core :
     type lr l r. context -> (lr, l, r) disj -> l t -> r t -> lr state =
  fun context disj tl tr ->
   let ( _idl,
-        (lazy
-          {
-            st = (hl : l);
-            st_ops = (module DL : StateOp with type a = l);
-          }) ) =
+        (lazy { st = (hl : l); st_ops = (module DL : StateOp with type a = l) })
+      ) =
     determinise_core_ context tl
   and ( _idr,
-        (lazy
-          {
-            st = (hr : r);
-            st_ops = (module DR : StateOp with type a = r);
-          }) ) =
+        (lazy { st = (hr : r); st_ops = (module DR : StateOp with type a = r) })
+      ) =
     determinise_core_ context tr
   in
   let module DLR = struct
@@ -210,8 +193,7 @@ and determinise_internal_choice_core :
   let lr = disj.disj_concat hl hr in
   { st = lr; st_ops = (module DLR : StateOp with type a = lr) }
 
-and determinise_core_ :
-    type s. context -> s t -> s state_id * s state lazy_t =
+and determinise_core_ : type s. context -> s t -> s state_id * s state lazy_t =
  fun context st ->
   match epsilon_closure ~context ~visited:[] st with
   | Left (sid, hds) -> (sid, determinise_list context sid hds)
@@ -219,9 +201,7 @@ and determinise_core_ :
 
 let determinise (type a) (t : a t) =
   let _sid, h = determinise_core_ (Context.make ()) t in
-  let { st; st_ops = (module M : StateOp with type a = a) } =
-    Lazy.force h
-  in
+  let { st; st_ops = (module M : StateOp with type a = a) } = Lazy.force h in
   M.force (Context.make ()) st;
   st
 
@@ -272,19 +252,25 @@ let ensure_determinised = function
 
 let to_string t = to_string_core (Context.make ()) t
 
-let det_wrap_obj (type obj b) (role : (obj, b) Rows.method_)
-    (module D : StateOp with type a = b) =
+let map_ops (type x y) (f : x -> y) (g : y -> x) (name : string -> string)
+    (module D : StateOp with type a = x) : (module StateOp with type a = y) =
   let module M = struct
-    type nonrec a = obj
+    type nonrec a = y
 
-    let determinise ctx s =
-      role.make_obj @@ D.determinise ctx @@ role.call_obj s
+    let determinise ctx s = f @@ D.determinise ctx @@ g s
 
     let merge ctx s1 s2 =
-      let inp1 = role.call_obj s1 and inp2 = role.call_obj s2 in
-      role.make_obj @@ D.merge ctx inp1 inp2
+      let inp1 = g s1 and inp2 = g s2 in
+      f @@ D.merge ctx inp1 inp2
 
-    let force ctx s = D.force ctx @@ role.call_obj s
-    let to_string ctx s = role.method_name ^ D.to_string ctx (role.call_obj s)
+    let force ctx s = D.force ctx @@ g s
+    let to_string ctx s = name @@ D.to_string ctx (g s)
   end in
-  (module M : StateOp with type a = obj)
+  (module M)
+
+let map (type x y) (f : x -> y) (g : y -> x) (name : string -> string)
+    (s : x state) =
+  { st = f s.st; st_ops = map_ops f g name s.st_ops }
+
+let map_method meth =
+  map meth.make_obj meth.call_obj (fun s -> meth.method_name ^ s)

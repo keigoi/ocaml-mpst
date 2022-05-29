@@ -37,40 +37,32 @@ let out_ops_raw (type v b) () =
   end in
   (module DetOut : State.StateOp with type a = (v, b) out_)
 
-let select_ops role label =
-  LinState.det_gen_ops
-  @@ State.det_wrap_obj role
-  @@ State.det_wrap_obj label
-  @@ LinState.det_lin_ops
-  @@ out_ops_raw ()
-
-let out_ops role =
-  LinState.det_gen_ops
-  @@ State.det_wrap_obj role
-  @@ LinState.det_lin_ops
-  @@ out_ops_raw ()
-
-let select_state role lab name s =
-  Lin.declare (Out (lab.method_name, name, Lazy.from_val s))
-  |> Lin.map_gen (fun out -> role.make_obj (lab.make_obj out))
-
-let out_state role name s =
-  Lin.declare (Out ("" (*FIXME*), name, Lazy.from_val s))
-  |> Lin.map_gen (fun out -> role.make_obj out)
-
-let make_select role lab name s =
+let make_select role lab name s : _ LinState.t =
+  let st =
+    State.
+      {
+        st = Out (lab.method_name, name, Lazy.from_val s);
+        st_ops = out_ops_raw ();
+      }
+  in
   State.make_deterministic (Context.new_key ())
   @@ Lazy.from_val
-       State.
-         {
-           st = select_state role lab name s;
-           st_ops = select_ops role lab;
-         }
+  @@ LinState.map role.make_obj role.call_obj (fun s -> role.method_name ^ s)
+  @@ LinState.map lab.make_obj lab.call_obj (fun s -> lab.method_name ^ s)
+  @@ LinState.make_lin_state st
 
-let make_out role name s =
+let make_out role name s : _ LinState.t =
+  let st =
+    State.
+      {
+        st = Out (""(*FIXME*), name, Lazy.from_val s);
+        st_ops = out_ops_raw ();
+      }
+  in
   State.make_deterministic (Context.new_key ())
   @@ Lazy.from_val
-       State.{ st = out_state role name s; st_ops = out_ops role }
+  @@ LinState.map role.make_obj role.call_obj (fun s -> role.method_name ^ s)
+  @@ LinState.make_lin_state st
 
 let select out =
   let (Out (labname, name, cont)) = Lin.use out in

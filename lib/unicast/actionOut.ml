@@ -14,7 +14,7 @@ let out_ops_raw (type v b) () =
     type nonrec a = (v, b) out_
 
     let determinise ctx (Out (tag, name, cont)) =
-      Out (tag, name, lazy (State.determinise_core ctx (Lazy.force cont)))
+      Out (tag, name, lazy (PowState.determinise_core ctx (Lazy.force cont)))
 
     let merge ctx (Out (tag1, name1, cont1)) (Out (tag2, name2, cont2)) =
       assert (tag1 = tag2);
@@ -22,20 +22,20 @@ let out_ops_raw (type v b) () =
       Out
         ( tag1,
           name1,
-          lazy (State.merge_core ctx (Lazy.force cont1) (Lazy.force cont2)) )
+          lazy (PowState.merge_core ctx (Lazy.force cont1) (Lazy.force cont2)) )
 
     let force ctx (Out (_, name, cont)) =
       ignore (DynChan.finalise name);
-      State.force_core ctx (Lazy.force cont)
+      PowState.force_core ctx (Lazy.force cont)
 
     let to_string ctx (Out (_, _, cont)) =
       (*FIXME:use label*)
       if Lazy.is_val cont then
         let cont = Lazy.force cont in
-        State.to_string_core ctx cont
+        PowState.to_string_core ctx cont
       else "<lazy_out_cont>"
   end in
-  (module DetOut : State.StateOp with type a = (v, b) out_)
+  (module DetOut : PowState.StateOp with type a = (v, b) out_)
 
 let make_select role lab name s : _ LinState.t =
   let st =

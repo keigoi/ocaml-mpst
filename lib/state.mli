@@ -1,16 +1,5 @@
-exception UnguardedLoop
-
-type _ t
-type _ state_id
-
-val determinise : 's t -> 's
-val to_string : 'a t -> string
-val unit : unit t
-val merge : 'a t -> 'a t -> 'a t
-val make_internal_choice : ('a, 'b, 'c) Rows.disj -> 'b t -> 'c t -> 'a t
-val make_lazy : 'a t lazy_t -> 'a t
-
 type context
+type _ id
 
 module type StateOp = sig
   type a
@@ -21,9 +10,15 @@ module type StateOp = sig
   val to_string : context -> a -> string
 end
 
+type 'a t = { st : 'a; st_ops : (module StateOp with type a = 'a) }
+
 module Unit : StateOp with type a = unit
 
-type 'a state = { st : 'a; st_ops : (module StateOp with type a = 'a) }
+module Context :
+  ContextF.S
+    with type 'a key = 'a id
+     and type t := context
+     and type 'a value := 'a t lazy_t
 
 val map_ops :
   ('x -> 'y) ->
@@ -32,19 +27,5 @@ val map_ops :
   (module StateOp with type a = 'x) ->
   (module StateOp with type a = 'y)
 
-val map : ('a -> 'b) -> ('b -> 'a) -> (string -> string) -> 'a state -> 'b state
-val map_method : ('a, 'b) Rows.method_ -> 'b state -> 'a state
-
-module Context :
-  ContextF.S
-    with type 'a key = 'a state_id
-     and type t := context
-     and type 'a value := 'a state lazy_t
-
-val make_deterministic : 'obj state_id -> 'obj state lazy_t -> 'obj t
-val determinise_core : context -> 's t -> 's t
-val determinise_core_ : context -> 's t -> 's state_id * 's state lazy_t
-val merge_core : context -> 's t -> 's t -> 's t
-val force_core : context -> 'a t -> unit
-val to_string_core : context -> 'a t -> string
-val ensure_determinised : 's t -> 's
+val map : ('a -> 'b) -> ('b -> 'a) -> (string -> string) -> 'a t -> 'b t
+val map_method : ('a, 'b) Rows.method_ -> 'b t -> 'a t

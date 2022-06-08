@@ -21,11 +21,11 @@ module Context :
      and type 'a value := 'a t lazy_t
 
 val map_ops :
-  ('x -> 'y) ->
-  ('y -> 'x) ->
+  ('a -> 'b) ->
+  ('b -> 'a) ->
   (string -> string) ->
-  (module StateOp with type a = 'x) ->
-  (module StateOp with type a = 'y)
+  (module StateOp with type a = 'a) ->
+  (module StateOp with type a = 'b)
 
 val map : ('a -> 'b) -> ('b -> 'a) -> (string -> string) -> 'a t -> 'b t
 val map_method : ('a, 'b) Rows.method_ -> 'b t -> 'a t

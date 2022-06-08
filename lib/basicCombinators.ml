@@ -1,4 +1,4 @@
-exception UnguardedLoop = State.UnguardedLoop
+exception UnguardedLoop = PowState.UnguardedLoop
 
 let debug_print _fmt _str = ()
 (* let debug_print = Printf.printf *)
@@ -30,7 +30,7 @@ let rec merge_seq : type t. t seq -> t seq -> t seq =
   match (ls, rs) with
   | Sessions.[], _ -> []
   | _, [] -> []
-  | l :: ls, r :: rs -> State.merge l r :: merge_seq ls rs
+  | l :: ls, r :: rs -> PowState.merge l r :: merge_seq ls rs
 
 let choice_at ra disj (ra1, g1) (ra2, g2) ctx =
   let g1 = g1 ctx and g2 = g2 ctx in
@@ -38,7 +38,7 @@ let choice_at ra disj (ra1, g1) (ra2, g2) ctx =
   let g1 = seq_put ra1.role_index g1 LinState.unit
   and g2 = seq_put ra2.role_index g2 LinState.unit in
   let g = merge_seq g1 g2 in
-  let a = State.make_internal_choice (Lin.lift_disj disj) a1 a2 in
+  let a = PowState.make_internal_choice (Lin.lift_disj disj) a1 a2 in
   seq_put ra.role_index g a
 
 let finish _ = Sessions.[]
@@ -48,7 +48,7 @@ let rec extract_seq : type u. u Sessions.seq -> u = function
       let rec nil = `cons ((), nil) in
       nil
   | st :: tail ->
-      let hd = Lin.fresh @@ State.determinise st in
+      let hd = Lin.fresh @@ PowState.determinise st in
       let tl = extract_seq tail in
       `cons (hd, tl)
 
@@ -110,7 +110,7 @@ let partial_finish keep_idxs g =
     | idx :: rest_idxs ->
         let state =
           (* get the state of the involved role *)
-          State.make_lazy (lazy (seq_get2 idx.role_index (Lazy.force keeps)))
+          PowState.make_lazy (lazy (seq_get2 idx.role_index (Lazy.force keeps)))
         and rest =
           (* rest of the states *)
           lazy (seq_put2 idx.role_index (Lazy.force keeps) LinState.unit)

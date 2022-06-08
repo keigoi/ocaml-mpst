@@ -35,7 +35,7 @@ let out_ops_raw (type v b) () =
         PowState.to_string_core ctx cont
       else "<lazy_out_cont>"
   end in
-  (module DetOut : PowState.StateOp with type a = (v, b) out_)
+  (module DetOut : State.StateOp with type a = (v, b) out_)
 
 let make_select role lab name s : _ LinState.t =
   let st =
@@ -45,7 +45,7 @@ let make_select role lab name s : _ LinState.t =
         st_ops = out_ops_raw ();
       }
   in
-  State.make_deterministic (Context.new_key ())
+  PowState.make_deterministic (Context.new_key ())
   @@ Lazy.from_val
   @@ LinState.map role.make_obj role.call_obj (fun s -> role.method_name ^ s)
   @@ LinState.map lab.make_obj lab.call_obj (fun s -> lab.method_name ^ s)
@@ -59,7 +59,7 @@ let make_out role name s : _ LinState.t =
         st_ops = out_ops_raw ();
       }
   in
-  State.make_deterministic (Context.new_key ())
+  PowState.make_deterministic (Context.new_key ())
   @@ Lazy.from_val
   @@ LinState.map role.make_obj role.call_obj (fun s -> role.method_name ^ s)
   @@ LinState.make_lin_state st
@@ -67,12 +67,12 @@ let make_out role name s : _ LinState.t =
 let select out =
   let (Out (labname, name, cont)) = Lin.use out in
   let tag = Btype.hash_variant labname in
-  let cont = State.ensure_determinised (Lazy.force cont) in
+  let cont = PowState.ensure_determinised (Lazy.force cont) in
   DynChan.send (DynChan.finalise name) tag;
   Lin.fresh cont
 
 let send out v =
   let (Out (_, name, cont)) = Lin.use out in
-  let cont = State.ensure_determinised (Lazy.force cont) in
+  let cont = PowState.ensure_determinised (Lazy.force cont) in
   DynChan.send (DynChan.finalise name) v;
   Lin.fresh cont

@@ -1,8 +1,18 @@
 open Rows
 open State
 
-let determinise_list (type a) ctx (id : a State.id) (hds : a State.t lazy_t list)
-    =
+module type PowOp = sig
+  type _ t
+
+  val determinise : context -> 's t -> 's t
+  val merge : context -> 's t -> 's t -> 's t
+  val force : context -> 'a t -> unit
+  val to_string : context -> 'a t -> string
+  val make : 'obj State.t -> 'obj t
+end
+
+let determinise_list (type a) ctx (id : a State.id)
+    (hds : a State.t lazy_t list) =
   match Context.lookup ctx id with
   | Some v -> v
   | None ->
@@ -26,8 +36,8 @@ let determinise_list (type a) ctx (id : a State.id) (hds : a State.t lazy_t list
 
 type _ t =
   | Deterministic : 'obj State.id * 'obj State.t lazy_t -> 'obj t
-      (** A State.t with deterministic transitions. Note that the following states
-          are not necessarily deterministic. *)
+      (** A State.t with deterministic transitions. Note that the following
+          states are not necessarily deterministic. *)
   | Epsilon : 'a t list -> 'a t  (** Epsilon transitions (i.e. merging) *)
   | InternalChoice : 'lr State.id * ('lr, 'l, 'r) disj * 'l t * 'r t -> 'lr t
       (** Internal choice, splitted by a disjoint concatenation (disj) *)
@@ -42,12 +52,13 @@ let unit =
         { st = (); st_ops = (module Unit : StateOp with type a = unit) } )
 
 let make_deterministic id obj = Deterministic (id, obj)
-let merge l r = Epsilon [ l; r ]
+let make obj = Deterministic (Context.new_key (), Lazy.from_val obj)
 
 let make_internal_choice disj l r =
   InternalChoice (Context.new_key (), disj, l, r)
 
 let make_lazy t = Lazy t
+let make_merge l r = Epsilon [ l; r ]
 
 type 'a merged_or_backward_epsilon =
   ('a State.id * 'a State.t lazy_t list, 'a t list) Either.t
@@ -113,11 +124,11 @@ and determinise_internal_choice_core :
   let ( _idl,
         (lazy { st = (hl : l); st_ops = (module DL : StateOp with type a = l) })
       ) =
-    determinise_core_ context tl
+    determinise_core context tl
   and ( _idr,
         (lazy { st = (hr : r); st_ops = (module DR : StateOp with type a = r) })
       ) =
-    determinise_core_ context tr
+    determinise_core context tr
   in
   let module DLR = struct
     type a = lr
@@ -146,32 +157,22 @@ and determinise_internal_choice_core :
   let lr = disj.disj_concat hl hr in
   { st = lr; st_ops = (module DLR : StateOp with type a = lr) }
 
-and determinise_core_ : type s. context -> s t -> s State.id * s State.t lazy_t =
+and determinise_core : type s. context -> s t -> s State.id * s State.t lazy_t =
  fun context st ->
   match epsilon_closure ~context ~visited:[] st with
   | Left (sid, hds) -> (sid, determinise_list context sid hds)
   | Right _ -> fail_unguarded ()
 
-let determinise (type a) (t : a t) =
-  let _sid, h = determinise_core_ (Context.make ()) t in
-  let { st; st_ops = (module M : StateOp with type a = a) } = Lazy.force h in
-  M.force (Context.make ()) st;
-  st
-
-let determinise_core ctx t =
-  let id, st = determinise_core_ ctx t in
+let determinise ctx t =
+  let id, st = determinise_core ctx t in
   make_deterministic id st
 
-let merge_det (type a) ctx (id : a State.id) (l : a State.t lazy_t)
-    (r : a State.t lazy_t) =
-  determinise_list ctx id [ l; r ]
-
-let merge_core ctx l r =
-  let idl, dl = determinise_core_ ctx l and idr, dr = determinise_core_ ctx r in
+let merge ctx l r =
+  let idl, l = determinise_core ctx l and idr, r = determinise_core ctx r in
   let id = Context.union_keys idl idr in
-  make_deterministic id (merge_det ctx id dl dr)
+  make_deterministic id (determinise_list ctx id [ l; r ])
 
-let force_core (type a) ctx (t : a t) =
+let force (type a) ctx (t : a t) =
   match t with
   | Deterministic (sid, h) when Context.lookup ctx sid = None ->
       Context.add_binding ctx sid h;
@@ -182,7 +183,7 @@ let force_core (type a) ctx (t : a t) =
   | Deterministic (_, _) -> ()
   | _ -> failwith "Impossible: force: channel not determinised"
 
-let rec to_string_core : type a. context -> a t -> string =
+let rec to_string : type a. context -> a t -> string =
  fun ctx -> function
   | Deterministic (sid, hd) ->
       if Lazy.is_val hd then (
@@ -192,15 +193,19 @@ let rec to_string_core : type a. context -> a t -> string =
         in
         D.to_string ctx st)
       else "<lazy_det>"
-  | Epsilon ts -> List.map (to_string_core ctx) ts |> String.concat " [#] "
+  | Epsilon ts -> List.map (to_string ctx) ts |> String.concat " [#] "
   | InternalChoice (_, _, l, r) ->
-      let lstr = to_string_core ctx l and rstr = to_string_core ctx r in
+      let lstr = to_string ctx l and rstr = to_string ctx r in
       lstr ^ " (+#) " ^ rstr
   | Lazy t ->
-      if Lazy.is_val t then to_string_core ctx (Lazy.force t) else "<lazy_loop>"
+      if Lazy.is_val t then to_string ctx (Lazy.force t) else "<lazy_loop>"
 
 let ensure_determinised = function
   | Deterministic (_, t) -> (Lazy.force t).st
   | _ -> failwith "not determinised"
 
-let to_string t = to_string_core (Context.make ()) t
+let do_determinise (type a) (t : a t) =
+  let _sid, h = determinise_core (Context.make ()) t in
+  let { st; st_ops = (module M : StateOp with type a = a) } = Lazy.force h in
+  M.force (Context.make ()) st;
+  st

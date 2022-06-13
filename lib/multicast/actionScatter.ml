@@ -15,7 +15,7 @@ let scatter_ops (type b) : (module State.StateOp with type a = b scatter_) =
     type nonrec a = b scatter_
 
     let determinise ctx (Scatter (tag, name, cont)) =
-      Scatter (tag, name, lazy (PowState.determinise_core ctx (Lazy.force cont)))
+      Scatter (tag, name, lazy (PowState.determinise ctx (Lazy.force cont)))
 
     let merge ctx (Scatter (tag1, names1, cont1))
         (Scatter (tag2, names2, cont2)) =
@@ -24,19 +24,19 @@ let scatter_ops (type b) : (module State.StateOp with type a = b scatter_) =
       Scatter
         ( tag1,
           names1,
-          lazy (PowState.merge_core ctx (Lazy.force cont1) (Lazy.force cont2))
+          lazy (PowState.merge ctx (Lazy.force cont1) (Lazy.force cont2))
         )
 
     let force ctx (Scatter (_, names, cont)) =
       ignore (List.map DynChan.finalise names);
-      PowState.force_core ctx (Lazy.force cont)
+      PowState.force ctx (Lazy.force cont)
 
     let to_string ctx (Scatter (_, _, cont)) =
       "."
       ^
       if Lazy.is_val cont then
         let cont = Lazy.force cont in
-        PowState.to_string_core ctx cont
+        PowState.to_string ctx cont
       else "<lazy_out_cont>"
   end in
   (module M)

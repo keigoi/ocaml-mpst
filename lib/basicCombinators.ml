@@ -30,7 +30,7 @@ let rec merge_seq : type t. t seq -> t seq -> t seq =
   match (ls, rs) with
   | Sessions.[], _ -> []
   | _, [] -> []
-  | l :: ls, r :: rs -> PowState.merge l r :: merge_seq ls rs
+  | l :: ls, r :: rs -> PowState.make_merge l r :: merge_seq ls rs
 
 let choice_at ra disj (ra1, g1) (ra2, g2) ctx =
   let g1 = g1 ctx and g2 = g2 ctx in
@@ -48,7 +48,7 @@ let rec extract_seq : type u. u Sessions.seq -> u = function
       let rec nil = `cons ((), nil) in
       nil
   | st :: tail ->
-      let hd = Lin.fresh @@ PowState.determinise st in
+      let hd = Lin.fresh @@ PowState.do_determinise st in
       let tl = extract_seq tail in
       `cons (hd, tl)
 

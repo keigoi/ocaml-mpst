@@ -1,13 +1,13 @@
 type 'a many = 'a LinState.t list
 
-let get_many ss = List.map (fun s -> Lin.fresh @@ PowState.determinise s) ss
+let get_many ss = List.map (fun s -> Lin.fresh @@ PowState.do_determinise s) ss
 
 let det_list_ops (type b) =
   let module DetList = struct
     type nonrec a = b many
 
     let determinise _ctx s = s
-    let merge _ctx s1 s2 = List.map2 PowState.merge s1 s2
+    let merge _ctx s1 s2 = List.map2 PowState.make_merge s1 s2
     let force _ctx _ss = ()
     (* let ss = List.map (State.determinise_core (State.Context.make ())) ss in
        List.iter (State.force_core (State.Context.make ())) ss *)
@@ -31,7 +31,7 @@ let units ~count =
 let outs ~count role lab names (ss : _ many LinState.t) : _ many LinState.t =
   let ss =
     lazy
-      (let ss = Lin.fresh @@ PowState.determinise ss in
+      (let ss = Lin.fresh @@ PowState.do_determinise ss in
        ss)
   in
   let ss =
@@ -53,7 +53,7 @@ let outs ~count role lab names (ss : _ many LinState.t) : _ many LinState.t =
 let inps ~count role constr names (ss : _ many LinState.t) : _ many LinState.t =
   let ss =
     lazy
-      (let ss = Lin.fresh @@ PowState.determinise ss in
+      (let ss = Lin.fresh @@ PowState.do_determinise ss in
        ss)
   in
   let ss =
@@ -69,6 +69,5 @@ let inps ~count role constr names (ss : _ many LinState.t) : _ many LinState.t =
             @@ List.mapi
                  (fun _i (name, s) -> ActionInp.make_branch role constr name s)
                  (List.combine names ss);
-          st_ops =
-            LinState.gen_ops @@ det_list_ops;
+          st_ops = LinState.gen_ops @@ det_list_ops;
         })

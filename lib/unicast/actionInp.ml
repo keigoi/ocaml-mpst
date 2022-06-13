@@ -66,14 +66,14 @@ let inp_ops (type v s) =
   let module DetInp = struct
     type a = (v, s) inp_
 
-    let determinise ctx (ch, s) = (ch, PowState.determinise_core ctx s)
+    let determinise ctx (ch, s) = (ch, PowState.determinise ctx s)
 
     let merge ctx (ch1, s1) (ch2, s2) =
       DynChan.unify ch1 ch2;
-      (ch1, PowState.merge_core ctx s1 s2)
+      (ch1, PowState.merge ctx s1 s2)
 
-    let force ctx (_, s) = PowState.force_core ctx s
-    let to_string ctx (_, s) = "?." ^ PowState.to_string_core ctx s
+    let force ctx (_, s) = PowState.force ctx s
+    let to_string ctx (_, s) = "?." ^ PowState.to_string ctx s
   end in
   (module DetInp : State.StateOp with type a = (v, s) inp_)
 

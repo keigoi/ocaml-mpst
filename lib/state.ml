@@ -50,14 +50,10 @@ let map_ops (type x y) (f : x -> y) (g : y -> x) (name : string -> string)
   end in
   (module M)
 
-let map (type x y) (f : x -> y) (g : y -> x) (name : string -> string)
-    (s : x op) =
-  map_ops f g name s
-
 open Rows
 
 let obj_op meth =
-  map meth.make_obj meth.call_obj (fun s -> meth.method_name ^ s)
+  map_ops meth.make_obj meth.call_obj (fun s -> meth.method_name ^ s)
 
 module Unit : Op with type a = unit = struct
   type a = unit

@@ -9,9 +9,6 @@ let create () : 'a t = M.create (ref (Q.create ()))
 let send (t : 'a t) (v:'a) : unit = 
   M.lock t (fun q -> Q.add v !q; M.signal t)
 
-let send_all (t : 'a t) (xs:'a list) : unit =
-  M.lock t (fun q -> List.iter (fun x -> Q.add x !q) xs; M.signal t)
-
 let receive (t:'a t) : 'a = 
   M.wait t (fun q ->
     if Q.is_empty !q then
@@ -24,12 +21,6 @@ let clear_queue_ t =
     let old = !q in 
     q := Q.create (); 
     old)
-
-let receive_all (t:'a t) (func:'b -> 'a -> 'b) (init:'b) : 'b =
-  Q.fold func init (clear_queue_ t)
-
-let receive_all_ (t:'a t) (func:'a -> unit) : unit =
-  receive_all t (fun _ x -> func x) ()
 
 let peek (t:'a t) : 'a = 
   M.wait t (fun q ->

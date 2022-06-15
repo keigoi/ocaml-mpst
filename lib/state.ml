@@ -13,7 +13,7 @@ module rec Context : sig
 
   module type Op1 = Op0 with type context := t
 
-  type 'a state = { st : 'a; st_ops : (module Op1 with type a = 'a) }
+  type 'a state = { st : 'a; st_op : (module Op1 with type a = 'a) }
   type 'a value = 'a state lazy_t
 
   include ContextF.S with type t := t and type 'a value := 'a Context.value
@@ -23,19 +23,19 @@ end = struct
 
   module type Op1 = Op0 with type context := t
 
-  type 'a state = { st : 'a; st_ops : (module Op1 with type a = 'a) }
+  type 'a state = { st : 'a; st_op : (module Op1 with type a = 'a) }
   type 'a value = 'a state lazy_t
 end
 
-module type StateOp = Context.Op1
+module type Op = Context.Op1
 
 type context = Context.t
 type 't id = 't Context.key
-type 'a op = (module StateOp with type a = 'a)
-type 'a t = 'a Context.state = { st : 'a; st_ops : 'a op }
+type 'a op = (module Op with type a = 'a)
+type 'a t = 'a Context.state = { st : 'a; st_op : 'a op }
 
 let map_ops (type x y) (f : x -> y) (g : y -> x) (name : string -> string)
-    (module D : StateOp with type a = x) : (module StateOp with type a = y) =
+    (module D : Op with type a = x) : y op =
   let module M = struct
     type nonrec a = y
 
@@ -59,7 +59,7 @@ open Rows
 let obj_op meth =
   map meth.make_obj meth.call_obj (fun s -> meth.method_name ^ s)
 
-module Unit : StateOp with type a = unit = struct
+module Unit : Op with type a = unit = struct
   type a = unit
 
   let determinise _ _ = ()

@@ -18,7 +18,7 @@ let determinise_list (type a) ctx (id : a State.id)
   | None ->
       let hd =
         lazy
-          (let { st_ops = (module D : StateOp with type a = a); _ } =
+          (let { st_op = (module D : Op with type a = a); _ } =
              Lazy.force (List.hd hds)
            in
            let hds = List.map (fun hd -> (Lazy.force hd).st) hds in
@@ -29,7 +29,7 @@ let determinise_list (type a) ctx (id : a State.id)
                  D.determinise ctx @@ List.fold_left (D.merge ctx) hd hds
              | [] -> failwith "impossible: empty_merge"
            in
-           { st; st_ops = (module D : StateOp with type a = a) })
+           { st; st_op = (module D : Op with type a = a) })
       in
       Context.add_binding ctx id hd;
       hd
@@ -49,12 +49,12 @@ let unit =
   Deterministic
     ( Context.new_key (),
       Lazy.from_val
-        { st = (); st_ops = (module Unit : StateOp with type a = unit) } )
+        { st = (); st_op = (module Unit : Op with type a = unit) } )
 
 let make_deterministic id obj = Deterministic (id, obj)
 
 let make op obj =
-  Deterministic (Context.new_key (), Lazy.from_val { st = obj; st_ops = op })
+  Deterministic (Context.new_key (), Lazy.from_val { st = obj; st_op = op })
 
 let make_internal_choice disj l r =
   InternalChoice (Context.new_key (), disj, l, r)
@@ -124,11 +124,11 @@ and determinise_internal_choice_core :
     type lr l r. context -> (lr, l, r) disj -> l t -> r t -> lr State.t =
  fun context disj tl tr ->
   let ( _idl,
-        (lazy { st = (hl : l); st_ops = (module DL : StateOp with type a = l) })
+        (lazy { st = (hl : l); st_op = (module DL : Op with type a = l) })
       ) =
     determinise_core context tl
   and ( _idr,
-        (lazy { st = (hr : r); st_ops = (module DR : StateOp with type a = r) })
+        (lazy { st = (hr : r); st_op = (module DR : Op with type a = r) })
       ) =
     determinise_core context tr
   in
@@ -157,7 +157,7 @@ and determinise_internal_choice_core :
       ^ DR.to_string ctx (disj.disj_splitR lr)
   end in
   let lr = disj.disj_concat hl hr in
-  { st = lr; st_ops = (module DLR : StateOp with type a = lr) }
+  { st = lr; st_op = (module DLR : Op with type a = lr) }
 
 and determinise_core : type s. context -> s t -> s State.id * s State.t lazy_t =
  fun context st ->
@@ -178,7 +178,7 @@ let force (type a) ctx (t : a t) =
   match t with
   | Deterministic (sid, h) when Context.lookup ctx sid = None ->
       Context.add_binding ctx sid h;
-      let { st; st_ops = (module M : StateOp with type a = a) } =
+      let { st; st_op = (module M : Op with type a = a) } =
         Lazy.force h
       in
       M.force ctx st
@@ -190,7 +190,7 @@ let rec to_string : type a. context -> a t -> string =
   | Deterministic (sid, hd) ->
       if Lazy.is_val hd then (
         Context.add_binding ctx sid hd;
-        let { st; st_ops = (module D : StateOp with type a = a) } =
+        let { st; st_op = (module D : Op with type a = a) } =
           Lazy.force hd
         in
         D.to_string ctx st)
@@ -208,6 +208,6 @@ let ensure_determinised = function
 
 let do_determinise (type a) (t : a t) =
   let _sid, h = determinise_core (Context.make ()) t in
-  let { st; st_ops = (module M : StateOp with type a = a) } = Lazy.force h in
+  let { st; st_op = (module M : Op with type a = a) } = Lazy.force h in
   M.force (Context.make ()) st;
   st

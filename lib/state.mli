@@ -1,7 +1,7 @@
 type context
 type _ id
 
-module type StateOp = sig
+module type Op = sig
   type a
 
   val determinise : context -> a -> a
@@ -10,10 +10,10 @@ module type StateOp = sig
   val to_string : context -> a -> string
 end
 
-type 'a op = (module StateOp with type a = 'a)
-type 'a t = { st : 'a; st_ops : 'a op }
+type 'a op = (module Op with type a = 'a)
+type 'a t = { st : 'a; st_op : 'a op }
 
-module Unit : StateOp with type a = unit
+module Unit : Op with type a = unit
 
 module Context :
   ContextF.S

@@ -1,6 +1,6 @@
 type 'a t = 'a Lin.gen PowState.t
 
-let lin_op (type b) (module D : State.StateOp with type a = b) :
+let lin_op (type b) (module D : State.Op with type a = b) :
     b Lin.lin State.op =
   let module M = struct
     type nonrec a = b Lin.lin
@@ -18,7 +18,7 @@ let lin_op (type b) (module D : State.StateOp with type a = b) :
   end in
   (module M)
 
-let gen_op (type b) (module D : State.StateOp with type a = b) :
+let gen_op (type b) (module D : State.Op with type a = b) :
     b Lin.gen State.op =
   let module M = struct
     type nonrec a = b Lin.gen
@@ -40,4 +40,4 @@ let unit =
   PowState.make_deterministic (State.Context.new_key ())
   @@ Lazy.from_val
        State.
-         { st = Lin.declare_unlimited (); st_ops = gen_op (module State.Unit) }
+         { st = Lin.declare_unlimited (); st_op = gen_op (module State.Unit) }

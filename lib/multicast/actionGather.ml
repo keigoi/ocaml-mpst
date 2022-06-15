@@ -1,13 +1,12 @@
 module Context = State.Context
-open Rows
 
 type tag = int
-type 'var gather_ = tag DynChan.name list * 'var InpChoice.t list
-type 'var gather = 'var gather_ lazy_t Lin.lin
+type 'var gather_ = (tag DynChan.name list * 'var InpChoice.t list) lazy_t
+type 'var gather = 'var gather_ Lin.lin
 
-let gather_ops (type b) role =
-  let module DetGather = struct
-    type nonrec a = b gather_ Lazy.t
+let gather_op0 (type b) : (b gather_ State.op) =
+  let module M = struct
+    type nonrec a = b gather_
 
     let determinise ctx gthr =
       lazy
@@ -33,29 +32,25 @@ let gather_ops (type b) role =
       "?{"
       ^ (if Lazy.is_val s then
          String.concat ","
-           (List.map
-              (fun e -> InpChoice.to_string ctx e)
-              (snd (Lazy.force s)))
+           (List.map (fun e -> InpChoice.to_string ctx e) (snd (Lazy.force s)))
         else "<lazy_inp>")
       ^ "}"
   end in
-  LinState.det_gen_ops
-  @@ State.det_wrap_obj role
-  @@ LinState.det_lin_ops
-       (module DetGather : State.StateOp with type a = b gather_ Lazy.t)
+  (module M)
 
-let gather_state role constr names (s : _ LinState.t) =
-  Lin.map_gen role.make_obj
-  @@ Lin.declare (Lazy.from_val (names, [ InpChoice.make constr s ]))
+let gather_op role =
+  LinState.gen_op @@ State.obj_op role @@ LinState.lin_op @@ gather_op0
+
+let make_gather0 constr names s =
+  Lazy.from_val (names, [ InpChoice.make constr s ])
+
+open Rows
 
 let make_gather role constr (names : _ DynChan.name list) s =
-  State.make_deterministic (Context.new_key ())
-  @@ Lazy.from_val
-       State.
-         {
-           st = gather_state role constr names s;
-           st_ops = gather_ops role;
-         }
+  let st =
+    (role.make_obj |> Lin.map_gen) @@ Lin.declare @@ make_gather0 constr names s
+  in
+  PowState.make (gather_op role) st
 
 let gather (inp : _ gather) =
   let names, items = Lazy.force @@ Lin.use inp in

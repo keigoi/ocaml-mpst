@@ -37,7 +37,7 @@
  (name test_linearity_fail)
  (modules test_linearity_fail)
  (preprocess
-  (pps mpst.ppx))
+  (staged_pps mpst.ppx.ty))
  (libraries mpst oUnit))
 
 (test

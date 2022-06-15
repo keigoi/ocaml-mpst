@@ -1,6 +1,7 @@
-type 'a t = 'a Lin.gen State.t
+type 'a t = 'a Lin.gen PowState.t
 
-let det_lin_ops (type b) (module D : State.StateOp with type a = b) =
+let lin_op (type b) (module D : State.Op with type a = b) :
+    b Lin.lin State.op =
   let module M = struct
     type nonrec a = b Lin.lin
 
@@ -15,10 +16,11 @@ let det_lin_ops (type b) (module D : State.StateOp with type a = b) =
 
     let to_string ctx s = D.to_string ctx (Lin.raw_lin s)
   end in
-  (module M : State.StateOp with type a = b Lin.lin)
+  (module M)
 
-let det_gen_ops (type b) (module D : State.StateOp with type a = b) =
-  let module DetList = struct
+let gen_op (type b) (module D : State.Op with type a = b) :
+    b Lin.gen State.op =
+  let module M = struct
     type nonrec a = b Lin.gen
 
     let determinise ctx s = Lin.map_gen (D.determinise ctx) s
@@ -32,13 +34,10 @@ let det_gen_ops (type b) (module D : State.StateOp with type a = b) =
 
     let to_string ctx s = D.to_string ctx (Lin.raw_gen s)
   end in
-  (module DetList : State.StateOp with type a = b Lin.gen)
+  (module M)
 
 let unit =
-  State.make_deterministic (State.Context.new_key ())
+  PowState.make_deterministic (State.Context.new_key ())
   @@ Lazy.from_val
        State.
-         {
-           st = Lin.declare_unlimited ();
-           st_ops = det_gen_ops (module State.Unit);
-         }
+         { st = Lin.declare_unlimited (); st_op = gen_op (module State.Unit) }

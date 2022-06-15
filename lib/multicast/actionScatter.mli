@@ -1,4 +1,5 @@
 type _ scatter
+type (_, _) scatter_val
 
 val make_scatter :
   ('a, 'b) Rows.method_ ->
@@ -7,4 +8,11 @@ val make_scatter :
   'c LinState.t ->
   'a LinState.t
 
+val make_scatter_val :
+  ('a, ('v, 'c) scatter_val) Rows.method_ ->
+  'v DynChan.name list ->
+  'c LinState.t ->
+  'a LinState.t
+
 val scatter : 'a scatter -> 'a
+val scatter_val : ('v, 'a) scatter_val -> 'v list -> 'a

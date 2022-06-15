@@ -25,7 +25,7 @@ let units ~count =
   PowState.make_deterministic (State.Context.new_key ())
   @@ make_list ~count ~f:(fun _i -> LinState.unit)
 
-let outs ~count role lab names (ss : _ many LinState.t) : _ many LinState.t =
+let make_many ~count names (ss : _ many LinState.t) f : _ many LinState.t =
   let ss =
     lazy
       (let ss = Lin.fresh @@ PowState.do_determinise ss in
@@ -41,30 +41,21 @@ let outs ~count role lab names (ss : _ many LinState.t) : _ many LinState.t =
         {
           st =
             Lin.declare_unlimited
-            @@ List.mapi
-                 (fun _i (name, s) -> ActionOut.make_select role lab name s)
-                 (List.combine names ss);
+            @@ List.mapi (fun _i (name, s) -> f name s) (List.combine names ss);
           st_op = LinState.gen_op @@ list_op;
         })
 
-let inps ~count role constr names (ss : _ many LinState.t) : _ many LinState.t =
-  let ss =
-    lazy
-      (let ss = Lin.fresh @@ PowState.do_determinise ss in
-       ss)
-  in
-  let ss =
-    List.init count (fun i ->
-        PowState.make_lazy (lazy (List.nth (Lazy.force ss) i)))
-  in
-  PowState.make_deterministic (State.Context.new_key ())
-    (lazy
-      State.
-        {
-          st =
-            Lin.declare_unlimited
-            @@ List.mapi
-                 (fun _i (name, s) -> ActionInp.make_branch role constr name s)
-                 (List.combine names ss);
-          st_op = LinState.gen_op @@ list_op;
-        })
+let make_selects ~count role lab names (ss : _ many LinState.t) :
+    _ many LinState.t =
+  make_many ~count names ss (fun name s ->
+      ActionOut.make_select role lab name s)
+
+let make_branches ~count role constr names (ss : _ many LinState.t) =
+  make_many ~count names ss (fun name s ->
+      ActionInp.make_branch role constr name s)
+
+let make_outs ~count role names ss =
+  make_many ~count names ss (fun name s -> ActionOut.make_out role name s)
+
+let make_inps ~count role names ss =
+  make_many ~count names ss (fun name s -> ActionInp.make_inp role name s)

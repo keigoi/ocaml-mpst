@@ -2,8 +2,8 @@ type 'a many = 'a LinState.t list
 
 let get_many ss = List.map (fun s -> Lin.fresh @@ PowState.do_determinise s) ss
 
-let det_list_ops (type b) =
-  let module DetList = struct
+let det_list_ops (type b) : b many State.op =
+  let module M = struct
     type nonrec a = b many
 
     let determinise _ctx s = s
@@ -14,14 +14,14 @@ let det_list_ops (type b) =
 
     let to_string _ctx _s = "<multicast>"
   end in
-  (module DetList : State.StateOp with type a = b many)
+  (module M)
 
 let make_list ~count ~f =
   lazy
     State.
       {
         st = Lin.declare_unlimited @@ List.init count f;
-        st_ops = LinState.gen_ops @@ det_list_ops;
+        st_ops = LinState.gen_op @@ det_list_ops;
       }
 
 let units ~count =
@@ -47,7 +47,7 @@ let outs ~count role lab names (ss : _ many LinState.t) : _ many LinState.t =
             @@ List.mapi
                  (fun _i (name, s) -> ActionOut.make_select role lab name s)
                  (List.combine names ss);
-          st_ops = LinState.gen_ops @@ det_list_ops;
+          st_ops = LinState.gen_op @@ det_list_ops;
         })
 
 let inps ~count role constr names (ss : _ many LinState.t) : _ many LinState.t =
@@ -69,5 +69,5 @@ let inps ~count role constr names (ss : _ many LinState.t) : _ many LinState.t =
             @@ List.mapi
                  (fun _i (name, s) -> ActionInp.make_branch role constr name s)
                  (List.combine names ss);
-          st_ops = LinState.gen_ops @@ det_list_ops;
+          st_ops = LinState.gen_op @@ det_list_ops;
         })

@@ -31,11 +31,8 @@ module type StateOp = Context.Op1
 
 type context = Context.t
 type 't id = 't Context.key
-
-type 'a t = 'a Context.state = {
-  st : 'a;
-  st_ops : (module StateOp with type a = 'a);
-}
+type 'a op = (module StateOp with type a = 'a)
+type 'a t = 'a Context.state = { st : 'a; st_ops : 'a op }
 
 let map_ops (type x y) (f : x -> y) (g : y -> x) (name : string -> string)
     (module D : StateOp with type a = x) : (module StateOp with type a = y) =
@@ -54,12 +51,12 @@ let map_ops (type x y) (f : x -> y) (g : y -> x) (name : string -> string)
   (module M)
 
 let map (type x y) (f : x -> y) (g : y -> x) (name : string -> string)
-    (s : x t) =
-  { st = f s.st; st_ops = map_ops f g name s.st_ops }
+    (s : x op) =
+  map_ops f g name s
 
 open Rows
 
-let map_method meth =
+let obj_op meth =
   map meth.make_obj meth.call_obj (fun s -> meth.method_name ^ s)
 
 module Unit : StateOp with type a = unit = struct

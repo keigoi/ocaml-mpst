@@ -10,7 +10,8 @@ module type StateOp = sig
   val to_string : context -> a -> string
 end
 
-type 'a t = { st : 'a; st_ops : (module StateOp with type a = 'a) }
+type 'a op = (module StateOp with type a = 'a)
+type 'a t = { st : 'a; st_ops : 'a op }
 
 module Unit : StateOp with type a = unit
 
@@ -20,12 +21,4 @@ module Context :
      and type t := context
      and type 'a value := 'a t lazy_t
 
-val map_ops :
-  ('a -> 'b) ->
-  ('b -> 'a) ->
-  (string -> string) ->
-  (module StateOp with type a = 'a) ->
-  (module StateOp with type a = 'b)
-
-val map : ('a -> 'b) -> ('b -> 'a) -> (string -> string) -> 'a t -> 'b t
-val map_method : ('a, 'b) Rows.method_ -> 'b t -> 'a t
+val obj_op : ('a, 'b) Rows.method_ -> 'b op -> 'a op

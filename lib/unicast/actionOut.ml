@@ -9,12 +9,12 @@ type ('v, 's) out_ =
 type ('v, 'a) out = ('v, 'a) out_ Lin.lin
 type 's select = (tag, 's) out
 
-let out_ops_raw (type v b) () =
-  let module DetOut = struct
-    type nonrec a = (v, b) out_
+let out_op0 (type v cont) : (v, cont) out_ State.op =
+  let module M = struct
+    type nonrec a = (v, cont) out_
 
-    let determinise ctx (Out (tag, name, cont)) =
-      Out (tag, name, lazy (PowState.determinise ctx (Lazy.force cont)))
+    let determinise ctx (Out (tag, name, (lazy cont))) =
+      Out (tag, name, lazy (PowState.determinise ctx cont))
 
     let merge ctx (Out (tag1, name1, cont1)) (Out (tag2, name2, cont2)) =
       assert (tag1 = tag2);
@@ -35,34 +35,28 @@ let out_ops_raw (type v b) () =
         PowState.to_string ctx cont
       else "<lazy_out_cont>"
   end in
-  (module DetOut : State.StateOp with type a = (v, b) out_)
+  (module M)
 
-let make_select role lab name s : _ LinState.t =
-  let st =
-    State.
-      {
-        st = Out (lab.method_name, name, Lazy.from_val s);
-        st_ops = out_ops_raw ();
-      }
-  in
-  PowState.make_deterministic (Context.new_key ())
-  @@ Lazy.from_val
-  @@ LinState.map role.make_obj role.call_obj (fun s -> role.method_name ^ s)
-  @@ LinState.map lab.make_obj lab.call_obj (fun s -> lab.method_name ^ s)
-  @@ LinState.make_lin_state st
+let out_op role = State.obj_op role @@ LinState.lin_op out_op0
+
+let select_op role label =
+  State.obj_op role @@ State.obj_op label @@ LinState.lin_op out_op0
 
 let make_out role name s : _ LinState.t =
   let st =
-    State.
-      {
-        st = Out (""(*FIXME*), name, Lazy.from_val s);
-        st_ops = out_ops_raw ();
-      }
+    (role.make_obj |> Lin.map_gen)
+    @@ Lin.declare (Out ("_out" (* FIXME *), name, Lazy.from_val s))
   in
-  PowState.make_deterministic (Context.new_key ())
-  @@ Lazy.from_val
-  @@ LinState.map role.make_obj role.call_obj (fun s -> role.method_name ^ s)
-  @@ LinState.make_lin_state st
+  let op = LinState.gen_op (out_op role) in
+  PowState.make op st
+
+let make_select role label name s : _ LinState.t =
+  let st =
+    Lin.map_gen (fun t -> role.make_obj @@ label.make_obj t)
+    @@ Lin.declare (Out (label.method_name, name, Lazy.from_val s))
+  in
+  let op = LinState.gen_op @@ select_op role label in
+  PowState.make op st
 
 let select out =
   let (Out (labname, name, cont)) = Lin.use out in

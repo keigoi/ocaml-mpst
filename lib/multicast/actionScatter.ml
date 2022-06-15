@@ -10,7 +10,7 @@ type _ scatter_ =
 
 type 'a scatter = 'a scatter_ Lin.lin
 
-let scatter_ops (type b) : (module State.StateOp with type a = b scatter_) =
+let scatter_op0 (type b) : b scatter_ State.op =
   let module M = struct
     type nonrec a = b scatter_
 
@@ -24,8 +24,7 @@ let scatter_ops (type b) : (module State.StateOp with type a = b scatter_) =
       Scatter
         ( tag1,
           names1,
-          lazy (PowState.merge ctx (Lazy.force cont1) (Lazy.force cont2))
-        )
+          lazy (PowState.merge ctx (Lazy.force cont1) (Lazy.force cont2)) )
 
     let force ctx (Scatter (_, names, cont)) =
       ignore (List.map DynChan.finalise names);
@@ -41,19 +40,20 @@ let scatter_ops (type b) : (module State.StateOp with type a = b scatter_) =
   end in
   (module M)
 
+let scatter_op role lab =
+  LinState.gen_op
+  @@ State.obj_op role
+  @@ State.obj_op lab
+  @@ LinState.lin_op
+  @@ scatter_op0
+
 let make_scatter role lab name s =
-  let x =
-    State.
-      {
-        st = Scatter (lab.method_name, name, Lazy.from_val s);
-        st_ops = scatter_ops;
-      }
+  let st =
+    Lin.map_gen (fun t -> role.make_obj @@ lab.make_obj t)
+    @@ Lin.declare
+    @@ Scatter (lab.method_name, name, Lazy.from_val s)
   in
-  PowState.make_deterministic (Context.new_key ())
-  @@ Lazy.from_val
-  @@ LinState.map_method role
-  @@ LinState.map_method lab
-  @@ LinState.make_lin_state x
+  PowState.make (scatter_op role lab) st
 
 let scatter s =
   let (Scatter (labname, names, cont)) = Lin.use s in

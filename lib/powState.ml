@@ -8,7 +8,7 @@ module type PowOp = sig
   val merge : context -> 's t -> 's t -> 's t
   val force : context -> 'a t -> unit
   val to_string : context -> 'a t -> string
-  val make : 'obj State.t -> 'obj t
+  val make : 'obj State.op -> 'obj -> 'obj t
 end
 
 let determinise_list (type a) ctx (id : a State.id)
@@ -52,7 +52,9 @@ let unit =
         { st = (); st_ops = (module Unit : StateOp with type a = unit) } )
 
 let make_deterministic id obj = Deterministic (id, obj)
-let make obj = Deterministic (Context.new_key (), Lazy.from_val obj)
+
+let make op obj =
+  Deterministic (Context.new_key (), Lazy.from_val { st = obj; st_ops = op })
 
 let make_internal_choice disj l r =
   InternalChoice (Context.new_key (), disj, l, r)

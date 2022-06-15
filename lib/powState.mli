@@ -9,7 +9,7 @@ module type PowOp = sig
   val merge : context -> 's t -> 's t -> 's t
   val force : context -> 'a t -> unit
   val to_string : context -> 'a t -> string
-  val make : 'obj State.t -> 'obj t
+  val make : 'obj State.op -> 'obj -> 'obj t
 end
 
 include PowOp

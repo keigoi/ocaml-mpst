@@ -5,9 +5,19 @@ type tag = int
 type 'var branch_ = (tag DynChan.name * 'var InpChoice.t list) Lazy.t
 type 'var branch = 'var branch_ Lin.lin
 
-let branch_ops (type b) : (module State.StateOp with type a = b branch_) =
+let make_branch0 constr name s =
+  Lazy.from_val (name, [ InpChoice.make constr s ])
+
+let branch_op0 (type vars) : vars branch_ State.op =
   let module M = struct
-    type nonrec a = b branch_
+    type nonrec a = vars branch_
+
+    let determinise ctx inp =
+      lazy
+        begin
+          let (lazy (name, exts)) = inp in
+          (name, List.map (InpChoice.determinise ctx) exts)
+        end
 
     let merge ctx inp1 inp2 =
       lazy
@@ -15,13 +25,6 @@ let branch_ops (type b) : (module State.StateOp with type a = b branch_) =
           let (lazy (name1, exts1)), (lazy (name2, exts2)) = (inp1, inp2) in
           DynChan.unify name1 name2;
           (name1, InpChoice.merge ctx exts1 exts2)
-        end
-
-    let determinise ctx inp =
-      lazy
-        begin
-          let (lazy (name, exts)) = inp in
-          (name, List.map (InpChoice.determinise ctx) exts)
         end
 
     let force ctx inp =
@@ -39,18 +42,14 @@ let branch_ops (type b) : (module State.StateOp with type a = b branch_) =
   end in
   (module M)
 
+let branch_op role =
+  LinState.gen_op @@ State.obj_op role @@ LinState.lin_op branch_op0
+
 let make_branch role constr name (s : _ LinState.t) =
   let st =
-    State.
-      {
-        st = Lazy.from_val (name, [ InpChoice.make constr s ]);
-        st_ops = branch_ops;
-      }
+    (role.make_obj |> Lin.map_gen) @@ Lin.declare (make_branch0 constr name s)
   in
-  PowState.make_deterministic (Context.new_key ())
-  @@ Lazy.from_val
-  @@ LinState.map role.make_obj role.call_obj (fun s -> role.method_name ^ s)
-  @@ LinState.make_lin_state st
+  PowState.make (branch_op role) st
 
 let branch (inp : _ branch) =
   let name, items = Lazy.force @@ Lin.use inp in
@@ -62,8 +61,8 @@ let branch (inp : _ branch) =
 type ('v, 's) inp_ = 'v DynChan.name * 's LinState.t
 type ('v, 's) inp = ('v, 's) inp_ Lin.lin
 
-let inp_ops (type v s) =
-  let module DetInp = struct
+let inp_op0 (type v s) : (v, s) inp_ State.op =
+  let module M = struct
     type a = (v, s) inp_
 
     let determinise ctx (ch, s) = (ch, PowState.determinise ctx s)
@@ -75,14 +74,13 @@ let inp_ops (type v s) =
     let force ctx (_, s) = PowState.force ctx s
     let to_string ctx (_, s) = "?." ^ PowState.to_string ctx s
   end in
-  (module DetInp : State.StateOp with type a = (v, s) inp_)
+  (module M)
+
+let inp_op role = State.obj_op role @@ LinState.lin_op inp_op0
 
 let make_inp role chan cont =
-  let st = State.{ st = (chan, cont); st_ops = inp_ops } in
-  PowState.make_deterministic (State.Context.new_key ())
-  @@ Lazy.from_val
-  @@ LinState.map role.make_obj role.call_obj (fun s -> role.method_name ^ s)
-  @@ LinState.make_lin_state st
+  let st = (role.make_obj |> Lin.map_gen) @@ Lin.declare (chan, cont) in
+  PowState.make (LinState.gen_op (inp_op role)) st
 
 let receive inp =
   let ch, cont = Lin.use inp in

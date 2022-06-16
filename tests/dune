@@ -46,3 +46,8 @@
  (preprocess
   (staged_pps mpst.ppx.ty))
  (libraries mpst oUnit))
+
+(test
+ (name test_dynChan)
+ (modules test_dynChan)
+ (libraries mpst oUnit))

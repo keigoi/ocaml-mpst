@@ -13,35 +13,30 @@ let list_op (type b) : b many State.op =
   end in
   (module M)
 
-let make_list ~count ~f =
-  lazy
-    State.
-      {
-        st = Lin.declare_unlimited @@ List.init count f;
-        st_op = LinState.gen_op @@ list_op;
-      }
-
 let units ~count =
-  PowState.make_deterministic (State.Context.new_key ())
-  @@ make_list ~count ~f:(fun _i -> LinState.unit)
+  PowState.make
+    (LinState.gen_op @@ list_op)
+    (Lin.declare_unlimited @@ List.init count (fun _i -> LinState.unit))
 
-let make_many ~count names (ss : _ many LinState.t) f : _ many LinState.t =
+let make_many ~count (names : 'v DynChan.name list) (ss : 's many LinState.t)
+    (f : 'v DynChan.name -> 's LinState.t -> 'a LinState.t) : 'a many LinState.t
+    =
   let ss =
     lazy
-      (let ss = Lin.fresh @@ PowState.do_determinise ss in
+      (let ss =
+         Lin.fresh @@ PowState.do_determinise ss (* FIXME this needs context *)
+       in
        ss)
   in
   let ss =
     List.init count (fun i ->
         PowState.make_lazy (lazy (List.nth (Lazy.force ss) i)))
   in
-  PowState.make_deterministic (State.Context.new_key ())
+  PowState.make_raw (State.Context.new_key ())
     (lazy
       State.
         {
-          st =
-            Lin.declare_unlimited
-            @@ List.mapi (fun _i (name, s) -> f name s) (List.combine names ss);
+          st = Lin.declare_unlimited @@ List.map2 f names ss;
           st_op = LinState.gen_op @@ list_op;
         })
 

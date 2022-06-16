@@ -11,7 +11,12 @@ module type Op = sig
 end
 
 type 'a op = (module Op with type a = 'a)
+
+val obj_op : ('a, 'b) Rows.method_ -> 'b op -> 'a op
+
 type 'a t = { st : 'a; st_op : 'a op }
+
+val determinise_list : context -> 'a id -> 'a t lazy_t list -> 'a t lazy_t
 
 module Unit : Op with type a = unit
 
@@ -20,5 +25,3 @@ module Context :
     with type 'a key = 'a id
      and type t := context
      and type 'a value := 'a t lazy_t
-
-val obj_op : ('a, 'b) Rows.method_ -> 'b op -> 'a op

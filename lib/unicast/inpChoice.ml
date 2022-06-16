@@ -42,11 +42,11 @@ let merge_pow_if_same constr1 constr2 ctx (t1 : _ LinState.t)
   | Left state_id1 ->
       (* (3) try to cast and merge them ==== *)
       let t = merge_st_if_same constr1 constr2 ctx t1 t2 in
-      Either.Left (PowState.make_deterministic state_id1 (Lazy.from_val t))
+      Either.Left (PowState.make_raw state_id1 (Lazy.from_val t))
   | Right state_id2 ->
       (* (3) try to cast and merge them ==== *)
       let t = merge_st_if_same constr2 constr1 ctx t2 t1 in
-      Right (PowState.make_deterministic state_id2 (Lazy.from_val t))
+      Right (PowState.make_raw state_id2 (Lazy.from_val t))
 
 let merge_choice : type a. State.context -> a t -> a t -> a t option =
  fun ctx e1 e2 ->

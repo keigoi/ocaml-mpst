@@ -63,3 +63,26 @@ module Unit : Op with type a = unit = struct
   let force _ _ = ()
   let to_string _ _ = "end"
 end
+
+let determinise_list (type a) ctx (id : a id) (hds : a t lazy_t list) :
+    a t lazy_t =
+  match Context.lookup ctx id with
+  | Some v -> v
+  | None ->
+      let hd =
+        lazy
+          (let { st_op = (module D : Op with type a = a); _ } =
+             Lazy.force (List.hd hds)
+           in
+           let hds = List.map (fun hd -> (Lazy.force hd).st) hds in
+           let st =
+             match hds with
+             | [ hd ] -> D.determinise ctx hd
+             | hd :: hds ->
+                 D.determinise ctx @@ List.fold_left (D.merge ctx) hd hds
+             | [] -> failwith "impossible: empty_merge"
+           in
+           { st; st_op = (module D : Op with type a = a) })
+      in
+      Context.add_binding ctx id hd;
+      hd

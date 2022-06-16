@@ -76,7 +76,7 @@ open Mpst.Unicast
 2. Write down a **protocol** using **Global Combinators**.
 
 ```ocaml
-let ring = (a --> b) msg @@ (b --> c) msg @@ (c --> a) finish
+let ring = (a --> b) msg @@ (b --> c) msg @@ (c --> a) msg finish
 ```
 
 --- This is a simple three-party ring-based protocol with _participants_ `A`,

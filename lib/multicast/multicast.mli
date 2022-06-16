@@ -23,16 +23,14 @@ val ( @@--> ) :
 val ( ==>@@ ) :
   ('a, 'b, 'c, 'd, 'e, ('f, 'g) ActionInp.inp) role ->
   ('g many, 'e many, 'h, 'c, 'b, ('f, 'a) ActionScatter.scatter_val) role ->
-  (env -> 'h seq) ->
-  env ->
-  'd seq
+  'h global ->
+  'd global
 
 val ( @@==> ) :
   ('a many, 'b many, 'c, 'd, 'e, ('f, 'g) ActionGather.gather_val) role ->
   ('g, 'e, 'h, 'c, 'b, ('f, 'a) ActionOut.out) role ->
-  (env -> 'h seq) ->
-  env ->
-  'd seq
+  'h global ->
+  'd global
 
 val many_at :
   (unit, unit many, 'b, 'c, 'd, 'e) BasicCombinators.role ->

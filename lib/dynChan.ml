@@ -19,10 +19,12 @@ let rec finalise n1 =
 let send ep v = ep.send v
 let receive ep = ep.receive ()
 
-let unify : type a. a name -> a name -> unit =
- fun chl chr ->
-  (* unify two queue endpoints, discarding the right *)
-  chr := Link chl
+let rec unify : type a. a name -> a name -> unit =
+ fun c1 c2 ->
+  match (c1, c2) with
+  | _, { contents = Link c2' } -> unify c1 c2'
+  | { contents = Link c1' }, _ -> unify c1' c2
+  | _ -> if c1 == c2 then () else c2 := Link c1
 
 module Make () : S = struct
   type payload = ..

@@ -4,7 +4,7 @@ module Context = State.Context
 type tag = int
 
 type ('v, 's) scatter_val_ =
-  string * 'v DynChan.name list * 's LinState.t lazy_t
+  string * 'v DynChan.endpoint list * 's LinState.t lazy_t
 
 type ('v, 's) scatter_val = ('v, 's) scatter_val_ Lin.lin
 type 'a scatter = (tag, 'a) scatter_val

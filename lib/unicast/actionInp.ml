@@ -2,7 +2,7 @@ module Context = State.Context
 open Rows
 
 type tag = int
-type 'var branch_ = (tag DynChan.name * 'var InpChoice.t list) Lazy.t
+type 'var branch_ = (tag DynChan.endpoint * 'var InpChoice.t list) Lazy.t
 type 'var branch = 'var branch_ Lin.lin
 
 let make_branch0 constr name s =
@@ -58,7 +58,7 @@ let branch (inp : _ branch) =
   |> List.assoc (DynChan.receive (DynChan.finalise name))
   |> Lazy.force
 
-type ('v, 's) inp_ = 'v DynChan.name * 's LinState.t
+type ('v, 's) inp_ = 'v DynChan.endpoint * 's LinState.t
 type ('v, 's) inp = ('v, 's) inp_ Lin.lin
 
 let inp_op0 (type v s) : (v, s) inp_ State.op =

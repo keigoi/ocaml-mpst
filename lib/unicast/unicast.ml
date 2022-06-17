@@ -37,7 +37,7 @@ let ( --> ) ra rb lab g env =
     lookup (Lookup.lookup env)
       (ra.role_label.method_name, rb.role_label.method_name)
   in
-  let key = DynChan.new_name ch in
+  let key = DynChan.new_endpoint ch in
   let b = seq_get rb.role_index g in
   let g =
     seq_put rb.role_index g (ActionInp.make_branch ra.role_label lab.var key b)
@@ -54,7 +54,7 @@ let ( ==> ) ra rb g env =
     lookup (Lookup.lookup env)
       (ra.role_label.method_name, rb.role_label.method_name)
   in
-  let key = DynChan.new_name ch in
+  let key = DynChan.new_endpoint ch in
   let b = seq_get rb.role_index g in
   let g = seq_put rb.role_index g (ActionInp.make_inp ra.role_label key b) in
   let a = seq_get ra.role_index g in

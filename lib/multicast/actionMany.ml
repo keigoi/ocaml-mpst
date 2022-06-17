@@ -18,8 +18,8 @@ let units ~count =
     (LinState.gen_op @@ list_op)
     (Lin.declare_unlimited @@ List.init count (fun _i -> LinState.unit))
 
-let make_many ~count (names : 'v DynChan.name list) (ss : 's many LinState.t)
-    (f : 'v DynChan.name -> 's LinState.t -> 'a LinState.t) : 'a many LinState.t
+let make_many ~count (names : 'v DynChan.endpoint list) (ss : 's many LinState.t)
+    (f : 'v DynChan.endpoint -> 's LinState.t -> 'a LinState.t) : 'a many LinState.t
     =
   let ss =
     lazy

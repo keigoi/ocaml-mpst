@@ -4,13 +4,13 @@ type ('v, 's) inp
 val make_branch :
   ('a, 'c branch) Rows.method_ ->
   ('c, 'd) Rows.constr ->
-  int DynChan.name ->
+  int DynChan.endpoint ->
   'd LinState.t ->
   'a LinState.t
 
 val make_inp :
   ('a, ('v, 'c) inp) Rows.method_ ->
-  'v DynChan.name ->
+  'v DynChan.endpoint ->
   'c LinState.t ->
   'a LinState.t
 

@@ -2,7 +2,7 @@ open Rows
 module Context = State.Context
 
 type tag = int
-type ('v, 's) out_ = string * 'v DynChan.name * 's LinState.t lazy_t
+type ('v, 's) out_ = string * 'v DynChan.endpoint * 's LinState.t lazy_t
 type ('v, 'a) out = ('v, 'a) out_ Lin.lin
 type 's select = (tag, 's) out
 

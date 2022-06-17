@@ -55,7 +55,7 @@ let ( -->@@ ) ra rb lab g env =
   let chs =
     get_chan env (ra.role_label.method_name, rb.role_label.method_name)
   in
-  let keys = List.map DynChan.new_name chs in
+  let keys = List.map DynChan.new_endpoint chs in
   let b = seq_get rb.role_index g in
   let g =
     seq_put rb.role_index g
@@ -76,7 +76,7 @@ let ( @@--> ) ra rb lab g env =
   let chs =
     get_chan env (ra.role_label.method_name, rb.role_label.method_name)
   in
-  let keys = List.map DynChan.new_name chs in
+  let keys = List.map DynChan.new_endpoint chs in
   let b = seq_get rb.role_index g in
   let g =
     seq_put rb.role_index g
@@ -97,7 +97,7 @@ let ( ==>@@ ) ra rb g env =
   let chs =
     get_chan env (ra.role_label.method_name, rb.role_label.method_name)
   in
-  let keys = List.map DynChan.new_name chs in
+  let keys = List.map DynChan.new_endpoint chs in
   let b = seq_get rb.role_index g in
   let g =
     seq_put rb.role_index g
@@ -118,7 +118,7 @@ let ( @@==> ) ra rb g env =
   let chs =
     get_chan env (ra.role_label.method_name, rb.role_label.method_name)
   in
-  let keys = List.map DynChan.new_name chs in
+  let keys = List.map DynChan.new_endpoint chs in
   let b = seq_get rb.role_index g in
   let g =
     seq_put rb.role_index g (ActionGather.make_gather_val ra.role_label keys b)

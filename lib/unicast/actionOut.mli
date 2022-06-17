@@ -4,7 +4,7 @@ type ('v, 'a) out
 val make_select :
   ('a, 'b) Rows.method_ ->
   ('b, 'c select) Rows.method_ ->
-  int DynChan.name ->
+  int DynChan.endpoint ->
   'c LinState.t ->
   'a LinState.t
 
@@ -12,7 +12,7 @@ val select : 's select -> 's
 
 val make_out :
   ('a, ('v, 'c) out) Rows.method_ ->
-  'v DynChan.name ->
+  'v DynChan.endpoint ->
   'c LinState.t ->
   'a LinState.t
 

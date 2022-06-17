@@ -3,9 +3,9 @@ open OUnit
 
 let test_unify () =
   let ch = DynChan.make () in
-  let n1 = DynChan.new_name ch in
-  let n2 = DynChan.new_name ch in
-  let n3 = DynChan.new_name ch in
+  let n1 = DynChan.new_endpoint ch in
+  let n2 = DynChan.new_endpoint ch in
+  let n3 = DynChan.new_endpoint ch in
   DynChan.unify n1 n2;
   DynChan.unify n3 n2;
   let n1, _n2, n3 =

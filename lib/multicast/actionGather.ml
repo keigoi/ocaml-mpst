@@ -1,7 +1,7 @@
 module Context = State.Context
 
 type tag = int
-type 'var gather_ = (tag DynChan.name list * 'var InpChoice.t list) lazy_t
+type 'var gather_ = (tag DynChan.endpoint list * 'var InpChoice.t list) lazy_t
 type 'var gather = 'var gather_ Lin.lin
 
 let gather_op0 (type b) : b gather_ State.op =
@@ -24,7 +24,7 @@ let gather_op0 (type b) : b gather_ State.op =
         end
 
     let force ctx s =
-      let (names : int DynChan.name list), extcs = Lazy.force s in
+      let (names : int DynChan.endpoint list), extcs = Lazy.force s in
       ignore (List.map DynChan.finalise names);
       extcs |> List.iter (InpChoice.force ctx)
 
@@ -46,7 +46,7 @@ let make_gather0 constr names s =
 
 open Rows
 
-let make_gather role constr (names : _ DynChan.name list) s =
+let make_gather role constr (names : _ DynChan.endpoint list) s =
   let st =
     (role.make_obj |> Lin.map_gen) @@ Lin.declare @@ make_gather0 constr names s
   in
@@ -61,7 +61,7 @@ let gather (inp : _ gather) =
   assert (List.for_all (fun t -> t = tag) tags);
   items |> List.map InpChoice.match_item |> List.assoc tag |> Lazy.force
 
-type ('v, 's) gather_val_ = 'v DynChan.name list * 's LinState.t
+type ('v, 's) gather_val_ = 'v DynChan.endpoint list * 's LinState.t
 type ('v, 's) gather_val = ('v, 's) gather_val_ Lin.lin
 
 let gather_val_op0 (type v s) : (v, s) gather_val_ State.op =

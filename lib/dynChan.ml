@@ -1,9 +1,9 @@
-type 'a name = 'a link ref
-and 'a link = Link of 'a name | Chan of 'a endpoint
-and 'a endpoint = { send : 'a -> unit; receive : unit -> 'a }
+type 'a endpoint = 'a link ref
+and 'a link = Link of 'a endpoint | Chan of 'a ops
+and 'a ops = { send : 'a -> unit; receive : unit -> 'a }
 
 module type S = sig
-  val new_name : unit -> 'a name
+  val new_endpoint : unit -> 'a endpoint
 end
 
 type chan = (module S)
@@ -17,15 +17,11 @@ let rec path_compression n =
       n1
 
 let rec get n = match !n with Chan ch -> ch | Link n -> get n
+let finalise = path_compression
+let send ep v = (get ep).send v
+let receive ep = (get ep).receive ()
 
-let finalise n =
-  let n = path_compression n in
-  get n
-
-let send ep v = ep.send v
-let receive ep = ep.receive ()
-
-let rec unify0 : type a. a name -> a name -> unit =
+let rec unify0 : type a. a endpoint -> a endpoint -> unit =
  fun c1 c2 ->
   match (c1, c2) with
   | _, { contents = Link c2' } -> unify0 c1 c2'
@@ -56,7 +52,7 @@ module Make () : S = struct
       | _ -> failwith "impossible: queue protocol mismatch"
   end
 
-  let new_name (type a) () : a name =
+  let new_endpoint (type a) () : a endpoint =
     let module M = Add (struct
       type t = a
     end) in
@@ -67,4 +63,4 @@ let make () : (module S) =
   let module M = Make () in
   (module M)
 
-let new_name (module M : S) = M.new_name ()
+let new_endpoint (module M : S) = M.new_endpoint ()

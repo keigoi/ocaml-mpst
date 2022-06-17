@@ -1,6 +1,4 @@
-open Mpst.BasicCombinators
-open Mpst.Unicast
-open Mpst.Multicast
+open Mpst_basic
 open Rows
 open OUnit
 

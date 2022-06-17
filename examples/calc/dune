@@ -3,4 +3,4 @@
  (modules calc)
  (preprocess
   (staged_pps mpst.ppx.ty))
- (libraries mpst))
+ (libraries mpst-basic))

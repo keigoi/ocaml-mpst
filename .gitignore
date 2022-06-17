@@ -42,3 +42,4 @@ ppx_tools/ppx_tools.install
 
 _opam
 
+.vscode

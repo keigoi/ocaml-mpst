@@ -66,8 +66,7 @@ dune exec examples/mpst/calc.exe
 1. Declare the name of participants (__roles__) and __labels__:
 
 ```
-open Mpst.BasicCombinators
-open Mpst.Unicast
+open Mpst_basic
 
 [%%declare_roles_prefixed a, b, c] (* note that the order matters *)
 [%%declare_labels msg]

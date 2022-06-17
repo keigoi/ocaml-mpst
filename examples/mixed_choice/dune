@@ -3,4 +3,4 @@
  (modules mixed1)
  (preprocess
   (staged_pps mpst.ppx.ty))
- (libraries mpst))
+ (libraries mpst-basic))

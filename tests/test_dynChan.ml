@@ -1,4 +1,4 @@
-module DynChan = Mpst.DynChan
+module DynChan = Mpst_basic.DynChan
 open OUnit
 
 let test_unify () =

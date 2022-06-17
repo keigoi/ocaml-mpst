@@ -1,5 +1,4 @@
-open Mpst.BasicCombinators
-open Mpst.Unicast
+open Mpst_basic
 
 [%%declare_roles a, b, c]
 [%%declare_labels req, resp, timeout]

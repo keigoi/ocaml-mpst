@@ -13,7 +13,7 @@ let rec finalise n1 =
   | Chan ch -> ch
   | Link n1' ->
       let ch = finalise n1' in
-      n1 := Chan ch;
+      n1' := Chan ch;
       ch
 
 let send ep v = ep.send v

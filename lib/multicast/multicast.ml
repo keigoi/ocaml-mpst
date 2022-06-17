@@ -10,7 +10,7 @@ type 's many = 's ActionMany.many
 
 type chan_table = {
   process_count : (string, int) Hashtbl.t;
-  table : (string * string, DynChan.chan list) Hashtbl.t;
+  table : (string * string, DynChan.t list) Hashtbl.t;
 }
 
 type param += P : ((_, _, _, _, _, _) role * int) -> param

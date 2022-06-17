@@ -4,7 +4,6 @@ type 's select = 's ActionOut.select
 type 's branch = 's ActionInp.branch
 type ('v, 's) out = ('v, 's) ActionOut.out
 type ('v, 's) inp = ('v, 's) ActionInp.inp
-type chan
 
 val select : 'a select -> 'a
 val branch : 'a branch -> 'a

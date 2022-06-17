@@ -6,7 +6,7 @@ module type S = sig
   val new_endpoint : unit -> 'a endpoint
 end
 
-type chan = (module S)
+type t = (module S)
 
 let rec path_compression n =
   match !n with

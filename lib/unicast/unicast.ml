@@ -6,11 +6,10 @@ type 's select = 's ActionOut.select
 type 's branch = 's ActionInp.branch
 type ('v, 's) out = ('v, 's) ActionOut.out
 type ('v, 's) inp = ('v, 's) ActionInp.inp
-type chan = DynChan.chan
 
 let close () = ()
 
-type chan_table = (string * string, DynChan.chan) Hashtbl.t
+type chan_table = (string * string, DynChan.t) Hashtbl.t
 
 module UnicastEnv : EnvSpec with type entry = chan_table = struct
   type entry = chan_table

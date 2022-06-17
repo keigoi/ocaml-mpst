@@ -32,4 +32,9 @@ jobs:
 
       - run: opam install . --deps-only --with-test
 
-      - run: opam exec -- dune build
+      - run: opam exec -- dune build --profile=dev --only-packages mpst,mpst-basic
+
+      - run: opam exec -- dune build tests/ examples/
+
+      - run: opam exec -- dune runtest
+

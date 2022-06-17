@@ -1,0 +1,38 @@
+opam-version: "2.0"
+version: "0.0.1"
+synopsis: "OCaml-MPST basic library [WIP]"
+description: "OCaml-MPST basic library [WIP]"
+maintainer: ["keigo.imai@gmail.com"]
+authors: ["Keigo Imai"]
+homepage: "https://github.com/keigoi/ocaml-mpst"
+doc: "https://github.com/keigoi/ocaml-mpst"
+bug-reports: "https://github.com/keigoi/ocaml-mpst/issues"
+depends: [
+  "ocaml" {>= "4.12.0"}
+  "dune" {>= "2.8"}
+  "mpst"
+  "hlist"
+  "rows"
+  "ppxlib" {>= "0.19.0"}
+  "ounit" {with-test}
+  "odoc" {with-doc}
+]
+build: [
+  ["dune" "subst"] {dev}
+  [
+    "dune"
+    "build"
+    "-p"
+    name
+    "-j"
+    jobs
+    "@install"
+    "@runtest" {with-test}
+    "@doc" {with-doc}
+  ]
+]
+dev-repo: "git+https://github.com/keigoi/ocaml-mpst.git"
+pin-depends: [
+  [ "hlist.dev" "git+https://github.com/keigoi/hlist-ocaml.git"]
+  [ "rows.dev" "git+https://github.com/keigoi/rows-ocaml.git"]
+]

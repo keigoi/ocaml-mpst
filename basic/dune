@@ -1,0 +1,6 @@
+(library
+ (name mpst_basic)
+ (public_name mpst-basic)
+ (libraries mpst hlist rows threads compiler-libs.common))
+
+(include_subdirs unqualified)

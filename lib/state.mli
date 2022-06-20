@@ -12,6 +12,9 @@ end
 
 type 'a op = (module Op with type a = 'a)
 
+val map_op :
+  ('x * 'z -> 'y) -> ('y -> 'x * 'z) -> ('z -> 'z -> 'z) -> 'x op -> 'y op
+
 val obj_op : ('a, 'b) Rows.method_ -> 'b op -> 'a op
 
 type 'a t = { st : 'a; st_op : 'a op }

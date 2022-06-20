@@ -34,26 +34,32 @@ type 't id = 't Context.key
 type 'a op = (module Op with type a = 'a)
 type 'a t = 'a Context.state = { st : 'a; st_op : 'a op }
 
-let map_ops (type x y) (f : x -> y) (g : y -> x) (name : string -> string)
+let map_op (type x y z) (f : x * z -> y) (g : y -> x * z) (merge : z -> z -> z)
     (module D : Op with type a = x) : y op =
   let module M = struct
     type nonrec a = y
 
-    let determinise ctx s = f @@ D.determinise ctx @@ g s
+    let determinise ctx s =
+      let x, z = g s in
+      f @@ (D.determinise ctx x, z)
 
     let merge ctx s1 s2 =
-      let inp1 = g s1 and inp2 = g s2 in
-      f @@ D.merge ctx inp1 inp2
+      let inp1, z1 = g s1 and inp2, z2 = g s2 in
+      let z12 = merge z1 z2 in
+      f @@ (D.merge ctx inp1 inp2, z12)
 
-    let force ctx s = D.force ctx @@ g s
-    let to_string ctx s = name @@ D.to_string ctx (g s)
+    let force ctx s = D.force ctx @@ fst @@ g s
+    let to_string ctx s = D.to_string ctx @@ fst (g s)
   end in
   (module M)
 
 open Rows
 
 let obj_op meth =
-  map_ops meth.make_obj meth.call_obj (fun s -> meth.method_name ^ s)
+  map_op
+    (fun (s, ()) -> meth.make_obj s)
+    (fun s -> (meth.call_obj s, ()))
+    (fun _ _ -> ())
 
 module Unit : Op with type a = unit = struct
   type a = unit

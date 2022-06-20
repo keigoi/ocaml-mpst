@@ -1,6 +1,7 @@
-type 'a endpoint = 'a link ref
-and 'a link = Link of 'a endpoint | Chan of 'a ops
-and 'a ops = { send : 'a -> unit; receive : unit -> 'a }
+module U = Unification
+
+type 'a ops = { send : 'a -> unit; receive : unit -> 'a }
+type 'a endpoint = 'a ops U.t
 
 module type S = sig
   val new_endpoint : unit -> 'a endpoint
@@ -8,30 +9,10 @@ end
 
 type chan = (module S)
 
-let rec path_compression n =
-  match !n with
-  | Chan _ -> n
-  | Link n1 ->
-      let n1' = path_compression n1 in
-      n := Link n1';
-      n1
-
-let rec get n = match !n with Chan ch -> ch | Link n -> get n
-let finalise = path_compression
-let send ep v = (get ep).send v
-let receive ep = (get ep).receive ()
-
-let rec unify0 : type a. a endpoint -> a endpoint -> unit =
- fun c1 c2 ->
-  match (c1, c2) with
-  | _, { contents = Link c2' } -> unify0 c1 c2'
-  | { contents = Link c1' }, _ -> unify0 c1' c2
-  | _ -> if c1 == c2 then () else c2 := Link c1
-
-let unify c1 c2 =
-  unify0 c1 c2;
-  ignore @@ path_compression c1;
-  ignore @@ path_compression c2
+let finalise = U.path_compression
+let unify = U.unify
+let send ep v = (U.get ep).send v
+let receive ep = (U.get ep).receive ()
 
 module Make () : S = struct
   type payload = ..
@@ -56,7 +37,7 @@ module Make () : S = struct
     let module M = Add (struct
       type t = a
     end) in
-    ref (Chan { send = M.send; receive = M.receive })
+    U.make { send = M.send; receive = M.receive }
 end
 
 let make () : (module S) =

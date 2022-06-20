@@ -1,34 +1,26 @@
 exception InvalidEndpoint = MutexFlag.InvalidEndpoint
 
 module Flag = MutexFlag
+module U = Unification
 
-type flag_store = link ref
-and link = Link of flag_store | FlagRef of flag ref | Unlimited
-and flag = Flag.t
+type flag_store = Lin of MutexFlag.t ref U.t | Unlimited
 
-let rec use_flag (store : flag_store) =
-  match !store with
-  | Link store -> use_flag store
-  | FlagRef flag -> Flag.use !flag
-  | Unlimited -> ()
+let use_flag (store : flag_store) =
+  match store with Lin u -> Flag.use @@ !(U.get u) | Unlimited -> ()
 
-let rec refresh_flag (store : flag_store) =
-  match !store with
-  | Link store -> refresh_flag store
-  | FlagRef flag -> flag := Flag.create ()
+let refresh_flag (store : flag_store) =
+  match store with
+  | Lin store -> U.get store := Flag.create ()
   | Unlimited -> ()
 
 let store_unify : flag_store -> flag_store -> unit =
  fun l r ->
   if l == r then ()
   else
-    match !l with
-    | Unlimited ->
-        assert (!r = Unlimited);
-        ()
-    | _ ->
-        (* unify two queue endpoints, discarding the right *)
-        r := Link l
+    match (l, r) with
+    | Lin l, Lin r -> U.unify l r
+    | Unlimited, Unlimited -> ()
+    | _ -> failwith "impossible: unlimited endpoint merged with linear endpoint"
 
 type 'a lin = { value : 'a; flag : flag_store }
 type 'a gen = 'a lin
@@ -41,11 +33,10 @@ let raw_lin t = t.value
 let raw_gen = raw_lin
 
 let declare v =
-  let store = FlagRef (ref @@ Flag.create ()) in
-  let flag = ref store in
+  let flag = Lin (U.make @@ ref @@ Flag.create ()) in
   { value = { value = v; flag }; flag }
 
-let declare_unlimited v = { value = v; flag = ref Unlimited }
+let declare_unlimited v = { value = v; flag = Unlimited }
 let map_gen f x = { x with value = f x.value }
 let map_lin = map_gen
 

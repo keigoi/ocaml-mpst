@@ -51,3 +51,8 @@
  (name test_dynChan)
  (modules test_dynChan)
  (libraries mpst oUnit))
+
+(test
+ (name test_linearity)
+ (modules test_linearity)
+ (libraries mpst oUnit))

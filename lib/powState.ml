@@ -29,18 +29,21 @@ let make_internal_choice disj l r =
 let make_lazy t = Lazy t
 let make_merge l r = Epsilon [ l; r ]
 
-type 'a merged_or_backward_epsilon =
+type 'a heads_or_backward_epsilon =
   ('a State.id * 'a State.t lazy_t list, 'a t list) Either.t
 
-let rec mem_phys k = function x :: xs -> k == x || mem_phys k xs | [] -> false
+let rec mem_phys k = function
+  | x :: xs -> k == x || mem_phys k xs
+  | [] -> false
+
 let fail_unguarded () = raise UnguardedLoop
 let ret_merged x = Either.Left x
 let ret_backward_epsilon x = Either.Right x
 
-let filter_cycles ~visited backward =
+let filter_self_cycles self backward =
   let backward =
     (* filter out backward epsilon transitions pointing to known states *)
-    List.filter (fun id -> mem_phys id visited) backward
+    List.filter (fun id -> id != self) backward
   in
   if List.length backward > 0 then
     (* there're some backward links yet -- return them *)
@@ -48,9 +51,55 @@ let filter_cycles ~visited backward =
   else (* no backward epsilons anymore: unguarded recursion! *)
     fail_unguarded ()
 
-let rec epsilon_closure :
+(*
+   Flattens nested cycles of merges (epsilons) of form:
+     μt1μt2..(.. ⊔ (Hi ⊔ Hi+1 ⊔ .. tx ⊔ ty) ⊔ ..)
+   into:
+     [H1; H2; ...; Hn]
+   where H1, H2, ... are mergeable (deterministic, bare) session types.
+   
+   It takes two extra (named) parameters
+     - context:
+       Mostly irrelevant inside this function.
+       This is used globally in the recursion starting from determinise_core.
+       Only touched if the head is a delayed InternalChoice. To get a proper head
+       we need to concatenate the delayed branches in such a case, so that
+       we must recursively determinise the branches using this context.
+     - visited:
+       Visited parent nodes to detect cycles. 
+
+   Input:
+     - The (not yet determinised) session type
+   Return:  
+     Either two of the following:
+     - Left: 
+       The flattened heads, excluding backward references.
+       From the given input type having form
+         μt.(H1 ⊔ H2 ⊔ .. ⊔ t1 ⊔ t2 ⊔ ..)
+       it returns
+         Left([H1;H2;...])
+       by discarding visited (t1, t2, ...) part,
+       which are indeed merged by the calee later.
+
+       This behaviour embodies the transformation
+         μt1μt2...tn.((T1 + ti) + T2) = μt1μt2...tn.(T1 + T2)
+       This is a variation of
+         μt.(T + t) = μt.T
+       which is usually seen in both the theory of merging 
+       (cf. Glabbeek et al, LICS'21) and the theory of μ-terms 
+       (cf. Esik, J. Logic ALg. Prog., '10, eqn.(24))
+    
+    - Right:
+      When all branches are visited, i.e., it has the form
+        μti.(t1 ⊔　t2 ⊔ ... ⊔ tn)
+      it returns
+        Right([t1;t2;..;ti-1;ti+1;...;tn]) (excluding ti)
+      If the list is empty, it raises exception UnguardedLoop instead
+      (i.e. it finds self-loop of μt.t).
+ *)
+let rec flatten_epsilon_cycles :
     type a.
-    context:context -> visited:a t list -> a t -> a merged_or_backward_epsilon =
+    context:context -> visited:a t list -> a t -> a heads_or_backward_epsilon =
  fun ~context ~visited st ->
   if mem_phys st visited then
     (* epsilon-transition to the visited state -- return it as a 'backward' link *)
@@ -64,15 +113,15 @@ let rec epsilon_closure :
     | Lazy t -> (
         (* beginning of the fix-loop. *)
         match
-          epsilon_closure ~context ~visited:(st :: visited) (Lazy.force t)
+          flatten_epsilon_cycles ~context ~visited:(st :: visited) (Lazy.force t)
         with
         | Left _ as t -> t
-        | Right backward -> filter_cycles ~visited backward)
+        | Right backward -> filter_self_cycles st backward)
     | Epsilon sts ->
         (* epsilon transitions: compute epsilon-closure *)
         let hds, backward =
           List.partition_map
-            (epsilon_closure ~context ~visited:(st :: visited))
+            (flatten_epsilon_cycles ~context ~visited:(st :: visited))
             sts
         in
         if List.length hds > 0 then
@@ -85,7 +134,7 @@ let rec epsilon_closure :
         else
           (* all transitions are epsilon - verify guardedness ==== *)
           let backward = List.concat backward in
-          filter_cycles ~visited backward
+          filter_self_cycles st backward
 
 and determinise_internal_choice_core :
     type lr l r. context -> (lr, l, r) disj -> l t -> r t -> lr State.t =
@@ -124,7 +173,7 @@ and determinise_internal_choice_core :
 
 and determinise_core : type s. context -> s t -> s State.id * s State.t lazy_t =
  fun context st ->
-  match epsilon_closure ~context ~visited:[] st with
+  match flatten_epsilon_cycles ~context ~visited:[] st with
   | Left (sid, hds) -> (sid, State.determinise_list context sid hds)
   | Right _ -> fail_unguarded ()
 

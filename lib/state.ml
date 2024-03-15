@@ -55,10 +55,10 @@ let map_op (type x y z) (f : x * z -> y) (g : y -> x * z) (merge : z -> z -> z)
 
 open Rows
 
-let obj_op meth =
+let object_op method_ =
   map_op
-    (fun (s, ()) -> meth.make_obj s)
-    (fun s -> (meth.call_obj s, ()))
+    (fun (s, ()) -> method_.make_obj s)
+    (fun s -> (method_.call_obj s, ()))
     (fun _ _ -> ())
 
 module Unit : Op with type a = unit = struct
@@ -70,25 +70,24 @@ module Unit : Op with type a = unit = struct
   let to_string _ _ = "end"
 end
 
-let determinise_list (type a) ctx (id : a id) (hds : a t lazy_t list) :
+let rec determinise_list (type a) ctx (id : a id) (hds : a t lazy_t list) :
     a t lazy_t =
   match Context.lookup ctx id with
   | Some v -> v
   | None ->
       let hd =
         lazy
-          (let { st_op = (module D : Op with type a = a); _ } =
-             Lazy.force (List.hd hds)
-           in
-           let hds = List.map (fun hd -> (Lazy.force hd).st) hds in
-           let st =
-             match hds with
-             | [ hd ] -> D.determinise ctx hd
-             | hd :: hds ->
-                 D.determinise ctx @@ List.fold_left (D.merge ctx) hd hds
-             | [] -> failwith "impossible: empty_merge"
-           in
-           { st; st_op = (module D : Op with type a = a) })
+          (match Lazy.force (List.hd hds) with
+          | { st_op = (module D : Op with type a = a); _ } ->
+              let hds = List.map (fun hd -> (Lazy.force hd).st) hds in
+              let st =
+                match hds with
+                | [ hd ] -> D.determinise ctx hd
+                | hd :: hds ->
+                    D.determinise ctx @@ List.fold_left (D.merge ctx) hd hds
+                | [] -> failwith "determinise_list: empty_merge"
+              in
+              { st; st_op = (module D : Op with type a = a) })
       in
       Context.add_binding ctx id hd;
       hd

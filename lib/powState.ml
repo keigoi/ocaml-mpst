@@ -159,6 +159,11 @@ and determinise_internal_choice_core :
       let r = DR.determinise ctx (disj.disj_splitR lr) in
       disj.disj_concat l r
 
+    let flatten ctx lr =
+      let l = DL.flatten ctx (disj.disj_splitL lr) in
+      let r = DR.flatten ctx (disj.disj_splitR lr) in
+      disj.disj_concat l r
+
     let force ctx lr =
       DL.force ctx (disj.disj_splitL lr);
       DR.force ctx (disj.disj_splitR lr)
@@ -180,6 +185,8 @@ and determinise_core : type s. context -> s t -> s State.id * s State.t lazy_t =
 let determinise ctx t =
   let id, st = determinise_core ctx t in
   make_raw id st
+
+let flatten _ctx t = ignore (failwith "todo"); t
 
 let merge ctx l r =
   let idl, l = determinise_core ctx l and idr, r = determinise_core ctx r in

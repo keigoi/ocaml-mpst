@@ -19,6 +19,13 @@ let branch_op0 (type vars) : vars branch_ State.op =
           (name, List.map (InpChoice.determinise ctx) exts)
         end
 
+    let flatten ctx inp =
+      lazy 
+        begin
+          let (lazy (name, exts)) = inp in
+          (name, List.map (InpChoice.flatten ctx) exts)
+        end
+
     let merge ctx inp1 inp2 =
       lazy
         begin
@@ -66,6 +73,8 @@ let inp_op0 (type v s) : (v, s) inp_ State.op =
     type a = (v, s) inp_
 
     let determinise ctx (ch, s) = (ch, PowState.determinise ctx s)
+
+    let flatten ctx (ch, s) = (ch, PowState.flatten ctx s)
 
     let merge ctx (ch1, s1) (ch2, s2) =
       DynChan.unify ch1 ch2;

@@ -3,6 +3,7 @@ module type Op0 = sig
   type context
 
   val determinise : context -> a -> a
+  val flatten : context -> a -> a
   val merge : context -> a -> a -> a
   val force : context -> a -> unit
   val to_string : context -> a -> string
@@ -43,6 +44,10 @@ let map_op (type x y z) (f : x * z -> y) (g : y -> x * z) (merge : z -> z -> z)
       let x, z = g s in
       f @@ (D.determinise ctx x, z)
 
+    let flatten ctx s =
+      let x, z = g s in
+      f @@ (D.flatten ctx x, z)
+
     let merge ctx s1 s2 =
       let inp1, z1 = g s1 and inp2, z2 = g s2 in
       let z12 = merge z1 z2 in
@@ -65,6 +70,7 @@ module Unit : Op with type a = unit = struct
   type a = unit
 
   let determinise _ _ = ()
+  let flatten _ _ = ()
   let merge _ _ _ = ()
   let force _ _ = ()
   let to_string _ _ = "end"

@@ -13,6 +13,9 @@ let out_op0 (type v cont) : (v, cont) out_ State.op =
     let determinise ctx (tag, name, (lazy cont)) =
       (tag, name, lazy (PowState.determinise ctx cont))
 
+    let flatten ctx (tag, name, (lazy cont)) =
+      (tag, name, lazy (PowState.flatten ctx cont))
+
     let merge ctx (tag1, name1, cont1) (tag2, name2, cont2) =
       assert (tag1 = tag2);
       DynChan.unify name1 name2;

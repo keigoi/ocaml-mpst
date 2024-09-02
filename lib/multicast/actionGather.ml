@@ -14,6 +14,13 @@ let gather_op0 (type b) : b gather_ State.op =
           let names, exts = Lazy.force gthr in
           (names, List.map (InpChoice.determinise ctx) exts)
         end
+    
+    let flatten ctx gthr =
+      lazy
+        begin
+          let names, exts = Lazy.force gthr in
+          (names, List.map (InpChoice.flatten ctx) exts)
+        end
 
     let merge ctx g1 g2 =
       lazy
@@ -69,6 +76,8 @@ let gather_val_op0 (type v s) : (v, s) gather_val_ State.op =
     type a = (v, s) gather_val_
 
     let determinise ctx (ch, s) = (ch, PowState.determinise ctx s)
+
+    let flatten ctx (ch, s) = (ch, PowState.flatten ctx s)
 
     let merge ctx (ch1, s1) (ch2, s2) =
       List.iter2 DynChan.unify ch1 ch2;

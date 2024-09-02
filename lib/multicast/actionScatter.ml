@@ -16,6 +16,9 @@ let scatter_op0 (type v b) : (v, b) scatter_val_ State.op =
     let determinise ctx (tag, name, cont) =
       (tag, name, lazy (PowState.determinise ctx (Lazy.force cont)))
 
+    let flatten ctx (tag, name, cont) =
+      (tag, name, lazy (PowState.flatten ctx (Lazy.force cont)))
+
     let merge ctx (tag1, names1, cont1) (tag2, names2, cont2) =
       assert (tag1 = tag2);
       List.iter2 DynChan.unify names1 names2;

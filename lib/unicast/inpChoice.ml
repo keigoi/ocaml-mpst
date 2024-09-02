@@ -80,6 +80,9 @@ let make constr s = Choice (constr, s)
 let determinise ctx (Choice (constr, cont)) =
   Choice (constr, PowState.determinise ctx cont)
 
+let flatten ctx (Choice (constr, cont)) =
+  Choice (constr, PowState.flatten ctx cont)
+
 let match_item (Choice (var, cont)) =
   ( Btype.hash_variant var.constr_name,
     lazy (var.make_var @@ Lin.fresh @@ PowState.ensure_determinised cont) )

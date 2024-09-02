@@ -6,6 +6,8 @@ let lin_op (type b) (module D : State.Op with type a = b) : b Lin.lin State.op =
 
     let determinise ctx s = Lin.map_lin (D.determinise ctx) s
 
+    let flatten ctx s = Lin.map_lin (D.flatten ctx) s
+
     let merge ctx (s1 : b Lin.lin) (s2 : b Lin.lin) =
       Lin.merge_lin (D.merge ctx) s1 s2
 
@@ -22,6 +24,8 @@ let gen_op (type b) (module D : State.Op with type a = b) : b Lin.gen State.op =
     type nonrec a = b Lin.gen
 
     let determinise ctx s = Lin.map_gen (D.determinise ctx) s
+
+    let flatten ctx s = Lin.map_gen (D.flatten ctx) s
 
     let merge ctx (s1 : b Lin.gen) (s2 : b Lin.gen) =
       Lin.merge_gen (D.merge ctx) s1 s2

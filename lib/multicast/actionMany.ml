@@ -5,8 +5,9 @@ let get_many ss = List.map (fun s -> Lin.fresh @@ PowState.do_determinise s) ss
 let list_op (type b) : b many State.op =
   let module M = struct
     type nonrec a = b many
-
+    (* No actual work here *)
     let determinise _ctx s = s
+    let flatten _ctx s = s
     let merge _ctx s1 s2 = List.map2 PowState.make_merge s1 s2
     let force _ctx _ss = ()
     let to_string _ctx _s = "<multicast>"
